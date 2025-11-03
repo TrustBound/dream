@@ -17,7 +17,3 @@ scratch.gleam
 .vscode/
 .idea/
 
-# Gleam package files (these are generated)
-gleam.toml
-manifest.toml
-

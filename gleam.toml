@@ -1,0 +1,17 @@
+name = "dream"
+version = "0.0.1"
+description = "A composable web library for Gleam/BEAM"
+licences = ["MIT"]
+repository = { type = "github", user = "FileStory", repo = "dream" }
+links = [
+    { title = "Documentation", href = "https://hexdocs.pm/dream" },
+    { title = "GitHub", href = "https://github.com/FileStory/dream" },
+]
+
+[dependencies]
+gleam_stdlib = ">= 0.44.0 and < 2.0.0"
+mist = ">= 5.0.3 and < 6.0.0"
+gleam_http = ">= 4.3.0 and < 5.0.0"
+gleam_otp = ">= 1.2.0 and < 2.0.0"
+gleam_erlang = ">= 1.0.0 and < 2.0.0"
+gleam_yielder = ">= 1.1.0 and < 2.0.0"
