@@ -160,7 +160,7 @@ The database will be available at:
 - **Password**: `postgres`
 - **Connection URL**: `postgres://postgres:postgres@localhost:5434/dream_db`
 
-Migrations are stored in `priv/migrations/` and are automatically applied when the example app starts. See `src/dream/services/postgres.gleam` for the PostgreSQL service implementation using the singleton pattern, and `src/examples/database/database.gleam` for migration integration.
+Migrations are stored in `priv/migrations/` and should be run separately before starting the application (e.g., `make migrate`). This prevents race conditions when multiple application instances start simultaneously. See `src/dream/services/postgres.gleam` for the PostgreSQL service implementation using the singleton pattern, and `src/examples/database/database.gleam` for database connection setup.
 
 ## Key Features
 
