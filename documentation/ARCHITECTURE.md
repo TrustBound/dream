@@ -33,16 +33,16 @@ pub type Route(context) {
 
 **Usage**:
 ```gleam
-import dream/core/router.{type Router, add_route, handler, method, new as route, path, router}
+import dream/core/router.{type Router, route, router}
 import dream/core/http/transaction.Get
 
 pub fn create_router() -> Router(AppContext) {
   router
-  |> add_route(
-    route
-    |> method(Get)
-    |> path("/users/:id")
-    |> handler(get_user_controller),
+  |> route(
+    method: Get,
+    path: "/users/:id",
+    handler: get_user_controller,
+    middleware: [],
   )
 }
 ```
@@ -237,20 +237,19 @@ pub fn main() {
 // Router configuration
 pub fn create_router() -> Router(AppContext) {
   router
-  |> add_route(
-    route
-    |> method(Get)
-    |> path("/")
-    |> handler(home_controller),
+  |> route(
+    method: Get,
+    path: "/",
+    handler: home_controller,
+    middleware: [],
   )
-  |> add_route(
-    route
-    |> method(Get)
-    |> path("/users/:id/posts/:post_id")
-    |> handler(show_controller),
+  |> route(
+    method: Get,
+    path: "/users/:id/posts/:post_id",
+    handler: show_controller,
+    middleware: [],
   )
 }
-```
 
 ## What Dream Provides vs. What You Provide
 
@@ -319,7 +318,7 @@ pub fn main() {
 ### Builder Pattern Consistency
 Dream uses builder patterns consistently across server, router, and HTTP client:
 - **Server**: `dream.new() |> router(...) |> bind(...) |> listen(port)`
-- **Router**: `router |> add_route(route |> method(...) |> path(...) |> handler(...))`
+- **Router**: `router |> route(method: ..., path: ..., handler: ..., middleware: ...)`
 - **Client**: `client.new |> method(...) |> scheme(...) |> host(...) |> path(...)`
 
 This provides:

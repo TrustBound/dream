@@ -17,7 +17,7 @@ The module name provides the namespace, so functions must **not** be prefixed wi
 import router
 
 router.create_router()
-router.add_route(my_router, route)
+router.route(my_router, method: Get, path: "/", handler: handler_fn, middleware: [])
 ```
 
 ❌ **Bad:**
@@ -129,7 +129,13 @@ pub fn set_config(config: Config, key: String, value: String) -> Config
 **Examples:**
 ```gleam
 pub fn add_header(headers: List(Header), name: String, value: String) -> List(Header)
-pub fn add_route(router: Router, route: Route) -> Router
+pub fn route(
+  router: Router,
+  method: Method,
+  path: String,
+  handler: fn(Request) -> Response,
+  middleware: List(Middleware),
+) -> Router
 pub fn add_middleware(builder: RouteBuilder, middleware: Middleware) -> RouteBuilder
 ```
 

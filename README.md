@@ -38,16 +38,16 @@ pub fn main() {
 
 **Router Configuration**:
 ```gleam
-import dream/core/router.{type Router, add_route, handler, method, new as route, path, router}
+import dream/core/router.{type Router, route, router}
 import dream/core/http/transaction.Get
 
 pub fn create_router() -> Router(AppContext) {
   router
-  |> add_route(
-    route
-    |> method(Get)
-    |> path("/")
-    |> handler(home_controller),
+  |> route(
+    method: Get,
+    path: "/",
+    handler: home_controller.index,
+    middleware: [],
   )
 }
 ```

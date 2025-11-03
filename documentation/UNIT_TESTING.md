@@ -366,10 +366,20 @@ pub fn ok_returns_status_with_code_200_test() {
 
 ```gleam
 // Source: dream/core/router.gleam (example)
-pub fn add_route(
+pub fn route(
   router: Router(context),
-  route: Route(context),
+  method: Method,
+  path: String,
+  handler: fn(Request(context)) -> Response,
+  middleware: List(Middleware(context)),
 ) -> Router(context) {
+  let middleware_wrappers = list.map(middleware, wrap_middleware)
+  let route = Route(
+    method: method,
+    path: path,
+    handler: handler,
+    middleware: middleware_wrappers,
+  )
   Router(routes: [route, ..router.routes])
 }
 
@@ -379,39 +389,38 @@ import gleeunit/should
 pub fn add_route_to_empty_router_creates_router_with_one_route_test() {
   // Arrange: Set up test data
   let empty_router = router
-  let test_route = Route(
+  
+  // Act: Execute the function
+  let result = route(
+    empty_router,
     method: Get,
     path: "/test",
     handler: fn(_) { text_response(ok_status(), "test") },
     middleware: [],
   )
   
-  // Act: Execute the function
-  let result = add_route(empty_router, test_route)
-  
   // Assert: Verify the route was added
   list.length(result.routes) |> should.equal(1)
-  list.head(result.routes) |> should.equal(option.Some(test_route))
 }
 
 pub fn add_route_to_router_with_existing_routes_appends_route_test() {
   // Arrange: Set up router with existing routes
-  let existing_route = Route(
-    method: Get,
-    path: "/existing",
-    handler: fn(_) { text_response(ok_status(), "existing") },
-    middleware: [],
-  )
-  let router_with_routes = Router(routes: [existing_route])
-  let new_route = Route(
+  let router_with_routes = router
+    |> route(
+      method: Get,
+      path: "/existing",
+      handler: fn(_) { text_response(ok_status(), "existing") },
+      middleware: [],
+    )
+  
+  // Act: Execute the function
+  let result = route(
+    router_with_routes,
     method: Post,
     path: "/new",
     handler: fn(_) { text_response(created_status(), "new") },
     middleware: [],
   )
-  
-  // Act: Execute the function
-  let result = add_route(router_with_routes, new_route)
   
   // Assert: Verify the route was added at the beginning
   list.length(result.routes) |> should.equal(2)

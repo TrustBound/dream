@@ -3,8 +3,8 @@ import dream/core/dream
 import dream/core/http/statuses.{ok_status}
 import dream/core/http/transaction
 import dream/core/router.{
-  add_route, build_handler_chain, find_route, handler, match_path, method,
-  middleware, new as new_route, path, router,
+  build_handler_chain, find_route, handler, match_path, method, middleware,
+  new as new_route, path, route, router,
 }
 import gleam/list
 import gleam/option
@@ -139,16 +139,16 @@ pub fn middleware_with_valid_middleware_adds_middleware_to_route_test() {
 pub fn add_route_to_empty_router_creates_router_with_one_route_test() {
   // Arrange
   let empty_router = router
-  let test_route =
-    router.Route(
+
+  // Act
+  let result =
+    route(
+      empty_router,
       method: transaction.Get,
       path: "/test",
       handler: test_handler,
       middleware: [],
     )
-
-  // Act
-  let result = add_route(empty_router, test_route)
   let request = create_test_request(transaction.Get, "/test")
 
   // Assert - verify route was added by using route_request
@@ -162,24 +162,24 @@ pub fn add_route_to_empty_router_creates_router_with_one_route_test() {
 
 pub fn add_route_to_router_with_existing_routes_appends_route_test() {
   // Arrange
-  let existing_route =
-    router.Route(
+  let router_with_routes =
+    router
+    |> route(
       method: transaction.Get,
       path: "/existing",
       handler: test_handler,
       middleware: [],
     )
-  let router_with_routes = router.Router(routes: [existing_route])
-  let new_route =
-    router.Route(
+
+  // Act
+  let result =
+    route(
+      router_with_routes,
       method: transaction.Post,
       path: "/new",
       handler: test_handler,
       middleware: [],
     )
-
-  // Act
-  let result = add_route(router_with_routes, new_route)
 
   // Assert - verify both routes work
   let get_request = create_test_request(transaction.Get, "/existing")

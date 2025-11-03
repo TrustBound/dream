@@ -89,10 +89,22 @@ fn wrap_middleware(
 }
 
 /// Add a route to the router
-pub fn add_route(
+pub fn route(
   router: Router(context),
-  route: Route(context),
+  method method_value: Method,
+  path path_value: String,
+  handler handler_function: fn(Request(context)) -> Response,
+  middleware middleware_list: List(
+    fn(Request(context), fn(Request(context)) -> Response) -> Response,
+  ),
 ) -> Router(context) {
+  let middleware_wrappers = list.map(middleware_list, wrap_middleware)
+  let route = Route(
+    method: method_value,
+    path: path_value,
+    handler: handler_function,
+    middleware: middleware_wrappers,
+  )
   Router(routes: [route, ..router.routes])
 }
 
