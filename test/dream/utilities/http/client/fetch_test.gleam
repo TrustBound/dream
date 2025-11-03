@@ -1,7 +1,6 @@
 import dream/utilities/http/client as client
 import dream/utilities/http/client/fetch as fetch
 import gleam/http
-import gleeunit/should
 
 pub fn request_with_valid_client_request_returns_result_test() {
   // Arrange

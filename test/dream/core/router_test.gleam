@@ -3,9 +3,8 @@ import dream/core/dream
 import dream/core/http/statuses.{ok_status}
 import dream/core/http/transaction
 import dream/core/router.{
-  type Middleware, type Route, type Router, add_route, build_handler_chain,
-  find_route, handler, match_path, method, middleware, new as new_route, path,
-  router,
+  add_route, build_handler_chain, find_route, handler, match_path, method,
+  middleware, new as new_route, path, router,
 }
 import gleam/list
 import gleam/option
@@ -43,7 +42,6 @@ fn test_handler(
 pub fn method_with_post_sets_route_method_to_post_test() {
   // Arrange
   let route = path(new_route, "/test")
-  let test_router = router.Router(routes: [])
   let request = create_test_request(transaction.Post, "/test")
 
   // Act
@@ -61,7 +59,6 @@ pub fn path_with_valid_path_sets_route_path_test() {
   // Arrange
   let route = new_route
   let path_value = "/users"
-  let test_router = router.Router(routes: [])
   let request = create_test_request(transaction.Get, path_value)
 
   // Act
@@ -78,7 +75,6 @@ pub fn path_with_valid_path_sets_route_path_test() {
 pub fn handler_with_valid_handler_sets_route_handler_test() {
   // Arrange
   let route = path(new_route, "/test")
-  let test_router = router.Router(routes: [])
   let request = create_test_request(transaction.Get, "/test")
 
   // Act

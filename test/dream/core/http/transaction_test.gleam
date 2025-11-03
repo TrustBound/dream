@@ -1,4 +1,4 @@
-import dream/core/context.{type AppContext, new_context}
+import dream/core/context.{new_context}
 import dream/core/http/statuses as statuses
 import dream/core/http/transaction as transaction
 import gleam/list
@@ -362,7 +362,7 @@ pub fn text_response_with_valid_status_and_body_creates_text_response_test() {
   
   // Assert
   case response {
-    transaction.Response(status, body, headers, cookies, content_type, content_length) -> {
+    transaction.Response(status, body, headers, cookies, content_type, _content_length) -> {
       status |> should.equal(statuses.ok_status())
       body |> should.equal("Hello World")
       list.length(headers) |> should.equal(1)
@@ -381,7 +381,7 @@ pub fn json_response_with_valid_status_and_body_creates_json_response_test() {
   
   // Assert
   case response {
-    transaction.Response(status, body, headers, _, content_type, _) -> {
+    transaction.Response(status, body, _headers, _, content_type, _) -> {
       status |> should.equal(statuses.ok_status())
       body |> should.equal("{\"key\":\"value\"}")
       case content_type {
@@ -415,7 +415,7 @@ pub fn redirect_response_with_valid_status_and_location_creates_redirect_respons
   
   // Assert
   case response {
-    transaction.Response(status, body, headers, _, content_type, _) -> {
+    transaction.Response(_status, body, headers, _, _content_type, _) -> {
       body |> should.equal("")
       case headers {
         [header, .._] -> {

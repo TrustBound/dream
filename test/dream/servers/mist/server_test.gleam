@@ -1,4 +1,4 @@
-import dream/core/context.{type AppContext, new_context}
+import dream/core/context.{new_context}
 import dream/core/dream
 import dream/core/router.{router}
 import dream/servers/mist/server
@@ -11,7 +11,7 @@ pub fn new_creates_dream_instance_with_defaults_test() {
   // Assert
   // Verify Dream instance was created
   case dream_instance {
-    dream.Dream(server, router_instance, max_body_size) -> {
+    dream.Dream(_server, _router_instance, max_body_size) -> {
       max_body_size |> should.equal(9_223_372_036_854_775_807)
     }
   }
@@ -29,7 +29,7 @@ pub fn router_sets_router_on_dream_instance_test() {
   // Assert
   // Router should be set
   case updated_dream {
-    dream.Dream(_, router_instance, _) -> {
+    dream.Dream(_, _router_instance, _) -> {
       Nil
     }
   }

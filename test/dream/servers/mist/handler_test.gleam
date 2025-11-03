@@ -1,10 +1,6 @@
-import dream/core/context.{type AppContext, new_context}
+import dream/core/context.{new_context}
 import dream/core/router.{router}
 import dream/servers/mist/handler
-import gleam/bit_array
-import gleam/http/request
-import gleam/http.{Get as HttpGet, Https as HttpHttps}
-import gleeunit/should
 
 pub fn create_with_valid_config_returns_handler_function_test() {
   // Arrange
@@ -13,7 +9,7 @@ pub fn create_with_valid_config_returns_handler_function_test() {
   let create_context_fn = new_context
   
   // Act
-  let handler_fn = handler.create(test_router, max_body_size, create_context_fn)
+  let _handler_fn = handler.create(test_router, max_body_size, create_context_fn)
   
   // Assert
   // Handler function should be callable

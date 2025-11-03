@@ -2,14 +2,13 @@ import dream/core/http/statuses.{ok_status}
 import dream/core/http/transaction
 import dream/servers/mist/response as mist_response
 import gleam/option
-import gleeunit/should
 
 pub fn convert_with_valid_response_creates_mist_response_test() {
   // Arrange
   let dream_resp = transaction.text_response(ok_status(), "Hello World")
   
   // Act
-  let mist_resp = mist_response.convert(dream_resp)
+  let _mist_resp = mist_response.convert(dream_resp)
   
   // Assert
   // Verify response was created (we can't easily test Mist response internals)
@@ -30,7 +29,7 @@ pub fn convert_with_response_with_cookies_includes_cookie_headers_test() {
   )
   
   // Act
-  let mist_resp = mist_response.convert(dream_resp)
+  let _mist_resp = mist_response.convert(dream_resp)
   
   // Assert
   // Response should be created successfully
