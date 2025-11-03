@@ -1,0 +1,41 @@
+//// simple_controller.gleam
+////
+//// Controller for simple example routes.
+//// Follows Rails controller naming conventions.
+
+import dream/core/http/statuses.{internal_server_error_status, ok_status}
+import dream/core/http/transaction.{type Request, type Response, get_param, text_response}
+import dream/utilities/http/client
+import dream/utilities/http/client/fetch as fetch_module
+import gleam/http
+
+/// Index action - displays hello world
+pub fn index(_request: Request) -> Response {
+  text_response(ok_status(), "Hello, World!")
+}
+
+/// Show action - demonstrates path parameters
+pub fn show(request: Request) -> Response {
+  let assert Ok(user_id) = get_param(request, "id")
+  let assert Ok(post_id) = get_param(request, "post_id")
+  text_response(ok_status(), "User: " <> user_id <> ", Post: " <> post_id)
+}
+
+/// Fetch action - demonstrates HTTPS non-streaming requests
+pub fn fetch(_request: Request) -> Response {
+  // Make a non-streaming HTTPS request to httpbin.org
+  let req =
+    client.new
+    |> client.method(http.Get)
+    |> client.scheme(http.Https)
+    |> client.host("httpbin.org")
+    |> client.path("/get")
+    |> client.add_header("User-Agent", "Dream-Simple-Example")
+
+  case fetch_module.request(req) {
+    Ok(body) -> text_response(ok_status(), "HTTPS Response:\n\n" <> body)
+    Error(error) ->
+      text_response(internal_server_error_status(), "Error: " <> error)
+  }
+}
+
