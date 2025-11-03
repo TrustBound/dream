@@ -17,3 +17,8 @@ scratch.gleam
 .vscode/
 .idea/
 
+# Coverage reports
+coverage/
+*.coverdata
+*.COVER.out
+

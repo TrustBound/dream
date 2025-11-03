@@ -344,16 +344,23 @@ pub fn empty_response(status: Status) -> Response {
 /// consider using a dedicated URL parsing library.
 pub fn get_query_param(query: String, name: String) -> option.Option(String) {
   // Simple implementation - would need proper URL decoding in production
-  case string.split(query, "&") {
+  get_query_param_recursive(string.split(query, "&"), name)
+}
+
+fn get_query_param_recursive(
+  params: List(String),
+  name: String,
+) -> option.Option(String) {
+  case params {
     [] -> option.None
     [param, ..rest] ->
       case string.split(param, "=") {
         [key, value] ->
           case key == name {
             True -> option.Some(value)
-            False -> get_query_param(string.join(rest, "&"), name)
+            False -> get_query_param_recursive(rest, name)
           }
-        _ -> get_query_param(string.join(rest, "&"), name)
+        _ -> get_query_param_recursive(rest, name)
       }
   }
 }
@@ -373,7 +380,10 @@ pub fn is_method(request: Request(context), method: Method) -> Bool {
 }
 
 /// Get a path parameter value by name
-pub fn get_param(request: Request(context), name: String) -> Result(String, String) {
+pub fn get_param(
+  request: Request(context),
+  name: String,
+) -> Result(String, String) {
   case list.key_find(request.params, name) {
     Ok(value) -> Ok(value)
     Error(_) -> Error("Missing required path parameter: " <> name)

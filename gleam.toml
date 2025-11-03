@@ -15,3 +15,6 @@ gleam_http = ">= 4.3.0 and < 5.0.0"
 gleam_otp = ">= 1.2.0 and < 2.0.0"
 gleam_erlang = ">= 1.0.0 and < 2.0.0"
 gleam_yielder = ">= 1.1.0 and < 2.0.0"
+
+[dev-dependencies]
+gleeunit = ">= 1.8.0 and < 2.0.0"

@@ -16,6 +16,7 @@ Dream is a **composable web library** (not an opinionated framework) built on Gl
 1. **[Architecture Overview](ARCHITECTURE.md)** - Start here to understand Dream's composable design
 2. **[Design Principles](DESIGN_PRINCIPLES.md)** - Complete design philosophy and rationale
 3. **[Naming Conventions](NAMING_CONVENTIONS.md)** - Function naming guidelines for consistency
+4. **[Unit Testing Guide](UNIT_TESTING.md)** - Unit testing standards and practices
 
 ## Examples
 
@@ -102,5 +103,6 @@ Everything is explicit. No magic. No vendor lock-in.
 - Read [ARCHITECTURE.md](ARCHITECTURE.md) for the big picture
 - Check [DESIGN_PRINCIPLES.md](DESIGN_PRINCIPLES.md) for the "why" behind decisions
 - Review [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) for function naming guidelines
+- Read [UNIT_TESTING.md](UNIT_TESTING.md) for testing standards and practices
 - Look at examples in `src/examples/` for real-world usage
 
