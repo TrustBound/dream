@@ -23,19 +23,11 @@ pub fn convert(
 
   // Convert headers
   let headers =
-    list.map(dream_resp.headers, fn(header) {
-      #(
-        string.lowercase(transaction.header_name(header)),
-        transaction.header_value(header),
-      )
-    })
+    list.map(dream_resp.headers, convert_header_to_tuple)
 
   // Add cookie headers
   let headers_with_cookies =
-    list.fold(dream_resp.cookies, headers, fn(acc, cookie) {
-      let cookie_header = format_cookie_header(cookie)
-      [#("set-cookie", cookie_header), ..acc]
-    })
+    list.fold(dream_resp.cookies, headers, add_cookie_header)
 
   // Add content-type header if present
   let headers_with_content_type = case dream_resp.content_type {
@@ -48,13 +40,40 @@ pub fn convert(
     bit_array.from_string(dream_resp.body)
     |> bytes_tree.from_bit_array
 
-  http_response.new(status_code)
-  |> http_response.set_body(Bytes(body_bytes))
-  |> fn(resp) {
-    list.fold(headers_with_content_type, resp, fn(acc, header) {
-      http_response.set_header(acc, header.0, header.1)
-    })
-  }
+  let resp_with_body =
+    http_response.new(status_code)
+    |> http_response.set_body(Bytes(body_bytes))
+  
+  set_all_headers(headers_with_content_type, resp_with_body)
+}
+
+fn convert_header_to_tuple(header: transaction.Header) -> #(String, String) {
+  #(
+    string.lowercase(transaction.header_name(header)),
+    transaction.header_value(header),
+  )
+}
+
+fn add_cookie_header(
+  acc: List(#(String, String)),
+  cookie: transaction.Cookie,
+) -> List(#(String, String)) {
+  let cookie_header = format_cookie_header(cookie)
+  [#("set-cookie", cookie_header), ..acc]
+}
+
+fn add_header(
+  acc: http_response.Response(ResponseData),
+  header: #(String, String),
+) -> http_response.Response(ResponseData) {
+  http_response.set_header(acc, header.0, header.1)
+}
+
+fn set_all_headers(
+  headers: List(#(String, String)),
+  resp: http_response.Response(ResponseData),
+) -> http_response.Response(ResponseData) {
+  list.fold(headers, resp, add_header)
 }
 
 /// Format a cookie for the Set-Cookie header

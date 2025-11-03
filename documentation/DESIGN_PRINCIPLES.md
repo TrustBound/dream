@@ -10,7 +10,9 @@
 - ✅ HTTP client with streaming and non-streaming support
 - ✅ Path parameter extraction
 - ✅ Type-safe request/response handling
-- ⚠️ Middleware infrastructure (type and builder exist, but execution not yet implemented)
+- ✅ Middleware chaining with full execution support
+- ✅ Generic context system for type-safe request context
+- ✅ Default AppContext with request_id
 - ⏳ Services pattern (planned)
 - ⏳ Protocol-based component swapping (planned)
 - ⏳ Config loading from environment (planned)
@@ -203,13 +205,27 @@ pub fn custom_adapter() -> Server {
 
 3. **Middleware (Function Signature)**
 ```gleam
-// Just a type alias for a function signature
-pub type Middleware = fn(Services, Request, Next) -> Response
-pub type Next = fn(Request) -> Response
+// Middleware type with chaining support
+pub type Middleware(context) {
+  Middleware(fn(Request(context), fn(Request(context)) -> Response) -> Response)
+}
 
 // Any function matching this signature works
-pub fn logging_middleware(services: Services, request: Request, next: Next) -> Response
-pub fn auth_middleware(services: Services, request: Request, next: Next) -> Response
+pub fn logging_middleware(
+  request: Request(AppContext),
+  next: fn(Request(AppContext)) -> Response,
+) -> Response {
+  // ... logging logic ...
+  next(request)
+}
+
+pub fn auth_middleware(
+  request: Request(AuthContext),
+  next: fn(Request(AuthContext)) -> Response,
+) -> Response {
+  // ... authentication logic ...
+  next(request)
+}
 ```
 
 4. **Database Service (Record of Functions)**

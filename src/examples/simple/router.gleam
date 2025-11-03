@@ -1,27 +1,22 @@
+import dream/core/context.{type AppContext}
 import dream/core/http/transaction.{Get}
 import dream/core/router.{
   type Router, add_route, handler, method, new as route, path, router,
 }
-import examples/simple/controllers/simple_controller
+import examples/simple/controllers/posts_controller
 
-pub fn create_router() -> Router {
+pub fn create_router() -> Router(AppContext) {
   router
   |> add_route(
     route
     |> method(Get)
     |> path("/")
-    |> handler(simple_controller.index),
+    |> handler(posts_controller.index),
   )
   |> add_route(
     route
     |> method(Get)
     |> path("/users/:id/posts/:post_id")
-    |> handler(simple_controller.show),
-  )
-  |> add_route(
-    route
-    |> method(Get)
-    |> path("/fetch")
-    |> handler(simple_controller.fetch),
+    |> handler(posts_controller.show),
   )
 }

@@ -6,6 +6,7 @@
 import dream/core/dream
 import dream/core/http/transaction
 import gleam/bit_array
+import gleam/erlang/process
 import gleam/http.{
   type Method as HttpMethod, Connect as HttpConnect, Delete as HttpDelete,
   Get as HttpGet, Head as HttpHead, Http as HttpScheme, Https as HttpHttps,
@@ -18,13 +19,26 @@ import gleam/list
 import gleam/option
 import gleam/result
 import gleam/string
-import mist.{type Connection, get_client_info}
+import mist.{type Connection, type IpAddress, get_client_info}
 
-/// Convert mist Request to Dream Request
+/// Generate a simple request ID (using process ID)
+fn generate_request_id() -> String {
+  // Simple ID generation - in production you might want to use UUID
+  let pid = process.self()
+  let pid_string = string.inspect(pid)
+  pid_string
+}
+
+/// Convert mist Request to Dream Request with generic context
+/// Takes a function that creates the context from a request_id
 pub fn convert(
   mist_req: HttpRequest(Connection),
   req_with_body: HttpRequest(BitArray),
-) -> transaction.Request {
+  create_context: fn(String) -> context,
+) -> transaction.Request(context) {
+  // Generate request_id for context
+  let request_id = generate_request_id()
+  let context_value = create_context(request_id)
   // Convert HTTP method
   let method = convert_method(mist_req.method)
 
@@ -42,10 +56,7 @@ pub fn convert(
   let query = option.unwrap(mist_req.query, "")
 
   // Convert headers
-  let headers =
-    list.map(mist_req.headers, fn(header) {
-      transaction.Header(name: header.0, value: header.1)
-    })
+  let headers = list.map(mist_req.headers, convert_header)
 
   // Parse cookies from headers
   let cookies = dream.parse_cookies_from_headers(headers)
@@ -68,27 +79,13 @@ pub fn convert(
 
   // Get client info
   let client_info = get_client_info(mist_req.body)
-  let remote_address =
-    result.map(client_info, fn(info) {
-      case info.ip_address {
-        mist.IpV4(a, b, c, d) ->
-          string.join(
-            [
-              int.to_string(a),
-              ".",
-              int.to_string(b),
-              ".",
-              int.to_string(c),
-              ".",
-              int.to_string(d),
-            ],
-            "",
-          )
-        mist.IpV6(..) -> "::1"
-        // Simplified for IPv6
-      }
-    })
-    |> option.from_result
+  let remote_address = case client_info {
+    Ok(info) -> {
+      let ip_address: IpAddress = info.ip_address
+      format_ip_address_value(ip_address) |> option.Some
+    }
+    Error(_) -> option.None
+  }
 
   transaction.Request(
     method: method,
@@ -105,6 +102,7 @@ pub fn convert(
     cookies: cookies,
     content_type: content_type,
     content_length: content_length,
+    context: context_value,
   )
 }
 
@@ -124,5 +122,29 @@ fn convert_method(http_method: HttpMethod) -> transaction.Method {
     // Fallback
     HttpTrace -> transaction.Get
     // Fallback
+  }
+}
+
+fn convert_header(header: #(String, String)) -> transaction.Header {
+  transaction.Header(name: header.0, value: header.1)
+}
+
+fn format_ip_address_value(ip_address: IpAddress) -> String {
+  case ip_address {
+    mist.IpV4(a, b, c, d) ->
+      string.join(
+        [
+          int.to_string(a),
+          ".",
+          int.to_string(b),
+          ".",
+          int.to_string(c),
+          ".",
+          int.to_string(d),
+        ],
+        "",
+      )
+    mist.IpV6(..) -> "::1"
+    // Simplified for IPv6
   }
 }

@@ -1,5 +1,6 @@
 //// main.gleam
 
+import dream/core/context.{new_context}
 import dream/servers/mist/server.{bind, listen, router} as dream
 import examples/simple/router.{create_router}
 import gleam/erlang/process
@@ -7,7 +8,7 @@ import gleam/erlang/process
 pub fn main() {
   case
     dream.new()
-    |> router(create_router())
+    |> router(create_router(), new_context)
     |> bind("localhost")
     |> listen(3000)
   {

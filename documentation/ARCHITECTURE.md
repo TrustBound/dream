@@ -17,16 +17,16 @@ Dream is a **composable web library**, not an opinionated framework. We provide 
 ### 1. Router (Builder Pattern)
 
 ```gleam
-pub type Router {
-  Router(routes: List(Route))
+pub type Router(context) {
+  Router(routes: List(Route(context)))
 }
 
-pub type Route {
+pub type Route(context) {
   Route(
     method: Method,
     path: String,
-    handler: fn(Request) -> Response,
-    middleware: List(Middleware),
+    handler: fn(Request(context)) -> Response,
+    middleware: List(Middleware(context)),
   )
 }
 ```
@@ -36,7 +36,7 @@ pub type Route {
 import dream/core/router.{type Router, add_route, handler, method, new as route, path, router}
 import dream/core/http/transaction.Get
 
-pub fn create_router() -> Router {
+pub fn create_router() -> Router(AppContext) {
   router
   |> add_route(
     route
@@ -50,14 +50,15 @@ pub fn create_router() -> Router {
 **Features**:
 - Builder pattern for route configuration
 - Path parameter support (`/users/:id/posts/:post_id`)
-- Middleware infrastructure (can be added, but not executed yet)
+- Middleware chaining - middleware executes before route handlers
+- Generic context types for type-safe request context
 - Type-safe handler functions
 
 ### 2. Server (Builder Pattern)
 
 ```gleam
-pub type Dream(server) {
-  Dream(server: server, router: Router, max_body_size: Int)
+pub type Dream(server, context) {
+  Dream(server: server, router: Router(context), max_body_size: Int)
 }
 ```
 
@@ -66,13 +67,14 @@ Dream provides a Mist HTTP server adapter using a builder pattern.
 
 **Usage**:
 ```gleam
+import dream/core/context.{new_context}
 import dream/servers/mist/server.{bind, listen, router} as dream
 import gleam/erlang/process
 
 pub fn main() {
   case
     dream.new()
-    |> router(create_router())
+    |> router(create_router(), new_context)
     |> bind("localhost")
     |> listen(3000)
   {
@@ -150,50 +152,80 @@ case fetch_module.request(req) {
 - Streaming responses using `gleam/yielder`
 - Non-streaming responses for simple use cases
 
-### 4. Middleware (Partial Implementation)
+### 4. Middleware (Fully Implemented)
 
-Middleware infrastructure exists but is not yet executed. The type system and builder functions are in place:
+Middleware chaining is fully implemented and executes before route handlers:
 
 ```gleam
-pub type Middleware {
-  Middleware(fn(Request) -> Response)
+pub type Middleware(context) {
+  Middleware(fn(Request(context), fn(Request(context)) -> Response) -> Response)
 }
 ```
 
 **Current Status**:
-- ✅ Middleware type is defined
-- ✅ Routes have a `middleware: List(Middleware)` field
-- ✅ `add_middleware` function exists to add middleware to routes
-- ❌ Middleware is **not executed** when routes are matched
+- ✅ Middleware type is defined with chaining support
+- ✅ Routes have a `middleware: List(Middleware(context))` field
+- ✅ `middleware` function accepts a list of middleware functions
+- ✅ Middleware **executes** before route handlers
+- ✅ Middleware can modify requests and responses
+- ✅ Middleware can short-circuit the pipeline (e.g., for authentication failures)
 
-**Usage** (infrastructure exists, but middleware won't run yet):
+**Usage**:
 ```gleam
-import dream/core/router.{add_middleware, handler, method, new as route, path}
+import dream/core/router.{middleware, handler, method, new as route, path, Route}
 import dream/core/http/transaction.Get
 
-route
-  |> method(Get)
-  |> path("/admin")
-  |> add_middleware(authentication_middleware)  // Can be added, but won't execute
-  |> handler(admin_controller)
+Route(
+  method: Get,
+  path: "/admin",
+  handler: admin_controller,
+  middleware: [],
+)
+|> middleware([auth_middleware, admin_middleware])
 ```
 
-**Note**: Middleware execution logic needs to be implemented in `dream.route_request()` to run middleware functions before calling the route handler. This is planned for future implementation.
+**Middleware Example**:
+```gleam
+pub fn auth_middleware(
+  request: Request(AuthContext),
+  next: fn(Request(AuthContext)) -> Response,
+) -> Response {
+  case get_header(request.headers, "Authorization") {
+    option.None ->
+      text_response(unauthorized_status(), "Unauthorized")
+    option.Some(token) -> {
+      case validate_token(token) {
+        option.Some(user) -> {
+          let updated_context = AuthContext(
+            request_id: request.context.request_id,
+            user: option.Some(user),
+          )
+          let request_with_user = set_context(request, updated_context)
+          next(request_with_user)
+        }
+        option.None ->
+          text_response(unauthorized_status(), "Invalid token")
+      }
+    }
+  }
+}
+```
+
+**Middleware Execution**: Middleware executes in the order they are added to the route. The first middleware added wraps the outermost layer, then the second middleware wraps inside that, and so on. Finally, the route handler is called.
 
 ## Composition Flow
 
 ```gleam
+import dream/core/context.{new_context}
 import dream/servers/mist/server.{bind, listen, router} as dream
 import examples/simple/router.{create_router}
-import dream/core/router.{type Router, add_route, handler, method, new as route, path, router}
-import dream/core/http/transaction.Get
 import gleam/erlang/process
 
 pub fn main() {
   // 1. Create and configure server using builder pattern
   case
     dream.new()
-    |> router(create_router())
+    |> router(create_router(), new_context)
     |> bind("localhost")
     |> listen(3000)
   {
@@ -203,7 +235,7 @@ pub fn main() {
 }
 
 // Router configuration
-pub fn create_router() -> Router {
+pub fn create_router() -> Router(AppContext) {
   router
   |> add_route(
     route
@@ -223,22 +255,25 @@ pub fn create_router() -> Router {
 ## What Dream Provides vs. What You Provide
 
 ### Dream Provides:
-- Core types (Request, Response, Router, Route, etc.)
+- Core types (Request(context), Response, Router(context), Route(context), etc.)
+- Generic context system for type-safe request context
+- Default `AppContext` with `request_id`
 - Builder patterns for server, router, and HTTP client
 - Mist HTTP server adapter
 - HTTP client with streaming and non-streaming support
 - Path parameter extraction
 - HTTP status code helpers
 - Cookie parsing utilities
-- Middleware infrastructure (type and builder functions exist, execution not yet implemented)
+- Middleware chaining infrastructure and execution
 - Helper functions and utilities
 - Documentation and examples
 
 ### You Provide:
-- **Controller functions** that handle requests
+- **Controller functions** that handle requests (Rails-style actions like `index`, `show`)
 - **Router configuration** using the builder pattern
 - **Application-specific** business logic
-- **Custom middleware** functions (infrastructure exists, but middleware execution not yet implemented)
+- **Custom context types** (if you need more than the default `AppContext`)
+- **Custom middleware** functions that match the middleware signature
 
 ## Design Benefits
 
@@ -305,10 +340,69 @@ This separation:
 - **Makes dependencies explicit** - Each module has a clear purpose
 - **Enables future expansion** - Easy to add new client features
 
+### 5. Request Context System
+
+Dream uses generic types to provide type-safe request context:
+
+```gleam
+pub type Request(context) {
+  Request(
+    // ... other fields ...
+    context: context,
+  )
+}
+
+pub type AppContext {
+  AppContext(request_id: String)
+}
+```
+
+**Default Context**:
+Dream provides a default `AppContext` that includes a `request_id` for each request.
+
+**Custom Context Example**:
+```gleam
+pub type AuthContext {
+  AuthContext(request_id: String, user: Option(User))
+}
+
+pub fn new_context(request_id: String) -> AuthContext {
+  AuthContext(request_id: request_id, user: option.None)
+}
+```
+
+**Usage**:
+```gleam
+import dream/servers/mist/server.{bind, listen, router} as dream
+import examples/custom_context/context.{new_context}
+import examples/custom_context/router.{create_router}
+
+pub fn main() {
+  case
+    dream.new()
+    |> router(create_router(), new_context)
+    |> bind("localhost")
+    |> listen(3001)
+  {
+    Ok(_) -> process.sleep_forever()
+    Error(_) -> Nil
+  }
+}
+```
+
+**Accessing Context in Controllers**:
+```gleam
+pub fn show(request: Request(AuthContext)) -> Response {
+  let user = request.context.user
+  // ... use user data ...
+}
+```
+
 ## Further Reading
 
 - [DESIGN_PRINCIPLES.md](DESIGN_PRINCIPLES.md) - Full design philosophy and rationale
 - `NAMING_CONVENTIONS.md` - Function naming guidelines
-- `src/examples/simple/` - Basic routing example
+- `src/examples/simple/` - Basic routing example with default AppContext
 - `src/examples/streaming/` - HTTP client streaming example
+- `src/examples/custom_context/` - Custom context with authentication middleware example
 

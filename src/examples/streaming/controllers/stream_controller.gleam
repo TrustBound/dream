@@ -3,6 +3,7 @@
 //// Controller for streaming example routes.
 //// Follows Rails controller naming conventions.
 
+import dream/core/context.{type AppContext}
 import dream/core/http/statuses.{internal_server_error_status, ok_status}
 import dream/core/http/transaction.{type Request, type Response, text_response}
 import dream/utilities/http/client
@@ -17,7 +18,7 @@ import gleam/string
 import gleam/yielder
 
 /// Index action - displays available routes
-pub fn index(_request: Request) -> Response {
+pub fn index(_request: Request(AppContext)) -> Response {
   text_response(
     ok_status(),
     "Streaming Example Server\n\n"
@@ -28,7 +29,7 @@ pub fn index(_request: Request) -> Response {
 }
 
 /// Show action - demonstrates streaming HTTP requests
-pub fn show(_request: Request) -> Response {
+pub fn show(_request: Request(AppContext)) -> Response {
   // Make a streaming request to httpbin.org
   let req =
     client.new
@@ -44,18 +45,14 @@ pub fn show(_request: Request) -> Response {
   // Convert chunks to strings and concatenate
   let body_string =
     chunks
-    |> list.map(fn(chunk) {
-      bytes_tree.to_bit_array(chunk)
-      |> bit_array.to_string
-      |> result.unwrap("")
-    })
+    |> list.map(chunk_to_string)
     |> string.join("")
 
   text_response(ok_status(), "Streamed response:\n\n" <> body_string)
 }
 
 /// New action - demonstrates non-streaming HTTP requests
-pub fn new(_request: Request) -> Response {
+pub fn new(_request: Request(AppContext)) -> Response {
   // Make a non-streaming request to httpbin.org
   let req =
     client.new
@@ -70,4 +67,10 @@ pub fn new(_request: Request) -> Response {
     Error(error) ->
       text_response(internal_server_error_status(), "Error: " <> error)
   }
+}
+
+fn chunk_to_string(chunk: bytes_tree.BytesTree) -> String {
+  bytes_tree.to_bit_array(chunk)
+  |> bit_array.to_string
+  |> result.unwrap("")
 }

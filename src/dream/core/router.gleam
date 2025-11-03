@@ -4,6 +4,7 @@
 //// to route handlers based on method and path patterns, including support
 //// for path parameters.
 
+import dream/core/context.{type AppContext}
 import dream/core/http/statuses.{convert_client_error_to_status, not_found}
 import dream/core/http/transaction.{
   type Method, type Request, type Response, Get,
@@ -13,69 +14,85 @@ import gleam/option
 import gleam/string
 
 /// Middleware wrapper type
-pub type Middleware {
-  Middleware(fn(Request) -> Response)
+/// Generic over context type to match Request(context)
+pub type Middleware(context) {
+  Middleware(fn(Request(context), fn(Request(context)) -> Response) -> Response)
 }
 
 /// Route definition with method, path pattern, handler, and middleware
-pub type Route {
+pub type Route(context) {
   Route(
     method: Method,
     path: String,
-    handler: fn(Request) -> Response,
-    middleware: List(Middleware),
+    handler: fn(Request(context)) -> Response,
+    middleware: List(Middleware(context)),
   )
 }
 
 /// Router containing a list of routes
-pub type Router {
-  Router(routes: List(Route))
+pub type Router(context) {
+  Router(routes: List(Route(context)))
 }
 
-/// Default 404 handler
-fn default_404_handler(_request: Request) -> Response {
+/// Default 404 handler for AppContext
+fn default_404_handler_app_context(_request: Request(AppContext)) -> Response {
   transaction.text_response(
     convert_client_error_to_status(not_found()),
     "Not Found",
   )
 }
 
-/// Default route constant
+/// Default route constant with AppContext
 pub const new = Route(
   method: Get,
   path: "/",
-  handler: default_404_handler,
+  handler: default_404_handler_app_context,
   middleware: [],
 )
 
-/// Default router constant
+/// Default router constant with AppContext
 pub const router = Router(routes: [])
 
 /// Set the HTTP method for the route
-pub fn method(route: Route, method_value: Method) -> Route {
+pub fn method(route: Route(context), method_value: Method) -> Route(context) {
   Route(..route, method: method_value)
 }
 
 /// Set the path for the route
-pub fn path(route: Route, path_value: String) -> Route {
+pub fn path(route: Route(context), path_value: String) -> Route(context) {
   Route(..route, path: path_value)
 }
 
 /// Set the handler function for the route
-pub fn handler(route: Route, handler_function: fn(Request) -> Response) -> Route {
+pub fn handler(
+  route: Route(context),
+  handler_function: fn(Request(context)) -> Response,
+) -> Route(context) {
   Route(..route, handler: handler_function)
 }
 
-/// Add middleware to the route
-pub fn add_middleware(
-  route: Route,
-  middleware_fn: fn(Request) -> Response,
-) -> Route {
-  Route(..route, middleware: [Middleware(middleware_fn), ..route.middleware])
+/// Add middleware to the route (accepts a list for convenience)
+pub fn middleware(
+  route: Route(context),
+  middleware_list: List(
+    fn(Request(context), fn(Request(context)) -> Response) -> Response,
+  ),
+) -> Route(context) {
+  let middleware_wrappers = list.map(middleware_list, wrap_middleware)
+  Route(..route, middleware: list.append(middleware_wrappers, route.middleware))
+}
+
+fn wrap_middleware(
+  mw: fn(Request(context), fn(Request(context)) -> Response) -> Response,
+) -> Middleware(context) {
+  Middleware(mw)
 }
 
 /// Add a route to the router
-pub fn add_route(router: Router, route: Route) -> Router {
+pub fn add_route(
+  router: Router(context),
+  route: Route(context),
+) -> Router(context) {
   Router(routes: [route, ..router.routes])
 }
 
@@ -88,14 +105,17 @@ pub fn match_path(
   path: String,
 ) -> option.Option(List(#(String, String))) {
   let pattern_segments =
-    string.split(pattern, "/") |> list.filter(fn(segment) { segment != "" })
-  let path_segments =
-    string.split(path, "/") |> list.filter(fn(segment) { segment != "" })
+    string.split(pattern, "/") |> list.filter(non_empty_segment)
+  let path_segments = string.split(path, "/") |> list.filter(non_empty_segment)
 
   case list.length(pattern_segments) == list.length(path_segments) {
     False -> option.None
     True -> extract_params(pattern_segments, path_segments, [])
   }
+}
+
+fn non_empty_segment(segment: String) -> Bool {
+  segment != ""
 }
 
 /// Extract path parameters from pattern segments and path segments
@@ -149,21 +169,81 @@ fn match_segment(
 
 /// Find matching route and extract params
 pub fn find_route(
-  router: Router,
-  request: Request,
-) -> option.Option(#(Route, List(#(String, String)))) {
-  router.routes
-  |> list.find_map(fn(route) {
-    let method_matches = route.method == request.method
+  router: Router(context),
+  request: Request(context),
+) -> option.Option(#(Route(context), List(#(String, String)))) {
+  find_route_recursive(router.routes, request)
+}
 
-    case method_matches {
-      False -> Error(Nil)
-      True ->
-        case match_path(route.path, request.path) {
-          option.Some(params) -> Ok(#(route, params))
-          option.None -> Error(Nil)
-        }
+fn find_route_recursive(
+  routes: List(Route(context)),
+  request: Request(context),
+) -> option.Option(#(Route(context), List(#(String, String)))) {
+  case routes {
+    [] -> option.None
+    [route, ..rest] -> {
+      case check_route_match(request, route) {
+        Ok(result) -> option.Some(result)
+        Error(_) -> find_route_recursive(rest, request)
+      }
     }
-  })
-  |> option.from_result
+  }
+}
+
+fn check_route_match(
+  request: Request(context),
+  route: Route(context),
+) -> Result(#(Route(context), List(#(String, String))), Nil) {
+  let method_matches = route.method == request.method
+
+  case method_matches {
+    False -> Error(Nil)
+    True -> check_path_match(route, request.path)
+  }
+}
+
+fn check_path_match(
+  route: Route(context),
+  path: String,
+) -> Result(#(Route(context), List(#(String, String))), Nil) {
+  case match_path(route.path, path) {
+    option.Some(params) -> Ok(#(route, params))
+    option.None -> Error(Nil)
+  }
+}
+
+/// Build a handler chain from middleware and final handler
+/// Middleware are executed in order: first middleware wraps second, wraps third, etc.
+pub fn build_handler_chain(
+  middleware: List(Middleware(context)),
+  final_handler: fn(Request(context)) -> Response,
+) -> fn(Request(context)) -> Response {
+  // Reverse middleware list so first added wraps outermost
+  let reversed = list.reverse(middleware)
+  build_chain_recursive(reversed, final_handler)
+}
+
+fn build_chain_recursive(
+  middleware: List(Middleware(context)),
+  handler: fn(Request(context)) -> Response,
+) -> fn(Request(context)) -> Response {
+  case middleware {
+    [] -> handler
+    [mw, ..rest] -> {
+      case mw {
+        Middleware(middleware_fn) -> {
+          let wrapped_handler = create_wrapped_handler(middleware_fn, handler)
+          build_chain_recursive(rest, wrapped_handler)
+        }
+      }
+    }
+  }
+}
+
+fn create_wrapped_handler(
+  middleware_fn: fn(Request(context), fn(Request(context)) -> Response) ->
+    Response,
+  handler: fn(Request(context)) -> Response,
+) -> fn(Request(context)) -> Response {
+  fn(request) { middleware_fn(request, handler) }
 }

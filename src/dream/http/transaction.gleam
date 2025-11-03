@@ -4,12 +4,11 @@
 //// including methods, headers, cookies, and utility functions for
 //// working with HTTP transactions.
 
-import dream/core/http/statuses.{type Status}
+import dream/http/statuses.{type Status}
 import gleam/list
 import gleam/option
 import gleam/string
 
-/// HTTP method type
 pub type Method {
   Post
   Get
@@ -20,19 +19,16 @@ pub type Method {
   Head
 }
 
-/// HTTP header type
 pub type Header {
   Header(name: String, value: String)
 }
 
-/// SameSite cookie attribute
 pub type SameSite {
   Strict
   Lax
   None
 }
 
-/// HTTP cookie type
 pub type Cookie {
   Cookie(
     name: String,
@@ -49,22 +45,18 @@ pub type Cookie {
   )
 }
 
-/// HTTP protocol type
 pub type Protocol {
   Http
   Https
 }
 
-/// HTTP version type
 pub type Version {
   Http1
   Http2
   Http3
 }
 
-/// HTTP request type
-/// Generic over context type for type-safe request context
-pub type Request(context) {
+pub type Request {
   Request(
     method: Method,
     protocol: Protocol,
@@ -82,11 +74,9 @@ pub type Request(context) {
     cookies: List(Cookie),
     content_type: option.Option(String),
     content_length: option.Option(Int),
-    context: context,
   )
 }
 
-/// HTTP response type
 pub type Response {
   Response(
     status: Status,
@@ -359,7 +349,7 @@ pub fn get_query_param(query: String, name: String) -> option.Option(String) {
 }
 
 /// Check if request has a specific content type
-pub fn has_content_type(request: Request(context), content_type: String) -> Bool {
+pub fn has_content_type(request: Request, content_type: String) -> Bool {
   case request.content_type {
     option.Some(actual_content_type) ->
       string.contains(actual_content_type, content_type)
@@ -368,37 +358,14 @@ pub fn has_content_type(request: Request(context), content_type: String) -> Bool
 }
 
 /// Check if request method matches
-pub fn is_method(request: Request(context), method: Method) -> Bool {
+pub fn is_method(request: Request, method: Method) -> Bool {
   request.method == method
 }
 
 /// Get a path parameter value by name
-pub fn get_param(request: Request(context), name: String) -> Result(String, String) {
+pub fn get_param(request: Request, name: String) -> Result(String, String) {
   case list.key_find(request.params, name) {
     Ok(value) -> Ok(value)
     Error(_) -> Error("Missing required path parameter: " <> name)
   }
-}
-
-// Context utilities
-
-/// Get the context from a request
-pub fn get_context(request: Request(context)) -> context {
-  request.context
-}
-
-/// Create a new request with updated context
-pub fn set_context(
-  request: Request(context),
-  new_context: context,
-) -> Request(context) {
-  Request(..request, context: new_context)
-}
-
-/// Create a new request with updated params
-pub fn set_params(
-  request: Request(context),
-  new_params: List(#(String, String)),
-) -> Request(context) {
-  Request(..request, params: new_params)
 }

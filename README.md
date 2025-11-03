@@ -18,6 +18,7 @@ Dream is not an opinionated framework. It's a collection of clean interfaces, bu
 ## Quick Example
 
 ```gleam
+import dream/core/context.{new_context}
 import dream/servers/mist/server.{bind, listen, router} as dream
 import examples/simple/router.{create_router}
 import gleam/erlang/process
@@ -25,7 +26,7 @@ import gleam/erlang/process
 pub fn main() {
   case
     dream.new()
-    |> router(create_router())
+    |> router(create_router(), new_context)
     |> bind("localhost")
     |> listen(3000)
   {
@@ -40,7 +41,7 @@ pub fn main() {
 import dream/core/router.{type Router, add_route, handler, method, new as route, path, router}
 import dream/core/http/transaction.Get
 
-pub fn create_router() -> Router {
+pub fn create_router() -> Router(AppContext) {
   router
   |> add_route(
     route
@@ -58,7 +59,10 @@ Everything is explicit. No magic. No vendor lock-in.
 - **[Design Principles](documentation/DESIGN_PRINCIPLES.md)** - The "why" behind every architectural decision
 - **[Architecture Overview](documentation/ARCHITECTURE.md)** - Big picture explanation
 - **[Naming Conventions](documentation/NAMING_CONVENTIONS.md)** - Function naming guidelines
-- **[Examples](src/examples/)** - Real-world usage patterns (simple and streaming examples)
+- **[Examples](src/examples/)** - Real-world usage patterns:
+  - `simple/` - Basic routing with default AppContext
+  - `streaming/` - HTTP client streaming example
+  - `custom_context/` - Custom context with authentication middleware
 
 ## What Makes Dream Different?
 
@@ -70,11 +74,12 @@ Framework.start()
 
 ### Dream (Composable Library)
 ```gleam
+import dream/core/context.{new_context}
 import dream/servers/mist/server.{bind, listen, router} as dream
 
 // Everything explicit - builder pattern shows exactly what's configured
 dream.new()
-  |> router(create_router())
+  |> router(create_router(), new_context)
   |> bind("localhost")
   |> listen(3000)
 ```
@@ -93,8 +98,16 @@ dream.new()
 1. Read [Design Principles](documentation/DESIGN_PRINCIPLES.md) to understand the philosophy
 2. Check [documentation/ARCHITECTURE.md](documentation/ARCHITECTURE.md) for the big picture
 3. Look at [examples](src/examples/) for real-world usage:
-   - `examples/simple/` - Basic routing and HTTP client usage
+   - `examples/simple/` - Basic routing and HTTP client usage with default AppContext
    - `examples/streaming/` - Streaming HTTP requests
+   - `examples/custom_context/` - Custom context types with authentication middleware
+
+## Key Features
+
+- **Middleware Chaining**: Full middleware support with chaining and execution
+- **Type-Safe Context**: Generic context system for custom request context types
+- **Rails-Style Controllers**: Controller actions like `index`, `show`, `fetch`
+- **Builder Patterns**: Consistent fluent API across server, router, and client
 
 ## License
 
