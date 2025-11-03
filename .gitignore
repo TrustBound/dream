@@ -1,0 +1,23 @@
+# Gleam build artifacts
+build/
+*.cache
+*.cache_inline
+*.cache_meta
+*.cache_warnings
+
+# Erlang crash dumps
+erl_crash.dump
+*.dump
+
+# Scratch files
+scratch.gleam
+
+# IDE/Editor files
+.cursor/
+.vscode/
+.idea/
+
+# Gleam package files (these are generated)
+gleam.toml
+manifest.toml
+
