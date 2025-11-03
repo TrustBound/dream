@@ -8,17 +8,26 @@ import dream/core/http/statuses.{internal_server_error_status, ok_status}
 import dream/core/http/transaction.{
   type Request, type Response, get_param, text_response,
 }
+import dream/core/router.{type EmptyServices}
 import dream/utilities/http/client
 import dream/utilities/http/client/fetch as fetch_module
 import gleam/http
 
 /// Index action - displays hello world
-pub fn index(_request: Request(AppContext)) -> Response {
+pub fn index(
+  _request: Request,
+  _context: AppContext,
+  _services: EmptyServices,
+) -> Response {
   text_response(ok_status(), "Hello, World!")
 }
 
 /// Show action - demonstrates path parameters and makes HTTPS request
-pub fn show(request: Request(AppContext)) -> Response {
+pub fn show(
+  request: Request,
+  _context: AppContext,
+  _services: EmptyServices,
+) -> Response {
   let assert Ok(user_id) = get_param(request, "id")
   let assert Ok(post_id) = get_param(request, "post_id")
 
@@ -46,4 +55,3 @@ pub fn show(request: Request(AppContext)) -> Response {
       text_response(internal_server_error_status(), "Error: " <> error)
   }
 }
-

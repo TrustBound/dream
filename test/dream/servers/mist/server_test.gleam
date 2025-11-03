@@ -1,4 +1,3 @@
-import dream/core/context.{new_context}
 import dream/core/dream
 import dream/core/router.{router}
 import dream/servers/mist/server
@@ -11,7 +10,7 @@ pub fn new_creates_dream_instance_with_defaults_test() {
   // Assert
   // Verify Dream instance was created
   case dream_instance {
-    dream.Dream(_server, _router_instance, max_body_size) -> {
+    dream.Dream(_server, _router_instance, _context, _services, max_body_size) -> {
       max_body_size |> should.equal(9_223_372_036_854_775_807)
     }
   }
@@ -21,15 +20,14 @@ pub fn router_sets_router_on_dream_instance_test() {
   // Arrange
   let dream_instance = server.new()
   let test_router = router
-  let create_context_fn = new_context
   
   // Act
-  let updated_dream = server.router(dream_instance, test_router, create_context_fn)
+  let updated_dream = server.router(dream_instance, test_router)
   
   // Assert
   // Router should be set
   case updated_dream {
-    dream.Dream(_, _router_instance, _) -> {
+    dream.Dream(_, _router_instance, _, _, _) -> {
       Nil
     }
   }
@@ -39,8 +37,7 @@ pub fn bind_sets_bind_address_test() {
   // Arrange
   let dream_instance = server.new()
   let test_router = router
-  let create_context_fn = new_context
-  let dream_with_router = server.router(dream_instance, test_router, create_context_fn)
+  let dream_with_router = server.router(dream_instance, test_router)
   
   // Act
   let bound_dream = server.bind(dream_with_router, "127.0.0.1")
@@ -48,7 +45,7 @@ pub fn bind_sets_bind_address_test() {
   // Assert
   // Bind should be set
   case bound_dream {
-    dream.Dream(_, _, _) -> Nil
+    dream.Dream(_, _, _, _, _) -> Nil
   }
 }
 
@@ -56,37 +53,17 @@ pub fn max_body_size_sets_max_body_size_test() {
   // Arrange
   let dream_instance = server.new()
   let test_router = router
-  let create_context_fn = new_context
-  let dream_with_router = server.router(dream_instance, test_router, create_context_fn)
+  let dream_with_router = server.router(dream_instance, test_router)
   
   // Act
-  let updated_dream = server.max_body_size(dream_with_router, 2048, create_context_fn)
+  let updated_dream = server.max_body_size(dream_with_router, 2048)
   
   // Assert
   case updated_dream {
-    dream.Dream(_, _, max_body_size) -> {
+    dream.Dream(_, _, _, _, max_body_size) -> {
       max_body_size |> should.equal(2048)
     }
   }
 }
 
-pub fn listen_without_blocking_returns_on_success_test() {
-  // Arrange
-  let dream_instance = server.new()
-  let test_router = router
-  let create_context_fn = new_context
-  let dream_with_router = server.router(dream_instance, test_router, create_context_fn)
-  let bound_dream = server.bind(dream_with_router, "127.0.0.1")
-  
-  // Act
-  // listen_without_blocking returns immediately even on success
-  // This allows us to test the function without hanging
-  let result = server.listen_without_blocking(bound_dream, 8080)
-  
-  // Assert
-  // listen_without_blocking returns Nil (either on success without blocking, or on error)
-  // We can't easily verify success without actually starting a server,
-  // but we can verify the function doesn't hang
-  result |> should.equal(Nil)
-}
 

@@ -1,18 +1,18 @@
-import dream/core/context.{type AppContext, new_context}
+import dream/core/context.{type AppContext}
 import dream/core/dream
 import dream/core/http/statuses.{not_found_status, ok_status}
 import dream/core/http/transaction
-import dream/core/router.{Route, Router, router}
+import dream/core/router.{type EmptyServices, Route, Router, router}
 import gleam/list
 import gleam/option
 import gleeunit/should
 
 fn create_test_request(
-  method_value: transaction.Method,
+  _method_value: transaction.Method,
   path_value: String,
-) -> transaction.Request(AppContext) {
+) -> transaction.Request {
   transaction.Request(
-    method: method_value,
+    method: transaction.Get,
     protocol: transaction.Http,
     version: transaction.Http1,
     path: path_value,
@@ -26,12 +26,13 @@ fn create_test_request(
     cookies: [],
     content_type: option.None,
     content_length: option.None,
-    context: new_context("test-id"),
   )
 }
 
 fn test_handler(
-  _request: transaction.Request(AppContext),
+  _request: transaction.Request,
+  _context: AppContext,
+  _services: EmptyServices,
 ) -> transaction.Response {
   transaction.text_response(ok_status(), "success")
 }
@@ -47,9 +48,11 @@ pub fn route_request_with_matching_route_returns_handler_response_test() {
     )
   let test_router = Router(routes: [test_route])
   let request = create_test_request(transaction.Get, "/test")
+  let context = context.AppContext(request_id: "test-id")
+  let services = router.EmptyServices
 
   // Act
-  let response = dream.route_request(test_router, request)
+  let response = dream.route_request(test_router, request, context, services)
 
   // Assert
   case response {
@@ -63,9 +66,11 @@ pub fn route_request_with_no_matching_route_returns_not_found_test() {
   // Arrange
   let empty_router = router
   let request = create_test_request(transaction.Get, "/nonexistent")
+  let context = context.AppContext(request_id: "test-id")
+  let services = router.EmptyServices
 
   // Act
-  let response = dream.route_request(empty_router, request)
+  let response = dream.route_request(empty_router, request, context, services)
 
   // Assert
   case response {

@@ -4,31 +4,35 @@
 
 import dream/core/http/statuses.{unauthorized_status}
 import dream/core/http/transaction.{
-  type Request, type Response, get_header, set_context, text_response,
+  type Request, type Response, text_response,
 }
 import examples/custom_context/context.{
   type AuthContext, type User, AuthContext, User,
 }
+import examples/custom_context/services.{type Services, Services}
 import gleam/option
 
 pub fn auth_middleware(
-  request: Request(AuthContext),
-  next: fn(Request(AuthContext)) -> Response,
+  request: Request,
+  context: AuthContext,
+  _services: Services,
+  next: fn(Request, AuthContext, Services) -> Response,
 ) -> Response {
-  case get_header(request.headers, "Authorization") {
+  case transaction.get_header(request.headers, "Authorization") {
     option.None ->
       text_response(
         unauthorized_status(),
         "Unauthorized: Missing Authorization header",
       )
-    option.Some(token) -> validate_and_authenticate(request, token, next)
+    option.Some(token) -> validate_and_authenticate(request, context, token, next)
   }
 }
 
 fn validate_and_authenticate(
-  request: Request(AuthContext),
+  request: Request,
+  context: AuthContext,
   token: String,
-  next: fn(Request(AuthContext)) -> Response,
+  next: fn(Request, AuthContext, Services) -> Response,
 ) -> Response {
   case validate_token(token) {
     option.None ->
@@ -36,11 +40,10 @@ fn validate_and_authenticate(
     option.Some(user) -> {
       let updated_context =
         AuthContext(
-          request_id: request.context.request_id,
+          request_id: context.request_id,
           user: option.Some(user),
         )
-      let request_with_user = set_context(request, updated_context)
-      next(request_with_user)
+      next(request, updated_context, Services)
     }
   }
 }

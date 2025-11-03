@@ -1,4 +1,3 @@
-import dream/core/context.{new_context}
 import dream/core/http/statuses as statuses
 import dream/core/http/transaction as transaction
 import gleam/list
@@ -490,7 +489,6 @@ pub fn has_content_type_with_matching_content_type_returns_true_test() {
     cookies: [],
     content_type: option.Some("application/json"),
     content_length: option.None,
-    context: new_context("test-id"),
   )
   
   // Act
@@ -517,7 +515,6 @@ pub fn has_content_type_with_non_matching_content_type_returns_false_test() {
     cookies: [],
     content_type: option.Some("application/json"),
     content_length: option.None,
-    context: new_context("test-id"),
   )
   
   // Act
@@ -544,7 +541,6 @@ pub fn is_method_with_matching_method_returns_true_test() {
     cookies: [],
     content_type: option.None,
     content_length: option.None,
-    context: new_context("test-id"),
   )
   
   // Act
@@ -571,7 +567,6 @@ pub fn get_param_with_existing_param_returns_value_test() {
     cookies: [],
     content_type: option.None,
     content_length: option.None,
-    context: new_context("test-id"),
   )
   
   // Act
@@ -601,7 +596,6 @@ pub fn get_param_with_non_existing_param_returns_error_test() {
     cookies: [],
     content_type: option.None,
     content_length: option.None,
-    context: new_context("test-id"),
   )
   
   // Act
@@ -611,86 +605,6 @@ pub fn get_param_with_non_existing_param_returns_error_test() {
   case result {
     Ok(_) -> should.fail()
     Error(_) -> Nil
-  }
-}
-
-pub fn get_context_with_valid_request_returns_request_context_test() {
-  // Arrange
-  let context_value = new_context("test-id")
-  let request = transaction.Request(
-    method: transaction.Get,
-    protocol: transaction.Http,
-    version: transaction.Http1,
-    path: "/",
-    query: "",
-    params: [],
-    host: option.None,
-    port: option.None,
-    remote_address: option.None,
-    body: "",
-    headers: [],
-    cookies: [],
-    content_type: option.None,
-    content_length: option.None,
-    context: context_value,
-  )
-  
-  // Act
-  let retrieved_context = transaction.get_context(request)
-  
-  // Assert - verify get_context can be used with set_context for round-trip operations
-  let updated_request = transaction.set_context(request, retrieved_context)
-  let round_trip_context = transaction.get_context(updated_request)
-  // Verify idempotency: get_context followed by set_context preserves the context
-  let updated_request2 = transaction.set_context(request, round_trip_context)
-  // The round-trip operations should complete without errors (tested via set_params which uses context)
-  let final_request = transaction.set_params(updated_request2, [])
-  // Verify the request can be used in subsequent operations
-  case transaction.get_param(final_request, "nonexistent") {
-    Ok(_) -> should.fail()
-    Error(_) -> Nil
-  }
-}
-
-pub fn set_context_with_new_context_updates_request_context_test() {
-  // Arrange
-  let old_context = new_context("old-id")
-  let new_context_value = new_context("new-id")
-  let request = transaction.Request(
-    method: transaction.Get,
-    protocol: transaction.Http,
-    version: transaction.Http1,
-    path: "/",
-    query: "",
-    params: [],
-    host: option.None,
-    port: option.None,
-    remote_address: option.None,
-    body: "",
-    headers: [],
-    cookies: [],
-    content_type: option.None,
-    content_length: option.None,
-    context: old_context,
-  )
-  
-  // Act
-  let updated_request = transaction.set_context(request, new_context_value)
-  
-  // Assert - verify context was updated by using it in subsequent operations
-  let retrieved_context = transaction.get_context(updated_request)
-  // Verify the updated request can be used in other operations
-  let request_with_params = transaction.set_params(updated_request, [#("test", "value")])
-  case transaction.get_param(request_with_params, "test") {
-    Ok(value) -> value |> should.equal("value")
-    Error(_) -> should.fail()
-  }
-  // Verify context round-trip works by using it in another set_context
-  let request_with_new_context = transaction.set_context(request_with_params, retrieved_context)
-  let request_with_final_params = transaction.set_params(request_with_new_context, [#("final", "check")])
-  case transaction.get_param(request_with_final_params, "final") {
-    Ok(value) -> value |> should.equal("check")
-    Error(_) -> should.fail()
   }
 }
 
@@ -711,7 +625,6 @@ pub fn set_params_with_new_params_updates_request_params_test() {
     cookies: [],
     content_type: option.None,
     content_length: option.None,
-    context: new_context("test-id"),
   )
   let new_params = [#("id", "123"), #("post_id", "456")]
   

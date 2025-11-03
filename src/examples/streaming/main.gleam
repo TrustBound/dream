@@ -3,13 +3,16 @@
 //// This example demonstrates how to use the Dream HTTP client
 //// for both streaming and non-streaming requests.
 
-import dream/servers/mist/server.{bind, listen, router} as dream
-import dream/core/context.{new_context}
+import dream/core/context
+import dream/servers/mist/server.{bind, context, listen, router, services} as dream
 import examples/streaming/router.{create_router}
+import examples/streaming/services.{initialize_services}
 
 pub fn main() {
   dream.new()
-  |> router(create_router(), new_context)
+  |> context(context.AppContext(request_id: ""))
+  |> services(initialize_services())
+  |> router(create_router())
   |> bind("localhost")
   |> listen(3000)
 }

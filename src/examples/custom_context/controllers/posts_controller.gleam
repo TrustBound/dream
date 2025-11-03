@@ -11,15 +11,24 @@ import dream/core/http/transaction.{
 import dream/utilities/http/client
 import dream/utilities/http/client/fetch as fetch_module
 import examples/custom_context/context.{type AuthContext}
+import examples/custom_context/services.{type Services}
 import gleam/http
 
 /// Index action - displays hello world
-pub fn index(_request: Request(AuthContext)) -> Response {
+pub fn index(
+  _request: Request,
+  _context: AuthContext,
+  _services: Services,
+) -> Response {
   text_response(ok_status(), "Hello, World!")
 }
 
 /// Show action - demonstrates path parameters and makes HTTPS request
-pub fn show(request: Request(AuthContext)) -> Response {
+pub fn show(
+  request: Request,
+  _context: AuthContext,
+  _services: Services,
+) -> Response {
   let assert Ok(user_id) = get_param(request, "id")
   let assert Ok(post_id) = get_param(request, "post_id")
 

@@ -22,23 +22,22 @@ import gleam/string
 import mist.{type Connection, type IpAddress, get_client_info}
 
 /// Generate a simple request ID (using process ID)
-fn generate_request_id() -> String {
+pub fn generate_request_id() -> String {
   // Simple ID generation - in production you might want to use UUID
   let pid = process.self()
   let pid_string = string.inspect(pid)
   pid_string
 }
 
-/// Convert mist Request to Dream Request with generic context
-/// Takes a function that creates the context from a request_id
+/// Convert mist Request to Dream Request (immutable HTTP data only)
+/// Returns the Request and a generated request_id for context creation
 pub fn convert(
   mist_req: HttpRequest(Connection),
   req_with_body: HttpRequest(BitArray),
-  create_context: fn(String) -> context,
-) -> transaction.Request(context) {
-  // Generate request_id for context
+) -> #(transaction.Request, String) {
+  // Generate request_id for context creation
   let request_id = generate_request_id()
-  let context_value = create_context(request_id)
+  
   // Convert HTTP method
   let method = convert_method(mist_req.method)
 
@@ -87,6 +86,7 @@ pub fn convert(
     Error(_) -> option.None
   }
 
+  let request =
   transaction.Request(
     method: method,
     protocol: protocol,
@@ -102,8 +102,9 @@ pub fn convert(
     cookies: cookies,
     content_type: content_type,
     content_length: content_length,
-    context: context_value,
   )
+
+  #(request, request_id)
 }
 
 /// Convert HTTP method from gleam/http format to Dream format

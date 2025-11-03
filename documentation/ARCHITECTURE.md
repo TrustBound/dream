@@ -17,16 +17,16 @@ Dream is a **composable web library**, not an opinionated framework. We provide 
 ### 1. Router (Builder Pattern)
 
 ```gleam
-pub type Router(context) {
-  Router(routes: List(Route(context)))
+pub type Router(context, services) {
+  Router(routes: List(Route(context, services)))
 }
 
-pub type Route(context) {
+pub type Route(context, services) {
   Route(
     method: Method,
     path: String,
-    handler: fn(Request(context)) -> Response,
-    middleware: List(Middleware(context)),
+    handler: fn(Request, context, services) -> Response,
+    middleware: List(Middleware(context, services)),
   )
 }
 ```
@@ -57,8 +57,14 @@ pub fn create_router() -> Router(AppContext) {
 ### 2. Server (Builder Pattern)
 
 ```gleam
-pub type Dream(server, context) {
-  Dream(server: server, router: Router(context), max_body_size: Int)
+pub type Dream(server, context, services) {
+  Dream(
+    server: server,
+    router: Option(Router(context, services)),
+    context: context,
+    services: Option(services),
+    max_body_size: Int,
+  )
 }
 ```
 
@@ -67,20 +73,18 @@ Dream provides a Mist HTTP server adapter using a builder pattern.
 
 **Usage**:
 ```gleam
-import dream/core/context.{new_context}
-import dream/servers/mist/server.{bind, listen, router} as dream
-import gleam/erlang/process
+import dream/core/context
+import dream/servers/mist/server.{bind, context, listen, router, services} as dream
+import examples/simple/router.{create_router}
+import examples/simple/services.{initialize_services}
 
 pub fn main() {
-  case
     dream.new()
-    |> router(create_router(), new_context)
+  |> context(context.AppContext(request_id: ""))
+  |> services(initialize_services())
+  |> router(create_router())
     |> bind("localhost")
     |> listen(3000)
-  {
-    Ok(_) -> process.sleep_forever()
-    Error(_) -> Nil
-  }
 }
 ```
 
@@ -157,8 +161,10 @@ case fetch_module.request(req) {
 Middleware chaining is fully implemented and executes before route handlers:
 
 ```gleam
-pub type Middleware(context) {
-  Middleware(fn(Request(context), fn(Request(context)) -> Response) -> Response)
+pub type Middleware(context, services) {
+  Middleware(
+    fn(Request, context, services, fn(Request, context, services) -> Response) -> Response
+  )
 }
 ```
 
@@ -187,8 +193,10 @@ Route(
 **Middleware Example**:
 ```gleam
 pub fn auth_middleware(
-  request: Request(AuthContext),
-  next: fn(Request(AuthContext)) -> Response,
+  request: Request,
+  context: AuthContext,
+  services: Services,
+  next: fn(Request, AuthContext, Services) -> Response,
 ) -> Response {
   case get_header(request.headers, "Authorization") {
     option.None ->
@@ -197,11 +205,10 @@ pub fn auth_middleware(
       case validate_token(token) {
         option.Some(user) -> {
           let updated_context = AuthContext(
-            request_id: request.context.request_id,
+            request_id: context.request_id,
             user: option.Some(user),
           )
-          let request_with_user = set_context(request, updated_context)
-          next(request_with_user)
+          next(request, updated_context, services)
         }
         option.None ->
           text_response(unauthorized_status(), "Invalid token")
@@ -216,26 +223,23 @@ pub fn auth_middleware(
 ## Composition Flow
 
 ```gleam
-import dream/core/context.{new_context}
-import dream/servers/mist/server.{bind, listen, router} as dream
+import dream/core/context
+import dream/servers/mist/server.{bind, context, listen, router, services} as dream
 import examples/simple/router.{create_router}
-import gleam/erlang/process
+import examples/simple/services.{initialize_services}
 
 pub fn main() {
   // 1. Create and configure server using builder pattern
-  case
     dream.new()
-    |> router(create_router(), new_context)
+  |> context(context.AppContext(request_id: ""))
+  |> services(initialize_services())
+  |> router(create_router())
     |> bind("localhost")
     |> listen(3000)
-  {
-    Ok(_) -> process.sleep_forever()
-    Error(_) -> Nil
-  }
 }
 
 // Router configuration
-pub fn create_router() -> Router(AppContext) {
+pub fn create_router() -> Router(AppContext, EmptyServices) {
   router
   |> route(
     method: Get,
@@ -295,21 +299,19 @@ pub fn main() {
 
 ### Dream (Composable Library)
 ```gleam
-import dream/servers/mist/server.{bind, listen, router} as dream
+import dream/core/context
+import dream/servers/mist/server.{bind, context, listen, router, services} as dream
 import examples/simple/router.{create_router}
-import gleam/erlang/process
+import examples/simple/services.{initialize_services}
 
 pub fn main() {
   // Explicit builder pattern shows exactly what's configured
-  case
     dream.new()
+  |> context(context.AppContext(request_id: ""))
+  |> services(initialize_services())
     |> router(create_router())
     |> bind("localhost")
     |> listen(3000)
-  {
-    Ok(_) -> process.sleep_forever()
-    Error(_) -> Nil
-  }
 }
 ```
 
@@ -344,10 +346,10 @@ This separation:
 Dream uses generic types to provide type-safe request context:
 
 ```gleam
-pub type Request(context) {
+pub type Request {
   Request(
-    // ... other fields ...
-    context: context,
+    // ... HTTP fields only (method, headers, body, etc.) ...
+    // No context field - Request is immutable
   )
 }
 
@@ -372,28 +374,32 @@ pub fn new_context(request_id: String) -> AuthContext {
 
 **Usage**:
 ```gleam
-import dream/servers/mist/server.{bind, listen, router} as dream
-import examples/custom_context/context.{new_context}
+import dream/core/context
+import dream/servers/mist/server.{bind, context, listen, router, services} as dream
 import examples/custom_context/router.{create_router}
+import examples/custom_context/services.{initialize_services}
 
 pub fn main() {
-  case
     dream.new()
-    |> router(create_router(), new_context)
+  |> context(context.AppContext(request_id: ""))
+  |> services(initialize_services())
+  |> router(create_router())
     |> bind("localhost")
     |> listen(3001)
-  {
-    Ok(_) -> process.sleep_forever()
-    Error(_) -> Nil
-  }
 }
 ```
 
 **Accessing Context in Controllers**:
 ```gleam
-pub fn show(request: Request(AuthContext)) -> Response {
-  let user = request.context.user
+pub fn show(
+  request: Request,
+  context: AuthContext,
+  services: Services,
+) -> Response {
+  let user = context.user
   // ... use user data ...
+  // Access database via services.database
+  // Access request data via request.body, request.headers, etc.
 }
 ```
 

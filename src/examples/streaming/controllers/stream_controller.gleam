@@ -6,6 +6,7 @@
 import dream/core/context.{type AppContext}
 import dream/core/http/statuses.{internal_server_error_status, ok_status}
 import dream/core/http/transaction.{type Request, type Response, text_response}
+import dream/core/router.{type EmptyServices}
 import dream/utilities/http/client
 import dream/utilities/http/client/fetch as fetch_module
 import dream/utilities/http/client/stream as stream_module
@@ -18,7 +19,11 @@ import gleam/string
 import gleam/yielder
 
 /// Index action - displays available routes
-pub fn index(_request: Request(AppContext)) -> Response {
+pub fn index(
+  _request: Request,
+  _context: AppContext,
+  _services: EmptyServices,
+) -> Response {
   text_response(
     ok_status(),
     "Streaming Example Server\n\n"
@@ -29,7 +34,11 @@ pub fn index(_request: Request(AppContext)) -> Response {
 }
 
 /// Show action - demonstrates streaming HTTP requests
-pub fn show(_request: Request(AppContext)) -> Response {
+pub fn show(
+  _request: Request,
+  _context: AppContext,
+  _services: EmptyServices,
+) -> Response {
   // Make a streaming request to httpbin.org
   let req =
     client.new
@@ -52,7 +61,11 @@ pub fn show(_request: Request(AppContext)) -> Response {
 }
 
 /// New action - demonstrates non-streaming HTTP requests
-pub fn new(_request: Request(AppContext)) -> Response {
+pub fn new(
+  _request: Request,
+  _context: AppContext,
+  _services: EmptyServices,
+) -> Response {
   // Make a non-streaming request to httpbin.org
   let req =
     client.new

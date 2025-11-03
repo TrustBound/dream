@@ -1,15 +1,26 @@
-import dream/core/context.{new_context}
-import dream/core/router.{router}
+import dream/core/context.{type AppContext}
+import dream/core/router
 import dream/servers/mist/handler
 
 pub fn create_with_valid_config_returns_handler_function_test() {
   // Arrange
-  let test_router = router
+  let test_router = router.router
   let max_body_size = 1024
-  let create_context_fn = new_context
+  let template_context = context.AppContext(request_id: "")
+  let services_instance = router.EmptyServices
+  let update_context_fn = fn(ctx: AppContext, _request_id: String) -> AppContext {
+    ctx
+  }
   
   // Act
-  let _handler_fn = handler.create(test_router, max_body_size, create_context_fn)
+  let _handler_fn =
+    handler.create(
+      test_router,
+      max_body_size,
+      template_context,
+      services_instance,
+      update_context_fn,
+    )
   
   // Assert
   // Handler function should be callable

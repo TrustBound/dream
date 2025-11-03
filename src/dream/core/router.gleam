@@ -14,28 +14,40 @@ import gleam/option
 import gleam/string
 
 /// Middleware wrapper type
-/// Generic over context type to match Request(context)
-pub type Middleware(context) {
-  Middleware(fn(Request(context), fn(Request(context)) -> Response) -> Response)
+/// Generic over context and services types
+pub type Middleware(context, services) {
+  Middleware(
+    fn(Request, context, services, fn(Request, context, services) -> Response) ->
+      Response,
+  )
 }
 
 /// Route definition with method, path pattern, handler, and middleware
-pub type Route(context) {
+pub type Route(context, services) {
   Route(
     method: Method,
     path: String,
-    handler: fn(Request(context)) -> Response,
-    middleware: List(Middleware(context)),
+    handler: fn(Request, context, services) -> Response,
+    middleware: List(Middleware(context, services)),
   )
 }
 
 /// Router containing a list of routes
-pub type Router(context) {
-  Router(routes: List(Route(context)))
+pub type Router(context, services) {
+  Router(routes: List(Route(context, services)))
+}
+
+/// Empty services type for default router
+pub type EmptyServices {
+  EmptyServices
 }
 
 /// Default 404 handler for AppContext
-fn default_404_handler_app_context(_request: Request(AppContext)) -> Response {
+fn default_404_handler_app_context(
+  _request: Request,
+  _context: AppContext,
+  _services: EmptyServices,
+) -> Response {
   transaction.text_response(
     convert_client_error_to_status(not_found()),
     "Not Found",
@@ -54,57 +66,67 @@ pub const new = Route(
 pub const router = Router(routes: [])
 
 /// Set the HTTP method for the route
-pub fn method(route: Route(context), method_value: Method) -> Route(context) {
+pub fn method(
+  route: Route(context, services),
+  method_value: Method,
+) -> Route(context, services) {
   Route(..route, method: method_value)
 }
 
 /// Set the path for the route
-pub fn path(route: Route(context), path_value: String) -> Route(context) {
+pub fn path(
+  route: Route(context, services),
+  path_value: String,
+) -> Route(context, services) {
   Route(..route, path: path_value)
 }
 
 /// Set the handler function for the route
 pub fn handler(
-  route: Route(context),
-  handler_function: fn(Request(context)) -> Response,
-) -> Route(context) {
+  route: Route(context, services),
+  handler_function: fn(Request, context, services) -> Response,
+) -> Route(context, services) {
   Route(..route, handler: handler_function)
 }
 
 /// Add middleware to the route (accepts a list for convenience)
 pub fn middleware(
-  route: Route(context),
+  route: Route(context, services),
   middleware_list: List(
-    fn(Request(context), fn(Request(context)) -> Response) -> Response,
+    fn(Request, context, services, fn(Request, context, services) -> Response) ->
+      Response,
   ),
-) -> Route(context) {
+) -> Route(context, services) {
   let middleware_wrappers = list.map(middleware_list, wrap_middleware)
   Route(..route, middleware: list.append(middleware_wrappers, route.middleware))
 }
 
 fn wrap_middleware(
-  mw: fn(Request(context), fn(Request(context)) -> Response) -> Response,
-) -> Middleware(context) {
+  mw: fn(Request, context, services, fn(Request, context, services) -> Response) ->
+    Response,
+) -> Middleware(context, services) {
   Middleware(mw)
 }
 
 /// Add a route to the router
 pub fn route(
-  router: Router(context),
+  router: Router(context, services),
   method method_value: Method,
   path path_value: String,
-  handler handler_function: fn(Request(context)) -> Response,
+  handler handler_function: fn(Request, context, services) -> Response,
   middleware middleware_list: List(
-    fn(Request(context), fn(Request(context)) -> Response) -> Response,
+    fn(Request, context, services, fn(Request, context, services) -> Response) ->
+      Response,
   ),
-) -> Router(context) {
+) -> Router(context, services) {
   let middleware_wrappers = list.map(middleware_list, wrap_middleware)
-  let route = Route(
-    method: method_value,
-    path: path_value,
-    handler: handler_function,
-    middleware: middleware_wrappers,
-  )
+  let route =
+    Route(
+      method: method_value,
+      path: path_value,
+      handler: handler_function,
+      middleware: middleware_wrappers,
+    )
   Router(routes: [route, ..router.routes])
 }
 
@@ -181,16 +203,16 @@ fn match_segment(
 
 /// Find matching route and extract params
 pub fn find_route(
-  router: Router(context),
-  request: Request(context),
-) -> option.Option(#(Route(context), List(#(String, String)))) {
+  router: Router(context, services),
+  request: Request,
+) -> option.Option(#(Route(context, services), List(#(String, String)))) {
   find_route_recursive(router.routes, request)
 }
 
 fn find_route_recursive(
-  routes: List(Route(context)),
-  request: Request(context),
-) -> option.Option(#(Route(context), List(#(String, String)))) {
+  routes: List(Route(context, services)),
+  request: Request,
+) -> option.Option(#(Route(context, services), List(#(String, String)))) {
   case routes {
     [] -> option.None
     [route, ..rest] -> {
@@ -203,9 +225,9 @@ fn find_route_recursive(
 }
 
 fn check_route_match(
-  request: Request(context),
-  route: Route(context),
-) -> Result(#(Route(context), List(#(String, String))), Nil) {
+  request: Request,
+  route: Route(context, services),
+) -> Result(#(Route(context, services), List(#(String, String))), Nil) {
   let method_matches = route.method == request.method
 
   case method_matches {
@@ -215,9 +237,9 @@ fn check_route_match(
 }
 
 fn check_path_match(
-  route: Route(context),
+  route: Route(context, services),
   path: String,
-) -> Result(#(Route(context), List(#(String, String))), Nil) {
+) -> Result(#(Route(context, services), List(#(String, String))), Nil) {
   case match_path(route.path, path) {
     option.Some(params) -> Ok(#(route, params))
     option.None -> Error(Nil)
@@ -227,18 +249,18 @@ fn check_path_match(
 /// Build a handler chain from middleware and final handler
 /// Middleware are executed in order: first middleware wraps second, wraps third, etc.
 pub fn build_handler_chain(
-  middleware: List(Middleware(context)),
-  final_handler: fn(Request(context)) -> Response,
-) -> fn(Request(context)) -> Response {
+  middleware: List(Middleware(context, services)),
+  final_handler: fn(Request, context, services) -> Response,
+) -> fn(Request, context, services) -> Response {
   // Reverse middleware list so first added wraps outermost
   let reversed = list.reverse(middleware)
   build_chain_recursive(reversed, final_handler)
 }
 
 fn build_chain_recursive(
-  middleware: List(Middleware(context)),
-  handler: fn(Request(context)) -> Response,
-) -> fn(Request(context)) -> Response {
+  middleware: List(Middleware(context, services)),
+  handler: fn(Request, context, services) -> Response,
+) -> fn(Request, context, services) -> Response {
   case middleware {
     [] -> handler
     [mw, ..rest] -> {
@@ -253,9 +275,16 @@ fn build_chain_recursive(
 }
 
 fn create_wrapped_handler(
-  middleware_fn: fn(Request(context), fn(Request(context)) -> Response) ->
+  middleware_fn: fn(
+    Request,
+    context,
+    services,
+    fn(Request, context, services) -> Response,
+  ) ->
     Response,
-  handler: fn(Request(context)) -> Response,
-) -> fn(Request(context)) -> Response {
-  fn(request) { middleware_fn(request, handler) }
+  handler: fn(Request, context, services) -> Response,
+) -> fn(Request, context, services) -> Response {
+  fn(request, context, services) {
+    middleware_fn(request, context, services, handler)
+  }
 }

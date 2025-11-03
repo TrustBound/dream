@@ -13,6 +13,5 @@ pub type AuthContext {
   AuthContext(request_id: String, user: option.Option(User))
 }
 
-pub fn new_context(request_id: String) -> AuthContext {
-  AuthContext(request_id: request_id, user: option.None)
-}
+pub const context = AuthContext(request_id: "", user: option.None)
+

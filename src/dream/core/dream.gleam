@@ -5,30 +5,38 @@
 
 import dream/core/http/statuses.{convert_client_error_to_status, not_found}
 import dream/core/http/transaction
-import dream/core/router.{type Router, find_route, build_handler_chain}
+import dream/core/router.{type Router, build_handler_chain, find_route}
 import gleam/list
 import gleam/option
 import gleam/string
 
-/// Generic Dream server type parameterized over the server implementation and context
-pub type Dream(server, context) {
-  Dream(server: server, router: Router(context), max_body_size: Int)
+/// Generic Dream server type parameterized over the server implementation, context, and services
+pub type Dream(server, context, services) {
+  Dream(
+    server: server,
+    router: option.Option(Router(context, services)),
+    context: context,
+    services: option.Option(services),
+    max_body_size: Int,
+  )
 }
 
 /// Route a request using the provided router and return a response
 pub fn route_request(
-  router_instance: Router(context),
-  request: transaction.Request(context),
+  router_instance: Router(context, services),
+  request: transaction.Request,
+  context: context,
+  services: services,
 ) -> transaction.Response {
   case find_route(router_instance, request) {
     option.Some(#(route, params)) -> {
       let request_with_params = transaction.set_params(request, params)
-      
+
       // Build the handler chain from middleware + handler
       let handler_chain = build_handler_chain(route.middleware, route.handler)
-      
+
       // Execute the chain (which will run all middleware then the handler)
-      handler_chain(request_with_params)
+      handler_chain(request_with_params, context, services)
     }
     option.None ->
       transaction.text_response(
@@ -42,8 +50,7 @@ pub fn route_request(
 pub fn parse_cookies_from_headers(
   headers: List(transaction.Header),
 ) -> List(transaction.Cookie) {
-  let cookie_header =
-    list.find(headers, is_cookie_header)
+  let cookie_header = list.find(headers, is_cookie_header)
 
   case cookie_header {
     Ok(header) -> {

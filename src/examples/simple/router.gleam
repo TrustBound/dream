@@ -1,9 +1,9 @@
 import dream/core/context.{type AppContext}
 import dream/core/http/transaction.{Get}
-import dream/core/router.{type Router, route, router}
+import dream/core/router.{type EmptyServices, type Router, route, router}
 import examples/simple/controllers/posts_controller
 
-pub fn create_router() -> Router(AppContext) {
+pub fn create_router() -> Router(AppContext, EmptyServices) {
   router
   |> route(
     method: Get,

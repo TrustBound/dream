@@ -4,8 +4,9 @@ import examples/custom_context/context.{type AuthContext}
 import examples/custom_context/controllers/posts_controller
 import examples/custom_context/middleware/admin_middleware.{admin_middleware}
 import examples/custom_context/middleware/auth_middleware.{auth_middleware}
+import examples/custom_context/services.{type Services}
 
-pub fn create_router() -> Router(AuthContext) {
+pub fn create_router() -> Router(AuthContext, Services) {
   router
   |> route(
     method: Get,

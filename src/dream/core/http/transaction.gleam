@@ -63,8 +63,7 @@ pub type Version {
 }
 
 /// HTTP request type
-/// Generic over context type for type-safe request context
-pub type Request(context) {
+pub type Request {
   Request(
     method: Method,
     protocol: Protocol,
@@ -82,7 +81,6 @@ pub type Request(context) {
     cookies: List(Cookie),
     content_type: option.Option(String),
     content_length: option.Option(Int),
-    context: context,
   )
 }
 
@@ -366,7 +364,7 @@ fn get_query_param_recursive(
 }
 
 /// Check if request has a specific content type
-pub fn has_content_type(request: Request(context), content_type: String) -> Bool {
+pub fn has_content_type(request: Request, content_type: String) -> Bool {
   case request.content_type {
     option.Some(actual_content_type) ->
       string.contains(actual_content_type, content_type)
@@ -375,13 +373,13 @@ pub fn has_content_type(request: Request(context), content_type: String) -> Bool
 }
 
 /// Check if request method matches
-pub fn is_method(request: Request(context), method: Method) -> Bool {
+pub fn is_method(request: Request, method: Method) -> Bool {
   request.method == method
 }
 
 /// Get a path parameter value by name
 pub fn get_param(
-  request: Request(context),
+  request: Request,
   name: String,
 ) -> Result(String, String) {
   case list.key_find(request.params, name) {
@@ -390,25 +388,10 @@ pub fn get_param(
   }
 }
 
-// Context utilities
-
-/// Get the context from a request
-pub fn get_context(request: Request(context)) -> context {
-  request.context
-}
-
-/// Create a new request with updated context
-pub fn set_context(
-  request: Request(context),
-  new_context: context,
-) -> Request(context) {
-  Request(..request, context: new_context)
-}
-
 /// Create a new request with updated params
 pub fn set_params(
-  request: Request(context),
+  request: Request,
   new_params: List(#(String, String)),
-) -> Request(context) {
+) -> Request {
   Request(..request, params: new_params)
 }

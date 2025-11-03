@@ -18,30 +18,28 @@ Dream is not an opinionated framework. It's a collection of clean interfaces, bu
 ## Quick Example
 
 ```gleam
-import dream/core/context.{new_context}
-import dream/servers/mist/server.{bind, listen, router} as dream
+import dream/core/context.{AppContext}
+import dream/servers/mist/server as dream
 import examples/simple/router.{create_router}
-import gleam/erlang/process
+import examples/simple/services.{initialize_services}
 
 pub fn main() {
-  case
-    dream.new()
-    |> router(create_router(), new_context)
-    |> bind("localhost")
-    |> listen(3000)
-  {
-    Ok(_) -> process.sleep_forever()
-    Error(_) -> Nil
-  }
+  dream.new()
+  |> dream.context(AppContext(request_id: ""))
+  |> dream.services(initialize_services())
+  |> dream.router(create_router())
+  |> dream.bind("localhost")
+  |> dream.listen(3000)
 }
 ```
 
 **Router Configuration**:
 ```gleam
-import dream/core/router.{type Router, route, router}
+import dream/core/router.{EmptyServices, Router, route, router}
 import dream/core/http/transaction.Get
+import dream/core/context.{AppContext}
 
-pub fn create_router() -> Router(AppContext) {
+pub fn create_router() -> Router(AppContext, EmptyServices) {
   router
   |> route(
     method: Get,
@@ -49,6 +47,20 @@ pub fn create_router() -> Router(AppContext) {
     handler: home_controller.index,
     middleware: [],
   )
+}
+```
+
+**Handler Signature**:
+```gleam
+import dream/core/http/transaction.{Request, Response}
+import dream/core/context.{AppContext}
+
+pub fn index(
+  request: Request,
+  context: AppContext,
+  services: Services,
+) -> Response {
+  // Handler logic here
 }
 ```
 
@@ -74,14 +86,18 @@ Framework.start()
 
 ### Dream (Composable Library)
 ```gleam
-import dream/core/context.{new_context}
-import dream/servers/mist/server.{bind, listen, router} as dream
+import dream/core/context.{AppContext}
+import dream/servers/mist/server as dream
+import examples/simple/router.{create_router}
+import examples/simple/services.{initialize_services}
 
 // Everything explicit - builder pattern shows exactly what's configured
 dream.new()
-  |> router(create_router(), new_context)
-  |> bind("localhost")
-  |> listen(3000)
+  |> dream.context(AppContext(request_id: ""))
+  |> dream.services(initialize_services())
+  |> dream.router(create_router())
+  |> dream.bind("localhost")
+  |> dream.listen(3000)
 ```
 
 ## Core Principles
@@ -101,6 +117,50 @@ dream.new()
    - `examples/simple/` - Basic routing and HTTP client usage with default AppContext
    - `examples/streaming/` - Streaming HTTP requests
    - `examples/custom_context/` - Custom context types with authentication middleware
+   - `examples/database/` - Database integration with PostgreSQL service pattern
+
+## Database Setup
+
+Dream includes PostgreSQL support via the `pog` library and uses `cigogne` for database migrations. To run a local PostgreSQL database for development:
+
+```bash
+# Start PostgreSQL container
+make db-up
+
+# Stop PostgreSQL container
+make db-down
+
+# View database logs
+make db-logs
+
+# Access PostgreSQL shell
+make db-shell
+
+# Reset database (removes all data)
+make db-reset
+
+# Run migrations (applies all pending migrations)
+make migrate
+
+# Apply next migration
+make migrate-up
+
+# Rollback last migration
+make migrate-down
+
+# Create a new migration
+make migrate-new name=my_migration_name
+```
+
+The database will be available at:
+- **Host**: `localhost`
+- **Port**: `5434`
+- **Database**: `dream_db`
+- **User**: `postgres`
+- **Password**: `postgres`
+- **Connection URL**: `postgres://postgres:postgres@localhost:5434/dream_db`
+
+Migrations are stored in `priv/migrations/` and are automatically applied when the example app starts. See `src/dream/services/postgres.gleam` for the PostgreSQL service implementation using the singleton pattern, and `src/examples/database/database.gleam` for migration integration.
 
 ## Key Features
 

@@ -13,7 +13,7 @@
 - ✅ Middleware chaining with full execution support
 - ✅ Generic context system for type-safe request context
 - ✅ Default AppContext with request_id
-- ⏳ Services pattern (planned)
+- ✅ Services pattern (implemented)
 - ⏳ Protocol-based component swapping (planned)
 - ⏳ Config loading from environment (planned)
 
@@ -38,8 +38,11 @@ This document serves as the architectural north star for all design decisions in
 
 **Principle**: Dependencies are injected explicitly, with pragmatic tradeoffs for developer velocity.
 
-- **Services Parameter Pattern**: Controllers and middleware receive a `Services` record containing common infrastructure dependencies
-  - This is a "god object" pattern - an intentional, documented tradeoff
+- **Services Parameter Pattern**: Controllers and middleware receive `Request`, `Context`, and `Services` as separate parameters
+  - `Request` is immutable and contains only HTTP data (headers, body, method, etc.)
+  - `Context` is mutable by middleware and represents per-request state
+  - `Services` is immutable and contains shared application state (database, logging, etc.)
+  - This separation makes dependencies explicit and enables type-safe middleware
   - Enables rapid iteration and easy addition of cross-cutting concerns
   - Prevents massive refactors when service requirements evolve
 - **Services Contains Common Dependencies**: Database, logging, auth, cache, configuration
@@ -127,18 +130,29 @@ Services are initialized once at application startup and injected into the reque
 // Common services in Services record
 pub type Services {
   Services(
-    config: Config,
     database: DatabaseService,
     logging: LoggingService,
     auth: AuthService,
   )
 }
 
+// Handler signature: Request, Context, Services
+pub fn process_payment(
+  request: Request,
+  context: AppContext,
+  services: Services,
+) -> Response {
+  // Access database via services.database
+  // Access request data via request.body, request.headers, etc.
+  // Access per-request state via context
+}
+
 // Specialized services as explicit parameters
 pub fn process_payment(
-  services: Services,           // Common infrastructure
-  payment_gateway: PaymentGateway,  // Specialized - explicit
   request: Request,
+  context: AppContext,
+  services: Services,
+  payment_gateway: PaymentGateway,  // Specialized - explicit
 ) -> Response
 ```
 
@@ -328,28 +342,32 @@ pub fn configure_routes(router: Router, services: Services) {
 
 **Middleware Signature**:
 ```gleam
-fn(Services, Request, Next) -> Response
+fn(Request, Context, Services, fn(Request, Context, Services) -> Response) -> Response
 ```
-- Receives services, current request, and next handler
-- Can transform request before passing to next
+- Receives request, context, services, and next handler
+- Can modify context before passing to next
 - Can transform response after next returns
 - Can short-circuit pipeline (auth, rate limiting)
 
 **Controller Signature**:
 ```gleam
-fn(Services, Request) -> Response
+fn(Request, Context, Services) -> Response
 
 // Or with specialized dependencies:
-fn(Services, SpecializedService, Request) -> Response
+fn(Request, Context, Services, SpecializedService) -> Response
 ```
-- Receives services (common deps) and request
+- Receives request (immutable HTTP data), context (mutable per-request state), and services (immutable shared state)
 - Specialized services can be added as explicit parameters
 - Returns response
 - Contains business logic
 
 **Convention - Extract Dependencies First**:
 ```gleam
-pub fn create_post(services: Services, request: Request) -> Response {
+pub fn create_post(
+  request: Request,
+  context: AppContext,
+  services: Services,
+) -> Response {
   // Extract what you need at the top - makes dependencies visible
   let db = services.database
   let auth = services.auth
@@ -383,67 +401,45 @@ pub fn create_post(services: Services, request: Request) -> Response {
    }
    ```
 
-2. **Component Selection** (`main.gleam`)
+2. **Services Assembly** (`services.gleam`)
    ```gleam
-   // Choose which implementations to use
-   let router = tree_router.new()           // or regex_router, custom_router
-   let server = mist_adapter.new()          // or plug_adapter, custom_adapter  
-   let database = postgres_service.new()    // or sqlite, mysql, mock
-   let auth = jwt_auth_service.new()        // or session_auth, oauth_auth
+   pub fn initialize_services() -> Services {
+     case init_database() {
+       Ok(database_service) ->
+         Services(database: database_service)
+       Error(error) ->
+         panic as "Failed to initialize services"
+     }
+   }
    ```
 
-3. **Services Assembly** (`main.gleam`)
+3. **Route Configuration** (`router.gleam`)
    ```gleam
-   pub fn initialize_services(
-     config: Config,
-     database: DatabaseService,
-     auth: AuthService,
-     logging: LoggingService,
-   ) -> Services {
-     Services(
-       config: config,
-       database: database,
-       auth: auth,
-       logging: logging,
+   pub fn create_router() -> Router(AppContext, Services) {
+     router
+     |> route(
+       method: Get,
+       path: "/",
+       handler: home_controller.index,
+       middleware: [],
      )
    }
    ```
 
-4. **Route Configuration** (`routes.gleam`)
+4. **Server Startup** (`main.gleam`)
    ```gleam
-   pub fn configure_routes(router: Router, services: Services) {
-     // Add routes to your chosen router implementation
-     router.route(Get, "/", home_controller)
-     router.route(Get, "/users/:id", get_user_controller)
-     
-     // Add middleware to specific path patterns
-     router.add_middleware("/admin/*", authentication_middleware)
-     router.add_middleware("/admin/*", authorization_middleware)
-   }
-   ```
-
-5. **Server Start** (`main.gleam`)
-   ```gleam
+   import dream/core/context
+   import dream/servers/mist/server.{bind, context, listen, router, services} as dream
+   import examples/database/router.{create_router}
+   import examples/database/services.{initialize_services}
+   
    pub fn main() {
-     // 1. Load config (only place that touches env vars)
-     let assert Ok(config) = config.load_from_env()
-     
-     // 2. Choose implementations (protocol-based)
-     let router = tree_router.new()
-     let server = mist_adapter.new()
-     let database = postgres_service.new(config.database_url)
-     let auth = jwt_auth_service.new(config.jwt_secret)
-     let logging = console_logging.new()
-     
-     // 3. Assemble services
-     let services = initialize_services(config, database, auth, logging)
-     
-     // 4. Configure routes
-     configure_routes(router, services)
-     
-     // 5. Start server with your chosen components
-     let assert Ok(_) = server.start(config, router, services)
-     process.sleep_forever()
+     dream.new()
+     |> context(context.AppContext(request_id: ""))
+     |> services(initialize_services())
+     |> router(create_router())
+     |> bind("localhost")
+     |> listen(3000)
    }
    ```
 
