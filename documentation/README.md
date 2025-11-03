@@ -47,23 +47,23 @@ pub fn main() {
 
 **Router Configuration**:
 ```gleam
-import dream/core/router.{type Router, add_route, handler, method, new as route, path, router}
+import dream/core/router.{type Router, route, router}
 import dream/core/http/transaction.{Get}
 import examples/simple/controllers/simple_controller
 
 pub fn create_router() -> Router {
   router
-  |> add_route(
-    route
-    |> method(Get)
-    |> path("/")
-    |> handler(simple_controller.index),
+  |> route(
+    method: Get,
+    path: "/",
+    handler: simple_controller.index,
+    middleware: [],
   )
-  |> add_route(
-    route
-    |> method(Get)
-    |> path("/users/:id/posts/:post_id")
-    |> handler(simple_controller.show),
+  |> route(
+    method: Get,
+    path: "/users/:id/posts/:post_id",
+    handler: simple_controller.show,
+    middleware: [],
   )
 }
 ```

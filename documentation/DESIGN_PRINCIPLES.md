@@ -85,7 +85,7 @@ This document serves as the architectural north star for all design decisions in
 
 - **Single Responsibility**: Each function, module, and service has one clear purpose
 - **Records of Functions**: Define record types with function fields, not concrete implementations
-  - Router: any record with `add_route`, `match`, `handle` functions works
+  - Router: any record with `route`, `match`, `handle` functions works
   - Server: any record with `start`, `stop` functions works  
   - Database: any record with `query`, `execute`, `transaction` functions works
   - This is the **Strategy Pattern** - swappable behavior via function fields
@@ -157,7 +157,7 @@ pub fn process_payment(
 // A record type that holds functions
 pub type Router {
   Router(
-    add_route: fn(Method, String, Handler) -> Nil,
+    route: fn(Method, String, Handler) -> Nil,
     add_middleware: fn(String, Middleware) -> Nil,
     match: fn(Request) -> Result(Handler, RouteNotFound),
     handle: fn(Services, Request) -> Response,
@@ -167,7 +167,7 @@ pub type Router {
 // Different implementations return different Router records
 pub fn tree_router() -> Router {
   Router(
-    add_route: tree_add_route,
+    route: tree_route,
     add_middleware: tree_add_middleware,
     match: tree_match,
     handle: tree_handle,
@@ -176,7 +176,7 @@ pub fn tree_router() -> Router {
 
 pub fn regex_router() -> Router {
   Router(
-    add_route: regex_add_route,
+    route: regex_route,
     add_middleware: regex_add_middleware,
     match: regex_match,
     handle: regex_handle,
@@ -293,8 +293,8 @@ pub fn main() {
 }
 
 pub fn configure_routes(router: Router, services: Services) {
-  router.add_route(Get, "/", home_controller)
-  router.add_route(Get, "/users/:id", get_user_controller)
+  router.route(Get, "/", home_controller)
+  router.route(Get, "/users/:id", get_user_controller)
   router.add_middleware("/admin/*", authentication_middleware)
 }
 ```
@@ -413,8 +413,8 @@ pub fn create_post(services: Services, request: Request) -> Response {
    ```gleam
    pub fn configure_routes(router: Router, services: Services) {
      // Add routes to your chosen router implementation
-     router.add_route(Get, "/", home_controller)
-     router.add_route(Get, "/users/:id", get_user_controller)
+     router.route(Get, "/", home_controller)
+     router.route(Get, "/users/:id", get_user_controller)
      
      // Add middleware to specific path patterns
      router.add_middleware("/admin/*", authentication_middleware)
