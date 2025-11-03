@@ -9,9 +9,8 @@ import dream/core/dream
 import dream/core/router.{type Router, router as default_router}
 import dream/servers/mist/handler
 import gleam/bytes_tree
+import gleam/erlang/process
 import gleam/http/response as http_response
-import gleam/otp/actor
-import gleam/otp/static_supervisor.{type Supervisor}
 import mist.{type Connection, type ResponseData, Bytes, start}
 
 /// Create a new Dream server with defaults using AppContext
@@ -69,10 +68,38 @@ pub fn max_body_size(
 }
 
 /// Start the server on the specified port
+/// Blocks forever on success, or returns Nil on error
 pub fn listen(
   dream_instance: dream.Dream(mist.Builder(Connection, ResponseData), context),
   port: Int,
-) -> Result(actor.Started(Supervisor), actor.StartError) {
+) -> Nil {
+  listen_internal(dream_instance, port, True)
+}
+
+/// Internal function to start the server with configurable blocking behavior
+/// Used by listen (blocks forever) and listen_without_blocking (for testing)
+fn listen_internal(
+  dream_instance: dream.Dream(mist.Builder(Connection, ResponseData), context),
+  port: Int,
+  block_forever: Bool,
+) -> Nil {
   let server_with_port = mist.port(dream_instance.server, port)
-  start(server_with_port)
+  case start(server_with_port) {
+    Ok(_) -> {
+      case block_forever {
+        True -> process.sleep_forever()
+        False -> Nil
+      }
+    }
+    Error(_) -> Nil
+  }
+}
+
+/// Start the server without blocking (useful for testing)
+/// Returns Nil immediately after starting, even on success
+pub fn listen_without_blocking(
+  dream_instance: dream.Dream(mist.Builder(Connection, ResponseData), context),
+  port: Int,
+) -> Nil {
+  listen_internal(dream_instance, port, False)
 }
