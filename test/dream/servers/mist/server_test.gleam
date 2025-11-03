@@ -70,7 +70,7 @@ pub fn max_body_size_sets_max_body_size_test() {
   }
 }
 
-pub fn listen_with_valid_port_returns_result_test() {
+pub fn listen_without_blocking_returns_on_success_test() {
   // Arrange
   let dream_instance = server.new()
   let test_router = router
@@ -79,14 +79,14 @@ pub fn listen_with_valid_port_returns_result_test() {
   let bound_dream = server.bind(dream_with_router, "127.0.0.1")
   
   // Act
-  let result = server.listen(bound_dream, 8080)
+  // listen_without_blocking returns immediately even on success
+  // This allows us to test the function without hanging
+  let result = server.listen_without_blocking(bound_dream, 8080)
   
   // Assert
-  // listen returns Result - we can't easily test successful start without
-  // actually starting a server, but we can verify the function returns Result
-  case result {
-    Ok(_) -> Nil
-    Error(_) -> Nil
-  }
+  // listen_without_blocking returns Nil (either on success without blocking, or on error)
+  // We can't easily verify success without actually starting a server,
+  // but we can verify the function doesn't hang
+  result |> should.equal(Nil)
 }
 
