@@ -8,16 +8,78 @@ import dream/core/http/statuses.{
 import dream/core/http/transaction.{
   type Request, type Response, get_param, json_response, text_response,
 }
+import dream/validators/json_validator.{error_response, validate}
 import examples/database/context.{type DatabaseContext}
 import examples/database/services.{type Services}
 import examples/database/sql
 import gleam/dynamic/decode
 import gleam/int
-import gleam/json
 import gleam/list
 import gleam/option
 import gleam/result
 import gleam/string
+import pog
+
+fn map_database_error(_error: pog.QueryError) -> String {
+  "Database error"
+}
+
+fn map_no_rows_error(_error: String) -> String {
+  "No rows returned"
+}
+
+fn map_post_not_found_error(_error: String) -> String {
+  "Post not found"
+}
+
+fn convert_nil_to_string(_error: Nil) -> String {
+  ""
+}
+
+fn get_first_post_row(
+  db_result: pog.Returned(sql.GetPostRow),
+) -> Result(sql.GetPostRow, String) {
+  list.first(db_result.rows)
+  |> result.map_error(convert_nil_to_string)
+}
+
+fn get_first_post_row_from_create(
+  db_result: pog.Returned(sql.CreatePostRow),
+) -> Result(sql.CreatePostRow, String) {
+  list.first(db_result.rows)
+  |> result.map_error(convert_nil_to_string)
+}
+
+fn create_post_response(post_row: sql.CreatePostRow) -> Response {
+  let post_json = format_post_as_json_from_create(post_row)
+  json_response(created_status(), post_json)
+}
+
+fn create_post_failure_response(_error: String) -> Response {
+  text_response(internal_server_error_status(), "Failed to create post")
+}
+
+fn create_post_from_validated_data(
+  data: #(String, String),
+  user_id: Int,
+  services: Services,
+) -> Result(Response, Response) {
+  let #(title, content) = data
+  sql.create_post(services.database.connection, user_id, title, content)
+  |> result.map_error(map_database_error)
+  |> result.try(get_first_post_row_from_create)
+  |> result.map_error(map_no_rows_error)
+  |> result.map(create_post_response)
+  |> result.map_error(create_post_failure_response)
+}
+
+fn process_create_post_request(
+  data: #(String, String),
+  user_id: Int,
+  services: Services,
+) -> Result(Response, Response) {
+  create_post_from_validated_data(data, user_id, services)
+}
 
 /// List all posts for a user
 pub fn index(
@@ -56,11 +118,9 @@ pub fn show(
       services.database.connection,
       int.parse(id) |> result.unwrap(0),
     )
-    |> result.map_error(fn(_) { "Database error" })
-    |> result.try(fn(db_result) {
-      list.first(db_result.rows)
-      |> result.map_error(fn(_) { "Post not found" })
-    })
+    |> result.map_error(map_database_error)
+    |> result.try(get_first_post_row)
+    |> result.map_error(map_post_not_found_error)
   {
     Ok(post_row) -> {
       let post_json = format_post_as_json(post_row)
@@ -80,70 +140,23 @@ pub fn create(
 ) -> Response {
   let assert Ok(user_id) = get_param(request, "user_id")
 
-  case
-    parse_create_post_body(request.body)
-    |> result.try(fn(data) {
-      let #(title, content) = data
-      sql.create_post(
-        services.database.connection,
-        int.parse(user_id) |> result.unwrap(0),
-        title,
-        content,
-      )
-      |> result.map_error(fn(_) { "Database error" })
-    })
-    |> result.try(fn(db_result) {
-      list.first(db_result.rows)
-      |> result.map_error(fn(_) { "No rows returned" })
-    })
-  {
-    Ok(post_row) -> {
-      let post_json = format_post_as_json_from_create(post_row)
-      json_response(created_status(), post_json)
-    }
-    Error(error) -> {
-      text_response(
-        internal_server_error_status(),
-        "Failed to create post: " <> error,
-      )
-    }
-  }
-}
-
-fn parse_create_post_body(body: String) -> Result(#(String, String), String) {
   let decoder = {
     use title <- decode.field("title", decode.string)
     use content <- decode.field("content", decode.string)
     decode.success(#(title, content))
   }
 
-  json.parse(body, decode.dynamic)
-  |> result.map_error(format_json_error)
-  |> result.try(fn(json_obj) {
-    decode.run(json_obj, decoder)
-    |> result.map_error(fn(errors) {
-      case list.first(errors) {
-        Ok(decode.DecodeError(expected, found, path)) -> {
-          "Expected "
-          <> expected
-          <> " but found "
-          <> found
-          <> " at "
-          <> string.join(path, ".")
-        }
-        Error(_) -> "Decode error"
-      }
-    })
-  })
-}
+  let validation_result = validate(request.body, decoder)
 
-fn format_json_error(error: json.DecodeError) -> String {
-  case error {
-    json.UnexpectedEndOfInput -> "Unexpected end of JSON input"
-    json.UnexpectedByte(msg) -> "Unexpected byte: " <> msg
-    json.UnexpectedSequence(msg) -> "Unexpected sequence: " <> msg
-    json.UnableToDecode(errors) ->
-      "Unable to decode: " <> string.inspect(errors)
+  case validation_result {
+    Error(error) -> error_response(error)
+    Ok(data) ->
+      process_create_post_request(
+        data,
+        int.parse(user_id) |> result.unwrap(0),
+        services,
+      )
+      |> result.unwrap(text_response(internal_server_error_status(), ""))
   }
 }
 

@@ -8,16 +8,120 @@ import dream/core/http/statuses.{
 import dream/core/http/transaction.{
   type Request, type Response, get_param, json_response, text_response,
 }
+import dream/validators/json_validator.{type ValidationError, error_response, validate}
 import examples/database/context.{type DatabaseContext}
 import examples/database/services.{type Services}
 import examples/database/sql
 import gleam/dynamic/decode
 import gleam/int
-import gleam/json
 import gleam/list
 import gleam/option
 import gleam/result
 import gleam/string
+import pog
+
+fn convert_validation_error(error: ValidationError) -> Response {
+  error_response(error)
+}
+
+fn map_database_error(_error: pog.QueryError) -> String {
+  "Database error"
+}
+
+fn map_no_rows_error(_error: String) -> String {
+  "No rows returned"
+}
+
+fn map_user_not_found_error(_error: String) -> String {
+  "User not found"
+}
+
+fn convert_nil_to_string(_error: Nil) -> String {
+  ""
+}
+
+fn get_first_user_row(db_result: pog.Returned(sql.GetUserRow)) -> Result(sql.GetUserRow, String) {
+  list.first(db_result.rows)
+  |> result.map_error(convert_nil_to_string)
+}
+
+fn get_first_user_row_from_create(db_result: pog.Returned(sql.CreateUserRow)) -> Result(sql.CreateUserRow, String) {
+  list.first(db_result.rows)
+  |> result.map_error(convert_nil_to_string)
+}
+
+fn get_first_user_row_from_update(db_result: pog.Returned(sql.UpdateUserRow)) -> Result(sql.UpdateUserRow, String) {
+  list.first(db_result.rows)
+  |> result.map_error(convert_nil_to_string)
+}
+
+fn create_user_response(user_row: sql.CreateUserRow) -> Response {
+  let user_json = format_user_as_json_from_create(user_row)
+  json_response(created_status(), user_json)
+}
+
+fn create_user_failure_response(_error: String) -> Response {
+  text_response(
+    internal_server_error_status(),
+    "Failed to create user",
+  )
+}
+
+fn update_user_response(user_row: sql.UpdateUserRow) -> Response {
+  let user_json = format_user_as_json_from_update(user_row)
+  json_response(ok_status(), user_json)
+}
+
+fn update_user_failure_response(_error: String) -> Response {
+  text_response(internal_server_error_status(), "Failed to update user")
+}
+
+fn create_user_from_validated_data(
+  data: #(String, String),
+  services: Services,
+) -> Result(Response, Response) {
+  let #(name, email) = data
+  sql.create_user(services.database.connection, name, email)
+  |> result.map_error(map_database_error)
+  |> result.try(get_first_user_row_from_create)
+  |> result.map_error(map_no_rows_error)
+  |> result.map(create_user_response)
+  |> result.map_error(create_user_failure_response)
+}
+
+fn update_user_from_validated_data(
+  data: #(String, String),
+  id: Int,
+  services: Services,
+) -> Result(Response, Response) {
+  let #(name, email) = data
+  sql.update_user(
+    services.database.connection,
+    name,
+    email,
+    id,
+  )
+  |> result.map_error(map_database_error)
+  |> result.try(get_first_user_row_from_update)
+  |> result.map_error(map_user_not_found_error)
+  |> result.map(update_user_response)
+  |> result.map_error(update_user_failure_response)
+}
+
+fn process_create_user_request(
+  data: #(String, String),
+  services: Services,
+) -> Result(Response, Response) {
+  create_user_from_validated_data(data, services)
+}
+
+fn process_update_user_request(
+  data: #(String, String),
+  id: Int,
+  services: Services,
+) -> Result(Response, Response) {
+  update_user_from_validated_data(data, id, services)
+}
 
 /// List all users
 pub fn index(
@@ -49,11 +153,9 @@ pub fn show(
       services.database.connection,
       int.parse(id) |> result.unwrap(0),
     )
-    |> result.map_error(fn(_) { "Database error" })
-    |> result.try(fn(db_result) {
-      list.first(db_result.rows)
-      |> result.map_error(fn(_) { "User not found" })
-    })
+    |> result.map_error(map_database_error)
+    |> result.try(get_first_user_row)
+    |> result.map_error(map_user_not_found_error)
   {
     Ok(user_row) -> {
       let user_json = format_user_as_json(user_row)
@@ -71,65 +173,19 @@ pub fn create(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  case
-    parse_create_user_body(request.body)
-    |> result.try(fn(data) {
-      let #(name, email) = data
-      sql.create_user(services.database.connection, name, email)
-      |> result.map_error(fn(_) { "Database error" })
-    })
-    |> result.try(fn(db_result) {
-      list.first(db_result.rows)
-      |> result.map_error(fn(_) { "No rows returned" })
-    })
-  {
-    Ok(user_row) -> {
-      let user_json = format_user_as_json_from_create(user_row)
-      json_response(created_status(), user_json)
-    }
-    Error(error) -> {
-      text_response(
-        internal_server_error_status(),
-        "Invalid request body: " <> error,
-      )
-    }
-  }
-}
-
-fn parse_create_user_body(body: String) -> Result(#(String, String), String) {
   let decoder = {
     use name <- decode.field("name", decode.string)
     use email <- decode.field("email", decode.string)
     decode.success(#(name, email))
   }
 
-  json.parse(body, decode.dynamic)
-  |> result.map_error(format_json_error)
-  |> result.try(fn(json_obj) {
-    decode.run(json_obj, decoder)
-    |> result.map_error(fn(errors) {
-      case list.first(errors) {
-        Ok(decode.DecodeError(expected, found, path)) -> {
-          "Expected "
-          <> expected
-          <> " but found "
-          <> found
-          <> " at "
-          <> string.join(path, ".")
-        }
-        Error(_) -> "Decode error"
-      }
-    })
-  })
-}
+  let validation_result = validate(request.body, decoder)
 
-fn format_json_error(error: json.DecodeError) -> String {
-  case error {
-    json.UnexpectedEndOfInput -> "Unexpected end of JSON input"
-    json.UnexpectedByte(msg) -> "Unexpected byte: " <> msg
-    json.UnexpectedSequence(msg) -> "Unexpected sequence: " <> msg
-    json.UnableToDecode(errors) ->
-      "Unable to decode: " <> string.inspect(errors)
+  case validation_result {
+    Error(error) -> error_response(error)
+    Ok(data) ->
+      process_create_user_request(data, services)
+      |> result.unwrap(text_response(internal_server_error_status(), ""))
   }
 }
 
@@ -141,58 +197,24 @@ pub fn update(
 ) -> Response {
   let assert Ok(id) = get_param(request, "id")
 
-  case
-    parse_update_user_body(request.body)
-    |> result.try(fn(data) {
-      let #(name, email) = data
-      sql.update_user(
-        services.database.connection,
-        name,
-        email,
-        int.parse(id) |> result.unwrap(0),
-      )
-      |> result.map_error(fn(_) { "Database error" })
-    })
-    |> result.try(fn(db_result) {
-      list.first(db_result.rows)
-      |> result.map_error(fn(_) { "User not found" })
-    })
-  {
-    Ok(user_row) -> {
-      let user_json = format_user_as_json_from_update(user_row)
-      json_response(ok_status(), user_json)
-    }
-    Error(_) -> {
-      text_response(internal_server_error_status(), "Failed to update user")
-    }
-  }
-}
-
-fn parse_update_user_body(body: String) -> Result(#(String, String), String) {
   let decoder = {
     use name <- decode.field("name", decode.string)
     use email <- decode.field("email", decode.string)
     decode.success(#(name, email))
   }
 
-  json.parse(body, decode.dynamic)
-  |> result.map_error(format_json_error)
-  |> result.try(fn(json_obj) {
-    decode.run(json_obj, decoder)
-    |> result.map_error(fn(errors) {
-      case list.first(errors) {
-        Ok(decode.DecodeError(expected, found, path)) -> {
-          "Expected "
-          <> expected
-          <> " but found "
-          <> found
-          <> " at "
-          <> string.join(path, ".")
-        }
-        Error(_) -> "Decode error"
-      }
-    })
-  })
+  let validation_result = validate(request.body, decoder)
+
+  case validation_result {
+    Error(error) -> error_response(error)
+    Ok(data) ->
+      process_update_user_request(
+        data,
+        int.parse(id) |> result.unwrap(0),
+        services,
+      )
+      |> result.unwrap(text_response(internal_server_error_status(), ""))
+  }
 }
 
 /// Delete a user
