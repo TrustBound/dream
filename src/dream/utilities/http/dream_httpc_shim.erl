@@ -49,7 +49,7 @@ fetch_next(OwnerPid) ->
     end.
 
 %% Stream owner process: starts httpc in continuous mode and services fetch_next requests
-stream_owner_loop(Method, Req, Url) ->
+stream_owner_loop(Method, Req, _Url) ->
     HttpOpts = [{timeout, 600000}, {connect_timeout, 15000}, {autoredirect, true}],
     Opts = [{stream, self}, {sync, false}],
     case httpc:request(Method, Req, HttpOpts, Opts) of
