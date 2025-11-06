@@ -205,6 +205,7 @@ See `src/examples/database/` for complete CRUD examples.
 - `src/examples/simple/` - Basic routing
 - `src/examples/database/` - Full CRUD with PostgreSQL
 - `src/examples/custom_context/` - Authentication with custom context
+- `src/examples/singleton/` - Rate limiting with global state using the singleton pattern
 - `src/examples/streaming/` - HTTP client streaming
 
 ## Philosophy

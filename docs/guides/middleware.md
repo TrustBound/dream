@@ -177,22 +177,53 @@ pub fn cors_middleware(request, context, services, next) {
 
 ### Rate Limiting Middleware
 
+For a complete working implementation, see the [Singleton Rate Limiter Example](../examples.md#singleton-rate-limiter-example).
+
+Rate limiting typically requires global state to track requests across all concurrent requests. The singleton pattern provides this:
+
 ```gleam
-import dream/core/http/statuses.{too_many_requests_status}
+import dream/core/http/statuses.{convert_client_error_to_status, too_many_requests}
+import dream/core/http/transaction.{Response, add_header}
 
 pub fn rate_limit_middleware(request, context, services, next) {
   let ip = get_client_ip(request)
-  let count = get_request_count(services.cache, ip)
   
-  case count > 100 {
-    True -> text_response(too_many_requests_status(), "Rate limit exceeded")
-    False -> {
-      increment_request_count(services.cache, ip)
-      next(request, context, services)
+  // Check rate limit via singleton service
+  case rate_limiter_service.check_and_increment(services.rate_limiter_name, ip) {
+    Ok(RateLimitStatus(allowed: True, remaining, limit)) -> {
+      // Under limit - proceed and add headers
+      let response = next(request, context, services)
+      let updated_headers =
+        response.headers
+        |> add_header("X-RateLimit-Limit", int.to_string(limit))
+        |> add_header("X-RateLimit-Remaining", int.to_string(remaining))
+      Response(..response, headers: updated_headers)
     }
+    Ok(RateLimitStatus(allowed: False, remaining: 0, limit)) -> {
+      // Rate limit exceeded
+      let response = text_response(
+        convert_client_error_to_status(too_many_requests()),
+        "Rate limit exceeded"
+      )
+      let updated_headers =
+        response.headers
+        |> add_header("X-RateLimit-Limit", int.to_string(limit))
+        |> add_header("X-RateLimit-Remaining", "0")
+        |> add_header("Retry-After", "60")
+      Response(..response, headers: updated_headers)
+    }
+    Error(_) -> 
+      // Service error - fail open (or closed in production)
+      next(request, context, services)
   }
 }
 ```
+
+The complete example at `src/examples/singleton/` shows:
+- Singleton service implementation with fixed window algorithm
+- Proper process Name storage in Services
+- Middleware integration
+- Error handling strategies
 
 ### Request ID Middleware
 

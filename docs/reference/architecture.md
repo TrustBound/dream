@@ -155,6 +155,43 @@ dream.new()
 |> listen(3000)
 ```
 
+#### Singleton Services
+
+Services that maintain global state across requests should use the singleton pattern. Common use cases:
+- Rate limiters
+- In-memory caches
+- Connection pools
+- Global counters/metrics
+
+**Pattern:**
+
+```gleam
+import dream/core/singleton
+
+pub type Services {
+  Services(
+    rate_limiter_name: process.Name(
+      singleton.SingletonMessage(RateLimiterMessage, RateLimiterReply)
+    ),
+  )
+}
+
+pub fn initialize_services() -> Services {
+  // Create Name once
+  let name = process.new_name("rate_limiter_service")
+  
+  // Start singleton
+  case rate_limiter_service.start_with_name(name, config) {
+    Ok(_) -> Services(rate_limiter_name: name)
+    Error(msg) -> panic as "Failed to start service"
+  }
+}
+```
+
+**Critical:** Store the `process.Name` in Services, not a function that creates it. `process.new_name("name")` creates a new Name object each time—you must create it once and reuse that same object to reference the singleton.
+
+See the [Singleton Rate Limiter Example](../../examples.md#singleton-rate-limiter-example) for a complete implementation.
+
 ### 6. HTTP Client
 
 Dream includes an HTTP client with builder pattern.

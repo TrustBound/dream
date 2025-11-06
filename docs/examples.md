@@ -102,6 +102,43 @@ curl -H "Authorization: Bearer admin-token" http://localhost:3001/admin
 - `Bearer user-token` - Regular user
 - `Bearer admin-token` - Admin user
 
+## Singleton Rate Limiter Example
+
+**Location:** `src/examples/singleton/`
+
+Real-world rate limiting using the singleton pattern for global state management.
+
+**What it demonstrates:**
+- Singleton pattern with `dream/core/singleton`
+- Global state management across requests
+- Services pattern with process Name storage
+- Rate limiting middleware with 429 responses
+- Fixed window rate limiting algorithm
+- Rate limit headers (X-RateLimit-*)
+
+**Run it:**
+
+```bash
+gleam run -m examples/singleton/main
+```
+
+**Test rate limiting:**
+
+```bash
+# First 10 requests succeed, last 2 are rate limited
+for i in {1..12}; do 
+  echo "Request $i:"
+  curl -i http://localhost:3000/api | head -5
+done
+```
+
+**Endpoints:**
+- `GET /` - Welcome page (no rate limit)
+- `GET /api` - Rate-limited API endpoint
+- `GET /api/status` - Rate limit status (also rate-limited)
+
+**Key Pattern:** The `process.Name` must be created once at startup and stored in the Services struct. Calling `process.new_name()` repeatedly creates different name objects that won't reference the same singleton.
+
 ## Streaming Example
 
 **Location:** `src/examples/streaming/`  
