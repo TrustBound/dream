@@ -25,12 +25,14 @@ pub type Services {
 pub fn initialize_services() -> Services {
   // Create the process name once
   let name = process.new_name("rate_limiter_service")
-  
+
   // Start the rate limiter singleton
-  case rate_limiter_service.start_with_name(
-    name,
-    rate_limiter_service.default_config(),
-  ) {
+  case
+    rate_limiter_service.start_with_name(
+      name,
+      rate_limiter_service.default_config(),
+    )
+  {
     Ok(_pid) -> {
       io.println("✓ Rate limiter service started")
       Services(rate_limiter_name: name)
@@ -50,4 +52,3 @@ pub fn initialize_services() -> Services {
     }
   }
 }
-

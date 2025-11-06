@@ -174,4 +174,3 @@ fn current_timestamp() -> Int {
 // External Erlang function to get monotonic time in seconds
 @external(erlang, "erlang_time", "monotonic_seconds")
 fn do_monotonic_time_seconds() -> Int
-
