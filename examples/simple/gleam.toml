@@ -1,0 +1,10 @@
+name = "dream_example_simple"
+version = "0.1.0"
+description = "Simple Dream example - basic routing"
+licences = ["MIT"]
+
+[dependencies]
+dream = { path = "../.." }
+mist = ">= 5.0.3 and < 6.0.0"
+gleam_stdlib = ">= 0.44.0 and < 2.0.0"
+

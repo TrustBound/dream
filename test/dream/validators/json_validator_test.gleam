@@ -332,16 +332,21 @@ pub fn error_response_with_all_fields_populated_creates_json_response_test() {
   let response = error_response(error)
 
   case response {
-    transaction.Response(status, body, _, _, content_type, _) -> {
+    transaction.Response(status, body, _, _, content_type) -> {
       status |> should.equal(bad_request_status())
       case content_type {
         option.Some(ct) -> ct |> should.equal("application/json; charset=utf-8")
         option.None -> should.fail()
       }
-      string.contains(body, "error") |> should.equal(True)
-      string.contains(body, "age") |> should.equal(True)
-      string.contains(body, "Int") |> should.equal(True)
-      string.contains(body, "String") |> should.equal(True)
+      case body {
+        transaction.Text(text) -> {
+          string.contains(text, "error") |> should.equal(True)
+          string.contains(text, "age") |> should.equal(True)
+          string.contains(text, "Int") |> should.equal(True)
+          string.contains(text, "String") |> should.equal(True)
+        }
+        _ -> should.fail()
+      }
     }
   }
 }
@@ -358,10 +363,15 @@ pub fn error_response_with_only_message_creates_json_with_message_only_test() {
   let response = error_response(error)
 
   case response {
-    transaction.Response(status, body, _, _, _, _) -> {
+    transaction.Response(status, body, _, _, _) -> {
       status |> should.equal(bad_request_status())
-      string.contains(body, "error") |> should.equal(True)
-      string.contains(body, "\"error\"") |> should.equal(True)
+      case body {
+        transaction.Text(text) -> {
+          string.contains(text, "error") |> should.equal(True)
+          string.contains(text, "\"error\"") |> should.equal(True)
+        }
+        _ -> should.fail()
+      }
     }
   }
 }
@@ -378,7 +388,7 @@ pub fn error_response_status_code_is_bad_request_test() {
   let response = error_response(error)
 
   case response {
-    transaction.Response(status, _, _, _, _, _) -> {
+    transaction.Response(status, _, _, _, _) -> {
       status |> should.equal(bad_request_status())
     }
   }
@@ -396,7 +406,7 @@ pub fn error_response_content_type_is_application_json_test() {
   let response = error_response(error)
 
   case response {
-    transaction.Response(_, _, _, _, content_type, _) -> {
+    transaction.Response(_, _, _, _, content_type) -> {
       case content_type {
         option.Some(ct) -> ct |> should.equal("application/json; charset=utf-8")
         option.None -> should.fail()
@@ -580,7 +590,11 @@ pub fn validate_or_respond_with_wrong_type_returns_error_response_test() {
 
   case validate_or_respond(json_body, decoder) {
     Error(response) -> {
-      string.contains(response.body, "Expected") |> should.equal(True)
+      case response.body {
+        transaction.Text(text) ->
+          string.contains(text, "Expected") |> should.equal(True)
+        _ -> should.fail()
+      }
     }
     Ok(_) -> should.fail()
   }
@@ -596,7 +610,11 @@ pub fn validate_or_respond_with_missing_field_returns_error_response_test() {
 
   case validate_or_respond(json_body, decoder) {
     Error(response) -> {
-      string.contains(response.body, "age") |> should.equal(True)
+      case response.body {
+        transaction.Text(text) ->
+          string.contains(text, "age") |> should.equal(True)
+        _ -> should.fail()
+      }
     }
     Ok(_) -> should.fail()
   }

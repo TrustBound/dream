@@ -56,8 +56,11 @@ pub fn route_request_with_matching_route_returns_controller_response_test() {
 
   // Assert
   case response {
-    transaction.Response(_, body, _, _, _, _) -> {
-      body |> should.equal("success")
+    transaction.Response(_, body, _, _, _) -> {
+      case body {
+        transaction.Text(text) -> text |> should.equal("success")
+        _ -> should.fail()
+      }
     }
   }
 }
@@ -74,9 +77,12 @@ pub fn route_request_with_no_matching_route_returns_not_found_test() {
 
   // Assert
   case response {
-    transaction.Response(status, body, _, _, _, _) -> {
+    transaction.Response(status, body, _, _, _) -> {
       status |> should.equal(not_found_status())
-      body |> should.equal("Route not found")
+      case body {
+        transaction.Text(text) -> text |> should.equal("Route not found")
+        _ -> should.fail()
+      }
     }
   }
 }

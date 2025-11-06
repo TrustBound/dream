@@ -1,0 +1,18 @@
+{> import examples/multi_format/sql.{type GetProductRow}
+{> import gleam/int
+{> import gleam/float
+{> with product as GetProductRow
+
+<article>
+  <header>
+    <i data-lucide="package"></i>
+    <h3>{{ product.name }}</h3>
+  </header>
+  <dl>
+    <dt>Price</dt>
+    <dd>${{ float.to_string(product.price) }}</dd>
+    <dt>Stock</dt>
+    <dd>{{ int.to_string(product.stock) }} units</dd>
+  </dl>
+</article>
+

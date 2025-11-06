@@ -219,7 +219,7 @@ pub fn rate_limit_middleware(request, context, services, next) {
 }
 ```
 
-The complete example at `src/examples/singleton/` shows:
+The complete example at `examples/singleton/` shows:
 - Singleton service implementation with fixed window algorithm
 - Proper process Name storage in Services
 - Middleware integration
@@ -479,7 +479,7 @@ Middleware in Dream:
 
 **Want to see examples?**
 
-Check out `src/examples/custom_context/middleware/` for:
+Check out `examples/custom_context/middleware/` for:
 - Authentication middleware
 - Authorization middleware
 - Context transformation

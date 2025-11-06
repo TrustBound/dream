@@ -1,0 +1,52 @@
+{> import examples/multi_format/sql.{type GetProductRow}
+{> import gleam/int
+{> import gleam/float
+{> with product as GetProductRow
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ product.name }} - Product Details</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+<body>
+  <main>
+    <nav aria-label="Breadcrumb">
+      <ul>
+        <li><a href="/products">Products</a></li>
+        <li>{{ product.name }}</li>
+      </ul>
+    </nav>
+
+    <article>
+      <header>
+        <i data-lucide="package"></i>
+        <h2>{{ product.name }}</h2>
+      </header>
+      
+      <section>
+        <dl>
+          <dt>Product ID</dt>
+          <dd>#{{ int.to_string(product.id) }}</dd>
+          
+          <dt>Price</dt>
+          <dd>${{ float.to_string(product.price) }}</dd>
+          
+          <dt>Stock</dt>
+          <dd>{{ int.to_string(product.stock) }} units</dd>
+        </dl>
+      </section>
+      
+      <footer>
+        <a href="/products" role="button">Back to Products</a>
+      </footer>
+    </article>
+  </main>
+  
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>lucide.createIcons();</script>
+</body>
+</html>
+

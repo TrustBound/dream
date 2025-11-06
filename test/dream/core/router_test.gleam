@@ -88,8 +88,11 @@ pub fn controller_with_valid_controller_sets_route_controller_test() {
 
   // Assert - verify controller works by checking response
   case response {
-    transaction.Response(_, body, _, _, _, _) -> {
-      body |> should.equal("test")
+    transaction.Response(_, body, _, _, _) -> {
+      case body {
+        transaction.Text(text) -> text |> should.equal("test")
+        _ -> should.fail()
+      }
     }
   }
 }
@@ -107,21 +110,13 @@ pub fn middleware_with_valid_middleware_adds_middleware_to_route_test() {
     let response =
       next(req, context.AppContext(request_id: ""), router.EmptyServices)
     case response {
-      transaction.Response(
-        status,
-        body,
-        headers,
-        cookies,
-        content_type,
-        content_length,
-      ) -> {
+      transaction.Response(status, body, headers, cookies, content_type) -> {
         transaction.Response(
           status,
           body,
           transaction.add_header(headers, "X-Middleware", "applied"),
           cookies,
           content_type,
-          content_length,
         )
       }
     }
@@ -138,7 +133,7 @@ pub fn middleware_with_valid_middleware_adds_middleware_to_route_test() {
 
   // Assert - verify middleware was applied by checking header
   case response {
-    transaction.Response(_, _, headers, _, _, _) -> {
+    transaction.Response(_, _, headers, _, _) -> {
       case transaction.get_header(headers, "X-Middleware") {
         option.Some(value) -> value |> should.equal("applied")
         option.None -> should.fail()
@@ -167,8 +162,11 @@ pub fn add_route_to_empty_router_creates_router_with_one_route_test() {
   // Assert - verify route was added by using route_request
   let response = dream.route_request(result, request, context, services)
   case response {
-    transaction.Response(_, body, _, _, _, _) -> {
-      body |> should.equal("test")
+    transaction.Response(_, body, _, _, _) -> {
+      case body {
+        transaction.Text(text) -> text |> should.equal("test")
+        _ -> should.fail()
+      }
     }
   }
 }
@@ -204,13 +202,19 @@ pub fn add_route_to_router_with_existing_routes_appends_route_test() {
     dream.route_request(result, post_request, context, services)
 
   case get_response {
-    transaction.Response(_, body, _, _, _, _) -> {
-      body |> should.equal("test")
+    transaction.Response(_, body, _, _, _) -> {
+      case body {
+        transaction.Text(text) -> text |> should.equal("test")
+        _ -> should.fail()
+      }
     }
   }
   case post_response {
-    transaction.Response(_, body, _, _, _, _) -> {
-      body |> should.equal("test")
+    transaction.Response(_, body, _, _, _) -> {
+      case body {
+        transaction.Text(text) -> text |> should.equal("test")
+        _ -> should.fail()
+      }
     }
   }
 }
@@ -400,8 +404,11 @@ pub fn build_controller_chain_with_no_middleware_returns_controller_test() {
 
   // Assert
   case response {
-    transaction.Response(_, body, _, _, _, _) -> {
-      body |> should.equal("test")
+    transaction.Response(_, body, _, _, _) -> {
+      case body {
+        transaction.Text(text) -> text |> should.equal("test")
+        _ -> should.fail()
+      }
     }
   }
 }
@@ -418,21 +425,17 @@ pub fn build_controller_chain_with_middleware_wraps_controller_test() {
   ) -> transaction.Response {
     let response = next(req, ctx, svc)
     case response {
-      transaction.Response(
-        status,
-        body,
-        headers,
-        cookies,
-        content_type,
-        content_length,
-      ) -> {
+      transaction.Response(status, body, headers, cookies, content_type) -> {
+        let modified_body = case body {
+          transaction.Text(text) -> transaction.Text(text <> "-modified")
+          _ -> body
+        }
         transaction.Response(
           status,
-          body <> "-modified",
+          modified_body,
           headers,
           cookies,
           content_type,
-          content_length,
         )
       }
     }
@@ -448,8 +451,11 @@ pub fn build_controller_chain_with_middleware_wraps_controller_test() {
 
   // Assert
   case response {
-    transaction.Response(_, body, _, _, _, _) -> {
-      body |> should.equal("test-modified")
+    transaction.Response(_, body, _, _, _) -> {
+      case body {
+        transaction.Text(text) -> text |> should.equal("test-modified")
+        _ -> should.fail()
+      }
     }
   }
 }
@@ -468,21 +474,17 @@ pub fn build_controller_chain_with_multiple_middleware_executes_in_order_test() 
       ) -> transaction.Response {
         let response = next(req, ctx, svc)
         case response {
-          transaction.Response(
-            status,
-            body,
-            headers,
-            cookies,
-            content_type,
-            content_length,
-          ) -> {
+          transaction.Response(status, body, headers, cookies, content_type) -> {
+            let modified_body = case body {
+              transaction.Text(text) -> transaction.Text(text <> "-m1")
+              _ -> body
+            }
             transaction.Response(
               status,
-              body <> "-m1",
+              modified_body,
               headers,
               cookies,
               content_type,
-              content_length,
             )
           }
         }
@@ -499,21 +501,17 @@ pub fn build_controller_chain_with_multiple_middleware_executes_in_order_test() 
       ) -> transaction.Response {
         let response = next(req, ctx, svc)
         case response {
-          transaction.Response(
-            status,
-            body,
-            headers,
-            cookies,
-            content_type,
-            content_length,
-          ) -> {
+          transaction.Response(status, body, headers, cookies, content_type) -> {
+            let modified_body = case body {
+              transaction.Text(text) -> transaction.Text(text <> "-m2")
+              _ -> body
+            }
             transaction.Response(
               status,
-              body <> "-m2",
+              modified_body,
               headers,
               cookies,
               content_type,
-              content_length,
             )
           }
         }
@@ -530,8 +528,11 @@ pub fn build_controller_chain_with_multiple_middleware_executes_in_order_test() 
 
   // Assert
   case response {
-    transaction.Response(_, body, _, _, _, _) -> {
-      body |> should.equal("test-m2-m1")
+    transaction.Response(_, body, _, _, _) -> {
+      case body {
+        transaction.Text(text) -> text |> should.equal("test-m2-m1")
+        _ -> should.fail()
+      }
     }
   }
 }

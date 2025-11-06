@@ -5,7 +5,7 @@
 //// and success/failure.
 
 import dream/core/http/statuses.{
-  internal_server_error_status, not_found_status, ok_status,
+  bad_request_status, internal_server_error_status, not_found_status, ok_status,
 }
 import dream/core/http/transaction.{type Response, json_response, text_response}
 import gleam/json
@@ -55,4 +55,9 @@ pub fn success(
     Ok(_) -> text_response(ok_status(), "Success")
     Error(_) -> text_response(internal_server_error_status(), "Database error")
   }
+}
+
+/// Return 400 Bad Request response
+pub fn bad_request() -> Response {
+  text_response(bad_request_status(), "Bad request")
 }

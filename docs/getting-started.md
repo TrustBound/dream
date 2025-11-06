@@ -231,7 +231,7 @@ You've built your first Dream app. Not bad for 30 lines of code.
 
 **Want to see working examples?**
 
-Check out `src/examples/` in the Dream repository:
+Check out `examples/` in the Dream repository:
 - `simple/` - What you just built (plus HTTP client usage)
 - `database/` - Full CRUD with PostgreSQL
 - `custom_context/` - Authentication with custom context

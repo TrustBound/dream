@@ -582,7 +582,7 @@ This keeps controllers small, models focused, and code testable.
 
 **Want to see it in action?**
 
-Check out `src/examples/database/` for a complete implementation with:
+Check out `examples/database/` for a complete implementation with:
 - Full CRUD operations
 - JSON validation
 - Database queries

@@ -5,9 +5,12 @@
 //// working with HTTP transactions.
 
 import dream/core/http/statuses.{type Status}
+import gleam/float
+import gleam/int
 import gleam/list
 import gleam/option
 import gleam/string
+import gleam/yielder
 
 /// HTTP method type
 pub type Method {
@@ -62,6 +65,13 @@ pub type Version {
   Http3
 }
 
+/// Response body variants supporting different content types
+pub type ResponseBody {
+  Text(String)
+  Bytes(BitArray)
+  Stream(yielder.Yielder(BitArray))
+}
+
 /// HTTP request type
 pub type Request {
   Request(
@@ -84,15 +94,25 @@ pub type Request {
   )
 }
 
+/// Path parameter with format detection and type conversions
+pub type PathParam {
+  PathParam(
+    raw: String,
+    value: String,
+    format: option.Option(String),
+    as_int: Result(Int, Nil),
+    as_float: Result(Float, Nil),
+  )
+}
+
 /// HTTP response type
 pub type Response {
   Response(
     status: Status,
-    body: String,
+    body: ResponseBody,
     headers: List(Header),
     cookies: List(Cookie),
     content_type: option.Option(String),
-    content_length: option.Option(Int),
   )
 }
 
@@ -279,11 +299,10 @@ pub fn parse_method(str: String) -> option.Option(Method) {
 pub fn text_response(status: Status, body: String) -> Response {
   Response(
     status: status,
-    body: body,
+    body: Text(body),
     headers: [Header("Content-Type", "text/plain; charset=utf-8")],
     cookies: [],
     content_type: option.Some("text/plain; charset=utf-8"),
-    content_length: option.Some(string.length(body)),
   )
 }
 
@@ -291,11 +310,10 @@ pub fn text_response(status: Status, body: String) -> Response {
 pub fn json_response(status: Status, body: String) -> Response {
   Response(
     status: status,
-    body: body,
+    body: Text(body),
     headers: [Header("Content-Type", "application/json; charset=utf-8")],
     cookies: [],
     content_type: option.Some("application/json; charset=utf-8"),
-    content_length: option.Some(string.length(body)),
   )
 }
 
@@ -303,11 +321,10 @@ pub fn json_response(status: Status, body: String) -> Response {
 pub fn html_response(status: Status, body: String) -> Response {
   Response(
     status: status,
-    body: body,
+    body: Text(body),
     headers: [Header("Content-Type", "text/html; charset=utf-8")],
     cookies: [],
     content_type: option.Some("text/html; charset=utf-8"),
-    content_length: option.Some(string.length(body)),
   )
 }
 
@@ -315,11 +332,10 @@ pub fn html_response(status: Status, body: String) -> Response {
 pub fn redirect_response(status: Status, location: String) -> Response {
   Response(
     status: status,
-    body: "",
+    body: Text(""),
     headers: [Header("Location", location)],
     cookies: [],
     content_type: option.None,
-    content_length: option.Some(0),
   )
 }
 
@@ -327,11 +343,40 @@ pub fn redirect_response(status: Status, location: String) -> Response {
 pub fn empty_response(status: Status) -> Response {
   Response(
     status: status,
-    body: "",
+    body: Text(""),
     headers: [],
     cookies: [],
     content_type: option.None,
-    content_length: option.Some(0),
+  )
+}
+
+/// Create a binary response (images, PDFs, etc)
+pub fn binary_response(
+  status: Status,
+  body: BitArray,
+  content_type: String,
+) -> Response {
+  Response(
+    status: status,
+    body: Bytes(body),
+    headers: [Header("Content-Type", content_type)],
+    cookies: [],
+    content_type: option.Some(content_type),
+  )
+}
+
+/// Create a streaming response
+pub fn stream_response(
+  status: Status,
+  stream: yielder.Yielder(BitArray),
+  content_type: String,
+) -> Response {
+  Response(
+    status: status,
+    body: Stream(stream),
+    headers: [Header("Content-Type", content_type)],
+    cookies: [],
+    content_type: option.Some(content_type),
   )
 }
 
@@ -377,10 +422,28 @@ pub fn is_method(request: Request, method: Method) -> Bool {
   request.method == method
 }
 
-/// Get a path parameter value by name
-pub fn get_param(request: Request, name: String) -> Result(String, String) {
+/// Parse a path parameter string into PathParam with format detection
+fn parse_path_param(raw: String) -> PathParam {
+  // Split on last dot to extract format extension
+  let parts = string.split(raw, ".")
+  let #(value, format) = case parts {
+    [val, ext] -> #(val, option.Some(ext))
+    _ -> #(raw, option.None)
+  }
+
+  PathParam(
+    raw: raw,
+    value: value,
+    format: format,
+    as_int: int.parse(value),
+    as_float: float.parse(value),
+  )
+}
+
+/// Get a path parameter value by name with format detection
+pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
   case list.key_find(request.params, name) {
-    Ok(value) -> Ok(value)
+    Ok(value) -> Ok(parse_path_param(value))
     Error(_) -> Error("Missing required path parameter: " <> name)
   }
 }
