@@ -3,7 +3,7 @@ import dream/core/dream
 import dream/core/http/statuses.{ok_status}
 import dream/core/http/transaction
 import dream/core/router.{
-  type EmptyServices, build_handler_chain, find_route, handler, match_path,
+  type EmptyServices, build_controller_chain, controller, find_route, match_path,
   method, middleware, new as new_route, path, route, router,
 }
 import gleam/list
@@ -73,7 +73,7 @@ pub fn path_with_valid_path_sets_route_path_test() {
   }
 }
 
-pub fn handler_with_valid_handler_sets_route_handler_test() {
+pub fn controller_with_valid_controller_sets_route_controller_test() {
   // Arrange
   let route = path(new_route, "/test")
   let request = create_test_request(transaction.Get, "/test")
@@ -81,12 +81,12 @@ pub fn handler_with_valid_handler_sets_route_handler_test() {
   let services = router.EmptyServices
 
   // Act
-  let updated_route = handler(route, test_handler)
+  let updated_route = controller(route, test_handler)
   let router_with_route = router.Router(routes: [updated_route])
   let response =
     dream.route_request(router_with_route, request, context, services)
 
-  // Assert - verify handler works by checking response
+  // Assert - verify controller works by checking response
   case response {
     transaction.Response(_, body, _, _, _, _) -> {
       body |> should.equal("test")
@@ -157,7 +157,7 @@ pub fn add_route_to_empty_router_creates_router_with_one_route_test() {
       empty_router,
       method: transaction.Get,
       path: "/test",
-      handler: test_handler,
+      controller: test_handler,
       middleware: [],
     )
   let request = create_test_request(transaction.Get, "/test")
@@ -180,7 +180,7 @@ pub fn add_route_to_router_with_existing_routes_appends_route_test() {
     |> route(
       method: transaction.Get,
       path: "/existing",
-      handler: test_handler,
+      controller: test_handler,
       middleware: [],
     )
 
@@ -190,7 +190,7 @@ pub fn add_route_to_router_with_existing_routes_appends_route_test() {
       router_with_routes,
       method: transaction.Post,
       path: "/new",
-      handler: test_handler,
+      controller: test_handler,
       middleware: [],
     )
 
@@ -318,7 +318,7 @@ pub fn find_route_with_matching_route_returns_route_and_params_test() {
     router.Route(
       method: transaction.Get,
       path: "/users/:id",
-      handler: test_handler,
+      controller: test_handler,
       middleware: [],
     )
   let test_router = router.Router(routes: [test_route])
@@ -349,7 +349,7 @@ pub fn find_route_with_method_mismatch_returns_none_test() {
     router.Route(
       method: transaction.Post,
       path: "/users/:id",
-      handler: test_handler,
+      controller: test_handler,
       middleware: [],
     )
   let test_router = router.Router(routes: [test_route])
@@ -371,7 +371,7 @@ pub fn find_route_with_no_matching_route_returns_none_test() {
     router.Route(
       method: transaction.Get,
       path: "/users/:id",
-      handler: test_handler,
+      controller: test_handler,
       middleware: [],
     )
   let test_router = router.Router(routes: [test_route])
@@ -387,15 +387,15 @@ pub fn find_route_with_no_matching_route_returns_none_test() {
   }
 }
 
-pub fn build_handler_chain_with_no_middleware_returns_handler_test() {
+pub fn build_controller_chain_with_no_middleware_returns_controller_test() {
   // Arrange
-  let final_handler = test_handler
+  let final_controller = test_handler
   let request = create_test_request(transaction.Get, "/")
   let context = context.AppContext(request_id: "test-id")
   let services = router.EmptyServices
 
   // Act
-  let chain = build_handler_chain([], final_handler)
+  let chain = build_controller_chain([], final_controller)
   let response = chain(request, context, services)
 
   // Assert
@@ -406,9 +406,9 @@ pub fn build_handler_chain_with_no_middleware_returns_handler_test() {
   }
 }
 
-pub fn build_handler_chain_with_middleware_wraps_handler_test() {
+pub fn build_controller_chain_with_middleware_wraps_controller_test() {
   // Arrange
-  let final_handler = test_handler
+  let final_controller = test_handler
   let middleware_fn = fn(
     req: transaction.Request,
     ctx: AppContext,
@@ -443,7 +443,7 @@ pub fn build_handler_chain_with_middleware_wraps_handler_test() {
   let services = router.EmptyServices
 
   // Act
-  let chain = build_handler_chain(middleware_list, final_handler)
+  let chain = build_controller_chain(middleware_list, final_controller)
   let response = chain(request, context, services)
 
   // Assert
@@ -454,9 +454,9 @@ pub fn build_handler_chain_with_middleware_wraps_handler_test() {
   }
 }
 
-pub fn build_handler_chain_with_multiple_middleware_executes_in_order_test() {
+pub fn build_controller_chain_with_multiple_middleware_executes_in_order_test() {
   // Arrange
-  let final_handler = test_handler
+  let final_controller = test_handler
   let middleware1 =
     router.Middleware(
       fn(
@@ -524,7 +524,7 @@ pub fn build_handler_chain_with_multiple_middleware_executes_in_order_test() {
   let services = router.EmptyServices
 
   // Act
-  let chain = build_handler_chain([middleware1, middleware2], final_handler)
+  let chain = build_controller_chain([middleware1, middleware2], final_controller)
   let response = chain(request, context, services)
 
   // Assert

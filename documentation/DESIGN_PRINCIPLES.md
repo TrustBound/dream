@@ -432,7 +432,7 @@ pub fn create(request: Request, _context: DatabaseContext, services: Services) -
      |> route(
        method: Get,
        path: "/",
-       handler: home_controller.index,
+       controller: home_controller.index,
        middleware: [],
      )
    }

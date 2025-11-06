@@ -52,9 +52,9 @@ Clean. Simple. No boilerplate.
 ```gleam
 pub fn create_router() -> Router(AppContext, Services) {
   router
-  |> route(method: Get, path: "/users", handler: users.index, middleware: [])
-  |> route(method: Get, path: "/users/:id", handler: users.show, middleware: [])
-  |> route(method: Post, path: "/users", handler: users.create, middleware: [])
+  |> route(method: Get, path: "/users", controller: users.index, middleware: [])
+  |> route(method: Get, path: "/users/:id", controller: users.show, middleware: [])
+  |> route(method: Post, path: "/users", controller: users.create, middleware: [])
 }
 ```
 

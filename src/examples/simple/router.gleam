@@ -8,13 +8,13 @@ pub fn create_router() -> Router(AppContext, EmptyServices) {
   |> route(
     method: Get,
     path: "/",
-    handler: posts_controller.index,
+    controller: posts_controller.index,
     middleware: [],
   )
   |> route(
     method: Get,
     path: "/users/:id/posts/:post_id",
-    handler: posts_controller.show,
+    controller: posts_controller.show,
     middleware: [],
   )
 }

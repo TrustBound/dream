@@ -17,7 +17,7 @@ The module name provides the namespace, so functions must **not** be prefixed wi
 import router
 
 router.create_router()
-router.route(my_router, method: Get, path: "/", handler: handler_fn, middleware: [])
+router.route(my_router, method: Get, path: "/", controller: controller_fn, middleware: [])
 ```
 
 ❌ **Bad:**
@@ -133,7 +133,7 @@ pub fn route(
   router: Router,
   method: Method,
   path: String,
-  handler: fn(Request) -> Response,
+  controller: fn(Request) -> Response,
   middleware: List(Middleware),
 ) -> Router
 pub fn add_middleware(builder: RouteBuilder, middleware: Middleware) -> RouteBuilder

@@ -37,13 +37,13 @@ fn test_handler(
   transaction.text_response(ok_status(), "success")
 }
 
-pub fn route_request_with_matching_route_returns_handler_response_test() {
+pub fn route_request_with_matching_route_returns_controller_response_test() {
   // Arrange
   let test_route =
     Route(
       method: transaction.Get,
       path: "/test",
-      handler: test_handler,
+      controller: test_handler,
       middleware: [],
     )
   let test_router = Router(routes: [test_route])

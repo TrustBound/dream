@@ -10,50 +10,50 @@ pub fn create_router() -> Router(DatabaseContext, Services) {
   |> route(
     method: Get,
     path: "/users",
-    handler: users_controller.index,
+    controller: users_controller.index,
     middleware: [],
   )
   |> route(
     method: Get,
     path: "/users/:id",
-    handler: users_controller.show,
+    controller: users_controller.show,
     middleware: [],
   )
   |> route(
     method: Post,
     path: "/users",
-    handler: users_controller.create,
+    controller: users_controller.create,
     middleware: [],
   )
   |> route(
     method: Put,
     path: "/users/:id",
-    handler: users_controller.update,
+    controller: users_controller.update,
     middleware: [],
   )
   |> route(
     method: Delete,
     path: "/users/:id",
-    handler: users_controller.delete,
+    controller: users_controller.delete,
     middleware: [],
   )
   // Posts routes
   |> route(
     method: Get,
     path: "/users/:user_id/posts",
-    handler: posts_controller.index,
+    controller: posts_controller.index,
     middleware: [],
   )
   |> route(
     method: Get,
     path: "/posts/:id",
-    handler: posts_controller.show,
+    controller: posts_controller.show,
     middleware: [],
   )
   |> route(
     method: Post,
     path: "/users/:user_id/posts",
-    handler: posts_controller.create,
+    controller: posts_controller.create,
     middleware: [],
   )
 }

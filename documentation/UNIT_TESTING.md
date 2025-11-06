@@ -370,14 +370,14 @@ pub fn route(
   router: Router(context),
   method: Method,
   path: String,
-  handler: fn(Request(context)) -> Response,
+  controller: fn(Request(context)) -> Response,
   middleware: List(Middleware(context)),
 ) -> Router(context) {
   let middleware_wrappers = list.map(middleware, wrap_middleware)
   let route = Route(
     method: method,
     path: path,
-    handler: handler,
+    controller: controller,
     middleware: middleware_wrappers,
   )
   Router(routes: [route, ..router.routes])
@@ -395,7 +395,7 @@ pub fn add_route_to_empty_router_creates_router_with_one_route_test() {
     empty_router,
     method: Get,
     path: "/test",
-    handler: fn(_) { text_response(ok_status(), "test") },
+    controller: fn(_) { text_response(ok_status(), "test") },
     middleware: [],
   )
   
@@ -409,7 +409,7 @@ pub fn add_route_to_router_with_existing_routes_appends_route_test() {
     |> route(
       method: Get,
       path: "/existing",
-      handler: fn(_) { text_response(ok_status(), "existing") },
+      controller: fn(_) { text_response(ok_status(), "existing") },
       middleware: [],
     )
   
@@ -418,7 +418,7 @@ pub fn add_route_to_router_with_existing_routes_appends_route_test() {
     router_with_routes,
     method: Post,
     path: "/new",
-    handler: fn(_) { text_response(created_status(), "new") },
+    controller: fn(_) { text_response(created_status(), "new") },
     middleware: [],
   )
   

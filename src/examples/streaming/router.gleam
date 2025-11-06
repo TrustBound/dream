@@ -13,19 +13,19 @@ pub fn create_router() -> Router(AppContext, EmptyServices) {
   |> route(
     method: Get,
     path: "/",
-    handler: stream_controller.index,
+    controller: stream_controller.index,
     middleware: [],
   )
   |> route(
     method: Get,
     path: "/stream",
-    handler: stream_controller.show,
+    controller: stream_controller.show,
     middleware: [],
   )
   |> route(
     method: Get,
     path: "/fetch",
-    handler: stream_controller.new,
+    controller: stream_controller.new,
     middleware: [],
   )
 }

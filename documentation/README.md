@@ -56,13 +56,13 @@ pub fn create_router() -> Router {
   |> route(
     method: Get,
     path: "/",
-    handler: simple_controller.index,
+    controller: simple_controller.index,
     middleware: [],
   )
   |> route(
     method: Get,
     path: "/users/:id/posts/:post_id",
-    handler: simple_controller.show,
+    controller: simple_controller.show,
     middleware: [],
   )
 }

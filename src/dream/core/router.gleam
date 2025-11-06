@@ -1,7 +1,7 @@
-//// Router for matching HTTP requests to handlers
+//// Router for matching HTTP requests to controllers
 ////
 //// This module provides routing functionality for matching HTTP requests
-//// to route handlers based on method and path patterns, including support
+//// to route controllers based on method and path patterns, including support
 //// for path parameters.
 
 import dream/core/context.{type AppContext}
@@ -22,12 +22,12 @@ pub type Middleware(context, services) {
   )
 }
 
-/// Route definition with method, path pattern, handler, and middleware
+/// Route definition with method, path pattern, controller, and middleware
 pub type Route(context, services) {
   Route(
     method: Method,
     path: String,
-    handler: fn(Request, context, services) -> Response,
+    controller: fn(Request, context, services) -> Response,
     middleware: List(Middleware(context, services)),
   )
 }
@@ -42,8 +42,8 @@ pub type EmptyServices {
   EmptyServices
 }
 
-/// Default 404 handler for AppContext
-fn default_404_handler_app_context(
+/// Default 404 controller for AppContext
+fn default_404_controller(
   _request: Request,
   _context: AppContext,
   _services: EmptyServices,
@@ -58,7 +58,7 @@ fn default_404_handler_app_context(
 pub const new = Route(
   method: Get,
   path: "/",
-  handler: default_404_handler_app_context,
+  controller: default_404_controller,
   middleware: [],
 )
 
@@ -81,12 +81,12 @@ pub fn path(
   Route(..route, path: path_value)
 }
 
-/// Set the handler function for the route
-pub fn handler(
+/// Set the controller function for the route
+pub fn controller(
   route: Route(context, services),
-  handler_function: fn(Request, context, services) -> Response,
+  controller_function: fn(Request, context, services) -> Response,
 ) -> Route(context, services) {
-  Route(..route, handler: handler_function)
+  Route(..route, controller: controller_function)
 }
 
 /// Add middleware to the route (accepts a list for convenience)
@@ -113,7 +113,7 @@ pub fn route(
   router: Router(context, services),
   method method_value: Method,
   path path_value: String,
-  handler handler_function: fn(Request, context, services) -> Response,
+  controller controller_function: fn(Request, context, services) -> Response,
   middleware middleware_list: List(
     fn(Request, context, services, fn(Request, context, services) -> Response) ->
       Response,
@@ -124,7 +124,7 @@ pub fn route(
     Route(
       method: method_value,
       path: path_value,
-      handler: handler_function,
+      controller: controller_function,
       middleware: middleware_wrappers,
     )
   Router(routes: [route, ..router.routes])
@@ -246,35 +246,35 @@ fn check_path_match(
   }
 }
 
-/// Build a handler chain from middleware and final handler
+/// Build a controller chain from middleware and final controller
 /// Middleware are executed in order: first middleware wraps second, wraps third, etc.
-pub fn build_handler_chain(
+pub fn build_controller_chain(
   middleware: List(Middleware(context, services)),
-  final_handler: fn(Request, context, services) -> Response,
+  final_controller: fn(Request, context, services) -> Response,
 ) -> fn(Request, context, services) -> Response {
   // Reverse middleware list so first added wraps outermost
   let reversed = list.reverse(middleware)
-  build_chain_recursive(reversed, final_handler)
+  build_chain_recursive(reversed, final_controller)
 }
 
 fn build_chain_recursive(
   middleware: List(Middleware(context, services)),
-  handler: fn(Request, context, services) -> Response,
+  controller: fn(Request, context, services) -> Response,
 ) -> fn(Request, context, services) -> Response {
   case middleware {
-    [] -> handler
+    [] -> controller
     [mw, ..rest] -> {
       case mw {
         Middleware(middleware_fn) -> {
-          let wrapped_handler = create_wrapped_handler(middleware_fn, handler)
-          build_chain_recursive(rest, wrapped_handler)
+          let wrapped_controller = create_wrapped_controller(middleware_fn, controller)
+          build_chain_recursive(rest, wrapped_controller)
         }
       }
     }
   }
 }
 
-fn create_wrapped_handler(
+fn create_wrapped_controller(
   middleware_fn: fn(
     Request,
     context,
@@ -282,9 +282,9 @@ fn create_wrapped_handler(
     fn(Request, context, services) -> Response,
   ) ->
     Response,
-  handler: fn(Request, context, services) -> Response,
+  controller: fn(Request, context, services) -> Response,
 ) -> fn(Request, context, services) -> Response {
   fn(request, context, services) {
-    middleware_fn(request, context, services, handler)
+    middleware_fn(request, context, services, controller)
   }
 }

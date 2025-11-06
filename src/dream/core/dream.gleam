@@ -5,7 +5,7 @@
 
 import dream/core/http/statuses.{convert_client_error_to_status, not_found}
 import dream/core/http/transaction
-import dream/core/router.{type Router, build_handler_chain, find_route}
+import dream/core/router.{type Router, build_controller_chain, find_route}
 import gleam/list
 import gleam/option
 import gleam/string
@@ -32,11 +32,11 @@ pub fn route_request(
     option.Some(#(route, params)) -> {
       let request_with_params = transaction.set_params(request, params)
 
-      // Build the handler chain from middleware + handler
-      let handler_chain = build_handler_chain(route.middleware, route.handler)
+      // Build the controller chain from middleware + controller
+      let controller_chain = build_controller_chain(route.middleware, route.controller)
 
-      // Execute the chain (which will run all middleware then the handler)
-      handler_chain(request_with_params, context, services)
+      // Execute the chain (which will run all middleware then the controller)
+      controller_chain(request_with_params, context, services)
     }
     option.None ->
       transaction.text_response(

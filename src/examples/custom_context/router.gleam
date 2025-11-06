@@ -11,19 +11,19 @@ pub fn create_router() -> Router(AuthContext, Services) {
   |> route(
     method: Get,
     path: "/",
-    handler: posts_controller.index,
+    controller: posts_controller.index,
     middleware: [],
   )
   |> route(
     method: Get,
     path: "/users/:id/posts/:post_id",
-    handler: posts_controller.show,
+    controller: posts_controller.show,
     middleware: [auth_middleware],
   )
   |> route(
     method: Get,
     path: "/admin",
-    handler: posts_controller.index,
+    controller: posts_controller.index,
     middleware: [auth_middleware, admin_middleware],
   )
 }
