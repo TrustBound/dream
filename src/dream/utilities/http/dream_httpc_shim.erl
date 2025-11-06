@@ -20,10 +20,7 @@ request_stream(Method, Url, Headers, Body, _Receiver) ->
     NUrl = to_list(Url),
     NHeaders = to_headers(Headers),
     Req = build_req(NUrl, NHeaders, Body),
-    Owner =
-        spawn(fun() ->
-                 stream_owner_loop(Method, Req, NUrl)
-              end),
+    Owner = spawn(fun() -> stream_owner_loop(Method, Req, NUrl) end),
     {ok, Owner}.
 
 %% Fetch the next chunk from a streaming request
@@ -65,45 +62,7 @@ stream_owner_loop(Method, Req, _Url) ->
 stream_owner_wait(RequestId, Buffer) ->
     receive
         {fetch_next, From} ->
-            case Buffer of
-                [] ->
-                    case stream_owner_next_message(RequestId) of
-                        {start, _Hs} ->
-                            %% Fetch the next message after headers and deliver it
-                            case stream_owner_next_message(RequestId) of
-                                {chunk, Bin2} ->
-                                    From ! {stream_chunk, Bin2},
-                                    stream_owner_wait(RequestId, []);
-                                {finished, Headers2} ->
-                                    From ! {stream_end, Headers2},
-                                    ok;
-                                {error, Reason2} ->
-                                    From ! {stream_error, Reason2},
-                                    ok
-                            end;
-                        {chunk, Bin} ->
-                            From ! {stream_chunk, Bin},
-                            stream_owner_wait(RequestId, []);
-                        {finished, Headers} ->
-                            From ! {stream_end, Headers},
-                            ok;
-                        {error, Reason} ->
-                            From ! {stream_error, Reason},
-                            ok
-                    end;
-                [Item | Rest] ->
-                    case Item of
-                        {chunk, Bin} ->
-                            From ! {stream_chunk, Bin},
-                            stream_owner_wait(RequestId, Rest);
-                        {finished, Headers} ->
-                            From ! {stream_end, Headers},
-                            ok;
-                        {error, Reason} ->
-                            From ! {stream_error, Reason},
-                            ok
-                    end
-            end;
+            handle_fetch_next(From, RequestId, Buffer);
         {http, {RequestId, stream_start, _Headers}} ->
             %% Headers received
             stream_owner_wait(RequestId, Buffer);
@@ -120,6 +79,57 @@ stream_owner_wait(RequestId, Buffer) ->
         _Other ->
             stream_owner_wait(RequestId, Buffer)
     end.
+
+%% Handle a fetch_next request from the client
+handle_fetch_next(From, RequestId, []) ->
+    %% Buffer empty - fetch next message from stream
+    case stream_owner_next_message(RequestId) of
+        {start, _Hs} ->
+            %% Got headers, skip and fetch actual data
+            handle_fetch_next_after_start(From, RequestId);
+        Msg ->
+            %% Got chunk/finished/error - deliver it
+            deliver_message(From, Msg, RequestId)
+    end;
+handle_fetch_next(From, RequestId, [Item | Rest]) ->
+    %% Buffer has items - deliver first one
+    deliver_message(From, Item, RequestId, Rest).
+
+%% Handle fetch_next after receiving stream_start (headers)
+handle_fetch_next_after_start(From, RequestId) ->
+    case stream_owner_next_message(RequestId) of
+        {chunk, Bin} ->
+            From ! {stream_chunk, Bin},
+            stream_owner_wait(RequestId, []);
+        {finished, Headers} ->
+            From ! {stream_end, Headers},
+            ok;
+        {error, Reason} ->
+            From ! {stream_error, Reason},
+            ok
+    end.
+
+%% Deliver a message to the client (from live stream)
+deliver_message(From, {chunk, Bin}, RequestId) ->
+    From ! {stream_chunk, Bin},
+    stream_owner_wait(RequestId, []);
+deliver_message(From, {finished, Headers}, _RequestId) ->
+    From ! {stream_end, Headers},
+    ok;
+deliver_message(From, {error, Reason}, _RequestId) ->
+    From ! {stream_error, Reason},
+    ok.
+
+%% Deliver a message to the client (from buffer)
+deliver_message(From, {chunk, Bin}, RequestId, Rest) ->
+    From ! {stream_chunk, Bin},
+    stream_owner_wait(RequestId, Rest);
+deliver_message(From, {finished, Headers}, _RequestId, _Rest) ->
+    From ! {stream_end, Headers},
+    ok;
+deliver_message(From, {error, Reason}, _RequestId, _Rest) ->
+    From ! {stream_error, Reason},
+    ok.
 
 %% Wait for the next HTTP message from httpc
 stream_owner_next_message(RequestId) ->
@@ -182,7 +192,3 @@ build_req(Url, Headers, Body) when Body =:= undefined; Body =:= <<>> ->
     {Url, Headers};
 build_req(Url, Headers, Body) ->
     {Url, Headers, to_list("application/json"), Body}.
-
-
-
-
