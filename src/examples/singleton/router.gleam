@@ -35,4 +35,3 @@ pub fn create_router() -> Router(AppContext, Services) {
     middleware: [rate_limit_middleware.rate_limit_middleware],
   )
 }
-

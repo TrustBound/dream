@@ -33,7 +33,8 @@ pub fn route_request(
       let request_with_params = transaction.set_params(request, params)
 
       // Build the controller chain from middleware + controller
-      let controller_chain = build_controller_chain(route.middleware, route.controller)
+      let controller_chain =
+        build_controller_chain(route.middleware, route.controller)
 
       // Execute the chain (which will run all middleware then the controller)
       controller_chain(request_with_params, context, services)

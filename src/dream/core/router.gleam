@@ -9,6 +9,7 @@ import dream/core/http/statuses.{convert_client_error_to_status, not_found}
 import dream/core/http/transaction.{
   type Method, type Request, type Response, Get,
 }
+import dream/core/router/pattern
 import gleam/list
 import gleam/option
 import gleam/string
@@ -134,71 +135,25 @@ pub fn route(
 /// Pattern: "/users/:id/posts/:post_id"
 /// Path: "/users/123/posts/456"
 /// Returns: Some([#("id", "123"), #("post_id", "456")])
+///
+/// Supports wildcards:
+/// - "*name" or "*": Single-segment wildcard
+/// - "**name" or "**": Multi-segment wildcard
+/// - "*.ext": Extension matching
+/// - "*.{ext1,ext2}": Multiple extensions
 pub fn match_path(
-  pattern: String,
+  pattern_string: String,
   path: String,
 ) -> option.Option(List(#(String, String))) {
   let pattern_segments =
-    string.split(pattern, "/") |> list.filter(non_empty_segment)
+    string.split(pattern_string, "/") |> list.filter(non_empty_segment)
   let path_segments = string.split(path, "/") |> list.filter(non_empty_segment)
 
-  case list.length(pattern_segments) == list.length(path_segments) {
-    False -> option.None
-    True -> extract_params(pattern_segments, path_segments, [])
-  }
+  pattern.match_segments(pattern_segments, path_segments)
 }
 
 fn non_empty_segment(segment: String) -> Bool {
   segment != ""
-}
-
-/// Extract path parameters from pattern segments and path segments
-fn extract_params(
-  pattern_segments: List(String),
-  path_segments: List(String),
-  accumulated_params: List(#(String, String)),
-) -> option.Option(List(#(String, String))) {
-  case pattern_segments, path_segments {
-    [], [] -> option.Some(list.reverse(accumulated_params))
-
-    [pattern_seg, ..rest_pat], [path_seg, ..rest_path] ->
-      match_segment(
-        pattern_seg,
-        path_seg,
-        rest_pat,
-        rest_path,
-        accumulated_params,
-      )
-
-    _, _ -> option.None
-  }
-}
-
-/// Match a single segment from pattern and path, handling parameter extraction
-fn match_segment(
-  pattern_seg: String,
-  path_seg: String,
-  rest_pattern: List(String),
-  rest_path: List(String),
-  params: List(#(String, String)),
-) -> option.Option(List(#(String, String))) {
-  let is_param = string.starts_with(pattern_seg, ":")
-  let segments_match = pattern_seg == path_seg
-
-  case is_param, segments_match {
-    // Parameter segment - extract and continue
-    True, _ -> {
-      let param_name = string.drop_start(pattern_seg, 1)
-      extract_params(rest_pattern, rest_path, [
-        #(param_name, path_seg),
-        ..params
-      ])
-    }
-    // Static segment matches - continue
-    False, True -> extract_params(rest_pattern, rest_path, params)
-    // Static segment doesn't match - fail
-    False, False -> option.None
-  }
 }
 
 /// Find matching route and extract params
@@ -266,7 +221,8 @@ fn build_chain_recursive(
     [mw, ..rest] -> {
       case mw {
         Middleware(middleware_fn) -> {
-          let wrapped_controller = create_wrapped_controller(middleware_fn, controller)
+          let wrapped_controller =
+            create_wrapped_controller(middleware_fn, controller)
           build_chain_recursive(rest, wrapped_controller)
         }
       }

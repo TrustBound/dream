@@ -32,4 +32,3 @@ pub fn main() {
   |> bind("localhost")
   |> listen(3000)
 }
-

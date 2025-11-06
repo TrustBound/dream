@@ -224,6 +224,153 @@ let assert Ok(product_id) = get_param(request, "id")
 
 Simple. Explicit. No surprises.
 
+## Advanced: Wildcard Patterns
+
+Dream supports glob-style wildcard patterns for more flexible routing. This is especially useful for static file serving, API proxies, and catch-all routes.
+
+### Single-Segment Wildcard (`*`)
+
+Matches exactly one path segment:
+
+```gleam
+router
+|> route(Get, "/files/*filename", serve_file, [])
+// Matches: /files/document.pdf
+// Doesn't match: /files/reports/document.pdf
+
+|> route(Get, "/health/*/check", health_check, [])
+// Matches: /health/api/check, /health/db/check
+// The middle segment is matched but not captured
+```
+
+**Named wildcards** capture the matched segment:
+
+```gleam
+pub fn serve_file(request: Request, _ctx, _svc) -> Response {
+  let assert Ok(filename) = get_param(request, "filename")
+  // filename = "document.pdf"
+}
+```
+
+**Anonymous wildcards** (`*`) match but don't capture.
+
+### Multi-Segment Wildcard (`**`)
+
+Matches zero or more path segments:
+
+```gleam
+router
+|> route(Get, "/static/**filepath", serve_static, [])
+// Matches: /static/css/main.css
+// Matches: /static/images/photos/2024/photo.jpg
+// Matches: /static (empty path)
+
+|> route(Get, "/api/**", api_catch_all, [])
+// Matches any path under /api
+```
+
+**Named multi-wildcards** join all matched segments with `/`:
+
+```gleam
+pub fn serve_static(request: Request, _ctx, _svc) -> Response {
+  let assert Ok(filepath) = get_param(request, "filepath")
+  // filepath = "css/main.css" or "images/photos/2024/photo.jpg"
+}
+```
+
+### Extension Matching
+
+Match specific file extensions:
+
+```gleam
+router
+// Single extension
+|> route(Get, "/images/*.jpg", serve_jpg, [])
+
+// Multiple extensions
+|> route(Get, "/images/*.{jpg,png,gif}", serve_images, [])
+// Matches: /images/photo.jpg, /images/logo.png, /images/icon.gif
+```
+
+Extension patterns don't capture the filename by default (anonymous).
+
+### Combining Patterns
+
+Mix parameters and wildcards in the same route:
+
+```gleam
+router
+// Parameter + single wildcard
+|> route(Get, "/users/:id/files/*filename", user_files, [])
+// Example: /users/123/files/report.pdf
+//   id = "123", filename = "report.pdf"
+
+// Parameter + multi-wildcard
+|> route(Get, "/api/:version/**endpoint", api_proxy, [])
+// Example: /api/v1/users/123/profile
+//   version = "v1", endpoint = "users/123/profile"
+```
+
+### Wildcards in the Middle
+
+Multi-wildcards can appear in the middle of a path:
+
+```gleam
+router
+|> route(Get, "/files/**/metadata", get_metadata, [])
+// Matches: /files/metadata
+// Matches: /files/2024/reports/metadata
+// Matches: /files/a/b/c/d/metadata
+```
+
+### Route Ordering Matters
+
+Dream uses **first-match-wins** routing. More specific routes should come before more general ones:
+
+```gleam
+router
+// ✅ Correct order - specific to general
+|> route(Get, "/api/health", health_check, [])
+|> route(Get, "/api/:version/users/:id", show_user, [])
+|> route(Get, "/api/**", api_catch_all, [])
+
+// ❌ Wrong order - catch-all would match everything
+|> route(Get, "/api/**", api_catch_all, [])
+|> route(Get, "/api/health", health_check, [])  // Never reached!
+```
+
+### Common Use Cases
+
+**Static file serving:**
+
+```gleam
+pub fn serve_static(request: Request, _ctx, _svc) -> Response {
+  let assert Ok(filepath) = get_param(request, "filepath")
+  // Serve from ./public directory
+  static.serve_file("./public", filepath)
+}
+
+router
+|> route(Get, "/static/**filepath", serve_static, [])
+```
+
+**API versioning with proxy:**
+
+```gleam
+router
+|> route(Get, "/api/:version/**endpoint", api_proxy, [])
+// Routes all /api/v1/*, /api/v2/* etc. to proxy
+```
+
+**Download directory with wildcards:**
+
+```gleam
+router
+|> route(Get, "/downloads/*category/*.zip", download_archive, [])
+// Matches: /downloads/reports/annual.zip
+//   category = "reports", matches .zip files only
+```
+
 ## HTTP Methods
 
 We've only used `Get` so far. Dream supports all the standard HTTP methods:

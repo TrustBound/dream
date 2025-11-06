@@ -524,7 +524,8 @@ pub fn build_controller_chain_with_multiple_middleware_executes_in_order_test() 
   let services = router.EmptyServices
 
   // Act
-  let chain = build_controller_chain([middleware1, middleware2], final_controller)
+  let chain =
+    build_controller_chain([middleware1, middleware2], final_controller)
   let response = chain(request, context, services)
 
   // Assert
@@ -532,5 +533,411 @@ pub fn build_controller_chain_with_multiple_middleware_executes_in_order_test() 
     transaction.Response(_, body, _, _, _, _) -> {
       body |> should.equal("test-m2-m1")
     }
+  }
+}
+
+// ===== Single Wildcard Tests =====
+
+pub fn match_path_with_named_single_wildcard_captures_segment_test() {
+  // Arrange
+  let pattern = "/files/*filename"
+  let path_value = "/files/document.pdf"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(params) -> {
+      list.length(params) |> should.equal(1)
+      case params {
+        [#(name, value), ..] -> {
+          name |> should.equal("filename")
+          value |> should.equal("document.pdf")
+        }
+        [] -> should.fail()
+      }
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn match_path_with_anonymous_single_wildcard_matches_but_no_capture_test() {
+  // Arrange
+  let pattern = "/health/*/check"
+  let path_value = "/health/api/check"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(params) -> {
+      list.length(params) |> should.equal(0)
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn match_path_with_single_wildcard_in_middle_extracts_correctly_test() {
+  // Arrange
+  let pattern = "/users/:id/files/*filename"
+  let path_value = "/users/123/files/report.pdf"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(params) -> {
+      list.length(params) |> should.equal(2)
+      case params {
+        [#(name1, value1), #(name2, value2), ..] -> {
+          name1 |> should.equal("id")
+          value1 |> should.equal("123")
+          name2 |> should.equal("filename")
+          value2 |> should.equal("report.pdf")
+        }
+        _ -> should.fail()
+      }
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn match_path_with_multiple_single_wildcards_test() {
+  // Arrange
+  let pattern = "/files/*category/*filename"
+  let path_value = "/files/documents/report.pdf"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(params) -> {
+      list.length(params) |> should.equal(2)
+      case params {
+        [#(name1, value1), #(name2, value2), ..] -> {
+          name1 |> should.equal("category")
+          value1 |> should.equal("documents")
+          name2 |> should.equal("filename")
+          value2 |> should.equal("report.pdf")
+        }
+        _ -> should.fail()
+      }
+    }
+    option.None -> should.fail()
+  }
+}
+
+// ===== Multi Wildcard Tests =====
+
+pub fn match_path_with_named_multi_wildcard_at_end_captures_all_test() {
+  // Arrange
+  let pattern = "/static/**filepath"
+  let path_value = "/static/css/main.css"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(params) -> {
+      list.length(params) |> should.equal(1)
+      case params {
+        [#(name, value), ..] -> {
+          name |> should.equal("filepath")
+          value |> should.equal("css/main.css")
+        }
+        [] -> should.fail()
+      }
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn match_path_with_multi_wildcard_deep_path_test() {
+  // Arrange
+  let pattern = "/assets/**path"
+  let path_value = "/assets/v1/images/photos/2024/photo.jpg"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(params) -> {
+      list.length(params) |> should.equal(1)
+      case params {
+        [#(name, value), ..] -> {
+          name |> should.equal("path")
+          value |> should.equal("v1/images/photos/2024/photo.jpg")
+        }
+        [] -> should.fail()
+      }
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn match_path_with_multi_wildcard_in_middle_matches_correctly_test() {
+  // Arrange
+  let pattern = "/api/**/metadata"
+  let path_value = "/api/v1/users/123/metadata"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(_) -> Nil
+    option.None -> should.fail()
+  }
+}
+
+pub fn match_path_with_anonymous_multi_wildcard_matches_test() {
+  // Arrange
+  let pattern = "/api/**"
+  let path_value = "/api/v1/users/123/profile"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(params) -> {
+      list.length(params) |> should.equal(0)
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn match_path_with_multi_wildcard_empty_path_returns_empty_string_test() {
+  // Arrange
+  let pattern = "/api/**rest"
+  let path_value = "/api"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(params) -> {
+      list.length(params) |> should.equal(1)
+      case params {
+        [#(name, value), ..] -> {
+          name |> should.equal("rest")
+          value |> should.equal("")
+        }
+        [] -> should.fail()
+      }
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn match_path_with_multi_wildcard_and_static_suffix_test() {
+  // Arrange
+  let pattern = "/files/**/download"
+  let path_value = "/files/2024/reports/annual/download"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(_) -> Nil
+    option.None -> should.fail()
+  }
+}
+
+// ===== Extension Matching Tests =====
+
+pub fn match_path_with_extension_pattern_matches_correct_files_test() {
+  // Arrange
+  let pattern = "/images/*.jpg"
+  let path_value = "/images/photo.jpg"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(_) -> Nil
+    option.None -> should.fail()
+  }
+}
+
+pub fn match_path_with_extension_pattern_rejects_wrong_extension_test() {
+  // Arrange
+  let pattern = "/images/*.jpg"
+  let path_value = "/images/photo.png"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(_) -> should.fail()
+    option.None -> Nil
+  }
+}
+
+pub fn match_path_with_brace_expansion_matches_multiple_extensions_test() {
+  // Arrange
+  let pattern = "/images/*.{jpg,png,gif}"
+  let path_jpg = "/images/photo.jpg"
+  let path_png = "/images/logo.png"
+  let path_gif = "/images/animation.gif"
+
+  // Act
+  let result_jpg = match_path(pattern, path_jpg)
+  let result_png = match_path(pattern, path_png)
+  let result_gif = match_path(pattern, path_gif)
+
+  // Assert
+  case result_jpg {
+    option.Some(_) -> Nil
+    option.None -> should.fail()
+  }
+  case result_png {
+    option.Some(_) -> Nil
+    option.None -> should.fail()
+  }
+  case result_gif {
+    option.Some(_) -> Nil
+    option.None -> should.fail()
+  }
+}
+
+pub fn match_path_with_brace_expansion_rejects_unlisted_extension_test() {
+  // Arrange
+  let pattern = "/images/*.{jpg,png}"
+  let path_value = "/images/document.pdf"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(_) -> should.fail()
+    option.None -> Nil
+  }
+}
+
+pub fn match_path_with_brace_expansion_with_spaces_test() {
+  // Arrange
+  let pattern = "/files/*.{pdf, doc, txt}"
+  let path_value = "/files/report.pdf"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(_) -> Nil
+    option.None -> should.fail()
+  }
+}
+
+// ===== Combined Patterns Tests =====
+
+pub fn match_path_with_param_and_wildcard_extracts_both_test() {
+  // Arrange
+  let pattern = "/users/:id/files/*filename"
+  let path_value = "/users/456/files/document.pdf"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(params) -> {
+      list.length(params) |> should.equal(2)
+      case params {
+        [#(name1, value1), #(name2, value2), ..] -> {
+          name1 |> should.equal("id")
+          value1 |> should.equal("456")
+          name2 |> should.equal("filename")
+          value2 |> should.equal("document.pdf")
+        }
+        _ -> should.fail()
+      }
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn match_path_with_param_and_multi_wildcard_test() {
+  // Arrange
+  let pattern = "/api/:version/**endpoint"
+  let path_value = "/api/v1/users/123/profile"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(params) -> {
+      list.length(params) |> should.equal(2)
+      case params {
+        [#(name1, value1), #(name2, value2), ..] -> {
+          name1 |> should.equal("version")
+          value1 |> should.equal("v1")
+          name2 |> should.equal("endpoint")
+          value2 |> should.equal("users/123/profile")
+        }
+        _ -> should.fail()
+      }
+    }
+    option.None -> should.fail()
+  }
+}
+
+// ===== Edge Cases =====
+
+pub fn match_path_with_wildcard_only_pattern_matches_anything_test() {
+  // Arrange
+  let pattern = "/**"
+  let path_value = "/any/path/at/all"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(_) -> Nil
+    option.None -> should.fail()
+  }
+}
+
+pub fn match_path_single_wildcard_does_not_match_multiple_segments_test() {
+  // Arrange
+  let pattern = "/files/*/download"
+  let path_value = "/files/reports/2024/download"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(_) -> should.fail()
+    option.None -> Nil
+  }
+}
+
+pub fn match_path_multi_wildcard_matches_zero_segments_test() {
+  // Arrange
+  let pattern = "/api/**/endpoint"
+  let path_value = "/api/endpoint"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert
+  case result {
+    option.Some(_) -> Nil
+    option.None -> should.fail()
   }
 }
