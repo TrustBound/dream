@@ -14,4 +14,3 @@ pub type AuthContext {
 }
 
 pub const context = AuthContext(request_id: "", user: option.None)
-

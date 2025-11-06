@@ -1,6 +1,8 @@
 import dream/core/http/statuses.{bad_request_status}
 import dream/core/http/transaction
-import dream/validators/json_validator.{ValidationError, error_response, validate}
+import dream/validators/json_validator.{
+  ValidationError, error_response, validate, validate_or_respond,
+}
 import gleam/dynamic/decode
 import gleam/list
 import gleam/option
@@ -14,9 +16,9 @@ type CustomType {
 pub fn validate_with_simple_string_decoder_returns_decoded_string_test() {
   let decoder = decode.string
   let json_body = "\"hello world\""
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(value) -> value |> should.equal("hello world")
     Error(_) -> should.fail()
@@ -30,9 +32,9 @@ pub fn validate_with_tuple_decoder_returns_decoded_tuple_test() {
     decode.success(#(name, age))
   }
   let json_body = "{\"name\":\"Alice\",\"age\":30}"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(#(name, age)) -> {
       name |> should.equal("Alice")
@@ -45,9 +47,9 @@ pub fn validate_with_tuple_decoder_returns_decoded_tuple_test() {
 pub fn validate_with_integer_decoder_returns_decoded_int_test() {
   let decoder = decode.int
   let json_body = "42"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(value) -> value |> should.equal(42)
     Error(_) -> should.fail()
@@ -57,9 +59,9 @@ pub fn validate_with_integer_decoder_returns_decoded_int_test() {
 pub fn validate_with_float_decoder_returns_decoded_float_test() {
   let decoder = decode.float
   let json_body = "3.14"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(value) -> {
       value |> should.equal(3.14)
@@ -70,12 +72,12 @@ pub fn validate_with_float_decoder_returns_decoded_float_test() {
 
 pub fn validate_with_bool_decoder_returns_decoded_bool_test() {
   let decoder = decode.bool
-  
+
   case validate("true", decoder) {
     Ok(value) -> value |> should.equal(True)
     Error(_) -> should.fail()
   }
-  
+
   case validate("false", decoder) {
     Ok(value) -> value |> should.equal(False)
     Error(_) -> should.fail()
@@ -85,9 +87,9 @@ pub fn validate_with_bool_decoder_returns_decoded_bool_test() {
 pub fn validate_with_option_decoder_with_some_returns_some_test() {
   let decoder = decode.optional(decode.string)
   let json_body = "\"value\""
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(value) -> {
       case value {
@@ -102,9 +104,9 @@ pub fn validate_with_option_decoder_with_some_returns_some_test() {
 pub fn validate_with_option_decoder_with_null_returns_none_test() {
   let decoder = decode.optional(decode.string)
   let json_body = "null"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(value) -> {
       case value {
@@ -126,9 +128,9 @@ pub fn validate_with_nested_object_decoder_returns_decoded_object_test() {
     decode.success(user)
   }
   let json_body = "{\"user\":{\"name\":\"Bob\",\"email\":\"bob@example.com\"}}"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(#(name, email)) -> {
       name |> should.equal("Bob")
@@ -141,9 +143,9 @@ pub fn validate_with_nested_object_decoder_returns_decoded_object_test() {
 pub fn validate_with_list_decoder_returns_decoded_list_test() {
   let decoder = decode.list(decode.string)
   let json_body = "[\"a\",\"b\",\"c\"]"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(value) -> {
       list.length(value) |> should.equal(3)
@@ -163,9 +165,9 @@ pub fn validate_with_list_decoder_returns_decoded_list_test() {
 pub fn validate_with_empty_string_returns_json_parse_error_test() {
   let decoder = decode.string
   let json_body = ""
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(_) -> should.fail()
     Error(error) -> {
@@ -181,9 +183,9 @@ pub fn validate_with_empty_string_returns_json_parse_error_test() {
 pub fn validate_with_malformed_json_unclosed_bracket_returns_error_test() {
   let decoder = decode.string
   let json_body = "{\"key\":\"value\""
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(_) -> should.fail()
     Error(error) -> {
@@ -195,9 +197,9 @@ pub fn validate_with_malformed_json_unclosed_bracket_returns_error_test() {
 pub fn validate_with_malformed_json_invalid_syntax_returns_error_test() {
   let decoder = decode.string
   let json_body = "{key: value}"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(_) -> should.fail()
     Error(error) -> {
@@ -213,9 +215,9 @@ pub fn validate_with_missing_required_field_returns_structure_error_test() {
     decode.success(#(name, age))
   }
   let json_body = "{\"name\":\"Alice\"}"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(_) -> should.fail()
     Error(error) -> {
@@ -234,9 +236,9 @@ pub fn validate_with_wrong_type_string_instead_of_int_returns_type_error_test() 
     decode.success(age)
   }
   let json_body = "{\"age\":\"thirty\"}"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(_) -> should.fail()
     Error(error) -> {
@@ -246,7 +248,8 @@ pub fn validate_with_wrong_type_string_instead_of_int_returns_type_error_test() 
         option.None -> should.fail()
       }
       case error.expected {
-        option.Some(expected) -> string.contains(expected, "Int") |> should.equal(True)
+        option.Some(expected) ->
+          string.contains(expected, "Int") |> should.equal(True)
         option.None -> should.fail()
       }
     }
@@ -262,14 +265,15 @@ pub fn validate_with_wrong_type_at_nested_path_returns_nested_error_test() {
     decode.success(user)
   }
   let json_body = "{\"user\":{\"age\":\"not a number\"}}"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(_) -> should.fail()
     Error(error) -> {
       case error.field {
-        option.Some(field) -> string.contains(field, "user") |> should.equal(True)
+        option.Some(field) ->
+          string.contains(field, "user") |> should.equal(True)
         option.None -> should.fail()
       }
     }
@@ -283,9 +287,9 @@ pub fn validate_with_multiple_errors_returns_first_error_test() {
     decode.success(#(name, age))
   }
   let json_body = "{\"name\":123,\"age\":\"not a number\"}"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(_) -> should.fail()
     Error(error) -> {
@@ -301,9 +305,9 @@ pub fn validate_with_multiple_errors_returns_first_error_test() {
 pub fn validate_with_invalid_array_elements_returns_error_test() {
   let decoder = decode.list(decode.int)
   let json_body = "[1,2,\"not a number\",4]"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(_) -> should.fail()
     Error(error) -> {
@@ -317,15 +321,16 @@ pub fn validate_with_invalid_array_elements_returns_error_test() {
 }
 
 pub fn error_response_with_all_fields_populated_creates_json_response_test() {
-  let error = ValidationError(
-    message: "Expected Int but found String at age",
-    field: option.Some("age"),
-    expected: option.Some("Int"),
-    found: option.Some("String"),
-  )
-  
+  let error =
+    ValidationError(
+      message: "Expected Int but found String at age",
+      field: option.Some("age"),
+      expected: option.Some("Int"),
+      found: option.Some("String"),
+    )
+
   let response = error_response(error)
-  
+
   case response {
     transaction.Response(status, body, _, _, content_type, _) -> {
       status |> should.equal(bad_request_status())
@@ -342,15 +347,16 @@ pub fn error_response_with_all_fields_populated_creates_json_response_test() {
 }
 
 pub fn error_response_with_only_message_creates_json_with_message_only_test() {
-  let error = ValidationError(
-    message: "Unexpected end of JSON input",
-    field: option.None,
-    expected: option.None,
-    found: option.None,
-  )
-  
+  let error =
+    ValidationError(
+      message: "Unexpected end of JSON input",
+      field: option.None,
+      expected: option.None,
+      found: option.None,
+    )
+
   let response = error_response(error)
-  
+
   case response {
     transaction.Response(status, body, _, _, _, _) -> {
       status |> should.equal(bad_request_status())
@@ -361,15 +367,16 @@ pub fn error_response_with_only_message_creates_json_with_message_only_test() {
 }
 
 pub fn error_response_status_code_is_bad_request_test() {
-  let error = ValidationError(
-    message: "Test error",
-    field: option.None,
-    expected: option.None,
-    found: option.None,
-  )
-  
+  let error =
+    ValidationError(
+      message: "Test error",
+      field: option.None,
+      expected: option.None,
+      found: option.None,
+    )
+
   let response = error_response(error)
-  
+
   case response {
     transaction.Response(status, _, _, _, _, _) -> {
       status |> should.equal(bad_request_status())
@@ -378,15 +385,16 @@ pub fn error_response_status_code_is_bad_request_test() {
 }
 
 pub fn error_response_content_type_is_application_json_test() {
-  let error = ValidationError(
-    message: "Test error",
-    field: option.None,
-    expected: option.None,
-    found: option.None,
-  )
-  
+  let error =
+    ValidationError(
+      message: "Test error",
+      field: option.None,
+      expected: option.None,
+      found: option.None,
+    )
+
   let response = error_response(error)
-  
+
   case response {
     transaction.Response(_, _, _, _, content_type, _) -> {
       case content_type {
@@ -400,9 +408,9 @@ pub fn error_response_content_type_is_application_json_test() {
 pub fn validate_with_null_value_for_non_option_returns_error_test() {
   let decoder = decode.string
   let json_body = "null"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(_) -> should.fail()
     Error(error) -> {
@@ -417,9 +425,9 @@ pub fn validate_with_empty_object_returns_error_for_missing_fields_test() {
     decode.success(name)
   }
   let json_body = "{}"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(_) -> should.fail()
     Error(error) -> {
@@ -435,9 +443,9 @@ pub fn validate_with_empty_object_returns_error_for_missing_fields_test() {
 pub fn validate_with_empty_array_returns_empty_list_test() {
   let decoder = decode.list(decode.string)
   let json_body = "[]"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(value) -> {
       list.length(value) |> should.equal(0)
@@ -458,9 +466,9 @@ pub fn validate_with_deeply_nested_path_returns_full_path_test() {
     decode.success(level1)
   }
   let json_body = "{\"level1\":{\"level2\":{\"level3\":\"not a number\"}}}"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(_) -> should.fail()
     Error(error) -> {
@@ -482,9 +490,9 @@ pub fn validate_with_special_characters_in_field_names_handles_correctly_test() 
     decode.success(field_name)
   }
   let json_body = "{\"field-name\":\"value\"}"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(value) -> value |> should.equal("value")
     Error(_) -> should.fail()
@@ -494,9 +502,9 @@ pub fn validate_with_special_characters_in_field_names_handles_correctly_test() 
 pub fn validate_with_unicode_characters_in_string_handles_correctly_test() {
   let decoder = decode.string
   let json_body = "\"Hello 世界\""
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(value) -> value |> should.equal("Hello 世界")
     Error(_) -> should.fail()
@@ -509,12 +517,103 @@ pub fn validate_with_custom_type_decoder_returns_decoded_value_test() {
     decode.success(CustomType(value))
   }
   let json_body = "{\"value\":\"custom\"}"
-  
+
   let result = validate(json_body, decoder)
-  
+
   case result {
     Ok(CustomType(value)) -> value |> should.equal("custom")
     Error(_) -> should.fail()
   }
 }
 
+pub fn validate_or_respond_with_valid_json_returns_ok_test() {
+  let decoder = decode.string
+  let json_body = "\"hello\""
+
+  let result = validate_or_respond(json_body, decoder)
+
+  result
+  |> should.be_ok
+  |> should.equal("hello")
+}
+
+pub fn validate_or_respond_with_invalid_json_returns_error_response_test() {
+  let decoder = decode.string
+  let json_body = "invalid json"
+
+  let result = validate_or_respond(json_body, decoder)
+
+  result |> should.be_error
+}
+
+pub fn validate_or_respond_error_response_has_bad_request_status_test() {
+  let decoder = decode.string
+  let json_body = "invalid json"
+
+  case validate_or_respond(json_body, decoder) {
+    Error(response) -> {
+      response.status |> should.equal(bad_request_status())
+    }
+    Ok(_) -> should.fail()
+  }
+}
+
+pub fn validate_or_respond_error_response_is_json_test() {
+  let decoder = decode.string
+  let json_body = "invalid json"
+
+  case validate_or_respond(json_body, decoder) {
+    Error(response) -> {
+      case response.content_type {
+        option.Some(ct) ->
+          string.contains(ct, "application/json") |> should.equal(True)
+        option.None -> should.fail()
+      }
+    }
+    Ok(_) -> should.fail()
+  }
+}
+
+pub fn validate_or_respond_with_wrong_type_returns_error_response_test() {
+  let decoder = decode.int
+  let json_body = "\"not an int\""
+
+  case validate_or_respond(json_body, decoder) {
+    Error(response) -> {
+      string.contains(response.body, "Expected") |> should.equal(True)
+    }
+    Ok(_) -> should.fail()
+  }
+}
+
+pub fn validate_or_respond_with_missing_field_returns_error_response_test() {
+  let decoder = {
+    use name <- decode.field("name", decode.string)
+    use age <- decode.field("age", decode.int)
+    decode.success(#(name, age))
+  }
+  let json_body = "{\"name\":\"Alice\"}"
+
+  case validate_or_respond(json_body, decoder) {
+    Error(response) -> {
+      string.contains(response.body, "age") |> should.equal(True)
+    }
+    Ok(_) -> should.fail()
+  }
+}
+
+pub fn validate_or_respond_with_complex_valid_data_returns_ok_test() {
+  let decoder = {
+    use name <- decode.field("name", decode.string)
+    use age <- decode.field("age", decode.int)
+    use email <- decode.field("email", decode.string)
+    decode.success(#(name, age, email))
+  }
+  let json_body = "{\"name\":\"Bob\",\"age\":25,\"email\":\"bob@example.com\"}"
+
+  let result = validate_or_respond(json_body, decoder)
+
+  result
+  |> should.be_ok
+  |> should.equal(#("Bob", 25, "bob@example.com"))
+}

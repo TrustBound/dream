@@ -9,4 +9,3 @@ pub type Services {
 pub fn initialize_services() -> Services {
   Services
 }
-

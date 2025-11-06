@@ -37,7 +37,12 @@ pub fn create(
 
         // Route the request with context and services
         let dream_resp =
-          dream.route_request(router, dream_req, request_context, services_instance)
+          dream.route_request(
+            router,
+            dream_req,
+            request_context,
+            services_instance,
+          )
 
         // Convert Dream response back to mist format
         mist_response.convert(dream_resp)

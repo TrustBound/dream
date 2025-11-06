@@ -16,4 +16,3 @@ pub fn initialize_services() -> Services {
   let assert Ok(database_service) = database.init_database()
   Services(database: database_service)
 }
-

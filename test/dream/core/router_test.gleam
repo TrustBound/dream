@@ -3,8 +3,8 @@ import dream/core/dream
 import dream/core/http/statuses.{ok_status}
 import dream/core/http/transaction
 import dream/core/router.{
-  build_handler_chain, find_route, handler, match_path, method, middleware,
-  new as new_route, path, route, router, type EmptyServices,
+  type EmptyServices, build_handler_chain, find_route, handler, match_path,
+  method, middleware, new as new_route, path, route, router,
 }
 import gleam/list
 import gleam/option
@@ -83,7 +83,8 @@ pub fn handler_with_valid_handler_sets_route_handler_test() {
   // Act
   let updated_route = handler(route, test_handler)
   let router_with_route = router.Router(routes: [updated_route])
-  let response = dream.route_request(router_with_route, request, context, services)
+  let response =
+    dream.route_request(router_with_route, request, context, services)
 
   // Assert - verify handler works by checking response
   case response {
@@ -100,9 +101,11 @@ pub fn middleware_with_valid_middleware_adds_middleware_to_route_test() {
     req: transaction.Request,
     _ctx: AppContext,
     _svc: EmptyServices,
-    next: fn(transaction.Request, AppContext, EmptyServices) -> transaction.Response,
+    next: fn(transaction.Request, AppContext, EmptyServices) ->
+      transaction.Response,
   ) -> transaction.Response {
-    let response = next(req, context.AppContext(request_id: ""), router.EmptyServices)
+    let response =
+      next(req, context.AppContext(request_id: ""), router.EmptyServices)
     case response {
       transaction.Response(
         status,
@@ -130,7 +133,8 @@ pub fn middleware_with_valid_middleware_adds_middleware_to_route_test() {
   let request = create_test_request(transaction.Get, "/test")
   let context = context.AppContext(request_id: "test-id")
   let services = router.EmptyServices
-  let response = dream.route_request(router_with_route, request, context, services)
+  let response =
+    dream.route_request(router_with_route, request, context, services)
 
   // Assert - verify middleware was applied by checking header
   case response {
@@ -196,7 +200,8 @@ pub fn add_route_to_router_with_existing_routes_appends_route_test() {
   let context = context.AppContext(request_id: "test-id")
   let services = router.EmptyServices
   let get_response = dream.route_request(result, get_request, context, services)
-  let post_response = dream.route_request(result, post_request, context, services)
+  let post_response =
+    dream.route_request(result, post_request, context, services)
 
   case get_response {
     transaction.Response(_, body, _, _, _, _) -> {
@@ -408,7 +413,8 @@ pub fn build_handler_chain_with_middleware_wraps_handler_test() {
     req: transaction.Request,
     ctx: AppContext,
     svc: EmptyServices,
-    next: fn(transaction.Request, AppContext, EmptyServices) -> transaction.Response,
+    next: fn(transaction.Request, AppContext, EmptyServices) ->
+      transaction.Response,
   ) -> transaction.Response {
     let response = next(req, ctx, svc)
     case response {
@@ -457,7 +463,8 @@ pub fn build_handler_chain_with_multiple_middleware_executes_in_order_test() {
         req: transaction.Request,
         ctx: AppContext,
         svc: EmptyServices,
-        next: fn(transaction.Request, AppContext, EmptyServices) -> transaction.Response,
+        next: fn(transaction.Request, AppContext, EmptyServices) ->
+          transaction.Response,
       ) -> transaction.Response {
         let response = next(req, ctx, svc)
         case response {
@@ -487,7 +494,8 @@ pub fn build_handler_chain_with_multiple_middleware_executes_in_order_test() {
         req: transaction.Request,
         ctx: AppContext,
         svc: EmptyServices,
-        next: fn(transaction.Request, AppContext, EmptyServices) -> transaction.Response,
+        next: fn(transaction.Request, AppContext, EmptyServices) ->
+          transaction.Response,
       ) -> transaction.Response {
         let response = next(req, ctx, svc)
         case response {

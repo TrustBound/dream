@@ -62,4 +62,3 @@ pub fn stream_request(
     }
   })
 }
-

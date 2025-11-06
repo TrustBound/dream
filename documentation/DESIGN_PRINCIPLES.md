@@ -361,33 +361,45 @@ fn(Request, Context, Services, SpecializedService) -> Response
 - Returns response
 - Contains business logic
 
-**Convention - Extract Dependencies First**:
+**Controller Pattern - Model-Based Architecture**:
+
+Controllers are thin HTTP orchestration layers. Data operations live in model modules.
+
 ```gleam
-pub fn create_post(
-  request: Request,
-  context: AppContext,
-  services: Services,
-) -> Response {
-  // Extract what you need at the top - makes dependencies visible
-  let db = services.database
-  let auth = services.auth
-  let logging = services.logging
-  
-  // Business logic - no more services.* references
-  let user = verify_user(auth, request)
-  let post = save_post(db, user, request.body)
-  log_action(logging, "post_created", post.id)
-  
-  Response(status: 201, body: post.id)
+// Model layer - handles data operations
+// examples/database/models/user.gleam
+pub fn list(db: pog.Connection) -> Result(pog.Returned(sql.ListUsersRow), pog.QueryError)
+pub fn get(db: pog.Connection, id: Int) -> Result(pog.Returned(sql.GetUserRow), pog.QueryError)
+pub fn create(db: pog.Connection, name: String, email: String) -> Result(pog.Returned(sql.CreateUserRow), pog.QueryError)
+pub fn decoder() -> decode.Decoder(#(String, String))
+pub fn encode(user: sql.GetUserRow) -> json.Json
+
+// Controller layer - HTTP orchestration only
+// examples/database/controllers/users_controller.gleam
+pub fn index(_request: Request, _context: DatabaseContext, services: Services) -> Response {
+  let db = services.database.connection
+  user.list(db) |> response.many_rows(user.encode_list)
+}
+
+pub fn create(request: Request, _context: DatabaseContext, services: Services) -> Response {
+  let db = services.database.connection
+  case validate_or_respond(request.body, user.decoder()) {
+    Error(response) -> response
+    Ok(data) -> {
+      let #(name, email) = data
+      user.create(db, name, email) |> response.one_row(user.encode_create)
+    }
+  }
 }
 ```
 
-**Why These Signatures**: 
-- Consistent (services parameter across all controllers)
-- Testable (mock entire Services record)
-- Fast to iterate (adding services doesn't break signatures)
-- Readable (extract pattern shows what's actually used)
-- Type-safe (checked at compile time)
+**Pattern Benefits**: 
+- **Controllers**: Focus on HTTP (params, validation, responses)
+- **Models**: Focus on data (queries, encoding, decoding)
+- **Utilities**: Reusable helpers (response builders, json encoders, validators)
+- **Separation of concerns**: HTTP logic vs data logic vs infrastructure
+- **Type-safe composition**: Each layer explicitly typed
+- **Easy to test**: Models testable without HTTP, controllers testable with mock models
 
 ### Initialization Flow
 

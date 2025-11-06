@@ -268,11 +268,15 @@ pub fn create_router() -> Router(AppContext, EmptyServices) {
 - HTTP status code helpers
 - Cookie parsing utilities
 - Middleware chaining infrastructure and execution
+- JSON validation utilities (`dream/validators/json_validator`)
+- Postgres response helpers (`dream/services/postgres/response`)
+- JSON encoding utilities (`dream/utilities/json/encoders`)
 - Helper functions and utilities
 - Documentation and examples
 
 ### You Provide:
 - **Controller functions** that handle requests (Rails-style actions like `index`, `show`)
+- **Model modules** for data operations (queries, encoding, decoding)
 - **Router configuration** using the builder pattern
 - **Application-specific** business logic
 - **Custom context types** (if you need more than the default `AppContext`)
@@ -406,8 +410,10 @@ pub fn show(
 ## Further Reading
 
 - [DESIGN_PRINCIPLES.md](DESIGN_PRINCIPLES.md) - Full design philosophy and rationale
-- `NAMING_CONVENTIONS.md` - Function naming guidelines
+- [CONTROLLER_PATTERNS.md](CONTROLLER_PATTERNS.md) - Controller and model design patterns
+- [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) - Function naming guidelines
 - `src/examples/simple/` - Basic routing example with default AppContext
 - `src/examples/streaming/` - HTTP client streaming example
 - `src/examples/custom_context/` - Custom context with authentication middleware example
+- `src/examples/database/` - Full CRUD example with models and controllers
 

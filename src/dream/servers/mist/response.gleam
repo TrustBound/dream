@@ -22,8 +22,7 @@ pub fn convert(
   let status_code = statuses.to_code(dream_resp.status)
 
   // Convert headers
-  let headers =
-    list.map(dream_resp.headers, convert_header_to_tuple)
+  let headers = list.map(dream_resp.headers, convert_header_to_tuple)
 
   // Add cookie headers
   let headers_with_cookies =
@@ -43,7 +42,7 @@ pub fn convert(
   let resp_with_body =
     http_response.new(status_code)
     |> http_response.set_body(Bytes(body_bytes))
-  
+
   set_all_headers(headers_with_content_type, resp_with_body)
 }
 

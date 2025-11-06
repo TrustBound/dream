@@ -41,5 +41,3 @@ pub fn verify_query_executed(
   // For unit tests, we rely on the singleton pattern tests
   True
 }
-
-

@@ -37,7 +37,7 @@ pub fn convert(
 ) -> #(transaction.Request, String) {
   // Generate request_id for context creation
   let request_id = generate_request_id()
-  
+
   // Convert HTTP method
   let method = convert_method(mist_req.method)
 
@@ -87,22 +87,22 @@ pub fn convert(
   }
 
   let request =
-  transaction.Request(
-    method: method,
-    protocol: protocol,
-    version: version,
-    path: path,
-    query: query,
-    params: [],
-    host: option.Some(mist_req.host),
-    port: mist_req.port,
-    remote_address: remote_address,
-    body: body_string,
-    headers: headers,
-    cookies: cookies,
-    content_type: content_type,
-    content_length: content_length,
-  )
+    transaction.Request(
+      method: method,
+      protocol: protocol,
+      version: version,
+      path: path,
+      query: query,
+      params: [],
+      host: option.Some(mist_req.host),
+      port: mist_req.port,
+      remote_address: remote_address,
+      body: body_string,
+      headers: headers,
+      cookies: cookies,
+      content_type: content_type,
+      content_length: content_length,
+    )
 
   #(request, request_id)
 }

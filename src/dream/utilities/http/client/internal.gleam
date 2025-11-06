@@ -76,4 +76,3 @@ pub fn receive_next(owner: d.Dynamic) -> Result(BitArray, Nil) {
     _ -> Error(Nil)
   }
 }
-

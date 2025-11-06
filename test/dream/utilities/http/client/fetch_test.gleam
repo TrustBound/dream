@@ -1,5 +1,5 @@
-import dream/utilities/http/client as client
-import dream/utilities/http/client/fetch as fetch
+import dream/utilities/http/client
+import dream/utilities/http/client/fetch
 import gleam/bytes_tree
 import gleam/http
 import gleam/yielder
@@ -18,15 +18,16 @@ pub fn request_with_valid_client_request_returns_result_test() {
   )
 
   // Arrange
-  let client_req = client.new
+  let client_req =
+    client.new
     |> client.method(http.Get)
     |> client.scheme(http.Https)
     |> client.host("httpbin.org")
     |> client.path("/get")
-  
+
   // Act
   let result = fetch.request(client_req)
-  
+
   // Assert
   // Verify the function returns the mocked response
   case result {
@@ -34,4 +35,3 @@ pub fn request_with_valid_client_request_returns_result_test() {
     Error(_) -> panic as "Expected Ok but got Error"
   }
 }
-

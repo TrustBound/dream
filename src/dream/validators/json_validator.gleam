@@ -39,6 +39,16 @@ pub fn error_response(error: ValidationError) -> Response {
   json_response(bad_request_status(), json.to_string(build_error_json(error)))
 }
 
+/// Validate JSON body and return either decoded data or error response
+/// This is a convenience wrapper around validate that returns Response on error
+pub fn validate_or_respond(
+  body: String,
+  decoder: decode.Decoder(decoded_type),
+) -> Result(decoded_type, Response) {
+  validate(body, decoder)
+  |> result.map_error(error_response)
+}
+
 fn build_error_json(error: ValidationError) -> json.Json {
   let fields = [
     #("error", json.string(error.message)),

@@ -13,4 +13,3 @@ pub type AppContext {
 pub fn new_context(request_id: String) -> AppContext {
   AppContext(request_id: request_id)
 }
-

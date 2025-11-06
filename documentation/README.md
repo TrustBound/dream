@@ -102,6 +102,7 @@ Everything is explicit. No magic. No vendor lock-in.
 
 - Read [ARCHITECTURE.md](ARCHITECTURE.md) for the big picture
 - Check [DESIGN_PRINCIPLES.md](DESIGN_PRINCIPLES.md) for the "why" behind decisions
+- Review [CONTROLLER_PATTERNS.md](CONTROLLER_PATTERNS.md) for controller and model design
 - Review [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) for function naming guidelines
 - Read [UNIT_TESTING.md](UNIT_TESTING.md) for testing standards and practices
 - Look at examples in `src/examples/` for real-world usage

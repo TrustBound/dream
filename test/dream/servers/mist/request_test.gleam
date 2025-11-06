@@ -6,4 +6,3 @@ pub fn convert_with_valid_request_creates_dream_request_test() {
   // The convert function is tested through integration tests via the handler.
   Nil
 }
-

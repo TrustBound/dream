@@ -378,10 +378,7 @@ pub fn is_method(request: Request, method: Method) -> Bool {
 }
 
 /// Get a path parameter value by name
-pub fn get_param(
-  request: Request,
-  name: String,
-) -> Result(String, String) {
+pub fn get_param(request: Request, name: String) -> Result(String, String) {
   case list.key_find(request.params, name) {
     Ok(value) -> Ok(value)
     Error(_) -> Error("Missing required path parameter: " <> name)

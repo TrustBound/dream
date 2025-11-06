@@ -13,8 +13,10 @@ pub type DatabaseService {
   DatabaseService(
     connection: pog.Connection,
     name: process.Name(
-      singleton.SingletonMessage(postgres.PostgresMessage, postgres.PostgresReply),
+      singleton.SingletonMessage(
+        postgres.PostgresMessage,
+        postgres.PostgresReply,
+      ),
     ),
   )
 }
-

@@ -6,7 +6,7 @@ import gleeunit/should
 pub fn new_creates_dream_instance_with_defaults_test() {
   // Arrange & Act
   let dream_instance = server.new()
-  
+
   // Assert
   // Verify Dream instance was created
   case dream_instance {
@@ -20,10 +20,10 @@ pub fn router_sets_router_on_dream_instance_test() {
   // Arrange
   let dream_instance = server.new()
   let test_router = router
-  
+
   // Act
   let updated_dream = server.router(dream_instance, test_router)
-  
+
   // Assert
   // Router should be set
   case updated_dream {
@@ -38,10 +38,10 @@ pub fn bind_sets_bind_address_test() {
   let dream_instance = server.new()
   let test_router = router
   let dream_with_router = server.router(dream_instance, test_router)
-  
+
   // Act
   let bound_dream = server.bind(dream_with_router, "127.0.0.1")
-  
+
   // Assert
   // Bind should be set
   case bound_dream {
@@ -54,10 +54,10 @@ pub fn max_body_size_sets_max_body_size_test() {
   let dream_instance = server.new()
   let test_router = router
   let dream_with_router = server.router(dream_instance, test_router)
-  
+
   // Act
   let updated_dream = server.max_body_size(dream_with_router, 2048)
-  
+
   // Assert
   case updated_dream {
     dream.Dream(_, _, _, _, max_body_size) -> {
@@ -65,5 +65,3 @@ pub fn max_body_size_sets_max_body_size_test() {
     }
   }
 }
-
-

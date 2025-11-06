@@ -4,9 +4,7 @@
 //// Also validates a hard-coded admin token for demonstration.
 
 import dream/core/http/statuses.{forbidden_status, unauthorized_status}
-import dream/core/http/transaction.{
-  type Request, type Response, text_response,
-}
+import dream/core/http/transaction.{type Request, type Response, text_response}
 import examples/custom_context/context.{type AuthContext, User}
 import examples/custom_context/services.{type Services, Services}
 import gleam/option
