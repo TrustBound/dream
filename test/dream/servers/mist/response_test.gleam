@@ -22,11 +22,10 @@ pub fn convert_with_response_with_cookies_includes_cookie_headers_test() {
   let dream_resp =
     transaction.Response(
       status: ok_status(),
-      body: "Hello",
+      body: transaction.Text("Hello"),
       headers: [],
       cookies: [cookie],
       content_type: option.None,
-      content_length: option.None,
     )
 
   // Act

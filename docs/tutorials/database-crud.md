@@ -2,7 +2,7 @@
 
 **Time:** 30 minutes  
 **Prerequisites:** [Basic Routing](basic-routing.md) completed, PostgreSQL installed  
-**Example code:** `src/examples/database/`
+**Example code:** `examples/database/`
 
 Time to connect to a real database. No ORM abstractions hiding what's happening. Just type-safe SQL queries that you can actually read.
 
@@ -626,7 +626,7 @@ You've learned:
 
 **Want to see the full example?**
 
-Check out `src/examples/database/` in the Dream repository for the complete working code.
+Check out `examples/database/` in the Dream repository for the complete working code.
 
 ---
 

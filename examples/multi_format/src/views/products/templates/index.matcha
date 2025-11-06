@@ -1,0 +1,54 @@
+{> import examples/multi_format/sql.{type ListProductsRow}
+{> import gleam/int
+{> import gleam/float
+{> with products as List(ListProductsRow)
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Products - Multi-Format Example</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+<body>
+  <main>
+    <h1>Products</h1>
+
+    <article>
+      <header>
+        <i data-lucide="package"></i>
+        <h2>All Products</h2>
+      </header>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Price</th>
+            <th>Stock</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for product in products %}
+          <tr>
+            <td>{{ int.to_string(product.id) }}</td>
+            <td>{{ product.name }}</td>
+            <td>${{ float.to_string(product.price) }}</td>
+            <td>{{ int.to_string(product.stock) }}</td>
+            <td>
+              <a href="/products/{{ int.to_string(product.id) }}" role="button">View</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </article>
+  </main>
+  
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>lucide.createIcons();</script>
+</body>
+</html>
+

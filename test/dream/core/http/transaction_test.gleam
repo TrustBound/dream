@@ -2,6 +2,7 @@ import dream/core/http/statuses
 import dream/core/http/transaction
 import gleam/list
 import gleam/option
+import gleam/yielder
 import gleeunit/should
 
 // Cookie tests
@@ -361,16 +362,12 @@ pub fn text_response_with_valid_status_and_body_creates_text_response_test() {
 
   // Assert
   case response {
-    transaction.Response(
-      status,
-      body,
-      headers,
-      cookies,
-      content_type,
-      _content_length,
-    ) -> {
+    transaction.Response(status, body, headers, cookies, content_type) -> {
       status |> should.equal(statuses.ok_status())
-      body |> should.equal("Hello World")
+      case body {
+        transaction.Text(text) -> text |> should.equal("Hello World")
+        _ -> should.fail()
+      }
       list.length(headers) |> should.equal(1)
       list.length(cookies) |> should.equal(0)
       case content_type {
@@ -388,9 +385,12 @@ pub fn json_response_with_valid_status_and_body_creates_json_response_test() {
 
   // Assert
   case response {
-    transaction.Response(status, body, _headers, _, content_type, _) -> {
+    transaction.Response(status, body, _headers, _, content_type) -> {
       status |> should.equal(statuses.ok_status())
-      body |> should.equal("{\"key\":\"value\"}")
+      case body {
+        transaction.Text(text) -> text |> should.equal("{\"key\":\"value\"}")
+        _ -> should.fail()
+      }
       case content_type {
         option.Some(ct) -> ct |> should.equal("application/json; charset=utf-8")
         option.None -> should.fail()
@@ -406,8 +406,11 @@ pub fn html_response_with_valid_status_and_body_creates_html_response_test() {
 
   // Assert
   case response {
-    transaction.Response(_, body, _, _, content_type, _) -> {
-      body |> should.equal("<html></html>")
+    transaction.Response(_, body, _, _, content_type) -> {
+      case body {
+        transaction.Text(text) -> text |> should.equal("<html></html>")
+        _ -> should.fail()
+      }
       case content_type {
         option.Some(ct) -> ct |> should.equal("text/html; charset=utf-8")
         option.None -> should.fail()
@@ -424,8 +427,11 @@ pub fn redirect_response_with_valid_status_and_location_creates_redirect_respons
 
   // Assert
   case response {
-    transaction.Response(_status, body, headers, _, _content_type, _) -> {
-      body |> should.equal("")
+    transaction.Response(_status, body, headers, _, _content_type) -> {
+      case body {
+        transaction.Text(text) -> text |> should.equal("")
+        _ -> should.fail()
+      }
       case headers {
         [header, ..] -> {
           transaction.header_name(header) |> should.equal("Location")
@@ -443,9 +449,12 @@ pub fn empty_response_with_valid_status_creates_empty_response_test() {
 
   // Assert
   case response {
-    transaction.Response(status, body, headers, _, content_type, _) -> {
+    transaction.Response(status, body, headers, _, content_type) -> {
       status |> should.equal(statuses.ok_status())
-      body |> should.equal("")
+      case body {
+        transaction.Text(text) -> text |> should.equal("")
+        _ -> should.fail()
+      }
       list.length(headers) |> should.equal(0)
       content_type |> should.equal(option.None)
     }
@@ -563,7 +572,7 @@ pub fn is_method_with_matching_method_returns_true_test() {
   result |> should.equal(True)
 }
 
-pub fn get_param_with_existing_param_returns_value_test() {
+pub fn get_param_with_existing_param_returns_path_param_test() {
   // Arrange
   let request =
     transaction.Request(
@@ -588,7 +597,15 @@ pub fn get_param_with_existing_param_returns_value_test() {
 
   // Assert
   case result {
-    Ok(value) -> value |> should.equal("123")
+    Ok(param) -> {
+      param.value |> should.equal("123")
+      param.raw |> should.equal("123")
+      param.format |> should.equal(option.None)
+      case param.as_int {
+        Ok(id) -> id |> should.equal(123)
+        Error(_) -> should.fail()
+      }
+    }
     Error(_) -> should.fail()
   }
 }
@@ -649,11 +666,168 @@ pub fn set_params_with_new_params_updates_request_params_test() {
 
   // Assert - verify by using get_param
   case transaction.get_param(result, "id") {
-    Ok(value) -> value |> should.equal("123")
+    Ok(param) -> param.value |> should.equal("123")
     Error(_) -> should.fail()
   }
   case transaction.get_param(result, "post_id") {
-    Ok(value) -> value |> should.equal("456")
+    Ok(param) -> param.value |> should.equal("456")
     Error(_) -> should.fail()
+  }
+}
+
+// PathParam format detection tests
+pub fn get_param_with_format_extension_extracts_format_test() {
+  // Arrange
+  let request =
+    transaction.Request(
+      method: transaction.Get,
+      protocol: transaction.Http,
+      version: transaction.Http1,
+      path: "/users/123.json",
+      query: "",
+      params: [#("id", "123.json")],
+      host: option.None,
+      port: option.None,
+      remote_address: option.None,
+      body: "",
+      headers: [],
+      cookies: [],
+      content_type: option.None,
+      content_length: option.None,
+    )
+
+  // Act
+  let result = transaction.get_param(request, "id")
+
+  // Assert
+  case result {
+    Ok(param) -> {
+      param.value |> should.equal("123")
+      param.raw |> should.equal("123.json")
+      case param.format {
+        option.Some(fmt) -> fmt |> should.equal("json")
+        option.None -> should.fail()
+      }
+    }
+    Error(_) -> should.fail()
+  }
+}
+
+pub fn get_param_with_htmx_extension_extracts_format_test() {
+  // Arrange
+  let request =
+    transaction.Request(
+      method: transaction.Get,
+      protocol: transaction.Http,
+      version: transaction.Http1,
+      path: "/users/456.htmx",
+      query: "",
+      params: [#("id", "456.htmx")],
+      host: option.None,
+      port: option.None,
+      remote_address: option.None,
+      body: "",
+      headers: [],
+      cookies: [],
+      content_type: option.None,
+      content_length: option.None,
+    )
+
+  // Act
+  let result = transaction.get_param(request, "id")
+
+  // Assert
+  case result {
+    Ok(param) -> {
+      param.value |> should.equal("456")
+      case param.format {
+        option.Some(fmt) -> fmt |> should.equal("htmx")
+        option.None -> should.fail()
+      }
+      case param.as_int {
+        Ok(id) -> id |> should.equal(456)
+        Error(_) -> should.fail()
+      }
+    }
+    Error(_) -> should.fail()
+  }
+}
+
+pub fn get_param_without_extension_has_no_format_test() {
+  // Arrange
+  let request =
+    transaction.Request(
+      method: transaction.Get,
+      protocol: transaction.Http,
+      version: transaction.Http1,
+      path: "/users/789",
+      query: "",
+      params: [#("id", "789")],
+      host: option.None,
+      port: option.None,
+      remote_address: option.None,
+      body: "",
+      headers: [],
+      cookies: [],
+      content_type: option.None,
+      content_length: option.None,
+    )
+
+  // Act
+  let result = transaction.get_param(request, "id")
+
+  // Assert
+  case result {
+    Ok(param) -> {
+      param.value |> should.equal("789")
+      param.format |> should.equal(option.None)
+    }
+    Error(_) -> should.fail()
+  }
+}
+
+// New response builder tests
+pub fn binary_response_creates_bytes_response_test() {
+  // Arrange & Act
+  let bytes = <<1, 2, 3, 4>>
+  let response =
+    transaction.binary_response(statuses.ok_status(), bytes, "image/png")
+
+  // Assert
+  case response {
+    transaction.Response(status, body, _headers, _, content_type) -> {
+      status |> should.equal(statuses.ok_status())
+      case body {
+        transaction.Bytes(b) -> b |> should.equal(bytes)
+        _ -> should.fail()
+      }
+      case content_type {
+        option.Some(ct) -> ct |> should.equal("image/png")
+        option.None -> should.fail()
+      }
+    }
+  }
+}
+
+pub fn stream_response_creates_stream_response_test() {
+  // Arrange & Act
+  let stream =
+    yielder.from_list([<<1, 2>>, <<3, 4>>])
+  let response =
+    transaction.stream_response(statuses.ok_status(), stream, "text/csv")
+
+  // Assert
+  case response {
+    transaction.Response(status, body, _headers, _, content_type) -> {
+      status |> should.equal(statuses.ok_status())
+      case body {
+        transaction.Stream(_) -> Nil
+        _ -> should.fail()
+      }
+      case content_type {
+        option.Some(ct) -> ct |> should.equal("text/csv")
+        option.None -> should.fail()
+      }
+    }
   }
 }

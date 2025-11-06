@@ -179,7 +179,7 @@ dream/
     tutorials/         # Step-by-step guides
     guides/            # Topic-focused how-tos
     reference/         # Technical reference
-  src/examples/        # Working example applications
+  examples/        # Working example applications (each is its own Gleam project)
 ```
 
 ## Publishing (Maintainers Only)

@@ -176,7 +176,7 @@ make migrate    # Run migrations
 
 Connection: `postgres://postgres:postgres@localhost:5434/dream_db`
 
-See `src/examples/database/` for complete CRUD examples.
+See `examples/database/` for complete CRUD examples.
 
 ## Documentation
 
@@ -202,11 +202,11 @@ See `src/examples/database/` for complete CRUD examples.
 
 **Examples:**
 - [Example Projects](docs/examples.md) - Overview of all examples
-- `src/examples/simple/` - Basic routing
-- `src/examples/database/` - Full CRUD with PostgreSQL
-- `src/examples/custom_context/` - Authentication with custom context
-- `src/examples/singleton/` - Rate limiting with global state using the singleton pattern
-- `src/examples/streaming/` - HTTP client streaming
+- `examples/simple/` - Basic routing
+- `examples/database/` - Full CRUD with PostgreSQL
+- `examples/custom_context/` - Authentication with custom context
+- `examples/singleton/` - Rate limiting with global state using the singleton pattern
+- `examples/streaming/` - HTTP client streaming
 
 ## Philosophy
 

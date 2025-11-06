@@ -2,7 +2,7 @@
 
 **Time:** 15 minutes  
 **Prerequisites:** [Basic Routing](basic-routing.md) completed  
-**Example code:** `src/examples/streaming/`
+**Example code:** `examples/streaming/`
 
 Time to make HTTP requests to external APIs. Dream includes an HTTP client with two modes: streaming and non-streaming. Same builder pattern you've seen everywhere else. No surprises.
 
@@ -517,7 +517,7 @@ You've learned:
 
 **Want to see the full example?**
 
-Check out `src/examples/streaming/` in the Dream repository for complete working code with both streaming and non-streaming examples.
+Check out `examples/streaming/` in the Dream repository for complete working code with both streaming and non-streaming examples.
 
 ---
 

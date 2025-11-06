@@ -2,7 +2,7 @@
 
 **Time:** 25 minutes  
 **Prerequisites:** [Database CRUD](database-crud.md) completed  
-**Example code:** `src/examples/custom_context/`
+**Example code:** `examples/custom_context/`
 
 Time to build something you've definitely debugged at 2am: authentication middleware.
 
@@ -577,7 +577,7 @@ You've learned:
 
 **Want to see the full example?**
 
-Check out `src/examples/custom_context/` in the Dream repository for complete working code with more advanced patterns.
+Check out `examples/custom_context/` in the Dream repository for complete working code with more advanced patterns.
 
 ---
 

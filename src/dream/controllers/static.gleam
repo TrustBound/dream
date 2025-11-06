@@ -8,7 +8,7 @@
 
 import dream/core/http/statuses.{not_found_status, ok_status}
 import dream/core/http/transaction.{
-  type Request, type Response, Header, Response, html_response,
+  type Request, type Response, Response, Text, Header, html_response,
 }
 import gleam/int
 import gleam/list
@@ -184,14 +184,13 @@ fn build_file_response(content: String, filepath: String) -> Response {
 
   Response(
     status: ok_status(),
-    body: content,
+    body: Text(content),
     headers: [
       Header("Content-Type", mime),
       Header("Content-Length", int.to_string(size)),
     ],
     cookies: [],
     content_type: option.Some(mime),
-    content_length: option.Some(size),
   )
 }
 

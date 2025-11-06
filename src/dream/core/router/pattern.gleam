@@ -178,9 +178,23 @@ fn handle_static_segment(
 ) -> option.Option(List(#(String, String))) {
   case path_segments {
     [] -> option.None
-    [path_seg, ..rest_path] if path_seg == pattern_seg ->
-      extract_params(rest_pattern, rest_path, params)
-    _ -> option.None
+    [path_seg, ..rest_path] -> {
+      // Strip format extension from path segment before comparing
+      let path_without_format = strip_format_extension(path_seg)
+      case path_without_format == pattern_seg {
+        True -> extract_params(rest_pattern, rest_path, params)
+        False -> option.None
+      }
+    }
+  }
+}
+
+/// Strip format extension from a path segment
+/// "products.json" -> "products", "users.csv" -> "users", "file" -> "file"
+fn strip_format_extension(segment: String) -> String {
+  case string.split(segment, ".") {
+    [base, _ext] -> base
+    _ -> segment
   }
 }
 

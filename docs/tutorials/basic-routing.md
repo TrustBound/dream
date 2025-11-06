@@ -2,7 +2,7 @@
 
 **Time:** 15 minutes  
 **Prerequisites:** [Getting Started](../getting-started.md) completed  
-**Example code:** `src/examples/simple/`
+**Example code:** `examples/simple/`
 
 You know how some frameworks have you configuring routes in YAML, or decorating functions with magical annotations? We don't do that here.
 
@@ -515,7 +515,7 @@ You've learned:
 
 **Want to see the full example?**
 
-Check out `src/examples/simple/` in the Dream repository. It's the complete working code for everything in this tutorial.
+Check out `examples/simple/` in the Dream repository. It's the complete working code for everything in this tutorial.
 
 ---
 

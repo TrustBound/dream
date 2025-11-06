@@ -5,14 +5,14 @@
 
 import dream/core/http/statuses
 import dream/core/http/transaction
-import gleam/bit_array
 import gleam/bytes_tree
 import gleam/http/response as http_response
 import gleam/int
 import gleam/list
 import gleam/option
 import gleam/string
-import mist.{type ResponseData, Bytes}
+import gleam/yielder
+import mist.{type ResponseData, Bytes, Chunked}
 
 /// Convert Dream Response to mist Response
 pub fn convert(
@@ -34,14 +34,25 @@ pub fn convert(
     option.None -> headers_with_cookies
   }
 
-  // Convert body to BytesTree
-  let body_bytes =
-    bit_array.from_string(dream_resp.body)
-    |> bytes_tree.from_bit_array
+  // Convert body based on ResponseBody variant
+  let response_data = case dream_resp.body {
+    transaction.Text(text) -> 
+      Bytes(bytes_tree.from_string(text))
+    
+    transaction.Bytes(bytes) -> 
+      Bytes(bytes_tree.from_bit_array(bytes))
+    
+    transaction.Stream(stream) -> {
+      let byte_stream = 
+        stream
+        |> yielder.map(bytes_tree.from_bit_array)
+      Chunked(byte_stream)
+    }
+  }
 
   let resp_with_body =
     http_response.new(status_code)
-    |> http_response.set_body(Bytes(body_bytes))
+    |> http_response.set_body(response_data)
 
   set_all_headers(headers_with_content_type, resp_with_body)
 }

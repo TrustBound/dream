@@ -2,11 +2,11 @@
 
 **Working code you can actually run. Because reading is nice, but running is better.**
 
-All examples are in `src/examples/` and are fully working applications you can run locally.
+All examples are in `examples/` at the project root. Each example is its own Gleam project with its own `gleam.toml` and `Makefile`, linking to dream as a dependency.
 
 ## Simple Example
 
-**Location:** `src/examples/simple/`  
+**Location:** `examples/simple/`  
 **Tutorial:** [Basic Routing](tutorials/basic-routing.md)
 
 The simplest possible Dream app. Two routes, path parameters, and an HTTP client call.
@@ -20,15 +20,15 @@ The simplest possible Dream app. Two routes, path parameters, and an HTTP client
 **Run it:**
 
 ```bash
-cd src/examples/simple
-gleam run
+cd examples/simple
+make run
 ```
 
 Visit: `http://localhost:3000/`
 
 ## Database Example
 
-**Location:** `src/examples/database/`  
+**Location:** `examples/database/`  
 **Tutorial:** [Database CRUD](tutorials/database-crud.md)
 
 Full CRUD operations with PostgreSQL, type-safe SQL queries, and JSON validation.
@@ -44,10 +44,10 @@ Full CRUD operations with PostgreSQL, type-safe SQL queries, and JSON validation
 **Run it:**
 
 ```bash
+cd examples/database
 make db-up       # Start PostgreSQL
 make migrate     # Run migrations
-cd src/examples/database
-gleam run
+make run
 ```
 
 Visit: `http://localhost:3002/users`
@@ -64,7 +64,7 @@ Visit: `http://localhost:3002/users`
 
 ## Custom Context Example
 
-**Location:** `src/examples/custom_context/`  
+**Location:** `examples/custom_context/`  
 **Tutorial:** [Authentication](tutorials/authentication.md)
 
 Authentication and authorization with custom context types and middleware.
@@ -79,8 +79,8 @@ Authentication and authorization with custom context types and middleware.
 **Run it:**
 
 ```bash
-cd src/examples/custom_context
-gleam run
+cd examples/custom_context
+make run
 ```
 
 Visit: `http://localhost:3001/`
@@ -104,7 +104,7 @@ curl -H "Authorization: Bearer admin-token" http://localhost:3001/admin
 
 ## Singleton Rate Limiter Example
 
-**Location:** `src/examples/singleton/`
+**Location:** `examples/singleton/`
 
 Real-world rate limiting using the singleton pattern for global state management.
 
@@ -119,7 +119,8 @@ Real-world rate limiting using the singleton pattern for global state management
 **Run it:**
 
 ```bash
-gleam run -m examples/singleton/main
+cd examples/singleton
+make run
 ```
 
 **Test rate limiting:**
@@ -141,7 +142,7 @@ done
 
 ## Streaming Example
 
-**Location:** `src/examples/streaming/`  
+**Location:** `examples/streaming/`  
 **Tutorial:** [HTTP Client](tutorials/http-client.md)
 
 HTTP client with both streaming and non-streaming requests.
@@ -156,8 +157,8 @@ HTTP client with both streaming and non-streaming requests.
 **Run it:**
 
 ```bash
-cd src/examples/streaming
-gleam run
+cd examples/streaming
+make run
 ```
 
 Visit: `http://localhost:3003/`
@@ -169,7 +170,7 @@ Visit: `http://localhost:3003/`
 
 ## Static File Serving Example
 
-**Location:** `src/examples/static/`
+**Location:** `examples/static/`
 
 Secure static file serving with directory listing, extension filtering, and custom 404 handlers.
 
@@ -185,7 +186,8 @@ Secure static file serving with directory listing, extension filtering, and cust
 **Run it:**
 
 ```bash
-gleam run -m examples/static/main
+cd examples/static
+make run
 ```
 
 Visit: `http://localhost:3000/public/`
@@ -210,16 +212,16 @@ You can run all examples simultaneously on different ports:
 
 ```bash
 # Terminal 1
-gleam run -m examples/static/main  # Port 3000
+cd examples/static && make run  # Port 3000
 
 # Terminal 2
-cd src/examples/custom_context && gleam run  # Port 3001
+cd examples/custom_context && make run  # Port 3001
 
 # Terminal 3
-cd src/examples/database && gleam run  # Port 3002
+cd examples/database && make run  # Port 3002
 
 # Terminal 4
-cd src/examples/streaming && gleam run  # Port 3003
+cd examples/streaming && make run  # Port 3003
 ```
 
 Note: The simple and singleton examples also use port 3000, so run only one at a time.
@@ -229,15 +231,20 @@ Note: The simple and singleton examples also use port 3000, so run only one at a
 All examples follow the same structure:
 
 ```
-src/examples/[example_name]/
-  controllers/      # HTTP request handlers
-  models/          # Data operations (database example only)
-  middleware/      # Custom middleware (auth example only)
+examples/[example_name]/
+  gleam.toml       # Project configuration with dream dependency
+  Makefile         # Build and run commands
+  src/             # Source code directory
+    controllers/   # HTTP request handlers
+    models/        # Data operations (database example only)
+    middleware/    # Custom middleware (auth example only)
+    context.gleam  # Context type definition
+    main.gleam     # Application entry point
+    router.gleam   # Route definitions
+    services.gleam # Service initialization
   sql/            # SQL files (database example only)
-  context.gleam   # Context type definition
-  main.gleam      # Application entry point
-  router.gleam    # Route definitions
-  services.gleam  # Service initialization
+  priv/migrations/# Database migrations (database examples only)
+  docker-compose.yml # Database setup (database examples only)
 ```
 
 This consistency makes it easy to understand any example once you've seen one.
