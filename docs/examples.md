@@ -167,13 +167,50 @@ Visit: `http://localhost:3003/`
 - `GET /fetch` - Non-streaming HTTP request to httpbin.org
 - `GET /stream` - Streaming HTTP request to httpbin.org
 
+## Static File Serving Example
+
+**Location:** `src/examples/static/`
+
+Secure static file serving with directory listing, extension filtering, and custom 404 handlers.
+
+**What it demonstrates:**
+- Static file controller with path traversal prevention
+- Multiple static directories with different configurations
+- Directory listing (when enabled)
+- Extension-based filtering using router patterns (`*.{jpg,png}`)
+- Custom 404 handlers
+- Automatic MIME type detection using marceau
+- Wildcard routing (`**filepath`)
+
+**Run it:**
+
+```bash
+gleam run -m examples/static/main
+```
+
+Visit: `http://localhost:3000/public/`
+
+**Test URLs:**
+- `http://localhost:3000/public/` - Serves index.html
+- `http://localhost:3000/public/about/` - Nested index.html
+- `http://localhost:3000/public/images/` - Directory listing
+- `http://localhost:3000/public/styles.css` - CSS file
+- `http://localhost:3000/public/script.js` - JavaScript file
+- `http://localhost:3000/public/images/cat.svg` - SVG image
+- `http://localhost:3000/images/cat.svg` - Via extension-filtered route
+- `http://localhost:3000/assets/data.json` - JSON from assets directory
+- `http://localhost:3000/custom/missing.html` - Custom 404 page
+
+**Security tests:**
+- `http://localhost:3000/public/../../../etc/passwd` - Should return 404 (path traversal blocked)
+
 ## Running All Examples
 
 You can run all examples simultaneously on different ports:
 
 ```bash
 # Terminal 1
-cd src/examples/simple && gleam run  # Port 3000
+gleam run -m examples/static/main  # Port 3000
 
 # Terminal 2
 cd src/examples/custom_context && gleam run  # Port 3001
@@ -184,6 +221,8 @@ cd src/examples/database && gleam run  # Port 3002
 # Terminal 4
 cd src/examples/streaming && gleam run  # Port 3003
 ```
+
+Note: The simple and singleton examples also use port 3000, so run only one at a time.
 
 ## Common Patterns Across Examples
 

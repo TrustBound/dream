@@ -1,0 +1,15 @@
+{
+  "message": "This JSON file is served from the assets directory",
+  "version": "1.0.0",
+  "features": [
+    "Static file serving",
+    "Directory listing",
+    "MIME type detection",
+    "Path security"
+  ],
+  "config": {
+    "serve_index": false,
+    "allow_directory_listing": false
+  }
+}
+

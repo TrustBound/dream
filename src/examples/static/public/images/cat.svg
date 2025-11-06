@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Simple cat SVG -->
+  <circle cx="100" cy="100" r="60" fill="#f39c12" stroke="#e67e22" stroke-width="2"/>
+  <!-- Ears -->
+  <polygon points="70,60 60,30 90,55" fill="#f39c12" stroke="#e67e22" stroke-width="2"/>
+  <polygon points="130,60 140,30 110,55" fill="#f39c12" stroke="#e67e22" stroke-width="2"/>
+  <!-- Eyes -->
+  <circle cx="85" cy="95" r="8" fill="#2c3e50"/>
+  <circle cx="115" cy="95" r="8" fill="#2c3e50"/>
+  <circle cx="87" cy="93" r="3" fill="white"/>
+  <circle cx="117" cy="93" r="3" fill="white"/>
+  <!-- Nose -->
+  <polygon points="100,105 95,112 105,112" fill="#e74c3c"/>
+  <!-- Mouth -->
+  <path d="M 95 112 Q 100 118 105 112" stroke="#2c3e50" stroke-width="2" fill="none"/>
+  <!-- Whiskers -->
+  <line x1="60" y1="100" x2="30" y2="95" stroke="#2c3e50" stroke-width="1.5"/>
+  <line x1="60" y1="105" x2="30" y2="105" stroke="#2c3e50" stroke-width="1.5"/>
+  <line x1="140" y1="100" x2="170" y2="95" stroke="#2c3e50" stroke-width="1.5"/>
+  <line x1="140" y1="105" x2="170" y2="105" stroke="#2c3e50" stroke-width="1.5"/>
+</svg>
+

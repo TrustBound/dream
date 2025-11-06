@@ -941,3 +941,66 @@ pub fn match_path_multi_wildcard_matches_zero_segments_test() {
     option.None -> should.fail()
   }
 }
+
+pub fn match_path_with_multi_wildcard_and_extension_pattern_test() {
+  // Arrange
+  let pattern = "/images/**/*.{jpg,png,svg}"
+  let path_value = "/images/cat.svg"
+
+  // Act
+  let result = match_path(pattern, path_value)
+
+  // Assert - Just verify it matches
+  case result {
+    option.Some(_) -> Nil
+    option.None -> should.fail()
+  }
+}
+
+// Verify all pattern types used in static example
+pub fn match_path_single_named_wildcard_simple_test() {
+  let pattern = "/files/*filename"
+  let path = "/files/doc.pdf"
+
+  case match_path(pattern, path) {
+    option.Some(params) -> {
+      case params {
+        [#("filename", "doc.pdf")] -> Nil
+        _ -> should.fail()
+      }
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn match_path_anonymous_single_wildcard_with_suffix_test() {
+  let pattern = "/health/*/status"
+  let path = "/health/api/status"
+
+  case match_path(pattern, path) {
+    option.Some(params) -> {
+      list.length(params) |> should.equal(0)
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn match_path_extension_css_only_test() {
+  let pattern = "/css/*.css"
+  let path = "/css/main.css"
+
+  case match_path(pattern, path) {
+    option.Some(_) -> Nil
+    option.None -> should.fail()
+  }
+}
+
+pub fn match_path_brace_expansion_image_test() {
+  let pattern = "/images/*.{jpg,png,gif,svg}"
+  let path = "/images/cat.svg"
+
+  case match_path(pattern, path) {
+    option.Some(_) -> Nil
+    option.None -> should.fail()
+  }
+}

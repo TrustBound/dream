@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dream Static Example</title>
+  <link rel="stylesheet" href="/public/styles.css">
+</head>
+<body>
+  <h1>Static File Serving Example</h1>
+  <p>This page is served via Dream's static file controller.</p>
+  
+  <h2>Test Links</h2>
+  <ul>
+    <li><a href="/public/">Root directory (you are here)</a></li>
+    <li><a href="/public/about/">About page (nested index.html)</a></li>
+    <li><a href="/public/images/">Image directory (directory listing)</a></li>
+    <li><a href="/public/images/logo.png">Direct image link</a></li>
+    <li><a href="/images/logo.png">Image via extension route</a></li>
+    <li><a href="/assets/data.json">JSON file from assets</a></li>
+    <li><a href="/custom/missing.html">Custom 404 example</a></li>
+  </ul>
+  
+  <h2>Security Test</h2>
+  <ul>
+    <li><a href="/public/../../../etc/passwd">Path traversal attempt (should 404)</a></li>
+  </ul>
+  
+  <img src="/public/images/cat.svg" alt="Cat Logo" width="150">
+  <script src="/public/script.js"></script>
+</body>
+</html>
+
