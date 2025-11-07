@@ -32,7 +32,6 @@ pub fn main() {
 ```gleam
 pub fn main() {
   dream.new()
-  |> context(AppContext(request_id: ""))
   |> services(initialize_services())
   |> router(create_router())
   |> bind("localhost")
@@ -40,7 +39,7 @@ pub fn main() {
 }
 ```
 
-Everything your app does is right there. No hidden configuration. No magic.
+Everything your app does is right there. No hidden configuration.
 
 ### 3. No Closures
 

@@ -4,8 +4,7 @@
 //// Follows Rails controller naming conventions.
 
 import dream/core/context.{type AppContext}
-import dream/core/http/statuses.{internal_server_error_status, ok_status}
-import dream/core/http/transaction.{type Request, type Response, text_response}
+import dream/core/http/transaction.{type Request, type Response}
 import dream/core/router.{type EmptyServices}
 import dream/utilities/http/client
 import dream/utilities/http/client/fetch as fetch_module
@@ -17,6 +16,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import gleam/yielder
+import views/stream_view
 
 /// Index action - displays available routes
 pub fn index(
@@ -24,13 +24,7 @@ pub fn index(
   _context: AppContext,
   _services: EmptyServices,
 ) -> Response {
-  text_response(
-    ok_status(),
-    "Streaming Example Server\n\n"
-      <> "Routes:\n"
-      <> "  GET /stream - Stream a response from httpbin.org\n"
-      <> "  GET /fetch - Fetch and return a response from httpbin.org\n",
-  )
+  stream_view.respond_index()
 }
 
 /// Show action - demonstrates streaming HTTP requests
@@ -57,7 +51,7 @@ pub fn show(
     |> list.map(chunk_to_string)
     |> string.join("")
 
-  text_response(ok_status(), "Streamed response:\n\n" <> body_string)
+  stream_view.respond_stream(body_string)
 }
 
 /// New action - demonstrates non-streaming HTTP requests
@@ -76,9 +70,8 @@ pub fn new(
     |> client.add_header("User-Agent", "Dream-Fetch-Example")
 
   case fetch_module.request(req) {
-    Ok(body) -> text_response(ok_status(), "Fetched response:\n\n" <> body)
-    Error(error) ->
-      text_response(internal_server_error_status(), "Error: " <> error)
+    Ok(body) -> stream_view.respond_fetch(body)
+    Error(error) -> stream_view.respond_error(error)
   }
 }
 
