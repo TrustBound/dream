@@ -74,8 +74,8 @@ Here's the same operation with the three-layer pattern:
 import dream/core/http/transaction.{type Request, type Response}
 import dream/services/postgres/response
 import dream/validators/json_validator.{validate_or_respond}
-import examples/database/models/user
-import examples/database/services.{type Services}
+import models/user
+import services.{type Services}
 
 pub fn create(request: Request, _context: Context, services: Services) -> Response {
   let db = services.database.connection
@@ -120,8 +120,8 @@ Every CRUD controller follows this pattern:
 ```gleam
 import dream/core/http/transaction.{type Request, type Response}
 import dream/services/postgres/response
-import examples/database/models/user
-import examples/database/services.{type Services}
+import models/user
+import services.{type Services}
 
 pub fn index(_request: Request, _context: Context, services: Services) -> Response {
   let db = services.database.connection
@@ -133,15 +133,18 @@ pub fn index(_request: Request, _context: Context, services: Services) -> Respon
 
 ```gleam
 import dream/core/http/transaction.{get_param}
-import gleam/int
-import gleam/result
 
 pub fn show(request: Request, _context: Context, services: Services) -> Response {
-  let db = services.database.connection
-  let assert Ok(id_str) = get_param(request, "id")
-  let id = int.parse(id_str) |> result.unwrap(0)
-  
-  user.get(db, id) |> response.one_row(user.encode)
+  case get_param(request, "id") {
+    Error(_) -> response.bad_request()
+    Ok(param) -> case param.as_int {
+      Error(_) -> response.bad_request()
+      Ok(id) -> {
+        let db = services.database.connection
+        user.get(db, id) |> response.one_row(user.encode)
+      }
+    }
+  }
 }
 ```
 
@@ -167,15 +170,20 @@ pub fn create(request: Request, _context: Context, services: Services) -> Respon
 
 ```gleam
 pub fn update(request: Request, _context: Context, services: Services) -> Response {
-  let db = services.database.connection
-  let assert Ok(id_str) = get_param(request, "id")
-  let id = int.parse(id_str) |> result.unwrap(0)
-  
-  case validate_or_respond(request.body, user.decoder()) {
-    Error(response) -> response
-    Ok(data) -> {
-      let #(name, email) = data
-      user.update(db, id, name, email) |> response.one_row(user.encode_update)
+  case get_param(request, "id") {
+    Error(_) -> response.bad_request()
+    Ok(param) -> case param.as_int {
+      Error(_) -> response.bad_request()
+      Ok(id) -> {
+        let db = services.database.connection
+        case validate_or_respond(request.body, user.decoder()) {
+          Error(response) -> response
+          Ok(data) -> {
+            let #(name, email) = data
+            user.update(db, id, name, email) |> response.one_row(user.encode_update)
+          }
+        }
+      }
     }
   }
 }
@@ -185,11 +193,16 @@ pub fn update(request: Request, _context: Context, services: Services) -> Respon
 
 ```gleam
 pub fn delete(request: Request, _context: Context, services: Services) -> Response {
-  let db = services.database.connection
-  let assert Ok(id_str) = get_param(request, "id")
-  let id = int.parse(id_str) |> result.unwrap(0)
-  
-  user.delete(db, id) |> response.success
+  case get_param(request, "id") {
+    Error(_) -> response.bad_request()
+    Ok(param) -> case param.as_int {
+      Error(_) -> response.bad_request()
+      Ok(id) -> {
+        let db = services.database.connection
+        user.delete(db, id) |> response.success
+      }
+    }
+  }
 }
 ```
 
@@ -209,7 +222,7 @@ Models handle:
 
 ```gleam
 import dream/utilities/json/encoders
-import examples/database/sql
+import sql
 import gleam/dynamic/decode
 import gleam/json
 import gleam/option

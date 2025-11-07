@@ -2,7 +2,7 @@
 
 **Clean, composable web development for Gleam. No magic. No surprises.**
 
-Dream is a web library that gets out of your way. Everything is explicit. Your `main()` function shows exactly what's happening—no framework deciding things for you behind the scenes.
+Dream is a web toolkit that gets out of your way. Everything is explicit. Your `main()` function shows exactly what's happening—no framework deciding things for you behind the scenes.
 
 ## Why Dream?
 
@@ -11,14 +11,12 @@ Because you've debugged enough "helpful" frameworks at 2am.
 Here's a complete web application:
 
 ```gleam
-import dream/core/context.{AppContext}
-import dream/servers/mist/server.{bind, context, listen, router, services} as dream
-import examples/simple/router.{create_router}
-import examples/simple/services.{initialize_services}
+import dream/servers/mist/server.{bind, listen, router, services} as dream
+import router.{create_router}
+import services.{initialize_services}
 
 pub fn main() {
   dream.new()
-  |> context(AppContext(request_id: ""))
   |> services(initialize_services())
   |> router(create_router())
   |> bind("localhost")
@@ -28,155 +26,333 @@ pub fn main() {
 
 That's it. No hidden configuration. No magic middleware appearing from nowhere. Everything you need to understand your app is right there in `main()`.
 
-## What Makes Dream Different
+## Why Not a Framework?
 
-| Traditional Framework | Dream |
-|-----------------------|-------|
-| `Framework.start()` <br/>*(What server? What config? ¯\\\_(ツ)_/¯)* | `dream.new() \|> router(...) \|> listen(3000)` <br/>*(Everything explicit)* |
-| Magic middleware that runs... somewhere | Middleware listed in route definitions |
-| Dependencies from ??? | Dependencies explicit in function signatures |
-| Framework decides your structure | You decide your structure |
-| Locked into "the framework way" | Mix and match as needed |
+How many times have you learned how to do authentication? Routing? Database queries? Validation?
+
+Not the concepts—the **framework's way** of doing them. The Rails Way. The Django Way. The Spring Way. Knowledge that evaporates the moment you switch languages or projects.
+
+**Frameworks teach you framework-specific solutions:**
+- How to use their ORM query builder (useless in the next framework)
+- How to configure their router (different syntax every time)
+- How their middleware system works (learn it again next framework)
+- How their dependency injection works (completely different next language)
+- How to structure files their way (throw it out when you leave)
+
+**Dream provides patterns without enforcement:**
+- Suggested structure, or organize however you want
+- Components are just functions—use them together or separately
+- Battle-tested patterns for common problems, or use your own patterns
+- Everything is functions and data you control
+
+Controllers are functions. Models are functions. Views are functions. You already know how functions work.
+
+The knowledge you build using Dream—explicit dependencies, pure functions, separation of concerns—transfers to any language, any project, any team. Because it's fundamental software engineering, not framework minutiae.
+
+No framework lock-in. No knowledge that expires when you switch stacks.
+
+## How It Flows
+
+When a request arrives:
+
+```
+1. Request arrives
+2. Context created (AppContext with unique request_id)
+3. Router matches path/method → finds controller
+4. Middleware runs (if any) → can enrich context
+5. Controller executes with (Request, Context, Services)
+6. Returns Response
+```
+
+Example with auth and logging (your middleware, not Dream's):
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Router
+    participant Logging as Logging Middleware
+    participant Auth as Auth Middleware
+    participant Controller
+    
+    Client->>Router: Request
+    Router->>Router: Create Context { request_id: "abc" }
+    Router->>Logging: (Request, Context, Services)
+    Logging->>Logging: Log incoming request
+    Logging->>Auth: (Request, Context, Services)
+    Auth->>Auth: Check token, add user to context
+    Auth->>Controller: (Request, Context { request_id, user }, Services)
+    Controller->>Controller: Do work
+    Controller->>Auth: Response
+    Auth->>Logging: Response
+    Logging->>Logging: Log outgoing response
+    Logging->>Router: Response
+    Router->>Client: Response
+```
+
+Simple pipeline. No magic.
+
+## The Pieces
+
+At its core, Dream is a router. Around it are helpers for common needs.
+
+---
+
+### Router *(the core)*  
+
+Pattern matches requests to controllers:
+```gleam
+Router(routes: List(Route(context, services)))
+
+Route(
+  method: Method,           // Get, Post, etc.
+  path: String,            // "/users/:id"
+  controller: fn(Request, context, services) -> Response,
+  middleware: List(Middleware),
+)
+```
+Supports path parameters (`:id`), wildcards (`*`, `**`), and middleware chains.
+
+---
+
+### Controllers
+
+In Dream, controllers are nothing more than simple functions:
+```gleam
+fn(Request, context, services) -> Response
+```
+No base class. No decorators. Extract params, do work, return response.
+
+---
+
+### Middleware
+
+Middleware are functions you can chain to run before and after your controller:
+```gleam
+fn(Request, context, services, next: fn(...) -> Response) -> Response
+```
+Example: route with `middleware: [auth, logging]` flows as: 
+```
+auth (in) → logging (in) → controller → logging (out) → auth (out)
+```
+Modify request/context going in, response coming out.
+
+---
+
+### Context & Services
+
+**Context** is per-request data—anything that changes per-request:
+- User info after authentication
+- Request tracking ID
+- Session data
+
+**Services** are shared dependencies—same for all requests:
+- Database connections
+- HTTP clients  
+- Caches
+
+Dream starts with `AppContext` (just a `request_id` field) and `EmptyServices` (no dependencies). Define your own types when you need them.
+
+---
+
+### HTTP Client
+
+Gleam doesn't have a streaming HTTPS client. That's a problem when you need to stream AI inference responses or download large files.
+
+We could've built one from scratch. Bad idea—HTTPS clients are security-critical and complex. Instead, we wrapped Erlang's battle-hardened `httpc` with a clean Gleam interface:
+
+```gleam
+client.new
+  |> client.method(http.Get)
+  |> client.scheme(http.Https)
+  |> client.host("api.example.com")
+  |> client.path("/stream")
+```
+
+Streaming and non-streaming modes. Builder pattern. Runs on the BEAM. Leverages 20+ years of Erlang HTTP client hardening.
+
+---
+
+### Models & Views *(optional patterns)*
+
+Models and views are just ways to organize your functions. Not required—Dream won't stop you from doing things differently.
+
+But here's the thing: figuring out where code goes, how to separate concerns, and whether your pattern will scale is exhausting. Especially in a new language. These patterns work. We use them in production. They scale.
+
+**Controller** calls model and view:
+```gleam
+pub fn show(request: Request, _context: Context, services: Services) -> Response {
+  let assert Ok(param) = get_param(request, "id")
+  let assert Ok(id) = param.as_int
+  
+  case product_model.get(services.db, id) {
+    Ok(product) -> product_view.respond(product, param)
+    Error(_) -> not_found_response()
+  }
+}
+```
+
+Clean. Dream's router guarantees path parameters exist for matched routes—if they don't, that's a bug worth panicking over. Use `assert` for impossible errors. Use `case` for real errors (database failures, not found).
+
+**Model** handles data:
+```gleam
+// product_model.gleam
+pub fn get(db, id: Int) -> Result(Product, Error)
+pub fn list(db) -> Result(List(Product), Error)
+pub fn decoder() -> Decoder(ProductData)
+```
+
+**View** handles presentation:
+```gleam
+// product_view.gleam
+pub fn respond(product: Product, param: PathParam) -> Response {
+  case param.format {
+    Some("json") -> json_response(ok_status(), to_json(product))
+    Some("csv") -> text_response(ok_status(), to_csv(product))
+    _ -> html_response(ok_status(), to_html(product))
+  }
+}
+
+pub fn to_json(product: Product) -> String
+pub fn to_html(product: Product) -> String
+pub fn to_csv(product: Product) -> String
+```
+
+Controller orchestrates. Model fetches data. View formats it. All just functions. No classes. No inheritance. No framework enforcement.
+
+---
+
+Use what you need. Skip what you don't.
+
+## What a Real App Looks Like
+
+Here's a complete Dream app with models, views, and controllers:
+
+```
+your_app/
+├── src/
+│   ├── main.gleam
+│   ├── router.gleam
+│   ├── services.gleam
+│   ├── context.gleam
+│   │
+│   ├── controllers/
+│   │   ├── users_controller.gleam
+│   │   └── products_controller.gleam
+│   │
+│   ├── models/
+│   │   ├── user/
+│   │   │   ├── user_model.gleam
+│   │   │   ├── sql.gleam          # Generated
+│   │   │   └── sql/
+│   │   │       ├── list_users.sql
+│   │   │       ├── get_user.sql
+│   │   │       └── create_user.sql
+│   │   │
+│   │   └── product/
+│   │       ├── product_model.gleam
+│   │       ├── sql.gleam          # Generated
+│   │       └── sql/
+│   │           ├── list_products.sql
+│   │           └── get_product.sql
+│   │
+│   ├── views/
+│   │   ├── users/
+│   │   │   └── user_view.gleam
+│   │   └── products/
+│   │       ├── product_view.gleam
+│   │       └── templates/
+│   │           ├── index.gleam    # Generated
+│   │           ├── index.matcha
+│   │           ├── show.gleam     # Generated
+│   │           └── show.matcha
+│   │
+│   └── services/
+│       └── database.gleam
+│
+└── gleam.toml
+```
+
+Everything has its place. Nothing is hidden. Scale from "Hello World" to production without restructuring.
+
+## Yeah, But Gleam? Really?
+
+Fair question. Gleam is young. The ecosystem is small. Why choose it for web development?
+
+**Because Gleam runs on the BEAM. And the BEAM was literally built to solve web app problems.**
+
+### What The Heck is a BEAM?
+
+BEAM (Bogdan/Björn's Erlang Abstract Machine) is the virtual machine that runs Erlang, Elixir, and Gleam code. Like the JVM for Java or V8 for JavaScript, but designed for completely different goals.
+
+The JVM was built for portability. V8 was built for speed. 
+
+**The BEAM was built for reliability and concurrency.**
+
+Ericsson created Erlang and the BEAM in the 1980s for telecom switches. The requirements:
+- Handle millions of concurrent phone calls
+- Never go down (99.9999999% uptime—"nine nines")
+- Recover from failures without restarting
+- Hot-swap code without dropping connections
+
+Turns out, those are the exact problems web applications have.
+
+### What You Get on the BEAM
+
+**Concurrency** - Millions of lightweight processes per server. Each HTTP request gets its own isolated process. No thread pools, no async/await gymnastics, no event loop bottlenecks. Just spawn a process. The BEAM's preemptive scheduler handles the rest.
+
+**Fault tolerance** - Processes crash in isolation. One request throws an error, the rest keep running. No cascading failures. No servers going down because one database query hung.
+
+**Scalability** - Start with one server. Add more when traffic grows. The BEAM distributes processes across machines transparently. No architectural rewrite from monolith to microservices required to scale.
+
+**Real-world results:**
+- **WhatsApp**: 2.8 million concurrent connections per server on Erlang [1]
+- **Discord**: 12M+ concurrent users, 26M WebSocket events/sec on Elixir with ~5 engineers maintaining 20+ services [2]
+- **Bleacher Report**: Reduced from ~150 servers to ~8, 10× faster updates, 200M push notifications/day [3]
+- **Pinterest**: 14,000 notifications/sec, reduced from 30 to 15 servers for their notification service [4]
+- **BBC**: Elixir serving almost all BBC web and app traffic [5]
+- **Remote**: Grew from zero to unicorn (~$3B valuation) in ~2 years with Elixir as the primary backend [6]
+
+### And Gleam?
+
+Gleam gives you the BEAM's superpowers with modern developer experience:
+
+- **Type safety** - Catch bugs at compile time, not in production
+- **Modern syntax** - No learning Erlang's Prolog-style syntax
+- **Functional programming** - Immutable by default, easier to reason about
+- **Erlang/Elixir interop** - Use 30+ years of battle-tested BEAM libraries
+
+The BEAM handles concurrency, fault tolerance, and scaling. Gleam gives you type safety and readability. You write functions.
+
+It's a pretty good division of labor.
+
+### "But You Can't Hire for Gleam"
+
+True. The Gleam job market is tiny. So is Elixir's compared to Python or JavaScript.
+
+But here's what you can hire for:
+- **Strong engineers** who can learn (Gleam's syntax takes a day)
+- **Functional programming experience** (Gleam is simpler than Scala, Haskell, or even Elixir)
+- **BEAM experience** (Elixir and Erlang developers are productive in Gleam immediately)
+- **Type system familiarity** (TypeScript, Rust, Go developers get it)
+
+**And here's the thing about good engineers:** They don't want to work on boring problems with mundane tools. They definitely don't want to work with something shoehorned into being a solution it's not great at (looking at you, Node.js for CPU-intensive work).
+
+Good engineers want to learn new things. They want to work on interesting tech. They just don't want to spend a year learning the borrow checker before they can be productive (sorry, Rust).
+
+Gleam hits the sweet spot:
+- Interesting (functional, type-safe, runs on the BEAM)
+- New (fresh approach, modern syntax)
+- Not overwhelming (learn the basics in a weekend, productive in a week)
+
+Discord runs 20+ Elixir services with 5 engineers serving 12M+ concurrent users [2]. Remote reached unicorn status in ~2 years with Elixir [6]. Strand ships production Gleam with zero Gleam-related crashes and a small team [7].
+
+Your choice: hire 20 engineers to manage microservices hell in the "safe" language, or hire 5 who actually want to use the BEAM and solve problems instead of fighting infrastructure.
 
 ## Quick Start
 
-### 1. Define Your Controller
+Ready to build your first Dream app? Check out the [Getting Started Guide](docs/getting-started.md).
 
-Controllers are just functions. Extract what you need, do your work, return a response:
-
-```gleam
-import dream/core/http/transaction.{type Request, type Response, get_param}
-import dream/services/postgres/response
-import dream/validators/json_validator.{validate_or_respond}
-import examples/database/models/user
-import examples/database/services.{type Services}
-import gleam/int
-import gleam/result
-
-pub fn index(_request: Request, _context: Context, services: Services) -> Response {
-  let db = services.database.connection
-  user.list(db) |> response.many_rows(user.encode_list)
-}
-
-pub fn create(request: Request, _context: Context, services: Services) -> Response {
-  let db = services.database.connection
-  
-  case validate_or_respond(request.body, user.decoder()) {
-    Error(response) -> response
-    Ok(data) -> {
-      let #(name, email) = data
-      user.create(db, name, email) |> response.one_row(user.encode_create)
-    }
-  }
-}
-```
-
-No boilerplate. No ceremony. Just logic.
-
-### 2. Configure Your Routes
-
-```gleam
-import dream/core/router.{route, router}
-import dream/core/http/transaction.{Get, Post}
-import examples/database/controllers/users_controller as users
-
-pub fn create_router() -> Router(AppContext, Services) {
-  router
-  |> route(method: Get, path: "/users", controller: users.index, middleware: [])
-  |> route(method: Get, path: "/users/:id", controller: users.show, middleware: [])
-  |> route(method: Post, path: "/users", controller: users.create, middleware: [])
-}
-```
-
-### 3. Define Your Model
-
-Models handle data operations. Controllers handle HTTP. Clean separation:
-
-```gleam
-import dream/utilities/json/encoders
-import examples/database/sql
-import gleam/dynamic/decode
-import gleam/json
-import pog
-
-// Query functions - wrap Squirrel SQL, return Results
-pub fn list(db: pog.Connection) -> Result(pog.Returned(sql.ListUsersRow), pog.QueryError) {
-  sql.list_users(db)
-}
-
-// Request decoder for validation
-pub fn decoder() -> decode.Decoder(#(String, String)) {
-  use name <- decode.field("name", decode.string)
-  use email <- decode.field("email", decode.string)
-  decode.success(#(name, email))
-}
-
-// JSON encoder for responses
-pub fn encode(user: sql.GetUserRow) -> json.Json {
-  json.object([
-    #("id", json.int(user.id)),
-    #("name", json.string(user.name)),
-    #("email", json.string(user.email)),
-    #("created_at", encoders.timestamp(user.created_at)),
-  ])
-}
-```
-
-Your model returns `Result` types. Your controller returns `Response` types. The framework helpers bridge the gap. Simple.
-
-## Core Features
-
-- **🎯 Simple Controllers**: Extract params → validate → call model → respond
-- **📦 Model Pattern**: Queries, encoders, decoders in one place
-- **✅ Built-in Validation**: JSON validation with clear error messages
-- **🗄️ PostgreSQL Support**: Type-safe queries with Squirrel, connection pooling
-- **🔧 Builder Patterns**: Consistent API across server, router, client
-- **🛡️ Type Safety**: Compile-time guarantees, not runtime surprises
-- **🚫 No Closures**: All dependencies explicit—no hidden state
-
-## Three-Layer Architecture
-
-Dream uses a simple three-layer pattern that keeps controllers clean:
-
-```gleam
-// Layer 1: Controller (HTTP orchestration)
-pub fn create(request: Request, _context: Context, services: Services) -> Response {
-  let db = services.database.connection
-  
-  case validate_or_respond(request.body, user.decoder()) {
-    Error(response) -> response
-    Ok(data) -> {
-      let #(name, email) = data
-      user.create(db, name, email) |> response.one_row(user.encode_create)
-    }
-  }
-}
-
-// Layer 2: Model (data operations)
-pub fn create(db, name, email) -> Result(pog.Returned(sql.CreateUserRow), pog.QueryError)
-pub fn decoder() -> decode.Decoder(#(String, String))
-pub fn encode_create(user: sql.CreateUserRow) -> json.Json
-
-// Layer 3: Utilities (framework helpers)
-// dream/validators/json_validator - Validate JSON bodies
-// dream/services/postgres/response - Convert Results to Responses
-// dream/utilities/json/encoders - Common JSON encoders
-```
-
-**Result:** Controllers are 50%+ smaller and actually readable.
-
-## Database Setup
-
-Dream includes PostgreSQL support with type-safe queries via [Squirrel](https://github.com/giacomocavalieri/squirrel):
-
-```bash
-make db-up      # Start PostgreSQL in Docker
-make migrate    # Run migrations
-```
-
-Connection: `postgres://postgres:postgres@localhost:5434/dream_db`
-
-See `examples/database/` for complete CRUD examples.
+Want to dive into working examples? See `examples/` for complete applications you can run.
 
 ## Documentation
 
@@ -186,6 +362,7 @@ See `examples/database/` for complete CRUD examples.
 - 📙 [Tutorial: Database CRUD](docs/tutorials/database-crud.md) - Full CRUD with PostgreSQL
 - 📕 [Tutorial: Authentication](docs/tutorials/authentication.md) - Custom context and middleware
 - 📓 [Tutorial: HTTP Client](docs/tutorials/http-client.md) - Making HTTP requests
+- 📔 [Tutorial: Multi-Format Responses](docs/tutorials/multi-format-responses.md) - JSON, HTML, HTMX, CSV
 
 **Guides:**
 - [Controllers and Models](docs/guides/controllers-and-models.md) - Three-layer architecture in depth
@@ -201,12 +378,7 @@ See `examples/database/` for complete CRUD examples.
 - [Naming Conventions](docs/reference/naming-conventions.md) - For contributors
 
 **Examples:**
-- [Example Projects](docs/examples.md) - Overview of all examples
-- `examples/simple/` - Basic routing
-- `examples/database/` - Full CRUD with PostgreSQL
-- `examples/custom_context/` - Authentication with custom context
-- `examples/singleton/` - Rate limiting with global state using the singleton pattern
-- `examples/streaming/` - HTTP client streaming
+- [Example Projects](docs/examples.md) - Working applications you can run
 
 ## Philosophy
 
@@ -228,23 +400,6 @@ You provide:
 
 Because finding where that database connection came from shouldn't require a treasure map.
 
-## Installation
-
-Add Dream to your `gleam.toml`:
-
-```toml
-[dependencies]
-dream = ">= 0.0.1"
-```
-
-For database support, also add:
-
-```toml
-[dependencies]
-pog = ">= 4.0.0"
-squirrel = ">= 4.0.0"
-```
-
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
@@ -252,6 +407,18 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 ## License
 
 [MIT License](LICENSE.md)
+
+---
+
+### References
+
+[1]: https://www.erlang-factory.com/upload/presentations/558/efsf2012-whatsapp-scaling.pdf "WhatsApp Scaling - Erlang Factory"
+[2]: https://elixir-lang.org/blog/2020/10/08/real-time-communication-at-scale-with-elixir-at-discord/ "Real time communication at scale with Elixir at Discord"
+[3]: https://www.erlang-solutions.com/case-studies/bleacher-report-case-study/ "Bleacher Report Case Study - Erlang Solutions"
+[4]: https://venturebeat.com/dev/pinterest-elixir/ "Pinterest's Elixir adoption - VentureBeat"
+[5]: https://www.elixirconf.eu/talks/how-elixir-powers-the-bbc-from-poc-to-production-at-scale/ "How Elixir powers the BBC - ElixirConf EU"
+[6]: https://elixir-lang.org/blog/2025/01/21/remote-elixir-case/ "Remote: growing from zero to unicorn with Elixir"
+[7]: https://gleam.run/case-studies/strand "Optimising for maintainability - Gleam in production at Strand"
 
 ---
 

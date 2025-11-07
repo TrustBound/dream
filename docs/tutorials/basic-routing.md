@@ -35,14 +35,14 @@ src/
 Create `src/your_app/main.gleam`:
 
 ```gleam
-import dream/core/context.{AppContext}
+import dream/core/context
 import dream/servers/mist/server.{bind, context, listen, router, services} as dream
 import your_app/router.{create_router}
 import your_app/services.{initialize_services}
 
 pub fn main() {
   dream.new()
-  |> context(AppContext(request_id: ""))
+  |> context(context.AppContext(request_id: ""))
   |> services(initialize_services())
   |> router(create_router())
   |> bind("localhost")
@@ -107,9 +107,11 @@ Create `src/your_app/controllers/posts_controller.gleam`:
 
 ```gleam
 import dream/core/context.{type AppContext}
-import dream/core/http/statuses.{internal_server_error_status, ok_status}
+import dream/core/http/statuses.{
+  bad_request_status, internal_server_error_status, ok_status,
+}
 import dream/core/http/transaction.{
-  type Request, type Response, get_param, text_response,
+  type PathParam, type Request, type Response, get_param, text_response,
 }
 import dream/core/router.{type EmptyServices}
 import dream/utilities/http/client
@@ -129,10 +131,20 @@ pub fn show(
   _context: AppContext,
   _services: EmptyServices,
 ) -> Response {
-  // Extract path parameters
-  let assert Ok(user_id) = get_param(request, "id")
-  let assert Ok(post_id) = get_param(request, "post_id")
+  case get_param(request, "id") {
+    Error(_) -> text_response(bad_request_status(), "Bad request")
+    Ok(user_param) -> show_with_user_param(request, user_param)
+  }
+}
 
+fn show_with_user_param(request: Request, user_param: PathParam) -> Response {
+  case get_param(request, "post_id") {
+    Error(_) -> text_response(bad_request_status(), "Bad request")
+    Ok(post_param) -> show_with_params(user_param, post_param)
+  }
+}
+
+fn show_with_params(user_param: PathParam, post_param: PathParam) -> Response {
   // Make an HTTPS request (because why not)
   let req =
     client.new
@@ -147,9 +159,9 @@ pub fn show(
       text_response(
         ok_status(),
         "User: "
-          <> user_id
+          <> user_param.value
           <> ", Post: "
-          <> post_id
+          <> post_param.value
           <> "\n\nHTTPS Response:\n\n"
           <> body,
       )
@@ -173,12 +185,13 @@ That's what every controller looks like. No magic base class. No inheritance. Ju
 
 More interesting. It:
 
-1. **Extracts path parameters** using `get_param(request, "id")`
-2. **Builds an HTTP client** using the builder pattern
-3. **Makes an HTTPS request** to an external API
-4. **Returns a response** with the data
+1. **Extracts path parameters** using `get_param(request, "id")` - returns `Result(PathParam, Nil)`
+2. **Handles errors properly** - returns bad request if parameters are missing
+3. **Builds an HTTP client** using the builder pattern
+4. **Makes an HTTPS request** to an external API
+5. **Returns a response** with the data
 
-See that `let assert Ok(...)` pattern? In production, you'd want proper error handling. But for a tutorial, we're being pragmatic. The request will only match this route if the path has those parameters, so they'll be there.
+Notice we're using proper error handling with `case` statements instead of `let assert`. The `get_param` function returns a `PathParam` which has a `.value` field containing the string value.
 
 ## Step 5: Run It
 
@@ -215,11 +228,28 @@ Want to extract a parameter? Use the name without the colon:
 
 ```gleam
 // Route: "/users/:user_id"
-let assert Ok(user_id) = get_param(request, "user_id")
+case get_param(request, "user_id") {
+  Ok(param) -> {
+    let user_id = param.value  // Access the string value
+    // Use user_id...
+  }
+  Error(_) -> // Handle missing parameter
+}
 
 // Route: "/products/:category/:id"
-let assert Ok(category) = get_param(request, "category")
-let assert Ok(product_id) = get_param(request, "id")
+case get_param(request, "category") {
+  Ok(category_param) -> {
+    case get_param(request, "id") {
+      Ok(id_param) -> {
+        let category = category_param.value
+        let product_id = id_param.value
+        // Use both...
+      }
+      Error(_) -> // Handle error
+    }
+  }
+  Error(_) -> // Handle error
+}
 ```
 
 Simple. Explicit. No surprises.
@@ -247,8 +277,13 @@ router
 
 ```gleam
 pub fn serve_file(request: Request, _ctx, _svc) -> Response {
-  let assert Ok(filename) = get_param(request, "filename")
-  // filename = "document.pdf"
+  case get_param(request, "filename") {
+    Ok(param) -> {
+      let filename = param.value  // "document.pdf"
+      // Serve the file...
+    }
+    Error(_) -> // Handle error
+  }
 }
 ```
 
@@ -273,8 +308,13 @@ router
 
 ```gleam
 pub fn serve_static(request: Request, _ctx, _svc) -> Response {
-  let assert Ok(filepath) = get_param(request, "filepath")
-  // filepath = "css/main.css" or "images/photos/2024/photo.jpg"
+  case get_param(request, "filepath") {
+    Ok(param) -> {
+      let filepath = param.value  // "css/main.css" or "images/photos/2024/photo.jpg"
+      // Serve the file...
+    }
+    Error(_) -> // Handle error
+  }
 }
 ```
 
@@ -345,9 +385,13 @@ router
 
 ```gleam
 pub fn serve_static(request: Request, _ctx, _svc) -> Response {
-  let assert Ok(filepath) = get_param(request, "filepath")
-  // Serve from ./public directory
-  static.serve_file("./public", filepath)
+  case get_param(request, "filepath") {
+    Ok(param) -> {
+      // Serve from ./public directory
+      static.serve_file("./public", param.value)
+    }
+    Error(_) -> text_response(not_found_status(), "Not found")
+  }
 }
 
 router
@@ -463,9 +507,21 @@ Same builder pattern you've seen everywhere else. Consistent API. No surprises.
 
 ```gleam
 // Route: "/api/:version/users/:user_id/posts/:post_id"
-let assert Ok(version) = get_param(request, "version")
-let assert Ok(user_id) = get_param(request, "user_id")
-let assert Ok(post_id) = get_param(request, "post_id")
+case get_param(request, "version") {
+  Ok(v) -> case get_param(request, "user_id") {
+    Ok(u) -> case get_param(request, "post_id") {
+      Ok(p) -> {
+        let version = v.value
+        let user_id = u.value
+        let post_id = p.value
+        // Use all three...
+      }
+      Error(_) -> // Handle error
+    }
+    Error(_) -> // Handle error
+  }
+  Error(_) -> // Handle error
+}
 ```
 
 ### Optional Query Parameters
@@ -482,19 +538,20 @@ let page = get_query_param(request, "page")      // Option(String)
 
 ### Parameter Validation
 
-Path parameters are strings. Convert them as needed:
+Path parameters are strings (via `PathParam.value`). Convert them as needed:
 
 ```gleam
 import gleam/int
-import gleam/result
 
-let assert Ok(id_str) = get_param(request, "id")
-let id = int.parse(id_str) |> result.unwrap(0)  // Default to 0 if invalid
-
-// Or handle errors properly:
-case int.parse(id_str) {
-  Ok(id) -> // Use the valid ID
-  Error(_) -> text_response(bad_request_status(), "Invalid ID")
+case get_param(request, "id") {
+  Ok(param) -> {
+    // PathParam has a convenient .as_int field that does the parsing
+    case param.as_int {
+      Ok(id) -> // Use the valid ID
+      Error(_) -> text_response(bad_request_status(), "Invalid ID")
+    }
+  }
+  Error(_) -> text_response(bad_request_status(), "Missing ID")
 }
 ```
 

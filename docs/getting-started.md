@@ -31,14 +31,14 @@ Let's build a simple web server. We'll create three files—no more, no less.
 Create `src/your_app.gleam`:
 
 ```gleam
-import dream/core/context.{AppContext}
+import dream/core/context
 import dream/servers/mist/server.{bind, context, listen, router, services} as dream
 import your_app/router.{create_router}
 import your_app/services.{initialize_services}
 
 pub fn main() {
   dream.new()
-  |> context(AppContext(request_id: ""))
+  |> context(context.AppContext(request_id: ""))
   |> services(initialize_services())
   |> router(create_router())
   |> bind("localhost")
@@ -113,8 +113,10 @@ pub fn greet(
   _context: AppContext,
   _services: EmptyServices,
 ) -> Response {
-  let assert Ok(name) = get_param(request, "name")
-  text_response(ok_status(), "Hello, " <> name <> "!")
+  case get_param(request, "name") {
+    Ok(param) -> text_response(ok_status(), "Hello, " <> param.value <> "!")
+    Error(_) -> text_response(ok_status(), "Hello, stranger!")
+  }
 }
 ```
 

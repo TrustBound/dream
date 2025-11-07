@@ -37,7 +37,7 @@ Dream's `PathParam` automatically extracts format extensions from URLs:
 **Full page template** (`views/products/show.matcha`):
 
 ```matcha
-{> import examples/multi_format/sql.{type GetProductRow}
+{> import sql.{type GetProductRow}
 {> import gleam/int
 {> import gleam/float
 {> with product as GetProductRow
@@ -74,7 +74,7 @@ Dream's `PathParam` automatically extracts format extensions from URLs:
 **HTMX partial** (`views/products/card.matcha`):
 
 ```matcha
-{> import examples/multi_format/sql.{type GetProductRow}
+{> import sql.{type GetProductRow}
 {> import gleam/float
 {> with product as GetProductRow
 
@@ -97,8 +97,8 @@ Compile with: `matcha`
 ```gleam
 // examples/multi_format/src/models/product.gleam
 
-import examples/multi_format/views/products/show as show_view
-import examples/multi_format/views/products/card
+import views/products/show as show_view
+import views/products/card
 import gleam/json
 
 /// Convert product to JSON string
@@ -139,7 +139,7 @@ import dream/core/http/transaction.{
   get_param, html_response, json_response,
 }
 import dream/utilities/query
-import examples/multi_format/models/product
+import models/product
 
 pub fn show(
   request: Request,
