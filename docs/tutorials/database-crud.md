@@ -168,7 +168,7 @@ Create `src/your_app/models/user.gleam`:
 
 ```gleam
 import dream/utilities/json/encoders
-import examples/database/sql
+import sql
 import gleam/dynamic/decode
 import gleam/json
 import gleam/option
@@ -252,14 +252,15 @@ The model wraps database operations and provides encoders/decoders. It returns `
 Create `src/your_app/controllers/users_controller.gleam`:
 
 ```gleam
-import dream/core/http/transaction.{type Request, type Response, get_param}
+import dream/core/http/transaction.{
+  type PathParam, type Request, type Response, get_param,
+}
 import dream/services/postgres/response
 import dream/validators/json_validator.{validate_or_respond}
-import examples/database/context.{type DatabaseContext}
-import examples/database/models/user
-import examples/database/services.{type Services}
-import gleam/int
-import gleam/result
+import context.{type DatabaseContext}
+import models/user
+import services.{type Services}
+import pog
 
 pub fn index(
   _request: Request,
@@ -275,10 +276,21 @@ pub fn show(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  let db = services.database.connection
-  let assert Ok(id_str) = get_param(request, "id")
-  let id = int.parse(id_str) |> result.unwrap(0)
+  case get_param(request, "id") {
+    Error(_) -> response.bad_request()
+    Ok(param) -> show_with_param(param, services)
+  }
+}
 
+fn show_with_param(param: PathParam, services: Services) -> Response {
+  case param.as_int {
+    Error(_) -> response.bad_request()
+    Ok(id) -> show_user(id, services)
+  }
+}
+
+fn show_user(id: Int, services: Services) -> Response {
+  let db = services.database.connection
   user.get(db, id) |> response.one_row(user.encode)
 }
 
@@ -288,14 +300,15 @@ pub fn create(
   services: Services,
 ) -> Response {
   let db = services.database.connection
-
   case validate_or_respond(request.body, user.decoder()) {
     Error(response) -> response
-    Ok(data) -> {
-      let #(name, email) = data
-      user.create(db, name, email) |> response.one_row(user.encode_create)
-    }
+    Ok(data) -> create_with_data(data, db)
   }
+}
+
+fn create_with_data(data: #(String, String), db: pog.Connection) -> Response {
+  let #(name, email) = data
+  user.create(db, name, email) |> response.one_row(user.encode_create)
 }
 
 pub fn update(
@@ -303,17 +316,38 @@ pub fn update(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  let db = services.database.connection
-  let assert Ok(id_str) = get_param(request, "id")
-  let id = int.parse(id_str) |> result.unwrap(0)
+  case get_param(request, "id") {
+    Error(_) -> response.bad_request()
+    Ok(param) -> update_with_param(param, request, services)
+  }
+}
 
+fn update_with_param(
+  param: PathParam,
+  request: Request,
+  services: Services,
+) -> Response {
+  case param.as_int {
+    Error(_) -> response.bad_request()
+    Ok(id) -> update_user(id, request, services)
+  }
+}
+
+fn update_user(id: Int, request: Request, services: Services) -> Response {
+  let db = services.database.connection
   case validate_or_respond(request.body, user.decoder()) {
     Error(response) -> response
-    Ok(data) -> {
-      let #(name, email) = data
-      user.update(db, id, name, email) |> response.one_row(user.encode_update)
-    }
+    Ok(data) -> update_user_with_data(id, data, db)
   }
+}
+
+fn update_user_with_data(
+  id: Int,
+  data: #(String, String),
+  db: pog.Connection,
+) -> Response {
+  let #(name, email) = data
+  user.update(db, id, name, email) |> response.one_row(user.encode_update)
 }
 
 pub fn delete(
@@ -321,10 +355,21 @@ pub fn delete(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  let db = services.database.connection
-  let assert Ok(id_str) = get_param(request, "id")
-  let id = int.parse(id_str) |> result.unwrap(0)
+  case get_param(request, "id") {
+    Error(_) -> response.bad_request()
+    Ok(param) -> delete_with_param(param, services)
+  }
+}
 
+fn delete_with_param(param: PathParam, services: Services) -> Response {
+  case param.as_int {
+    Error(_) -> response.bad_request()
+    Ok(id) -> delete_user(id, services)
+  }
+}
+
+fn delete_user(id: Int, services: Services) -> Response {
+  let db = services.database.connection
   user.delete(db, id) |> response.success
 }
 ```
@@ -559,17 +604,22 @@ Different public functions, same implementation. DRY principle respected.
 
 ```gleam
 pub fn show(request, _context, services) -> Response {
-  let db = services.database.connection
-  let assert Ok(id_str) = get_param(request, "id")
-  let id = int.parse(id_str) |> result.unwrap(0)
-
-  case user.get(db, id) {
-    Ok(returned) if list.length(returned.rows) > 0 -> {
-      let assert [user_row] = returned.rows
-      json_response(ok_status(), json.to_string(user.encode(user_row)))
+  case get_param(request, "id") {
+    Error(_) -> response.bad_request()
+    Ok(param) -> case param.as_int {
+      Error(_) -> response.bad_request()
+      Ok(id) -> {
+        let db = services.database.connection
+        case user.get(db, id) {
+          Ok(returned) if list.length(returned.rows) > 0 -> {
+            let assert [user_row] = returned.rows
+            json_response(ok_status(), json.to_string(user.encode(user_row)))
+          }
+          Ok(_) -> text_response(not_found_status(), "User not found")
+          Error(_) -> text_response(internal_server_error_status(), "Database error")
+        }
+      }
     }
-    Ok(_) -> text_response(not_found_status(), "User not found")
-    Error(_) -> text_response(internal_server_error_status(), "Database error")
   }
 }
 ```
