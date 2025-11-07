@@ -31,14 +31,12 @@ Let's build a simple web server. We'll create three files—no more, no less.
 Create `src/your_app.gleam`:
 
 ```gleam
-import dream/core/context
-import dream/servers/mist/server.{bind, context, listen, router, services} as dream
+import dream/servers/mist/server.{bind, listen, router, services} as dream
 import your_app/router.{create_router}
 import your_app/services.{initialize_services}
 
 pub fn main() {
   dream.new()
-  |> context(context.AppContext(request_id: ""))
   |> services(initialize_services())
   |> router(create_router())
   |> bind("localhost")
@@ -46,18 +44,17 @@ pub fn main() {
 }
 ```
 
-See that? Everything your app does is right there. No hidden startup code. No "convention over configuration" nonsense. You can read this and understand exactly what's happening.
+Everything your app does is right there. No hidden startup code. No "convention over configuration" nonsense.
 
-Let's break it down:
+What each line does:
 
-- `dream.new()` - Creates a new Dream server instance
-- `.context(AppContext(...))` - Sets up per-request context (you can customize this later)
-- `.services(initialize_services())` - Injects your dependencies (database, etc.)
-- `.router(create_router())` - Wires up your routes
-- `.bind("localhost")` - Which host to bind to
-- `.listen(3000)` - Which port to listen on
+- `dream.new()` - Creates a server (includes default context)
+- `.services(initialize_services())` - Your dependencies (database, etc.)
+- `.router(create_router())` - Your routes
+- `.bind("localhost")` - Which host
+- `.listen(3000)` - Which port
 
-This is the **builder pattern**. Every step is explicit. No surprises.
+Builder pattern. Every step is explicit.
 
 ### Step 2: Create Your Router
 
@@ -190,7 +187,7 @@ client.new
   |> client.path("/users")
 ```
 
-Why? Because it's **explicit and readable**. You can see the configuration flowing through. Each step transforms the previous value. No global state. No side effects.
+It's explicit and readable. You see the configuration flowing through. Each step transforms the previous value. No global state. No side effects.
 
 ## Understanding the Request Pipeline
 
@@ -208,17 +205,13 @@ No magic. No hidden processing. Just a straightforward pipeline.
 
 ## What About Context and Services?
 
-You might be wondering about those `_context` and `_services` parameters we're ignoring.
+You might be wondering about those `_context` and `_services` parameters.
 
-**Context** is per-request data. Think: request ID, user session, authentication info. It's mutable—middleware can modify it as the request flows through the pipeline.
+**Context** flows with each request. Starts as `AppContext(request_id: "...")`. Middleware can enrich it (add user auth, session data). Controllers receive it.
 
-**Services** is application-level dependencies. Think: database connections, HTTP clients, caches. It's immutable—set once at startup, used everywhere.
+**Services** are shared dependencies. Database connections, HTTP clients, caches. Set once at startup, available everywhere.
 
-We'll cover these in detail in the tutorials. For now, just know:
-
-- Controllers receive **three parameters**: `Request`, `Context`, `Services`
-- Middleware can **modify context** as requests flow through
-- Services are **injected once** at application startup
+For now, we're using defaults. Custom context and real services come in the tutorials.
 
 ## Next Steps
 
