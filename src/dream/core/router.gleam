@@ -1,8 +1,65 @@
-//// Router for matching HTTP requests to controllers
+//// Route configuration and request matching
 ////
-//// This module provides routing functionality for matching HTTP requests
-//// to route controllers based on method and path patterns, including support
-//// for path parameters.
+//// The router matches incoming requests to controllers based on HTTP method and path patterns.
+//// It supports path parameters, wildcards, middleware chains, and custom context/services types.
+////
+//// ## Basic Routing
+////
+//// ```gleam
+//// import dream/core/router.{router}
+//// import dream/core/http/transaction.{Get, Post}
+////
+//// pub fn create_router() {
+////   router
+////   |> router.route(Get, "/", controllers.index, [])
+////   |> router.route(Get, "/users/:id", controllers.show_user, [])
+////   |> router.route(Post, "/users", controllers.create_user, [])
+//// }
+//// ```
+////
+//// ## Path Parameters
+////
+//// Use `:name` to capture path segments as parameters:
+//// - `/users/:id` matches `/users/123` and extracts `id = "123"`
+//// - `/posts/:post_id/comments/:id` extracts both parameters
+////
+//// Access parameters in your controller with `get_param(request, "id")`.
+////
+//// ## Wildcards
+////
+//// Wildcards match one or more path segments:
+//// - `*` or `*name` - Matches exactly one segment
+//// - `**` or `**path` - Matches zero or more segments (greedy)
+//// - `*.jpg` - Matches any path ending in `.jpg`
+//// - `*.{jpg,png,gif}` - Matches multiple extensions
+////
+//// ## Middleware
+////
+//// Middleware run before (and optionally after) your controller:
+////
+//// ```gleam
+//// router
+//// |> router.route(
+////   Get,
+////   "/admin/users",
+////   controllers.admin_users,
+////   [auth_middleware, logging_middleware]
+//// )
+//// ```
+////
+//// Middleware are executed in order: `auth` → `logging` → controller → `logging` → `auth`.
+//// Each middleware can modify the request on the way in or the response on the way out.
+////
+//// ## Route Matching
+////
+//// Routes are matched in the order they're defined. First match wins.
+//// More specific routes should come before general ones:
+////
+//// ```gleam
+//// router
+//// |> router.route(Get, "/users/new", controllers.new_user, [])  // Specific
+//// |> router.route(Get, "/users/:id", controllers.show_user, []) // General
+//// ```
 
 import dream/core/context.{type AppContext}
 import dream/core/http/statuses.{convert_client_error_to_status, not_found}
@@ -14,8 +71,11 @@ import gleam/list
 import gleam/option
 import gleam/string
 
-/// Middleware wrapper type
-/// Generic over context and services types
+/// Middleware function wrapper
+///
+/// Middleware intercept requests before they reach controllers and responses before
+/// they're sent back. They're generic over context and services types so they can
+/// work with any application configuration.
 pub type Middleware(context, services) {
   Middleware(
     fn(Request, context, services, fn(Request, context, services) -> Response) ->
@@ -23,7 +83,10 @@ pub type Middleware(context, services) {
   )
 }
 
-/// Route definition with method, path pattern, controller, and middleware
+/// A single route definition
+///
+/// Combines an HTTP method, path pattern, controller function, and optional middleware.
+/// Routes are matched in the order they're added to the router.
 pub type Route(context, services) {
   Route(
     method: Method,
@@ -33,12 +96,18 @@ pub type Route(context, services) {
   )
 }
 
-/// Router containing a list of routes
+/// Router holding your application's routes
+///
+/// The router maintains a list of routes and provides them to the server for request matching.
+/// It's generic over context and services types so the type system can verify your whole app.
 pub type Router(context, services) {
   Router(routes: List(Route(context, services)))
 }
 
-/// Empty services type for default router
+/// Placeholder for when you haven't defined services yet
+///
+/// Use this as your services type during initial development. Replace it with your
+/// own services type when you add database connections, caches, or other shared dependencies.
 pub type EmptyServices {
   EmptyServices
 }
@@ -110,6 +179,25 @@ fn wrap_middleware(
 }
 
 /// Add a route to the router
+///
+/// Routes are matched in the order they're added, so put more specific routes first.
+/// The path supports parameters (`:id`), wildcards (`*`, `**`), and extensions (`*.jpg`).
+///
+/// ## Examples
+///
+/// ```gleam
+/// // Simple route
+/// router.route(router, Get, "/", home_controller, [])
+///
+/// // Route with path parameter
+/// router.route(router, Get, "/users/:id", show_user, [])
+///
+/// // Route with middleware
+/// router.route(router, Post, "/admin/users", create_user, [auth, logging])
+///
+/// // Wildcard route for static files
+/// router.route(router, Get, "/assets/**path", serve_static, [])
+/// ```
 pub fn route(
   router: Router(context, services),
   method method_value: Method,
@@ -131,16 +219,39 @@ pub fn route(
   Router(routes: [route, ..router.routes])
 }
 
-/// Match a request path against a route pattern
-/// Pattern: "/users/:id/posts/:post_id"
-/// Path: "/users/123/posts/456"
-/// Returns: Some([#("id", "123"), #("post_id", "456")])
+/// Match a path against a pattern and extract parameters
 ///
-/// Supports wildcards:
-/// - "*name" or "*": Single-segment wildcard
-/// - "**name" or "**": Multi-segment wildcard
-/// - "*.ext": Extension matching
-/// - "*.{ext1,ext2}": Multiple extensions
+/// Returns the extracted parameters if the path matches the pattern, or `None` if it doesn't.
+///
+/// ## Path Parameters
+///
+/// ```gleam
+/// match_path("/users/:id", "/users/123")
+/// // -> Some([#("id", "123")])
+///
+/// match_path("/users/:user_id/posts/:id", "/users/123/posts/456")
+/// // -> Some([#("user_id", "123"), #("id", "456")])
+/// ```
+///
+/// ## Wildcards
+///
+/// ```gleam
+/// // Single-segment wildcard
+/// match_path("/assets/*file", "/assets/logo.png")
+/// // -> Some([#("file", "logo.png")])
+///
+/// // Multi-segment wildcard
+/// match_path("/files/**path", "/files/docs/guide.pdf")
+/// // -> Some([#("path", "docs/guide.pdf")])
+///
+/// // Extension matching
+/// match_path("/images/*.jpg", "/images/photo.jpg")
+/// // -> Some([])
+///
+/// // Multiple extensions
+/// match_path("/images/*.{jpg,png}", "/images/photo.jpg")
+/// // -> Some([])
+/// ```
 pub fn match_path(
   pattern_string: String,
   path: String,
@@ -202,7 +313,12 @@ fn check_path_match(
 }
 
 /// Build a controller chain from middleware and final controller
-/// Middleware are executed in order: first middleware wraps second, wraps third, etc.
+///
+/// Composes middleware with the controller to create a single function. Middleware
+/// execute in order on the way in, then in reverse order on the way out.
+///
+/// For middleware `[auth, logging]` with controller `handle`:
+/// Request → auth → logging → handle → logging → auth → Response
 pub fn build_controller_chain(
   middleware: List(Middleware(context, services)),
   final_controller: fn(Request, context, services) -> Response,

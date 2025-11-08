@@ -372,9 +372,9 @@ Want to dive into working examples? See `examples/` for complete applications yo
 - [Deployment](docs/guides/deployment.md) - Running in production
 
 **Reference:**
+- [API Documentation](https://hexdocs.pm/dream) - Complete API reference on HexDocs
 - [Architecture](docs/reference/architecture.md) - How it all fits together
 - [Design Principles](docs/reference/design-principles.md) - The "why" behind decisions
-- [API Reference](docs/reference/api-reference.md) - Complete API documentation
 - [Naming Conventions](docs/reference/naming-conventions.md) - For contributors
 
 **Examples:**

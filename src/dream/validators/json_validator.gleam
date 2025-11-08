@@ -1,3 +1,38 @@
+//// JSON validation with helpful error messages
+////
+//// Validate and decode JSON request bodies with automatic error responses.
+////
+//// ## Example
+////
+//// ```gleam
+//// import dream/validators/json_validator as validator
+//// import gleam/dynamic/decode
+////
+//// pub type CreateUser {
+////   CreateUser(name: String, email: String, age: Int)
+//// }
+////
+//// pub fn create_user(request, ctx, services) {
+////   let decoder = decode.into({
+////     use name <- decode.parameter
+////     use email <- decode.parameter
+////     use age <- decode.parameter
+////     CreateUser(name:, email:, age:)
+////   })
+////   |> decode.field("name", decode.string)
+////   |> decode.field("email", decode.string)
+////   |> decode.field("age", decode.int)
+////
+////   case validator.validate_or_respond(request.body, decoder) {
+////     Ok(user_data) -> {
+////       // Create user in database
+////       json_response(ok_status(), "User created")
+////     }
+////     Error(error_response) -> error_response  // Auto-formatted error
+////   }
+//// }
+//// ```
+
 import dream/core/http/statuses.{bad_request_status}
 import dream/core/http/transaction.{type Response, json_response}
 import gleam/dynamic/decode
@@ -7,6 +42,7 @@ import gleam/option
 import gleam/result
 import gleam/string
 
+/// Validation error with field-level details
 pub type ValidationError {
   ValidationError(
     message: String,

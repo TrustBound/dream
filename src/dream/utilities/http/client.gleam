@@ -1,11 +1,39 @@
-//// HTTP client builder for Dream web framework
+//// HTTP client for making requests
 ////
-//// This module provides a builder pattern for constructing HTTP client requests,
-//// similar to the router pattern. It supports both streaming and non-streaming requests.
+//// Gleam doesn't have a built-in HTTPS client, so Dream wraps Erlang's battle-hardened
+//// `httpc`. Use this for calling external APIs, downloading files, or streaming AI responses.
 ////
-//// For making requests, import from:
-//// - `dream/utilities/http/client/stream` for streaming requests
-//// - `dream/utilities/http/client/fetch` for non-streaming requests
+//// ## Quick Example
+////
+//// ```gleam
+//// import dream/utilities/http/client
+//// import dream/utilities/http/client/fetch
+//// import gleam/http
+////
+//// pub fn call_api() {
+////   client.new
+////   |> client.host("api.example.com")
+////   |> client.path("/users/123")
+////   |> client.header("Authorization", "Bearer " <> token)
+////   |> fetch.send()
+//// }
+//// ```
+////
+//// ## Streaming vs Fetch
+////
+//// - `fetch`: Get the whole response at once. Good for API calls, JSON responses.
+//// - `stream`: Get a yielder that streams chunks. Good for large files, AI responses.
+////
+//// ```gleam
+//// import dream/utilities/http/client/stream
+////
+//// // Stream large file
+//// client.new
+//// |> client.host("cdn.example.com")
+//// |> client.path("/large-file.zip")
+//// |> stream.send()
+//// |> yielder.each(process_chunk)
+//// ```
 
 import gleam/http
 import gleam/option.{type Option, None}

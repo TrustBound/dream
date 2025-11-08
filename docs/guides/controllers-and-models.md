@@ -1,14 +1,15 @@
-# Guide: Controllers and Models
+# Guide: Controllers, Models, and Views
 
-**The three-layer architecture that keeps controllers from becoming thousand-line nightmares.**
+**The four-layer architecture that keeps controllers from becoming thousand-line nightmares.**
 
 If you've worked on a web project that's more than a few months old, you've seen it: controllers that do everything. Database queries mixed with HTTP logic mixed with business rules mixed with JSON serialization. 500 lines per function. Good luck testing that.
 
-Dream uses a **three-layer architecture** that keeps each layer focused:
+Dream uses a **four-layer architecture** that keeps each layer focused:
 
 1. **Controllers** - HTTP orchestration only
 2. **Models** - Data operations only
-3. **Utilities** - Reusable framework helpers
+3. **Views** - Presentation only
+4. **Utilities** - Reusable framework helpers
 
 This guide explains the pattern and shows you how to use it effectively.
 
@@ -68,29 +69,31 @@ That's 40+ lines of nested error handling for a simple CREATE operation. And we'
 
 ## The Solution
 
-Here's the same operation with the three-layer pattern:
+Here's the same operation with the four-layer pattern:
 
 ```gleam
 import dream/core/http/transaction.{type Request, type Response}
-import dream/services/postgres/response
 import dream/validators/json_validator.{validate_or_respond}
 import models/user
+import views/user_view
 import services.{type Services}
 
 pub fn create(request: Request, _context: Context, services: Services) -> Response {
+  // Extract dependencies first
   let db = services.database.connection
   
   case validate_or_respond(request.body, user.decoder()) {
     Error(response) -> response
     Ok(data) -> {
       let #(name, email) = data
-      user.create(db, name, email) |> response.one_row(user.encode_create)
+      user.create(db, name, email)
+      |> user_view.respond_created()
     }
   }
 }
 ```
 
-**8 lines instead of 40.** And it's actually readable.
+**7 lines instead of 40.** And it's actually readable.
 
 Let's break down each layer.
 
@@ -119,13 +122,14 @@ Every CRUD controller follows this pattern:
 
 ```gleam
 import dream/core/http/transaction.{type Request, type Response}
-import dream/services/postgres/response
 import models/user
+import views/user_view
 import services.{type Services}
 
 pub fn index(_request: Request, _context: Context, services: Services) -> Response {
   let db = services.database.connection
-  user.list(db) |> response.many_rows(user.encode_list)
+  user.list(db)
+  |> user_view.respond_list()
 }
 ```
 
@@ -135,16 +139,13 @@ pub fn index(_request: Request, _context: Context, services: Services) -> Respon
 import dream/core/http/transaction.{get_param}
 
 pub fn show(request: Request, _context: Context, services: Services) -> Response {
-  case get_param(request, "id") {
-    Error(_) -> response.bad_request()
-    Ok(param) -> case param.as_int {
-      Error(_) -> response.bad_request()
-      Ok(id) -> {
-        let db = services.database.connection
-        user.get(db, id) |> response.one_row(user.encode)
-      }
-    }
-  }
+  // Extract dependencies and path params first
+  let assert Ok(param) = get_param(request, "id")
+  let assert Ok(id) = param.as_int
+  let db = services.database.connection
+
+  user.get(db, id)
+  |> user_view.respond()
 }
 ```
 
@@ -154,13 +155,15 @@ pub fn show(request: Request, _context: Context, services: Services) -> Response
 import dream/validators/json_validator.{validate_or_respond}
 
 pub fn create(request: Request, _context: Context, services: Services) -> Response {
+  // Extract dependencies first
   let db = services.database.connection
   
   case validate_or_respond(request.body, user.decoder()) {
     Error(response) -> response
     Ok(data) -> {
       let #(name, email) = data
-      user.create(db, name, email) |> response.one_row(user.encode_create)
+      user.create(db, name, email)
+      |> user_view.respond_created()
     }
   }
 }
@@ -170,20 +173,17 @@ pub fn create(request: Request, _context: Context, services: Services) -> Respon
 
 ```gleam
 pub fn update(request: Request, _context: Context, services: Services) -> Response {
-  case get_param(request, "id") {
-    Error(_) -> response.bad_request()
-    Ok(param) -> case param.as_int {
-      Error(_) -> response.bad_request()
-      Ok(id) -> {
-        let db = services.database.connection
-        case validate_or_respond(request.body, user.decoder()) {
-          Error(response) -> response
-          Ok(data) -> {
-            let #(name, email) = data
-            user.update(db, id, name, email) |> response.one_row(user.encode_update)
-          }
-        }
-      }
+  // Extract dependencies and path params first
+  let assert Ok(param) = get_param(request, "id")
+  let assert Ok(id) = param.as_int
+  let db = services.database.connection
+
+  case validate_or_respond(request.body, user.decoder()) {
+    Error(response) -> response
+    Ok(data) -> {
+      let #(name, email) = data
+      user.update(db, id, name, email)
+      |> user_view.respond_updated()
     }
   }
 }
@@ -193,16 +193,13 @@ pub fn update(request: Request, _context: Context, services: Services) -> Respon
 
 ```gleam
 pub fn delete(request: Request, _context: Context, services: Services) -> Response {
-  case get_param(request, "id") {
-    Error(_) -> response.bad_request()
-    Ok(param) -> case param.as_int {
-      Error(_) -> response.bad_request()
-      Ok(id) -> {
-        let db = services.database.connection
-        user.delete(db, id) |> response.success
-      }
-    }
-  }
+  // Extract dependencies and path params first
+  let assert Ok(param) = get_param(request, "id")
+  let assert Ok(id) = param.as_int
+  let db = services.database.connection
+
+  user.delete(db, id)
+  |> user_view.respond_deleted()
 }
 ```
 
@@ -214,19 +211,20 @@ That's it. Every CRUD controller looks like this. Consistent. Predictable. Easy 
 
 Models handle:
 - Wrapping database queries (Squirrel-generated SQL)
-- Providing JSON decoders for request validation
-- Providing JSON encoders for responses
+- Providing JSON decoders for request validation (input only)
 - Returning `Result` types (never `Response` types)
+- Business logic and data transformations
+
+Models do NOT handle:
+- JSON encoding for responses (that's presentation → views)
+- HTTP responses (that's web layer → controllers/views)
+- Error formatting (views decide how errors look)
 
 ### Complete Model Example
 
 ```gleam
-import dream/utilities/json/encoders
 import sql
 import gleam/dynamic/decode
-import gleam/json
-import gleam/option
-import gleam/time/timestamp
 import pog
 
 // Query functions - wrap Squirrel SQL, return Results
@@ -265,70 +263,16 @@ pub fn decoder() -> decode.Decoder(#(String, String)) {
   use email <- decode.field("email", decode.string)
   decode.success(#(name, email))
 }
-
-// JSON encoders for different row types
-pub fn encode(user: sql.GetUserRow) -> json.Json {
-  encode_user_fields(user.id, user.name, user.email, user.created_at)
-}
-
-pub fn encode_list(user: sql.ListUsersRow) -> json.Json {
-  encode_user_fields(user.id, user.name, user.email, user.created_at)
-}
-
-pub fn encode_create(user: sql.CreateUserRow) -> json.Json {
-  encode_user_fields(user.id, user.name, user.email, user.created_at)
-}
-
-pub fn encode_update(user: sql.UpdateUserRow) -> json.Json {
-  encode_user_fields(user.id, user.name, user.email, user.created_at)
-}
-
-// Shared encoder implementation (DRY principle)
-fn encode_user_fields(
-  id: Int,
-  name: String,
-  email: String,
-  created_at: option.Option(timestamp.Timestamp),
-) -> json.Json {
-  json.object([
-    #("id", json.int(id)),
-    #("name", json.string(name)),
-    #("email", json.string(email)),
-    #("created_at", encoders.timestamp(created_at)),
-  ])
-}
 ```
 
-### Why Multiple Encoders?
-
-Squirrel generates different types for each SQL query: `GetUserRow`, `ListUsersRow`, `CreateUserRow`, etc. Even though they have the same fields, they're **different types** (nominal typing).
-
-You can't use one encoder for all. But you can share the implementation:
-
-```gleam
-// Public encoders for each type
-pub fn encode(user: sql.GetUserRow) -> json.Json {
-  encode_user_fields(user.id, user.name, user.email, user.created_at)
-}
-
-pub fn encode_list(user: sql.ListUsersRow) -> json.Json {
-  encode_user_fields(user.id, user.name, user.email, user.created_at)
-}
-
-// Private shared implementation
-fn encode_user_fields(id, name, email, created_at) -> json.Json {
-  json.object([...])
-}
-```
-
-DRY principle respected. Type safety maintained.
+**That's it.** Database queries and input validation. Nothing else.
 
 ### Why Wrap Squirrel Functions?
 
 You could call Squirrel-generated functions directly from controllers:
 
 ```gleam
-sql.list_users(db) |> response.many_rows(user.encode_list)
+sql.list_users(db) |> user_view.respond_list()
 ```
 
 But wrapping them in models gives you:
@@ -347,7 +291,192 @@ pub fn list(db: pog.Connection) -> Result(pog.Returned(sql.ListUsersRow), pog.Qu
 
 One line. But it pays off.
 
-## Layer 3: Utilities
+## Layer 3: Views
+
+**Responsibility:** Presentation only.
+
+Domain-specific views handle:
+- Converting model data to HTTP responses
+- JSON/HTML/CSV encoding for their domain (users, posts, products, etc.)
+- Success status codes (200, 201, etc.)
+- Unwrapping `Result` types from models
+
+Domain views do NOT handle:
+- Generic HTTP errors (use shared `views/errors.gleam`)
+- Database queries or connections (that's models)
+- Request validation (that's controllers + validators)
+- Business logic (that's models)
+
+Note: Views do receive database result types (`pog.Returned`) to unwrap them,
+but they don't perform queries or manage connections.
+
+### Complete View Example
+
+```gleam
+import dream/core/http/statuses.{created_status, not_found_status, ok_status, internal_server_error_status}
+import dream/core/http/transaction.{type Response, json_response}
+import dream/utilities/json/encoders
+import gleam/json
+import gleam/list
+import gleam/option
+import gleam/time/timestamp
+import pog
+import sql
+
+/// Respond with a single user
+pub fn respond(
+  result: Result(pog.Returned(sql.GetUserRow), pog.QueryError),
+) -> Response {
+  case result {
+    Ok(returned) -> respond_with_rows(returned.rows)
+    Error(_) -> errors.internal_error()
+  }
+}
+
+fn respond_with_rows(rows: List(sql.GetUserRow)) -> Response {
+  case rows {
+    [user] -> json_response(ok_status(), to_json(user))
+    [] -> errors.not_found("User not found")
+    _ -> errors.not_found("User not found")
+  }
+}
+
+/// Respond with a list of users
+pub fn respond_list(
+  result: Result(pog.Returned(sql.ListUsersRow), pog.QueryError),
+) -> Response {
+  case result {
+    Ok(returned) -> json_response(ok_status(), list_to_json(returned.rows))
+    Error(_) -> errors.internal_error()
+  }
+}
+
+/// Respond with a created user (201 status)
+pub fn respond_created(
+  result: Result(pog.Returned(sql.CreateUserRow), pog.QueryError),
+) -> Response {
+  case result {
+    Ok(returned) -> respond_created_with_rows(returned.rows)
+    Error(_) -> errors.internal_error()
+  }
+}
+
+fn respond_created_with_rows(rows: List(sql.CreateUserRow)) -> Response {
+  case rows {
+    [user] -> json_response(created_status(), to_json_created(user))
+    [] -> errors.internal_error()
+    _ -> errors.internal_error()
+  }
+}
+
+// Private helper functions - all encoding logic lives here
+
+fn to_json(user: sql.GetUserRow) -> String {
+  encode_user(user.id, user.name, user.email, user.created_at)
+  |> json.to_string()
+}
+
+fn to_json_created(user: sql.CreateUserRow) -> String {
+  encode_user(user.id, user.name, user.email, user.created_at)
+  |> json.to_string()
+}
+
+fn list_to_json(users: List(sql.ListUsersRow)) -> String {
+  users
+  |> list.map(fn(user) {
+    encode_user(user.id, user.name, user.email, user.created_at)
+  })
+  |> json.array(from: _, of: fn(x) { x })
+  |> json.to_string()
+}
+
+/// Shared JSON encoder for all user row types
+fn encode_user(
+  id: Int,
+  name: String,
+  email: String,
+  created_at: option.Option(timestamp.Timestamp),
+) -> json.Json {
+  json.object([
+    #("id", json.int(id)),
+    #("name", json.string(name)),
+    #("email", json.string(email)),
+    #("created_at", encoders.timestamp(created_at)),
+  ])
+}
+
+```
+
+**Key points:**
+- Views receive `Result` types from models and unwrap them
+- All JSON encoding happens in views (not models)
+- Generic HTTP errors use shared `views/errors.gleam`
+- Helper functions avoid nested case statements
+- Multiple row types (GetUserRow, CreateUserRow, etc.) share the same encoder via a private helper
+
+### Shared Errors View
+
+Generic HTTP errors belong in a shared view, not duplicated in every domain view:
+
+```gleam
+// views/errors.gleam
+
+import dream/core/http/statuses.{
+  bad_request_status, internal_server_error_status, not_found_status,
+}
+import dream/core/http/transaction.{type Response, json_response}
+
+/// 404 Not Found response
+pub fn not_found(message: String) -> Response {
+  json_response(not_found_status(), "{\"error\": \"" <> message <> "\"}")
+}
+
+/// 500 Internal Server Error response
+pub fn internal_error() -> Response {
+  json_response(
+    internal_server_error_status(),
+    "{\"error\": \"Internal server error\"}",
+  )
+}
+
+/// 400 Bad Request response
+pub fn bad_request(message: String) -> Response {
+  json_response(bad_request_status(), "{\"error\": \"" <> message <> "\"}")
+}
+```
+
+Then use it from domain views:
+
+```gleam
+// views/user_view.gleam
+import views/errors
+
+pub fn respond(result: Result(...)) -> Response {
+  case result {
+    Ok(returned) -> respond_with_rows(returned.rows)
+    Error(_) -> errors.internal_error()
+  }
+}
+
+fn respond_with_rows(rows: List(sql.GetUserRow)) -> Response {
+  case rows {
+    [user] -> json_response(ok_status(), to_json(user))
+    [] -> errors.not_found("User not found")
+    _ -> errors.not_found("User not found")
+  }
+}
+```
+
+Domain views focus on formatting their data. Helper functions avoid nested cases. Errors are shared and reusable.
+
+### Why Multiple Row Types?
+
+Squirrel generates different types for each SQL query: `GetUserRow`, `ListUsersRow`, `CreateUserRow`, etc. 
+Even though they have the same fields, they're **different types** (nominal typing).
+
+You can't use one encoder for all. But you can share the implementation with a private helper function.
+
+## Layer 4: Utilities
 
 **Responsibility:** Reusable framework helpers.
 
@@ -373,24 +502,29 @@ If validation fails, returns:
 }
 ```
 
-### PostgreSQL Response Helpers (`dream/services/postgres/response`)
+### Query Result Helpers (`dream/utilities/query`)
 
-Converts database `Result` types to HTTP `Response` types:
+Extract data from Pog query results cleanly:
 
 ```gleam
-import dream/services/postgres/response
+import dream/utilities/query
 
-// Single row - returns 404 if no rows, 500 on DB error
-user.get(db, id) |> response.one_row(user.encode)
+// Extract first row (for single-record queries)
+case user.get(db, id) |> query.first_row() {
+  Ok(user) -> user_view.respond(user)
+  Error(query.NotFound) -> not_found_response()
+  Error(query.DatabaseError) -> error_response()
+}
 
-// Multiple rows - returns empty array if no rows, 500 on DB error
-user.list(db) |> response.many_rows(user.encode_list)
-
-// Success/failure - for operations that don't return data
-user.delete(db, id) |> response.success
+// Extract all rows (for list queries)
+case user.list(db) |> query.all_rows() {
+  Ok(users) -> user_view.respond_list(users)
+  Error(query.DatabaseError) -> error_response()
+}
 ```
 
-These handle all the tedious error cases you'd otherwise write manually in every controller.
+These helpers convert `Result(pog.Returned(row), pog.QueryError)` to `Result(row, QueryError)`,
+extracting the data you actually want and distinguishing between "not found" and "database error".
 
 ### JSON Encoding Utilities (`dream/utilities/json/encoders`)
 
@@ -418,8 +552,12 @@ src/your_app/
     users_controller.gleam    # HTTP orchestration
     posts_controller.gleam
   models/
-    user.gleam                # User data operations
-    post.gleam                # Post data operations
+    user.gleam                # User data operations (queries + input decoders)
+    post.gleam                # Post data operations (queries + input decoders)
+  views/
+    user_view.gleam           # User presentation (JSON encoding)
+    post_view.gleam           # Post presentation (JSON encoding)
+    errors.gleam              # Shared HTTP error responses
   sql/
     list_users.sql            # Raw SQL files
     get_user.sql
@@ -446,8 +584,8 @@ Clear separation. Each piece has one job.
 ### After the Pattern
 
 - ✅ Controllers: 5-10 lines each
-- ✅ Error handling centralized
-- ✅ JSON encoding in one place (models)
+- ✅ Error handling centralized (shared errors view)
+- ✅ JSON encoding in one place (domain views)
 - ✅ Easy to test (each layer independent)
 - ✅ Clean separation of concerns
 
@@ -457,28 +595,32 @@ Clear separation. Each piece has one job.
 
 ### Why Not Active Record?
 
-Active Record mixes data and HTTP concerns in the model:
+Active Record mixes data and presentation in the model:
 
 ```gleam
 // Active Record style (we don't do this)
-user.to_json()    // Model knows about JSON
+user.to_json()      // Model knows about JSON
 user.to_response()  // Model knows about HTTP
+user.save()         // Model manages its own persistence
 ```
 
-Our pattern keeps them separate:
+Our pattern separates them into distinct layers:
 
 ```gleam
-// Dream pattern
-user.create(db, name, email)  // Returns Result (data layer)
-user.encode(user_row)          // Returns Json (serialization)
-response.one_row(result, encoder)  // Returns Response (HTTP layer)
+// Dream pattern - clean separation
+user.create(db, name, email)     // Model: Returns Result (data layer)
+user_view.respond_created(result) // View: Unwraps Result, encodes JSON, returns Response
+
+// Models don't query HTTP - just return data
+// Views don't query databases - just format results
+// Controllers connect both layers
 ```
 
-Each layer has one responsibility. Easy to test. Easy to change.
+Each layer has one job. Models focus on data, views focus on presentation, controllers connect them.
 
 ### Why Framework Utilities?
 
-Patterns like "validate JSON" and "convert query result to response" are universal. By providing them in the framework:
+Patterns like "validate JSON" and "extract query results" are universal. By providing them in the framework:
 - ✅ Reduces boilerplate across all applications
 - ✅ Ensures consistent error handling
 - ✅ Makes it easy to evolve the pattern framework-wide
@@ -585,13 +727,14 @@ Clean. Focused. Fast.
 
 ## Summary
 
-The three-layer architecture is simple:
+The four-layer architecture is simple:
 
-1. **Controllers** handle HTTP and call models
-2. **Models** handle data and return Results
-3. **Utilities** provide reusable helpers
+1. **Controllers** handle HTTP orchestration and call models
+2. **Models** handle data operations and return Results
+3. **Views** handle presentation and return Responses
+4. **Utilities** provide reusable helpers
 
-This keeps controllers small, models focused, and code testable.
+This keeps controllers small, models data-focused, views presentation-focused, and code testable.
 
 **Want to see it in action?**
 

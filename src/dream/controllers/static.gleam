@@ -1,10 +1,45 @@
-//// Static file serving controller
+//// Secure static file serving
 ////
-//// Provides secure static file serving with:
-//// - Path traversal prevention
-//// - Directory listing (optional)
-//// - MIME type detection
-//// - Custom 404 handlers
+//// Serve files from disk with built-in security. Handles CSS, JavaScript, images,
+//// and any other static assets your application needs.
+////
+//// ## Quick Setup
+////
+//// ```gleam
+//// import dream/controllers/static
+//// import dream/core/http/transaction.{get_param}
+////
+//// pub fn serve_assets(request, ctx, svc) {
+////   let assert Ok(path) = get_param(request, "path")
+////   static.serve(
+////     request: request,
+////     context: ctx,
+////     services: svc,
+////     root: "./public",
+////     filepath: path.value,
+////     config: static.default_config(),
+////   )
+//// }
+////
+//// // In your router:
+//// router.route(Get, "/assets/**path", serve_assets, [])
+//// ```
+////
+//// ## Security
+////
+//// Built-in protection against:
+//// - Path traversal attacks (`../../../etc/passwd`)
+//// - Absolute path access (`/etc/passwd`)
+//// - Directory escaping
+////
+//// Files outside the root directory return 404, never errors that reveal filesystem structure.
+////
+//// ## Features
+////
+//// - **MIME type detection** - Automatic content-type headers
+//// - **Index serving** - Serves `index.html` for directory requests
+//// - **Directory listing** - Optional file browser (disabled by default)
+//// - **Custom 404s** - Use your own not-found handler
 
 import dream/core/http/statuses.{not_found_status, ok_status}
 import dream/core/http/transaction.{
@@ -18,6 +53,8 @@ import marceau
 import simplifile
 
 /// Configuration for static file serving
+///
+//// Control how directories and missing files are handled.
 pub type Config(context, services) {
   Config(
     /// Whether to serve index.html for directory requests
@@ -29,7 +66,11 @@ pub type Config(context, services) {
   )
 }
 
-/// Default configuration - secure defaults
+/// Default configuration with secure settings
+///
+//// - Serves `index.html` for directories
+//// - No directory listing
+//// - Standard 404 response for missing files
 pub fn default_config() -> Config(context, services) {
   Config(
     serve_index: True,
@@ -39,6 +80,10 @@ pub fn default_config() -> Config(context, services) {
 }
 
 /// Enable directory listing
+///
+//// Shows a file browser when a directory has no `index.html`. Use this for
+//// development or when you want users to browse files. Don't enable in production
+//// unless you specifically want directory browsing.
 pub fn with_directory_listing(
   config: Config(context, services),
 ) -> Config(context, services) {

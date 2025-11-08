@@ -202,16 +202,18 @@ case user.get(db, id) {
 }
 ```
 
-Or use Dream's response helpers:
+Or delegate to the view layer:
 
 ```gleam
-user.get(db, id) |> response.one_row(user.encode)
+user.get(db, id) |> user_view.respond()
 ```
 
-This automatically:
-- Returns 200 with JSON if row found
-- Returns 404 if no rows
-- Returns 500 on database error
+The view handles:
+- Unwrapping the Result
+- Encoding to JSON
+- Returning 200 with JSON if row found
+- Returning 404 if no rows
+- Returning 500 on database error
 
 ## Transactions
 

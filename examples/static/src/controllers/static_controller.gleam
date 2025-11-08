@@ -15,18 +15,16 @@ pub fn serve_public(
   context: AppContext,
   services: EmptyServices,
 ) -> Response {
-  case get_param(request, "filepath") {
-    Error(_) -> html_response(statuses.bad_request_status(), "<h1>400 Bad Request</h1>")
-    Ok(param) ->
-      static.serve(
-        request: request,
-        context: context,
-        services: services,
-        root: "./public",
-        filepath: param.raw,
-        config: static.default_config() |> static.with_directory_listing(),
-      )
-  }
+  let assert Ok(param) = get_param(request, "filepath")
+
+  static.serve(
+    request: request,
+    context: context,
+    services: services,
+    root: "./public",
+    filepath: param.raw,
+    config: static.default_config() |> static.with_directory_listing(),
+  )
 }
 
 /// Serve files from /assets without index serving
@@ -35,18 +33,16 @@ pub fn serve_assets(
   context: AppContext,
   services: EmptyServices,
 ) -> Response {
-  case get_param(request, "filepath") {
-    Error(_) -> html_response(statuses.bad_request_status(), "<h1>400 Bad Request</h1>")
-    Ok(param) ->
-      static.serve(
-        request: request,
-        context: context,
-        services: services,
-        root: "./assets",
-        filepath: param.raw,
-        config: static.default_config() |> static.without_index(),
-      )
-  }
+  let assert Ok(param) = get_param(request, "filepath")
+
+  static.serve(
+    request: request,
+    context: context,
+    services: services,
+    root: "./assets",
+    filepath: param.raw,
+    config: static.default_config() |> static.without_index(),
+  )
 }
 
 /// Single-segment named wildcard: /files/*filename
@@ -55,18 +51,16 @@ pub fn serve_single_file(
   context: AppContext,
   services: EmptyServices,
 ) -> Response {
-  case get_param(request, "filename") {
-    Error(_) -> html_response(statuses.bad_request_status(), "<h1>400 Bad Request</h1>")
-    Ok(param) ->
-      static.serve(
-        request: request,
-        context: context,
-        services: services,
-        root: "./public",
-        filepath: param.raw,
-        config: static.default_config(),
-      )
-  }
+  let assert Ok(param) = get_param(request, "filename")
+
+  static.serve(
+    request: request,
+    context: context,
+    services: services,
+    root: "./public",
+    filepath: param.raw,
+    config: static.default_config(),
+  )
 }
 
 /// Single-segment anonymous wildcard: /health/*/status
@@ -150,22 +144,20 @@ pub fn serve_with_custom_404(
   context: AppContext,
   services: EmptyServices,
 ) -> Response {
-  case get_param(request, "filepath") {
-    Error(_) -> html_response(statuses.bad_request_status(), "<h1>400 Bad Request</h1>")
-    Ok(param) ->
-      static.serve(
-        request: request,
-        context: context,
-        services: services,
-        root: "./public",
-        filepath: param.raw,
-        config: static.default_config()
-          |> static.with_custom_404(fn(_req, _ctx, _svc) {
-            html_response(
-              statuses.not_found_status(),
-              "<h1>Custom 404</h1><p>The requested file does not exist.</p>",
-            )
-          }),
-      )
-  }
+  let assert Ok(param) = get_param(request, "filepath")
+
+  static.serve(
+    request: request,
+    context: context,
+    services: services,
+    root: "./public",
+    filepath: param.raw,
+    config: static.default_config()
+      |> static.with_custom_404(fn(_req, _ctx, _svc) {
+        html_response(
+          statuses.not_found_status(),
+          "<h1>Custom 404</h1><p>The requested file does not exist.</p>",
+        )
+      }),
+  )
 }

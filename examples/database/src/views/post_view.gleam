@@ -1,31 +1,34 @@
 //// Post view - presentation logic for posts
 ////
 //// This module handles all presentation concerns for post data,
-//// converting model data into HTTP responses.
+//// converting model data into HTTP responses. All JSON encoding lives here.
 
-import dream/core/http/statuses.{
-  created_status, not_found_status, ok_status,
-}
+import dream/core/http/statuses.{created_status, ok_status}
 import dream/core/http/transaction.{type Response, json_response}
+import dream/utilities/json/encoders
 import gleam/json
 import gleam/list
-import models/post
+import gleam/option
+import gleam/time/timestamp
 import pog
 import sql
+import views/errors
 
 /// Respond with a single post (for show action)
 pub fn respond(
   result: Result(pog.Returned(sql.GetPostRow), pog.QueryError),
 ) -> Response {
   case result {
-    Ok(returned) -> {
-      case returned.rows {
-        [post] -> json_response(ok_status(), to_json(post))
-        [] -> not_found_response()
-        _ -> not_found_response()
-      }
-    }
-    Error(_) -> not_found_response()
+    Ok(returned) -> respond_with_rows(returned.rows)
+    Error(_) -> errors.internal_error()
+  }
+}
+
+fn respond_with_rows(rows: List(sql.GetPostRow)) -> Response {
+  case rows {
+    [post] -> json_response(ok_status(), to_json(post))
+    [] -> errors.not_found("Post not found")
+    _ -> errors.not_found("Post not found")
   }
 }
 
@@ -35,7 +38,7 @@ pub fn respond_list(
 ) -> Response {
   case result {
     Ok(returned) -> json_response(ok_status(), list_to_json(returned.rows))
-    Error(_) -> error_response()
+    Error(_) -> errors.internal_error()
   }
 }
 
@@ -44,44 +47,59 @@ pub fn respond_created(
   result: Result(pog.Returned(sql.CreatePostRow), pog.QueryError),
 ) -> Response {
   case result {
-    Ok(returned) -> {
-      case returned.rows {
-        [post] -> json_response(created_status(), to_json_created(post))
-        [] -> error_response()
-        _ -> error_response()
-      }
-    }
-    Error(_) -> error_response()
+    Ok(returned) -> respond_created_with_rows(returned.rows)
+    Error(_) -> errors.internal_error()
   }
 }
 
-// Private helper functions
+fn respond_created_with_rows(rows: List(sql.CreatePostRow)) -> Response {
+  case rows {
+    [post] -> json_response(created_status(), to_json_created(post))
+    [] -> errors.internal_error()
+    _ -> errors.internal_error()
+  }
+}
+
+// Private helper functions - JSON encoding
 
 fn to_json(post: sql.GetPostRow) -> String {
-  post.encode(post)
+  encode_post(post.id, post.user_id, post.title, post.content, post.created_at)
   |> json.to_string()
 }
 
 fn to_json_created(post: sql.CreatePostRow) -> String {
-  post.encode_create(post)
+  encode_post(post.id, post.user_id, post.title, post.content, post.created_at)
   |> json.to_string()
 }
 
 fn list_to_json(posts: List(sql.ListPostsRow)) -> String {
   posts
-  |> list.map(post.encode_list)
+  |> list.map(fn(post) {
+    encode_post(
+      post.id,
+      post.user_id,
+      post.title,
+      post.content,
+      post.created_at,
+    )
+  })
   |> json.array(from: _, of: fn(x) { x })
   |> json.to_string()
 }
 
-fn not_found_response() -> Response {
-  json_response(not_found_status(), "{\"error\": \"Post not found\"}")
+/// Shared JSON encoder for all post row types
+fn encode_post(
+  id: Int,
+  user_id: Int,
+  title: String,
+  content: option.Option(String),
+  created_at: option.Option(timestamp.Timestamp),
+) -> json.Json {
+  json.object([
+    #("id", json.int(id)),
+    #("user_id", json.int(user_id)),
+    #("title", json.string(title)),
+    #("content", encoders.optional_string(content)),
+    #("created_at", encoders.timestamp(created_at)),
+  ])
 }
-
-fn error_response() -> Response {
-  json_response(
-    statuses.internal_server_error_status(),
-    "{\"error\": \"Internal server error\"}",
-  )
-}
-

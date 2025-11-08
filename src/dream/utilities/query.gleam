@@ -1,4 +1,23 @@
-//// Database query result helpers for extracting rows
+//// Database query helpers
+////
+//// Simple utilities for extracting rows from Pog query results. Use these after
+//// executing database queries to get your data out cleanly.
+////
+//// ## Example
+////
+//// ```gleam
+//// import dream/utilities/query
+////
+//// case postgres.query(services.db, "SELECT * FROM users WHERE id = $1", [pog.int(id)], 5000) {
+////   result -> {
+////     case query.first_row(result) {
+////       Ok(row) -> Ok(decode_user(row))
+////       Error(query.NotFound) -> Error("User not found")
+////       Error(query.DatabaseError) -> Error("Database error")
+////     }
+////   }
+//// }
+//// ```
 
 import gleam/list
 import pog
@@ -9,7 +28,20 @@ pub type QueryError {
   DatabaseError
 }
 
-/// Extract first row from query result
+/// Extract the first row from a query result
+///
+/// Returns `NotFound` if the query succeeded but returned no rows,
+/// or `DatabaseError` if the query failed.
+///
+/// ## Example
+///
+/// ```gleam
+/// case user.get(db, id) |> query.first_row() {
+///   Ok(user) -> user_view.respond(user)
+///   Error(query.NotFound) -> not_found_response()
+///   Error(query.DatabaseError) -> error_response()
+/// }
+/// ```
 pub fn first_row(
   result: Result(pog.Returned(row), pog.QueryError),
 ) -> Result(row, QueryError) {
@@ -23,7 +55,19 @@ pub fn first_row(
   }
 }
 
-/// Extract all rows from query result
+/// Extract all rows from a query result
+///
+/// Returns an empty list if the query succeeded but found no rows,
+/// or `DatabaseError` if the query failed.
+///
+/// ## Example
+///
+/// ```gleam
+/// case user.list(db) |> query.all_rows() {
+///   Ok(users) -> user_view.respond_list(users)
+///   Error(query.DatabaseError) -> error_response()
+/// }
+/// ```
 pub fn all_rows(
   result: Result(pog.Returned(row), pog.QueryError),
 ) -> Result(List(row), QueryError) {

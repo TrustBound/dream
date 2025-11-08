@@ -1,14 +1,10 @@
-//// Post model - data operations and transformations
+//// Post model - data operations only
 ////
-//// This module encapsulates all post-related data operations including
-//// database queries, request validation, and response encoding.
+//// This module handles database operations and input validation.
+//// Presentation logic (JSON encoding) lives in views/post_view.
 
-import dream/utilities/json/encoders
 import sql
 import gleam/dynamic/decode
-import gleam/json
-import gleam/option
-import gleam/time/timestamp
 import pog
 
 /// List all posts for a user
@@ -42,53 +38,4 @@ pub fn decoder() -> decode.Decoder(#(String, String)) {
   use title <- decode.field("title", decode.string)
   use content <- decode.field("content", decode.string)
   decode.success(#(title, content))
-}
-
-/// JSON encoder for GetPostRow
-pub fn encode(post: sql.GetPostRow) -> json.Json {
-  encode_post_fields(
-    post.id,
-    post.user_id,
-    post.title,
-    post.content,
-    post.created_at,
-  )
-}
-
-/// JSON encoder for ListPostsRow
-pub fn encode_list(post: sql.ListPostsRow) -> json.Json {
-  encode_post_fields(
-    post.id,
-    post.user_id,
-    post.title,
-    post.content,
-    post.created_at,
-  )
-}
-
-/// JSON encoder for CreatePostRow
-pub fn encode_create(post: sql.CreatePostRow) -> json.Json {
-  encode_post_fields(
-    post.id,
-    post.user_id,
-    post.title,
-    post.content,
-    post.created_at,
-  )
-}
-
-fn encode_post_fields(
-  id: Int,
-  user_id: Int,
-  title: String,
-  content: option.Option(String),
-  created_at: option.Option(timestamp.Timestamp),
-) -> json.Json {
-  json.object([
-    #("id", json.int(id)),
-    #("user_id", json.int(user_id)),
-    #("title", json.string(title)),
-    #("content", encoders.optional_string(content)),
-    #("created_at", encoders.timestamp(created_at)),
-  ])
 }

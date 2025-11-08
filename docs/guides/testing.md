@@ -344,16 +344,30 @@ list |> should.contain(item)
 import gleam/json
 import gleeunit/should
 
-pub fn user_encoder_creates_valid_json_test() {
+pub fn user_view_encoder_creates_valid_json_test() {
   // Arrange
-  let user = User(id: 1, name: "Alice", email: "alice@example.com")
+  let user = sql.GetUserRow(id: 1, name: "Alice", email: "alice@example.com", created_at: None)
   
-  // Act
-  let json_string = user.encode(user) |> json.to_string
+  // Act - encoding happens in views
+  let json_obj = user_view.encode_user(user.id, user.name, user.email, user.created_at)
+  let json_string = json.to_string(json_obj)
   
   // Assert
   json_string |> should.contain("\"name\":\"Alice\"")
   json_string |> should.contain("\"email\":\"alice@example.com\"")
+}
+
+// Note: In practice, you'd test the full view function
+pub fn user_view_respond_formats_correctly_test() {
+  // Create a mock result
+  let user = sql.GetUserRow(id: 1, name: "Alice", email: "alice@example.com", created_at: None)
+  let result = Ok(pog.Returned(count: 1, rows: [user]))
+  
+  // Test the view
+  let response = user_view.respond(result)
+  
+  response.status |> should.equal(ok_status())
+  // Check response body contains expected JSON
 }
 
 pub fn user_decoder_parses_valid_json_test() {

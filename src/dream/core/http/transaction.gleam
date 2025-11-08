@@ -1,8 +1,53 @@
-//// HTTP transaction types and utilities for Dream web framework
+//// HTTP requests and responses
 ////
-//// This module provides core types for HTTP requests and responses,
-//// including methods, headers, cookies, and utility functions for
-//// working with HTTP transactions.
+//// Everything you need for handling HTTP transactions—reading requests, building responses,
+//// managing headers and cookies, extracting path parameters.
+////
+//// ## Response Builders
+////
+//// The quickest way to return responses from controllers:
+////
+//// ```gleam
+//// import dream/core/http/transaction.{text_response, json_response, html_response}
+//// import dream/core/http/statuses.{ok_status}
+////
+//// // Plain text
+//// text_response(ok_status(), "Hello, world!")
+////
+//// // JSON
+//// json_response(ok_status(), json.to_string(data))
+////
+//// // HTML
+//// html_response(ok_status(), "<h1>Welcome</h1>")
+//// ```
+////
+//// ## Path Parameters
+////
+//// Extract and convert path parameters from routes:
+////
+//// ```gleam
+//// pub fn show_user(request: Request, _ctx, _services) -> Response {
+////   let assert Ok(param) = get_param(request, "id")
+////   case param.as_int {
+////     Ok(id) -> // id is an Int
+////     Error(_) -> text_response(bad_request_status(), "Invalid ID")
+////   }
+//// }
+//// ```
+////
+//// ## Format Detection
+////
+//// PathParam automatically detects format extensions:
+////
+//// ```gleam
+//// // Request to /users/123.json
+//// let assert Ok(param) = get_param(request, "id")
+//// param.value  // "123"
+//// param.format // Some("json")
+//// param.as_int // Ok(123)
+//// ```
+////
+//// Use this for content negotiation without query strings.
 
 import dream/core/http/statuses.{type Status}
 import gleam/float
@@ -12,7 +57,10 @@ import gleam/option
 import gleam/string
 import gleam/yielder
 
-/// HTTP method type
+/// HTTP request methods
+///
+/// The standard HTTP methods your routes can handle. Use these in your router
+/// to specify which method a route responds to.
 pub type Method {
   Post
   Get
@@ -65,7 +113,12 @@ pub type Version {
   Http3
 }
 
-/// Response body variants supporting different content types
+/// Response body types
+///
+/// Supports text, binary data, and streaming for different use cases:
+/// - `Text` for JSON, HTML, plain text
+/// - `Bytes` for images, PDFs, files
+/// - `Stream` for large files, AI responses, real-time data
 pub type ResponseBody {
   Text(String)
   Bytes(BitArray)
@@ -94,7 +147,14 @@ pub type Request {
   )
 }
 
-/// Path parameter with format detection and type conversions
+/// Path parameter with automatic type conversion and format detection
+///
+/// When you extract a path parameter with `get_param()`, you get a PathParam that:
+/// - Detects format extensions (e.g., "123.json" → value="123", format=Some("json"))
+/// - Provides automatic conversions to Int and Float
+/// - Keeps the raw value for custom parsing
+///
+/// This makes content negotiation and type conversion trivial.
 pub type PathParam {
   PathParam(
     raw: String,
@@ -131,6 +191,9 @@ pub fn cookie_value(cookie: Cookie) -> String {
 }
 
 /// Create a simple cookie with just name and value
+///
+/// Creates an unsecured cookie with no expiration. Use `secure_cookie()` for
+/// sensitive data like sessions or authentication tokens.
 pub fn simple_cookie(name: String, value: String) -> Cookie {
   Cookie(
     name: name,
@@ -145,7 +208,11 @@ pub fn simple_cookie(name: String, value: String) -> Cookie {
   )
 }
 
-/// Create a secure cookie with httpOnly flag
+/// Create a secure cookie for sensitive data
+///
+/// Sets `secure=True`, `httpOnly=True`, and `sameSite=Strict`. Use this for
+/// session IDs, authentication tokens, or any sensitive data. The httpOnly flag
+/// prevents JavaScript access, protecting against XSS attacks.
 pub fn secure_cookie(name: String, value: String) -> Cookie {
   Cookie(
     name: name,
@@ -189,7 +256,18 @@ pub fn get_header(headers: List(Header), name: String) -> option.Option(String) 
   }
 }
 
-/// Set or replace a header value
+/// Set or replace a header
+///
+/// If the header exists, replaces its value. If not, adds it. Header names are
+/// case-insensitive but you should use standard casing for compatibility.
+///
+/// ## Example
+///
+/// ```gleam
+/// response.headers
+/// |> set_header("Cache-Control", "max-age=3600")
+/// |> set_header("X-Custom-Header", "value")
+/// ```
 pub fn set_header(
   headers: List(Header),
   name: String,
@@ -295,7 +373,15 @@ pub fn parse_method(str: String) -> option.Option(Method) {
 
 // Response builders
 
-/// Create a simple text response
+/// Create a plain text response
+///
+/// Sets `Content-Type: text/plain; charset=utf-8`.
+///
+/// ## Example
+///
+/// ```gleam
+/// text_response(ok_status(), "Hello, world!")
+/// ```
 pub fn text_response(status: Status, body: String) -> Response {
   Response(
     status: status,
@@ -307,6 +393,21 @@ pub fn text_response(status: Status, body: String) -> Response {
 }
 
 /// Create a JSON response
+///
+/// Sets `Content-Type: application/json; charset=utf-8`. You're responsible for
+/// encoding your data to JSON before calling this.
+///
+/// ## Example
+///
+/// ```gleam
+/// import gleam/json
+///
+/// let data = json.object([
+///   #("name", json.string("Alice")),
+///   #("age", json.int(30))
+/// ])
+/// json_response(ok_status(), json.to_string(data))
+/// ```
 pub fn json_response(status: Status, body: String) -> Response {
   Response(
     status: status,
@@ -318,6 +419,18 @@ pub fn json_response(status: Status, body: String) -> Response {
 }
 
 /// Create an HTML response
+///
+/// Sets `Content-Type: text/html; charset=utf-8`.
+///
+/// ## Example
+///
+/// ```gleam
+/// html_response(ok_status(), "
+///   <html>
+///     <body><h1>Welcome</h1></body>
+///   </html>
+/// ")
+/// ```
 pub fn html_response(status: Status, body: String) -> Response {
   Response(
     status: status,
@@ -329,6 +442,19 @@ pub fn html_response(status: Status, body: String) -> Response {
 }
 
 /// Create a redirect response
+///
+/// Sets the `Location` header. Use appropriate status codes:
+/// - 301: Permanent redirect
+/// - 302: Temporary redirect (most common)
+/// - 303: See Other (after POST)
+/// - 307: Temporary, preserve method
+///
+/// ## Example
+///
+/// ```gleam
+/// // After successful login, redirect to dashboard
+/// redirect_response(see_other_status(), "/dashboard")
+/// ```
 pub fn redirect_response(status: Status, location: String) -> Response {
   Response(
     status: status,
@@ -350,7 +476,17 @@ pub fn empty_response(status: Status) -> Response {
   )
 }
 
-/// Create a binary response (images, PDFs, etc)
+/// Create a binary response for files, images, PDFs, etc
+///
+/// Use this for any non-text content. You specify the content type.
+///
+/// ## Example
+///
+/// ```gleam
+/// // Serve an image
+/// let assert Ok(image_data) = simplifile.read_bits("logo.png")
+/// binary_response(ok_status(), image_data, "image/png")
+/// ```
 pub fn binary_response(
   status: Status,
   body: BitArray,
@@ -365,7 +501,23 @@ pub fn binary_response(
   )
 }
 
-/// Create a streaming response
+/// Create a streaming response for large files or real-time data
+///
+/// Use this for:
+/// - Large files that don't fit in memory
+/// - Server-sent events
+/// - Streaming AI responses
+/// - Real-time log tailing
+///
+/// The stream is sent chunk by chunk, keeping memory usage constant.
+///
+/// ## Example
+///
+/// ```gleam
+/// // Stream a large file
+/// let stream = yielder.unfold(file_handle, read_chunk)
+/// stream_response(ok_status(), stream, "application/octet-stream")
+/// ```
 pub fn stream_response(
   status: Status,
   stream: yielder.Yielder(BitArray),
@@ -440,7 +592,41 @@ fn parse_path_param(raw: String) -> PathParam {
   )
 }
 
-/// Get a path parameter value by name with format detection
+/// Extract a path parameter by name
+///
+/// Returns a `PathParam` with automatic type conversion and format detection.
+/// If the parameter doesn't exist, returns an error message.
+///
+/// ## Examples
+///
+/// ```gleam
+/// // Route: /users/:id
+/// // Request: /users/123
+/// let assert Ok(param) = get_param(request, "id")
+/// param.value  // "123"
+/// param.as_int // Ok(123)
+/// ```
+///
+/// ```gleam
+/// // Route: /users/:id
+/// // Request: /users/123.json
+/// let assert Ok(param) = get_param(request, "id")
+/// param.value  // "123"
+/// param.format // Some("json")
+/// param.as_int // Ok(123)
+/// ```
+///
+/// ```gleam
+/// // Handle conversion errors
+/// case get_param(request, "id") {
+///   Ok(param) ->
+///     case param.as_int {
+///       Ok(id) -> show_user(id)
+///       Error(_) -> bad_request_response("Invalid ID")
+///     }
+///   Error(msg) -> not_found_response()
+/// }
+/// ```
 pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
   case list.key_find(request.params, name) {
     Ok(value) -> Ok(parse_path_param(value))

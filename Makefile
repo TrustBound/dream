@@ -1,52 +1,34 @@
-# Docker Compose database connection URL
-DATABASE_URL = postgres://postgres:postgres@localhost:5434/dream_db
+# Dream Library Development Makefile
+# For example-specific commands, see individual example directories
 
-.PHONY: test clean db-up db-down db-logs db-shell db-reset squirrel migrate migrate-up migrate-down migrate-new
+.PHONY: test clean build format docs check
 
+# Run the test suite
 test:
 	@gleam test
 
+# Clean build artifacts
 clean:
 	@gleam clean
 	@rm -rf coverage
 	@rm -f erl_crash.dump
 	@find build -name "*.beam" -type f -delete 2>/dev/null || true
 
-# Docker Compose commands for PostgreSQL
-db-up:
-	@docker-compose up -d postgres
-	@echo "Waiting for PostgreSQL to be ready..."
-	@timeout 30 bash -c 'until docker-compose exec -T postgres pg_isready -U postgres; do sleep 1; done' || true
+# Build the library
+build:
+	@gleam build
 
-db-down:
-	@docker-compose down
+# Format code
+format:
+	@gleam format
 
-db-logs:
-	@docker-compose logs -f postgres
+# Generate documentation
+docs:
+	@gleam docs build
 
-db-shell:
-	@docker-compose exec postgres psql -U postgres -d dream_db
-
-db-reset:
-	@docker-compose down -v
-	@docker-compose up -d postgres
-	@echo "Waiting for PostgreSQL to be ready..."
-	@timeout 30 bash -c 'until docker-compose exec -T postgres pg_isready -U postgres; do sleep 1; done' || true
-
-# Generate type-safe SQL code with Squirrel
-squirrel:
-	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m squirrel
-
-# Migration commands using cigogne
-migrate:
-	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m cigogne all
-
-migrate-up:
-	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m cigogne up
-
-migrate-down:
-	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m cigogne down
-
-migrate-new:
-	@gleam run -m cigogne new --name $(name)
+# Run format check and build (useful for CI)
+check:
+	@gleam format --check
+	@gleam build
+	@gleam test
 
