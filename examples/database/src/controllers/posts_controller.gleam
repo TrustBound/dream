@@ -4,7 +4,7 @@
 
 import context.{type DatabaseContext}
 import dream/core/http/transaction.{type Request, type Response, get_param}
-import dream/validators/json_validator.{validate_or_respond}
+import dream_helpers/validators.{validate_or_respond}
 import models/post
 import services.{type Services}
 import views/post_view

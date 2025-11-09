@@ -3,7 +3,7 @@
 //// A singleton-based service for tracking request rates per IP address.
 //// Demonstrates using dream/core/singleton for global state management.
 
-import dream/core/singleton
+import dream_singleton
 import gleam/dict.{type Dict}
 import gleam/erlang/process
 import gleam/option

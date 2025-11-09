@@ -3,10 +3,10 @@
 //// This module handles all presentation concerns including format conversion
 //// (JSON, HTML, HTMX, CSV) and response generation.
 
-import dream/core/http/statuses.{ok_status}
-import dream/core/http/transaction.{
-  type PathParam, type Response, html_response, json_response, stream_response,
-  text_response,
+import dream_helpers/statuses.{ok_status}
+import dream/core/http/transaction.{type PathParam, type Response}
+import dream_helpers/http.{
+  html_response, json_response, stream_response, text_response,
 }
 import sql
 import views/products/templates/card

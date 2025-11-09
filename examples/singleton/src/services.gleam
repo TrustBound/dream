@@ -3,7 +3,7 @@
 //// Application-level services for the singleton example.
 //// Initializes and manages the rate limiter singleton.
 
-import dream/core/singleton
+import dream_singleton
 import services/rate_limiter_service
 import gleam/erlang/process
 import gleam/io

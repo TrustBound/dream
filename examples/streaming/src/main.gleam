@@ -14,5 +14,5 @@ pub fn main() {
   |> services(initialize_services())
   |> router(create_router())
   |> bind("localhost")
-  |> listen(3000)
+  |> listen(3003)
 }

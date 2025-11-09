@@ -2,10 +2,9 @@
 
 import dream/controllers/static
 import dream/core/context.{type AppContext}
-import dream/core/http/statuses
-import dream/core/http/transaction.{
-  type Request, type Response, get_param, html_response,
-}
+import dream_helpers/statuses
+import dream/core/http/transaction.{type Request, type Response, get_param}
+import dream_helpers/http.{html_response}
 import dream/core/router.{type EmptyServices}
 import gleam/string
 

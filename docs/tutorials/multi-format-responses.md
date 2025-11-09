@@ -163,17 +163,17 @@ fn show_product(id: Int, param: PathParam, services: Services) -> Response {
   let db = services.database.connection
   case sql.get_product(db, id) |> query.first_row() {
     Ok(product) -> render_product(product, param)
-    Error(query.NotFound) -> not_found_response()
-    Error(query.DatabaseError) -> error_response()
+    Error(query.NotFound) -> errors.not_found("Product not found")
+    Error(query.DatabaseError) -> errors.internal_error()
   }
 }
 
 fn render_product(product: sql.GetProductRow, param: PathParam) -> Response {
   case param.format {
-    option.Some("json") -> json_response(ok_status(), product.to_json(product))
-    option.Some("htmx") -> html_response(ok_status(), product.to_htmx(product))
-    option.Some("csv") -> text_response(ok_status(), product.to_csv(product))
-    _ -> html_response(ok_status(), product.to_html(product))
+    option.Some("json") -> json_response(ok_status(), to_json(product))
+    option.Some("htmx") -> html_response(ok_status(), to_htmx(product))
+    option.Some("csv") -> text_response(ok_status(), to_csv(product))
+    _ -> html_response(ok_status(), to_html(product))
   }
 }
 ```

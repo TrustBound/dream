@@ -195,9 +195,7 @@ pub fn auth_middleware_with_valid_token_calls_next_test() {
   let request = test_request_with_header("Authorization", "Bearer valid-token")
   let context = test_context()
   let services = test_services()
-  let mut next_called = False
-  let next = fn(req, ctx, svc) {
-    next_called = True
+  let next = fn(_req, _ctx, _svc) {
     text_response(ok_status(), "Success")
   }
   
@@ -205,7 +203,6 @@ pub fn auth_middleware_with_valid_token_calls_next_test() {
   let response = auth_middleware.auth_middleware(request, context, services, next)
   
   // Assert
-  next_called |> should.equal(True)
   response.status |> should.equal(200)
 }
 ```

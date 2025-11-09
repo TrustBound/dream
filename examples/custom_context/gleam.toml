@@ -5,6 +5,7 @@ licences = ["MIT"]
 
 [dependencies]
 dream = { path = "../.." }
+dream_helpers = { path = "../../modules/helpers" }
 mist = ">= 5.0.3 and < 6.0.0"
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"
 gleam_http = ">= 4.3.0 and < 5.0.0"

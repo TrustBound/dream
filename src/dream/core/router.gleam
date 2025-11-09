@@ -62,7 +62,7 @@
 //// ```
 
 import dream/core/context.{type AppContext}
-import dream/core/http/statuses.{convert_client_error_to_status, not_found}
+// No statuses import needed - using raw Int status codes
 import dream/core/http/transaction.{
   type Method, type Request, type Response, Get,
 }
@@ -118,9 +118,12 @@ fn default_404_controller(
   _context: AppContext,
   _services: EmptyServices,
 ) -> Response {
-  transaction.text_response(
-    convert_client_error_to_status(not_found()),
-    "Not Found",
+  transaction.Response(
+    status: 404,
+    body: transaction.Text("Not Found"),
+    headers: [transaction.Header("Content-Type", "text/plain; charset=utf-8")],
+    cookies: [],
+    content_type: option.Some("text/plain; charset=utf-8"),
   )
 }
 

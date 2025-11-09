@@ -2,14 +2,18 @@
 ////
 //// Generic error responses used across the application.
 
-import dream/core/http/statuses.{
+import dream_helpers/statuses.{
   bad_request_status, internal_server_error_status, not_found_status,
 }
-import dream/core/http/transaction.{type Response, html_response}
+import dream/core/http/transaction.{type Response}
+import dream_helpers/http.{html_response}
 
 /// 404 Not Found response
-pub fn not_found() -> Response {
-  html_response(not_found_status(), "<h1>404 Not Found</h1>")
+pub fn not_found(message: String) -> Response {
+  html_response(
+    not_found_status(),
+    "<h1>404 Not Found</h1><p>" <> message <> "</p>",
+  )
 }
 
 /// 500 Internal Server Error response

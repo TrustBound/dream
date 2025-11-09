@@ -4,12 +4,13 @@
 //// Demonstrates practical use of services and middleware together.
 
 import dream/core/context.{type AppContext}
-import dream/core/http/statuses.{
+import dream_helpers/statuses.{
   convert_client_error_to_status, ok_status, too_many_requests,
 }
 import dream/core/http/transaction.{
-  type Request, type Response, Response, add_header, get_header, text_response,
+  type Request, type Response, Response, add_header, get_header,
 }
+import dream_helpers/http.{text_response}
 import services.{type Services}
 import services/rate_limiter_service
 import gleam/int

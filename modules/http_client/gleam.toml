@@ -1,0 +1,13 @@
+name = "dream_http_client"
+version = "0.1.0"
+
+[dependencies]
+gleam_stdlib = ">= 0.44.0"
+gleam_erlang = ">= 0.30.0"
+gleam_http = ">= 3.6.0"
+gleam_yielder = ">= 1.0.0"
+
+[dev-dependencies]
+gleeunit = ">= 1.0.0"
+mockth = { git = "https://github.com/bondiano/mockth.git", ref = "master" }
+

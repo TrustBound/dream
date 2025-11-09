@@ -1,6 +1,6 @@
 import dream/core/context.{type AppContext}
 import dream/core/dream
-import dream/core/http/statuses.{not_found_status, ok_status}
+// Status codes moved to dream_helpers module
 import dream/core/http/transaction
 import dream/core/router.{type EmptyServices, Route, Router, router}
 import gleam/list
@@ -34,7 +34,13 @@ fn test_handler(
   _context: AppContext,
   _services: EmptyServices,
 ) -> transaction.Response {
-  transaction.text_response(ok_status(), "success")
+  transaction.Response(
+    status: 200,
+    body: transaction.Text("success"),
+    headers: [transaction.Header("Content-Type", "text/plain; charset=utf-8")],
+    cookies: [],
+    content_type: option.Some("text/plain; charset=utf-8"),
+  )
 }
 
 pub fn route_request_with_matching_route_returns_controller_response_test() {
@@ -78,7 +84,7 @@ pub fn route_request_with_no_matching_route_returns_not_found_test() {
   // Assert
   case response {
     transaction.Response(status, body, _, _, _) -> {
-      status |> should.equal(not_found_status())
+      status |> should.equal(404)
       case body {
         transaction.Text(text) -> text |> should.equal("Route not found")
         _ -> should.fail()

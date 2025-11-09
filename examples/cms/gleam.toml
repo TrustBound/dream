@@ -1,0 +1,26 @@
+name = "cms_example"
+version = "0.1.0"
+description = "CMS example - multi-service architecture"
+licences = ["MIT"]
+
+[dependencies]
+dream = { path = "../.." }
+dream_helpers = { path = "../../modules/helpers" }
+dream_postgres = { path = "../../modules/postgres" }
+dream_opensearch = { path = "../../modules/opensearch" }
+dream_config = { path = "../../modules/config" }
+dream_singleton = { path = "../../modules/singleton" }
+mist = ">= 5.0.3 and < 6.0.0"
+pog = ">= 4.0.0 and < 5.0.0"
+squirrel = ">= 4.0.0 and < 5.0.0"
+cigogne = ">= 5.0.0 and < 6.0.0"
+gleam_json = ">= 2.2.0 and < 4.0.0"
+gleam_stdlib = ">= 0.44.0 and < 2.0.0"
+gleam_erlang = ">= 1.0.0 and < 2.0.0"
+gleam_otp = ">= 1.0.0 and < 2.0.0"
+gleam_time = ">= 1.5.0 and < 2.0.0"
+gleam_yielder = ">= 1.1.0 and < 2.0.0"
+gleam_http = ">= 4.3.0 and < 5.0.0"
+envoy = ">= 1.0.2"
+dot_env = ">= 1.0.0"
+

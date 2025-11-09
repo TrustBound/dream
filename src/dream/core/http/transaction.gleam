@@ -1,25 +1,7 @@
 //// HTTP requests and responses
 ////
-//// Everything you need for handling HTTP transactions—reading requests, building responses,
-//// managing headers and cookies, extracting path parameters.
-////
-//// ## Response Builders
-////
-//// The quickest way to return responses from controllers:
-////
-//// ```gleam
-//// import dream/core/http/transaction.{text_response, json_response, html_response}
-//// import dream/core/http/statuses.{ok_status}
-////
-//// // Plain text
-//// text_response(ok_status(), "Hello, world!")
-////
-//// // JSON
-//// json_response(ok_status(), json.to_string(data))
-////
-//// // HTML
-//// html_response(ok_status(), "<h1>Welcome</h1>")
-//// ```
+//// Core HTTP types for Dream applications. For response builders and status codes,
+//// see the dream_helpers module.
 ////
 //// ## Path Parameters
 ////
@@ -30,7 +12,7 @@
 ////   let assert Ok(param) = get_param(request, "id")
 ////   case param.as_int {
 ////     Ok(id) -> // id is an Int
-////     Error(_) -> text_response(bad_request_status(), "Invalid ID")
+////     Error(_) -> Response(status: 400, body: Text("Invalid ID"), ...)
 ////   }
 //// }
 //// ```
@@ -48,8 +30,6 @@
 //// ```
 ////
 //// Use this for content negotiation without query strings.
-
-import dream/core/http/statuses.{type Status}
 import gleam/float
 import gleam/int
 import gleam/list
@@ -166,9 +146,12 @@ pub type PathParam {
 }
 
 /// HTTP response type
+///
+/// The status field is an Int (HTTP status code like 200, 404, 500).
+/// For typed status codes and response builders, use dream_helpers.
 pub type Response {
   Response(
-    status: Status,
+    status: Int,
     body: ResponseBody,
     headers: List(Header),
     cookies: List(Cookie),
@@ -369,167 +352,6 @@ pub fn parse_method(str: String) -> option.Option(Method) {
     "head" -> option.Some(Head)
     _ -> option.None
   }
-}
-
-// Response builders
-
-/// Create a plain text response
-///
-/// Sets `Content-Type: text/plain; charset=utf-8`.
-///
-/// ## Example
-///
-/// ```gleam
-/// text_response(ok_status(), "Hello, world!")
-/// ```
-pub fn text_response(status: Status, body: String) -> Response {
-  Response(
-    status: status,
-    body: Text(body),
-    headers: [Header("Content-Type", "text/plain; charset=utf-8")],
-    cookies: [],
-    content_type: option.Some("text/plain; charset=utf-8"),
-  )
-}
-
-/// Create a JSON response
-///
-/// Sets `Content-Type: application/json; charset=utf-8`. You're responsible for
-/// encoding your data to JSON before calling this.
-///
-/// ## Example
-///
-/// ```gleam
-/// import gleam/json
-///
-/// let data = json.object([
-///   #("name", json.string("Alice")),
-///   #("age", json.int(30))
-/// ])
-/// json_response(ok_status(), json.to_string(data))
-/// ```
-pub fn json_response(status: Status, body: String) -> Response {
-  Response(
-    status: status,
-    body: Text(body),
-    headers: [Header("Content-Type", "application/json; charset=utf-8")],
-    cookies: [],
-    content_type: option.Some("application/json; charset=utf-8"),
-  )
-}
-
-/// Create an HTML response
-///
-/// Sets `Content-Type: text/html; charset=utf-8`.
-///
-/// ## Example
-///
-/// ```gleam
-/// html_response(ok_status(), "
-///   <html>
-///     <body><h1>Welcome</h1></body>
-///   </html>
-/// ")
-/// ```
-pub fn html_response(status: Status, body: String) -> Response {
-  Response(
-    status: status,
-    body: Text(body),
-    headers: [Header("Content-Type", "text/html; charset=utf-8")],
-    cookies: [],
-    content_type: option.Some("text/html; charset=utf-8"),
-  )
-}
-
-/// Create a redirect response
-///
-/// Sets the `Location` header. Use appropriate status codes:
-/// - 301: Permanent redirect
-/// - 302: Temporary redirect (most common)
-/// - 303: See Other (after POST)
-/// - 307: Temporary, preserve method
-///
-/// ## Example
-///
-/// ```gleam
-/// // After successful login, redirect to dashboard
-/// redirect_response(see_other_status(), "/dashboard")
-/// ```
-pub fn redirect_response(status: Status, location: String) -> Response {
-  Response(
-    status: status,
-    body: Text(""),
-    headers: [Header("Location", location)],
-    cookies: [],
-    content_type: option.None,
-  )
-}
-
-/// Create an empty response (useful for status-only responses)
-pub fn empty_response(status: Status) -> Response {
-  Response(
-    status: status,
-    body: Text(""),
-    headers: [],
-    cookies: [],
-    content_type: option.None,
-  )
-}
-
-/// Create a binary response for files, images, PDFs, etc
-///
-/// Use this for any non-text content. You specify the content type.
-///
-/// ## Example
-///
-/// ```gleam
-/// // Serve an image
-/// let assert Ok(image_data) = simplifile.read_bits("logo.png")
-/// binary_response(ok_status(), image_data, "image/png")
-/// ```
-pub fn binary_response(
-  status: Status,
-  body: BitArray,
-  content_type: String,
-) -> Response {
-  Response(
-    status: status,
-    body: Bytes(body),
-    headers: [Header("Content-Type", content_type)],
-    cookies: [],
-    content_type: option.Some(content_type),
-  )
-}
-
-/// Create a streaming response for large files or real-time data
-///
-/// Use this for:
-/// - Large files that don't fit in memory
-/// - Server-sent events
-/// - Streaming AI responses
-/// - Real-time log tailing
-///
-/// The stream is sent chunk by chunk, keeping memory usage constant.
-///
-/// ## Example
-///
-/// ```gleam
-/// // Stream a large file
-/// let stream = yielder.unfold(file_handle, read_chunk)
-/// stream_response(ok_status(), stream, "application/octet-stream")
-/// ```
-pub fn stream_response(
-  status: Status,
-  stream: yielder.Yielder(BitArray),
-  content_type: String,
-) -> Response {
-  Response(
-    status: status,
-    body: Stream(stream),
-    headers: [Header("Content-Type", content_type)],
-    cookies: [],
-    content_type: option.Some(content_type),
-  )
 }
 
 // Request utilities

@@ -1,6 +1,6 @@
 import dream/core/context.{type AppContext}
 import dream/core/dream
-import dream/core/http/statuses.{ok_status}
+// Status codes moved to dream_helpers
 import dream/core/http/transaction
 import dream/core/router.{
   type EmptyServices, build_controller_chain, controller, find_route, match_path,
@@ -37,7 +37,13 @@ fn test_handler(
   _context: AppContext,
   _services: EmptyServices,
 ) -> transaction.Response {
-  transaction.text_response(ok_status(), "test")
+  transaction.Response(
+    status: 200,
+    body: transaction.Text("test"),
+    headers: [transaction.Header("Content-Type", "text/plain; charset=utf-8")],
+    cookies: [],
+    content_type: option.Some("text/plain; charset=utf-8"),
+  )
 }
 
 pub fn method_with_post_sets_route_method_to_post_test() {

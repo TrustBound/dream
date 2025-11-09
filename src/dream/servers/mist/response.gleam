@@ -3,7 +3,6 @@
 //// This module provides functions to convert Dream HTTP responses
 //// to Mist response format, including status code, header, and cookie conversion.
 
-import dream/core/http/statuses
 import dream/core/http/transaction
 import gleam/bytes_tree
 import gleam/http/response as http_response
@@ -18,8 +17,8 @@ import mist.{type ResponseData, Bytes, Chunked}
 pub fn convert(
   dream_resp: transaction.Response,
 ) -> http_response.Response(ResponseData) {
-  // Get status code from Status type
-  let status_code = statuses.to_code(dream_resp.status)
+  // Status is now a plain Int
+  let status_code = dream_resp.status
 
   // Convert headers
   let headers = list.map(dream_resp.headers, convert_header_to_tuple)

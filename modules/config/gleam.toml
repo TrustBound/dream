@@ -1,0 +1,10 @@
+name = "dream_config"
+version = "0.1.0"
+
+[dependencies]
+gleam_stdlib = ">= 0.44.0"
+envoy = ">= 1.0.0"
+dot_env = ">= 1.0.0"
+
+[dev-dependencies]
+gleeunit = ">= 1.0.0"

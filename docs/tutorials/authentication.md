@@ -86,7 +86,7 @@ import your_app/services.{type Services}
 pub fn auth_middleware(
   request: Request,
   context: AuthContext,
-  _services: Services,
+  services: Services,
   next: fn(Request, AuthContext, Services) -> Response,
 ) -> Response {
   // Check for Authorization header
@@ -97,13 +97,14 @@ pub fn auth_middleware(
         "Unauthorized: Missing Authorization header",
       )
     option.Some(token) ->
-      validate_and_authenticate(request, context, token, next)
+      validate_and_authenticate(request, context, services, token, next)
   }
 }
 
 fn validate_and_authenticate(
   request: Request,
   context: AuthContext,
+  services: Services,
   token: String,
   next: fn(Request, AuthContext, Services) -> Response,
 ) -> Response {
@@ -116,7 +117,7 @@ fn validate_and_authenticate(
       let updated_context =
         AuthContext(request_id: context.request_id, user: option.Some(user))
       // Continue to next middleware/controller with updated context
-      next(request, updated_context, _services)
+      next(request, updated_context, services)
     }
   }
 }
@@ -155,14 +156,14 @@ import your_app/services.{type Services}
 pub fn admin_middleware(
   request: Request,
   context: AuthContext,
-  _services: Services,
+  services: Services,
   next: fn(Request, AuthContext, Services) -> Response,
 ) -> Response {
   // Check if user is authenticated
   case context.user {
     option.None ->
       text_response(unauthorized_status(), "Unauthorized: Not authenticated")
-    option.Some(User(_id, _email, role)) -> check_role(role, request, context, next)
+    option.Some(User(_id, _email, role)) -> check_role(role, request, context, services, next)
   }
 }
 
@@ -170,6 +171,7 @@ fn check_role(
   role: String,
   request: Request,
   context: AuthContext,
+  services: Services,
   next: fn(Request, AuthContext, Services) -> Response,
 ) -> Response {
   case role {

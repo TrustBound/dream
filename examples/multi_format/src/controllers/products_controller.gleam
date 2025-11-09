@@ -2,7 +2,7 @@
 
 import context.{type AppContext}
 import dream/core/http/transaction.{type Request, type Response, get_param}
-import dream/utilities/query
+import dream_postgres/query
 import services.{type Services}
 import sql
 import views/errors
@@ -22,7 +22,7 @@ pub fn show(
 
   case sql.get_product(db, id) |> query.first_row() {
     Ok(product) -> product_view.respond(product, param)
-    Error(query.NotFound) -> errors.not_found()
+    Error(query.NotFound) -> errors.not_found("Product not found")
     Error(query.DatabaseError) -> errors.internal_error()
   }
 }

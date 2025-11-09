@@ -3,7 +3,6 @@
 //// This module provides the generic Dream server type and core routing
 //// functionality that is shared across all server implementations.
 
-import dream/core/http/statuses.{convert_client_error_to_status, not_found}
 import dream/core/http/transaction
 import dream/core/router.{type Router, build_controller_chain, find_route}
 import gleam/list
@@ -40,9 +39,14 @@ pub fn route_request(
       controller_chain(request_with_params, context, services)
     }
     option.None ->
-      transaction.text_response(
-        convert_client_error_to_status(not_found()),
-        "Route not found",
+      transaction.Response(
+        status: 404,
+        body: transaction.Text("Route not found"),
+        headers: [
+          transaction.Header("Content-Type", "text/plain; charset=utf-8"),
+        ],
+        cookies: [],
+        content_type: option.Some("text/plain; charset=utf-8"),
       )
   }
 }

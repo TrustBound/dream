@@ -6,9 +6,9 @@
 import dream/core/context.{type AppContext}
 import dream/core/http/transaction.{type Request, type Response}
 import dream/core/router.{type EmptyServices}
-import dream/utilities/http/client
-import dream/utilities/http/client/fetch as fetch_module
-import dream/utilities/http/client/stream as stream_module
+import dream_http_client/client
+import dream_http_client/client/fetch as fetch_module
+import dream_http_client/client/stream as stream_module
 import gleam/bit_array
 import gleam/bytes_tree
 import gleam/http

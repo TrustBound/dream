@@ -41,9 +41,8 @@
 //// - **Directory listing** - Optional file browser (disabled by default)
 //// - **Custom 404s** - Use your own not-found handler
 
-import dream/core/http/statuses.{not_found_status, ok_status}
 import dream/core/http/transaction.{
-  type Request, type Response, Response, Text, Header, html_response,
+  type Request, type Response, Header, Response, Text,
 }
 import gleam/int
 import gleam/list
@@ -228,7 +227,7 @@ fn build_file_response(content: String, filepath: String) -> Response {
   let size = string.byte_size(content)
 
   Response(
-    status: ok_status(),
+    status: 200,
     body: Text(content),
     headers: [
       Header("Content-Type", mime),
@@ -247,10 +246,20 @@ fn generate_directory_listing(
     Ok(entries) -> {
       let sorted = list.sort(entries, string.compare)
       let html = build_directory_html(request_path, sorted)
-      html_response(ok_status(), html)
+      build_html_response(html)
     }
     Error(_) -> default_404()
   }
+}
+
+fn build_html_response(html: String) -> Response {
+  Response(
+    status: 200,
+    body: Text(html),
+    headers: [Header("Content-Type", "text/html; charset=utf-8")],
+    cookies: [],
+    content_type: option.Some("text/html; charset=utf-8"),
+  )
 }
 
 fn build_directory_html(path: String, entries: List(String)) -> String {
@@ -303,7 +312,13 @@ fn handle_not_found(
 }
 
 fn default_404() -> Response {
-  html_response(not_found_status(), "<h1>404 Not Found</h1>")
+  Response(
+    status: 404,
+    body: Text("<h1>404 Not Found</h1>"),
+    headers: [Header("Content-Type", "text/html; charset=utf-8")],
+    cookies: [],
+    content_type: option.Some("text/html; charset=utf-8"),
+  )
 }
 
 /// Validate path doesn't escape root directory

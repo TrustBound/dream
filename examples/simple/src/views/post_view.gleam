@@ -3,10 +3,11 @@
 //// This module handles all presentation concerns for the simple example,
 //// converting data into HTTP responses.
 
-import dream/core/http/statuses.{
+import dream_helpers/statuses.{
   internal_server_error_status, ok_status,
 }
-import dream/core/http/transaction.{type Response, text_response}
+import dream/core/http/transaction.{type Response}
+import dream_helpers/http.{text_response}
 
 /// Respond with hello world message
 pub fn respond_index() -> Response {

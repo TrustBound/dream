@@ -3,8 +3,9 @@
 //// This module handles all presentation concerns for the singleton example,
 //// converting data into HTTP responses.
 
-import dream/core/http/statuses.{ok_status}
-import dream/core/http/transaction.{type Response, text_response}
+import dream_helpers/statuses.{ok_status}
+import dream/core/http/transaction.{type Response}
+import dream_helpers/http.{text_response}
 
 /// Respond with API endpoint message
 pub fn respond_index() -> Response {
