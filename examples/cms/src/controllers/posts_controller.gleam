@@ -58,7 +58,7 @@ pub fn show(
 /// Publish a post (demonstrates operation usage)
 pub fn publish(
   request: Request,
-  context: Context,
+  _context: Context,
   services: Services,
 ) -> Response {
   let assert Ok(param) = get_param(request, "id")

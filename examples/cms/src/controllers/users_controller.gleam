@@ -7,7 +7,7 @@ import context.{type Context}
 import dream/core/http/transaction.{type Request, type Response, get_param}
 import dream_helpers/http.{json_response}
 import dream_helpers/statuses.{
-  created_status, internal_server_error_status, not_found_status, ok_status,
+  internal_server_error_status, not_found_status, ok_status,
 }
 import models/user/user
 import services.{type Services}

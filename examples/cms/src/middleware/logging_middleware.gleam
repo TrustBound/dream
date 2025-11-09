@@ -8,7 +8,6 @@ import dream/core/http/transaction.{
   type Method, type Request, type Response, Delete, Get, Head, Options, Patch,
   Post, Put,
 }
-import dream_helpers/statuses.{type Status}
 import gleam/int
 import gleam/option
 import models/event/event as event_model
