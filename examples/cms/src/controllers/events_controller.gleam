@@ -7,10 +7,7 @@ import context.{type Context}
 import dream/core/http/transaction.{type Request, type Response}
 import dream_helpers/http.{json_response, sse_response}
 import dream_helpers/statuses.{internal_server_error_status, ok_status}
-import gleam/erlang/process
-import gleam/list
 import gleam/yielder
-import models/event/event as event_model
 import operations/enrich_events
 import services.{type Services}
 import types/event.{type Event}
@@ -61,7 +58,7 @@ fn string_to_bits(s: String) -> BitArray {
   <<s:utf8>>
 }
 
-fn serialize_enriched_events(enriched: List(enrich_events.EnrichedEvent)) -> String {
+fn serialize_enriched_events(_enriched: List(enrich_events.EnrichedEvent)) -> String {
   // Simplified serialization for now
   "[]"
 }

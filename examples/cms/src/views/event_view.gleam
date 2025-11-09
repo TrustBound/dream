@@ -3,7 +3,6 @@
 //// Pure transformations: Event -> String
 //// No Result types, no Response types, no error handling.
 
-import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option

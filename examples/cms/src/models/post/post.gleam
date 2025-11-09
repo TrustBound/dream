@@ -169,10 +169,4 @@ fn to_data_error(_: postgres.QueryError) -> DataError {
 
 // Private adapter functions for database serialization
 
-fn status_to_string(status: PostStatus) -> String {
-  case status {
-    Draft -> "draft"
-    Published -> "published"
-  }
-}
 

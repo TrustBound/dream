@@ -70,6 +70,49 @@ All modules are self-contained Gleam packages with:
 
 ---
 
+## Architecture Principles
+
+### Core is Minimal, Modules Provide Convenience
+
+**Principle:** The `dream` core provides HTTP primitives. Helper functions live in optional modules.
+
+**Core provides:**
+- Types: `Request`, `Response`, `Method`, `Header`, `Cookie`
+- Routing: pattern matching, parameter extraction
+- Server integration: Mist request/response conversion
+- Status codes: Plain `Int` (200, 404, 500)
+
+**Modules provide (optional):**
+- `dream_helpers`: Typed status codes, response builders
+- `dream_postgres`: Database connection patterns
+- `dream_http_client`: HTTP client with streaming
+
+**Core tests use primitives:**
+```gleam
+transaction.Response(
+  status: 200,  // Raw Int
+  body: transaction.Text("Hello"),
+  headers: [transaction.Header("Content-Type", "text/plain")],
+  cookies: [],
+  content_type: option.Some("text/plain"),
+)
+```
+
+**Applications use helpers:**
+```gleam
+import dream_helpers/statuses.{ok_status}
+import dream_helpers/http.{text_response}
+
+text_response(ok_status(), "Hello")
+```
+
+**Why:**
+- No circular dependencies (`dream_helpers` depends on `dream`, not vice versa)
+- Core stays minimal and focused
+- Applications choose convenience level
+
+---
+
 ## ✅ Phase 2: Update 7 Existing Examples - COMPLETE
 
 All examples updated with new module imports and tested:

@@ -2,7 +2,6 @@
 
 import dream_opensearch/client.{type Client}
 import gleam/http
-import gleam/result
 
 /// Index a document in OpenSearch
 pub fn index(

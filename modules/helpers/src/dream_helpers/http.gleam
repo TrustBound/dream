@@ -3,7 +3,7 @@
 //// Convenient functions for building common HTTP responses.
 
 import dream/core/http/transaction.{
-  type Header, type Response, Bytes, Header, Response, Stream, Text,
+  type Response, Bytes, Header, Response, Stream, Text,
 }
 import dream_helpers/statuses.{type Status}
 import gleam/option
@@ -112,4 +112,3 @@ pub fn sse_response(
     content_type: option.Some(content_type),
   )
 }
-
