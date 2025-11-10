@@ -1,4 +1,4 @@
-# dream_singleton Module Makefile
+# dream_ets Module Makefile
 
 .PHONY: test clean build format docs check
 

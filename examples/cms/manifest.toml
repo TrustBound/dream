@@ -8,10 +8,9 @@ packages = [
   { name = "dot_env", version = "1.2.0", build_tools = ["gleam"], requirements = ["gleam_stdlib", "simplifile"], otp_app = "dot_env", source = "hex", outer_checksum = "F2B4815F1B5AF8F20A6EADBB393E715C4C35203EBD5BE8200F766EA83A0B18DE" },
   { name = "dream", version = "0.0.1", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_time", "gleam_yielder", "marceau", "mist", "simplifile"], source = "local", path = "../.." },
   { name = "dream_config", version = "0.1.0", build_tools = ["gleam"], requirements = ["dot_env", "envoy", "gleam_stdlib"], source = "local", path = "../../modules/config" },
-  { name = "dream_helpers", version = "0.1.0", build_tools = ["gleam"], requirements = ["dream", "gleam_json", "gleam_stdlib"], source = "local", path = "../../modules/helpers" },
+  { name = "dream_helpers", version = "0.1.0", build_tools = ["gleam"], requirements = ["dream", "gleam_json", "gleam_stdlib", "gleam_time", "gleam_yielder"], source = "local", path = "../../modules/helpers" },
   { name = "dream_opensearch", version = "0.1.0", build_tools = ["gleam"], requirements = ["gleam_http", "gleam_httpc", "gleam_json", "gleam_stdlib"], source = "local", path = "../../modules/opensearch" },
   { name = "dream_postgres", version = "0.1.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_otp", "gleam_stdlib", "pog"], source = "local", path = "../../modules/postgres" },
-  { name = "dream_singleton", version = "0.1.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_stdlib"], source = "local", path = "../../modules/singleton" },
   { name = "envoy", version = "1.0.2", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "envoy", source = "hex", outer_checksum = "95FD059345AA982E89A0B6E2A3BF1CF43E17A7048DCD85B5B65D3B9E4E39D359" },
   { name = "eval", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "eval", source = "hex", outer_checksum = "264DAF4B49DF807F303CA4A4E4EBC012070429E40BE384C58FE094C4958F9BDA" },
   { name = "exception", version = "2.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "exception", source = "hex", outer_checksum = "329D269D5C2A314F7364BD2711372B6F2C58FA6F39981572E5CA68624D291F8C" },
@@ -61,15 +60,14 @@ dream_config = { path = "../../modules/config" }
 dream_helpers = { path = "../../modules/helpers" }
 dream_opensearch = { path = "../../modules/opensearch" }
 dream_postgres = { path = "../../modules/postgres" }
-dream_singleton = { path = "../../modules/singleton" }
 envoy = { version = ">= 1.0.2" }
 gleam_erlang = { version = ">= 1.0.0 and < 2.0.0" }
 gleam_http = { version = ">= 4.3.0 and < 5.0.0" }
 gleam_json = { version = ">= 2.2.0 and < 4.0.0" }
+gleam_otp = { version = ">= 1.0.0 and < 2.0.0" }
 gleam_stdlib = { version = ">= 0.44.0 and < 2.0.0" }
+gleam_time = { version = ">= 1.5.0 and < 2.0.0" }
+gleam_yielder = { version = ">= 1.1.0 and < 2.0.0" }
 mist = { version = ">= 5.0.3 and < 6.0.0" }
 pog = { version = ">= 4.0.0 and < 5.0.0" }
 squirrel = { version = ">= 4.0.0 and < 5.0.0" }
-
-[database]
-connection_string = "postgresql://postgres:postgres@localhost:5435/cms_db"
