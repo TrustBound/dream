@@ -364,7 +364,7 @@ pub fn auth_middleware_with_valid_token_calls_next_test() {
   let mut called = False
   let next = fn(req, ctx, svc) {
     called = True
-    text_response(ok_status(), "Success")
+    text_response(status.ok, "Success")
   }
   
   // Act

@@ -4,9 +4,10 @@
 
 import context.{type DatabaseContext}
 import dream/core/http/transaction.{type Request, type Response, get_param}
-import dream_helpers/validators.{validate_or_respond}
+import dream/core/http/validation.{validate_json}
 import models/user
 import services.{type Services}
+import views/errors
 import views/user_view
 
 /// List all users
@@ -40,15 +41,17 @@ pub fn create(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  let db = services.database.connection
-  case validate_or_respond(request.body, user.decoder()) {
-    Error(response) -> response
-    Ok(data) -> {
-      let #(name, email) = data
-      user.create(db, name, email)
-      |> user_view.respond_created()
-    }
+  case validate_json(request.body, user.decoder()) {
+    Error(_) -> errors.bad_request("Invalid user data")
+    Ok(data) -> create_with_data(services, data)
   }
+}
+
+fn create_with_data(services: Services, data: #(String, String)) -> Response {
+  let db = services.database.connection
+  let #(name, email) = data
+  user.create(db, name, email)
+  |> user_view.respond_created()
 }
 
 /// Update a user
@@ -60,15 +63,21 @@ pub fn update(
   let assert Ok(param) = get_param(request, "id")
   let assert Ok(id) = param.as_int
 
-  let db = services.database.connection
-  case validate_or_respond(request.body, user.decoder()) {
-    Error(response) -> response
-    Ok(data) -> {
-      let #(name, email) = data
-      user.update(db, id, name, email)
-      |> user_view.respond_updated()
-    }
+  case validate_json(request.body, user.decoder()) {
+    Error(_) -> errors.bad_request("Invalid user data")
+    Ok(data) -> update_with_data(services, id, data)
   }
+}
+
+fn update_with_data(
+  services: Services,
+  id: Int,
+  data: #(String, String),
+) -> Response {
+  let db = services.database.connection
+  let #(name, email) = data
+  user.update(db, id, name, email)
+  |> user_view.respond_updated()
 }
 
 /// Delete a user

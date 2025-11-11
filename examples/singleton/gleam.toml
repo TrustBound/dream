@@ -1,10 +1,11 @@
-name = "dream_example_rate_limiter"
+name = "dream_example_singleton"
 version = "0.1.0"
-description = "Rate limiting example using dream_ets for stateful request tracking"
+description = "Singleton pattern example - rate limiting with global state"
 licences = ["MIT"]
 
 [dependencies]
 dream = { path = "../.." }
+dream_helpers = { path = "../../modules/helpers" }
 dream_ets = { path = "../../modules/ets" }
 mist = ">= 5.0.3 and < 6.0.0"
 gleam_time = ">= 1.5.0 and < 2.0.0"

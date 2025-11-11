@@ -7,7 +7,7 @@
 import context.{type AuthContext}
 import dream/core/http/transaction.{type Request, type Response, get_param}
 import dream_http_client/client
-import dream_http_client/client/fetch as fetch_module
+import dream_http_client/fetch
 import gleam/http
 import services.{type Services}
 import views/post_view
@@ -39,7 +39,7 @@ pub fn show(
     |> client.path("/posts")
     |> client.add_header("User-Agent", "Dream-Custom-Context-Example")
 
-  case fetch_module.request(req) {
+  case fetch.request(req) {
     Ok(body) -> post_view.respond_show(user_param.value, post_param.value, body)
     Error(error) -> post_view.respond_error(error)
   }

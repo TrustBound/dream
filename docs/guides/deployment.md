@@ -196,8 +196,8 @@ Add a health endpoint:
 ```gleam
 pub fn health_check(_request, _context, services) {
   case services.database.connection {
-    Ok(_) -> text_response(ok_status(), "OK")
-    Error(_) -> text_response(service_unavailable_status(), "Database unavailable")
+    Ok(_) -> text_response(status.ok, "OK")
+    Error(_) -> text_response(status.service_unavailable, "Database unavailable")
   }
 }
 ```

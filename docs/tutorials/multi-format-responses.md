@@ -170,10 +170,10 @@ fn show_product(id: Int, param: PathParam, services: Services) -> Response {
 
 fn render_product(product: sql.GetProductRow, param: PathParam) -> Response {
   case param.format {
-    option.Some("json") -> json_response(ok_status(), to_json(product))
-    option.Some("htmx") -> html_response(ok_status(), to_htmx(product))
-    option.Some("csv") -> text_response(ok_status(), to_csv(product))
-    _ -> html_response(ok_status(), to_html(product))
+    option.Some("json") -> json_response(status.ok, to_json(product))
+    option.Some("htmx") -> html_response(status.ok, to_htmx(product))
+    option.Some("csv") -> text_response(status.ok, to_csv(product))
+    _ -> html_response(status.ok, to_html(product))
   }
 }
 ```

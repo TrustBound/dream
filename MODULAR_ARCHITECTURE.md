@@ -17,11 +17,9 @@ All modules are self-contained Gleam packages with:
 - README documentation
 
 **1. dream_helpers** (`modules/helpers/`)
-- HTTP status codes and helpers
-- Response builders
-- JSON validators
-- JSON encoders
-- **Tests:** 117 passing ✅
+- JSON encoders for optional values and timestamps
+- **Tests:** Updated ✅
+- **Note:** Response builders, status constants, and validation moved to Dream core
 
 **2. dream_singleton** (`modules/singleton/`)
 - Generic OTP singleton pattern
@@ -60,10 +58,12 @@ All modules are self-contained Gleam packages with:
 - `src/dream/utilities/` → modules
 - `src/dream/validators/` → dream_helpers
 
-**Dream core now contains (minimal):**
-- `src/dream/core/router.gleam` - Route matching only
+**Dream core now contains:**
+- `src/dream/core/router.gleam` - Route matching
 - `src/dream/core/http/transaction.gleam` - Request/Response types
-- `src/dream/core/http/method.gleam` - HTTP methods
+- `src/dream/core/http/response.gleam` - Response builders (json_response, html_response, etc.)
+- `src/dream/core/http/status.gleam` - Status code constants (ok, not_found, etc.)
+- `src/dream/core/http/validation.gleam` - JSON validation
 - `src/dream/core/context.gleam` - AppContext
 - `src/dream/servers/mist/` - Mist server integration
 - `src/dream/controllers/static.gleam` - Static file helper
@@ -79,37 +79,42 @@ All modules are self-contained Gleam packages with:
 **Core provides:**
 - Types: `Request`, `Response`, `Method`, `Header`, `Cookie`
 - Routing: pattern matching, parameter extraction
+- Response builders: `json_response()`, `html_response()`, etc.
+- Status constants: `ok`, `not_found`, `internal_server_error`, etc.
+- Validation: `validate_json()` returns `Result(T, ValidationError)`
 - Server integration: Mist request/response conversion
-- Status codes: Plain `Int` (200, 404, 500)
 
 **Modules provide (optional):**
-- `dream_helpers`: Typed status codes, response builders
+- `dream_helpers`: JSON encoders for optional values
 - `dream_postgres`: Database connection patterns
 - `dream_http_client`: HTTP client with streaming
+- `dream_opensearch`: OpenSearch client
+- `dream_config`: Environment configuration
+- `dream_ets`: ETS table management
 
-**Core tests use primitives:**
+**Core usage:**
 ```gleam
-transaction.Response(
-  status: 200,  // Raw Int
-  body: transaction.Text("Hello"),
-  headers: [transaction.Header("Content-Type", "text/plain")],
-  cookies: [],
-  content_type: option.Some("text/plain"),
-)
+import dream/core/http/response.{json_response}
+import dream/core/http/status
+
+json_response(status.ok, "{\"message\": \"Hello\"}")
 ```
 
-**Applications use helpers:**
+**With validation:**
 ```gleam
-import dream_helpers/statuses.{ok_status}
-import dream_helpers/http.{text_response}
+import dream/core/http/validation.{validate_json}
 
-text_response(ok_status(), "Hello")
+case validate_json(request.body, user_decoder()) {
+  Ok(data) -> json_response(status.created, to_json(data))
+  Error(_) -> json_response(status.bad_request, error_json())
+}
 ```
 
 **Why:**
-- No circular dependencies (`dream_helpers` depends on `dream`, not vice versa)
-- Core stays minimal and focused
-- Applications choose convenience level
+- Core is complete and usable for real applications
+- Response builders eliminate boilerplate
+- Status constants provide semantic clarity
+- Validation is decoupled from responses
 
 ---
 

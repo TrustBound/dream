@@ -196,7 +196,7 @@ pub fn auth_middleware_with_valid_token_calls_next_test() {
   let context = test_context()
   let services = test_services()
   let next = fn(_req, _ctx, _svc) {
-    text_response(ok_status(), "Success")
+    text_response(status.ok, "Success")
   }
   
   // Act
@@ -363,7 +363,7 @@ pub fn user_view_respond_formats_correctly_test() {
   // Test the view
   let response = user_view.respond(result)
   
-  response.status |> should.equal(ok_status())
+  response.status |> should.equal(200)
   // Check response body contains expected JSON
 }
 

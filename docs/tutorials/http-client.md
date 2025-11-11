@@ -48,11 +48,12 @@ Create `src/your_app/controllers/stream_controller.gleam`:
 
 ```gleam
 import dream/core/context.{type AppContext}
-import dream/core/http/statuses.{internal_server_error_status, ok_status}
-import dream/core/http/transaction.{type Request, type Response, text_response}
+import dream/core/http/response.{text_response}
+import dream/core/http/status
+import dream/core/http/transaction.{type Request, type Response}
 import dream/core/router.{type EmptyServices}
-import dream/utilities/http/client
-import dream/utilities/http/client/fetch as fetch_module
+import dream_http_client/client
+import dream_http_client/client/fetch as fetch_module
 import gleam/http
 
 pub fn fetch_example(
@@ -72,9 +73,9 @@ pub fn fetch_example(
 
   // Make the request
   case fetch_module.request(req) {
-    Ok(body) -> text_response(ok_status(), "Response:\n\n" <> body)
+    Ok(body) -> text_response(status.ok, "Response:\n\n" <> body)
     Error(error) ->
-      text_response(internal_server_error_status(), "Error: " <> error)
+      text_response(status.internal_server_error, "Error: " <> error)
   }
 }
 ```

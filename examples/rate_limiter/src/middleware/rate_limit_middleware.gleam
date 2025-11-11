@@ -4,11 +4,11 @@
 //// Demonstrates practical use of services and middleware together.
 
 import dream/core/context.{type AppContext}
+import dream/core/http/response.{text_response}
+import dream/core/http/status
 import dream/core/http/transaction.{
   type Request, type Response, Response, add_header, get_header,
 }
-import dream_helpers/http.{text_response}
-import dream_helpers/statuses.{convert_client_error_to_status, too_many_requests}
 import gleam/int
 import gleam/option
 import gleam/string
@@ -70,7 +70,7 @@ fn allow_request_with_headers(
 fn deny_request_with_headers(limit: Int) -> Response {
   let response =
     text_response(
-      convert_client_error_to_status(too_many_requests()),
+      status.too_many_requests,
       "Rate limit exceeded. Maximum "
         <> int.to_string(limit)
         <> " requests per minute.",

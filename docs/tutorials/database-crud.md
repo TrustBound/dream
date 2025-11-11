@@ -252,14 +252,13 @@ The model wraps database operations and provides input decoders for validation. 
 Create `src/your_app/controllers/users_controller.gleam`:
 
 ```gleam
-import dream/core/http/transaction.{
-  type Request, type Response, get_param,
-}
-import dream/validators/json_validator.{validate_or_respond}
 import context.{type DatabaseContext}
+import dream/core/http/transaction.{type Request, type Response, get_param}
+import dream/core/http/validation.{validate_json}
 import models/user
-import views/user_view
 import services.{type Services}
+import views/errors
+import views/user_view
 
 pub fn index(
   _request: Request,
@@ -290,17 +289,17 @@ pub fn create(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  // Extract dependencies first
-  let db = services.database.connection
-  
-  case validate_or_respond(request.body, user.decoder()) {
-    Error(response) -> response
-    Ok(data) -> {
-      let #(name, email) = data
-      user.create(db, name, email)
-      |> user_view.respond_created()
-    }
+  case validate_json(request.body, user.decoder()) {
+    Error(_) -> errors.bad_request("Invalid user data")
+    Ok(data) -> create_with_data(services, data)
   }
+}
+
+fn create_with_data(services: Services, data: #(String, String)) -> Response {
+  let db = services.database.connection
+  let #(name, email) = data
+  user.create(db, name, email)
+  |> user_view.respond_created()
 }
 
 pub fn update(
@@ -308,19 +307,24 @@ pub fn update(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  // Extract dependencies and path params first
   let assert Ok(param) = get_param(request, "id")
   let assert Ok(id) = param.as_int
-  let db = services.database.connection
 
-  case validate_or_respond(request.body, user.decoder()) {
-    Error(response) -> response
-    Ok(data) -> {
-      let #(name, email) = data
-      user.update(db, id, name, email)
-      |> user_view.respond_updated()
-    }
+  case validate_json(request.body, user.decoder()) {
+    Error(_) -> errors.bad_request("Invalid user data")
+    Ok(data) -> update_with_data(services, id, data)
   }
+}
+
+fn update_with_data(
+  services: Services,
+  id: Int,
+  data: #(String, String),
+) -> Response {
+  let db = services.database.connection
+  let #(name, email) = data
+  user.update(db, id, name, email)
+  |> user_view.respond_updated()
 }
 
 pub fn delete(
@@ -460,18 +464,21 @@ curl -X DELETE http://localhost:3002/users/1
 
 ## How JSON Validation Works
 
-The `validate_or_respond()` function is your friend:
+The `validate_json()` function parses and decodes JSON:
 
 ```gleam
-case validate_or_respond(request.body, user.decoder()) {
-  Error(response) -> response  // Returns formatted error response
-  Ok(data) -> {
-    // Use the validated data
-  }
+import dream/core/http/validation.{validate_json}
+import dream/core/http/response.{json_response}
+import dream/core/http/status
+
+case validate_json(request.body, user.decoder()) {
+  Error(validation_error) -> 
+    json_response(status.bad_request, error_json(validation_error))
+  Ok(data) -> create_with_data(services, data)
 }
 ```
 
-If validation fails, it automatically returns a JSON error response:
+If validation fails, you build an appropriate error response:
 
 ```json
 {
@@ -519,10 +526,11 @@ Notice how we split responsibilities across four layers:
 - 404 Not Found, 500 errors, 400 errors
 - Reusable across all controllers
 
-**Layer 4: Utilities** (framework helpers)
-- `validate_or_respond()` - JSON validation with auto-formatted errors
-- `query.first_row()` / `query.all_rows()` - Extract data from query results
-- `encoders.timestamp()` / `encoders.optional_*()` - Common encoding patterns
+**Core utilities:**
+- `validate_json()` - JSON validation returning `Result(T, ValidationError)`
+- `json_response()`, `html_response()` - Response builders
+- `status.ok`, `status.not_found` - Status code constants
+- `json_encoders.timestamp()` / `json_encoders.optional_*()` - Common encoding patterns
 
 Each layer has one job. No bleeding concerns across boundaries.
 
@@ -553,7 +561,7 @@ pub fn respond(
 
 fn respond_with_rows(rows: List(sql.GetUserRow)) -> Response {
   case rows {
-    [user] -> json_response(ok_status(), to_json(user))
+    [user] -> json_response(status.ok, to_json(user))
     [] -> errors.not_found("User not found")
     _ -> errors.not_found("User not found")
   }
@@ -564,7 +572,7 @@ pub fn respond_list(
   result: Result(pog.Returned(sql.ListUsersRow), pog.QueryError),
 ) -> Response {
   case result {
-    Ok(returned) -> json_response(ok_status(), list_to_json(returned.rows))
+    Ok(returned) -> json_response(status.ok, list_to_json(returned.rows))
     Error(_) -> errors.internal_error()
   }
 }
@@ -681,7 +689,7 @@ pub fn respond(result: Result(pog.Returned(sql.GetUserRow), pog.QueryError)) -> 
 
 fn respond_with_rows(rows: List(sql.GetUserRow)) -> Response {
   case rows {
-    [user] -> json_response(ok_status(), to_json(user))
+    [user] -> json_response(status.ok, to_json(user))
     [] -> errors.not_found("User not found")
     _ -> errors.not_found("User not found")
   }

@@ -1,17 +1,12 @@
 //// Database Initialization for multi-format example
 
-import dream/core/singleton
-import dream/services/postgres
-import dream/services/service.{type DatabaseService}
 import gleam/erlang/process
 import gleam/option
 import gleam/otp/actor
 import pog
 
-pub fn db_name() -> process.Name(
-  singleton.SingletonMessage(postgres.PostgresMessage, postgres.PostgresReply),
-) {
-  process.new_name("multi_format_database")
+pub type DatabaseService {
+  DatabaseService(connection: pog.Connection)
 }
 
 pub fn init_database() -> Result(DatabaseService, String) {
@@ -31,12 +26,7 @@ pub fn init_database() -> Result(DatabaseService, String) {
   // Start the connection pool
   case pog.start(config) {
     Ok(actor.Started(_pid, connection)) -> {
-      // Start the postgres singleton service
-      let name = db_name()
-      case postgres.start_with_connection(name, connection) {
-        Ok(_) -> Ok(service.DatabaseService(connection: connection, name: name))
-        Error(e) -> Error("Failed to start postgres service: " <> e)
-      }
+      Ok(DatabaseService(connection: connection))
     }
     Error(_) -> Error("Failed to start PostgreSQL connection pool")
   }

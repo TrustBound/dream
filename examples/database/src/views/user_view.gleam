@@ -3,8 +3,8 @@
 //// This module handles all presentation concerns for user data,
 //// converting model data into HTTP responses. All JSON encoding lives here.
 
-import dream_helpers/statuses.{created_status, ok_status}
-import dream_helpers/http.{json_response}
+import dream/core/http/response.{json_response}
+import dream/core/http/status
 import dream/core/http/transaction.{type Response}
 import dream_helpers/json_encoders as encoders
 import gleam/json
@@ -27,7 +27,7 @@ pub fn respond(
 
 fn respond_with_rows(rows: List(sql.GetUserRow)) -> Response {
   case rows {
-    [user] -> json_response(ok_status(), to_json(user))
+    [user] -> json_response(status.ok, to_json(user))
     [] -> errors.not_found("User not found")
     _ -> errors.not_found("User not found")
   }
@@ -38,7 +38,7 @@ pub fn respond_list(
   result: Result(pog.Returned(sql.ListUsersRow), pog.QueryError),
 ) -> Response {
   case result {
-    Ok(returned) -> json_response(ok_status(), list_to_json(returned.rows))
+    Ok(returned) -> json_response(status.ok, list_to_json(returned.rows))
     Error(_) -> errors.internal_error()
   }
 }
@@ -55,7 +55,7 @@ pub fn respond_created(
 
 fn respond_created_with_rows(rows: List(sql.CreateUserRow)) -> Response {
   case rows {
-    [user] -> json_response(created_status(), to_json_created(user))
+    [user] -> json_response(status.created, to_json_created(user))
     [] -> errors.internal_error()
     _ -> errors.internal_error()
   }
@@ -73,7 +73,7 @@ pub fn respond_updated(
 
 fn respond_updated_with_rows(rows: List(sql.UpdateUserRow)) -> Response {
   case rows {
-    [user] -> json_response(ok_status(), to_json_updated(user))
+    [user] -> json_response(status.ok, to_json_updated(user))
     [] -> errors.not_found("User not found")
     _ -> errors.not_found("User not found")
   }
@@ -84,7 +84,7 @@ pub fn respond_deleted(
   result: Result(pog.Returned(Nil), pog.QueryError),
 ) -> Response {
   case result {
-    Ok(_) -> json_response(ok_status(), "{\"message\": \"User deleted\"}")
+    Ok(_) -> json_response(status.ok, "{\"message\": \"User deleted\"}")
     Error(_) -> errors.not_found("User not found")
   }
 }
