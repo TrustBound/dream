@@ -1,106 +1,39 @@
 //// Post view - presentation logic for posts
 ////
-//// This module handles all presentation concerns for post data,
-//// converting model data into HTTP responses. All JSON encoding lives here.
+//// Pure formatting functions: Post → String
+//// No Result types, no Response types, no error handling.
 
-import dream/core/http/response.{json_response}
-import dream/core/http/status
-import dream/core/http/transaction.{type Response}
 import dream_helpers/json_encoders as encoders
 import gleam/json
 import gleam/list
 import gleam/option
-import gleam/time/timestamp
-import pog
-import sql
-import views/errors
+import types/post.{type Post}
 
-/// Respond with a single post (for show action)
-pub fn respond(
-  result: Result(pog.Returned(sql.GetPostRow), pog.QueryError),
-) -> Response {
-  case result {
-    Ok(returned) -> respond_with_rows(returned.rows)
-    Error(_) -> errors.internal_error()
-  }
-}
-
-fn respond_with_rows(rows: List(sql.GetPostRow)) -> Response {
-  case rows {
-    [post] -> json_response(status.ok, to_json(post))
-    [] -> errors.not_found("Post not found")
-    _ -> errors.not_found("Post not found")
-  }
-}
-
-/// Respond with a list of posts (for index action)
-pub fn respond_list(
-  result: Result(pog.Returned(sql.ListPostsRow), pog.QueryError),
-) -> Response {
-  case result {
-    Ok(returned) -> json_response(status.ok, list_to_json(returned.rows))
-    Error(_) -> errors.internal_error()
-  }
-}
-
-/// Respond with a created post (for create action)
-pub fn respond_created(
-  result: Result(pog.Returned(sql.CreatePostRow), pog.QueryError),
-) -> Response {
-  case result {
-    Ok(returned) -> respond_created_with_rows(returned.rows)
-    Error(_) -> errors.internal_error()
-  }
-}
-
-fn respond_created_with_rows(rows: List(sql.CreatePostRow)) -> Response {
-  case rows {
-    [post] -> json_response(status.created, to_json_created(post))
-    [] -> errors.internal_error()
-    _ -> errors.internal_error()
-  }
-}
-
-// Private helper functions - JSON encoding
-
-fn to_json(post: sql.GetPostRow) -> String {
-  encode_post(post.id, post.user_id, post.title, post.content, post.created_at)
+/// Format single post as JSON string
+pub fn to_json(post: Post) -> String {
+  to_json_object(post)
   |> json.to_string()
 }
 
-fn to_json_created(post: sql.CreatePostRow) -> String {
-  encode_post(post.id, post.user_id, post.title, post.content, post.created_at)
+/// Format list of posts as JSON array string
+pub fn list_to_json(posts: List(Post)) -> String {
+  list.map(posts, to_json_object)
+  |> json.array(from: _, of: identity)
   |> json.to_string()
 }
 
-fn list_to_json(posts: List(sql.ListPostsRow)) -> String {
-  posts
-  |> list.map(fn(post) {
-    encode_post(
-      post.id,
-      post.user_id,
-      post.title,
-      post.content,
-      post.created_at,
-    )
-  })
-  |> json.array(from: _, of: fn(x) { x })
-  |> json.to_string()
-}
+// Private helpers - all named functions
 
-/// Shared JSON encoder for all post row types
-fn encode_post(
-  id: Int,
-  user_id: Int,
-  title: String,
-  content: option.Option(String),
-  created_at: option.Option(timestamp.Timestamp),
-) -> json.Json {
+fn to_json_object(post: Post) -> json.Json {
   json.object([
-    #("id", json.int(id)),
-    #("user_id", json.int(user_id)),
-    #("title", json.string(title)),
-    #("content", encoders.optional_string(content)),
-    #("created_at", encoders.timestamp(created_at)),
+    #("id", json.int(post.id)),
+    #("user_id", json.int(post.user_id)),
+    #("title", json.string(post.title)),
+    #("content", encoders.optional_string(post.content)),
+    #("created_at", encoders.timestamp(option.Some(post.created_at))),
   ])
+}
+
+fn identity(x: a) -> a {
+  x
 }

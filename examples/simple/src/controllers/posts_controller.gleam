@@ -4,6 +4,8 @@
 //// Follows Rails controller naming conventions.
 
 import dream/core/context.{type AppContext}
+import dream/core/http/response.{text_response}
+import dream/core/http/status
 import dream/core/http/transaction.{type Request, type Response, get_param}
 import dream/core/router.{type EmptyServices}
 import dream_http_client/client
@@ -17,7 +19,7 @@ pub fn index(
   _context: AppContext,
   _services: EmptyServices,
 ) -> Response {
-  post_view.respond_index()
+  text_response(status.ok, post_view.format_index())
 }
 
 /// Show action - demonstrates path parameters and makes HTTPS request
@@ -40,7 +42,11 @@ pub fn show(
 
   case fetch.request(req) {
     Ok(body) ->
-      post_view.respond_show(user_param.value, post_param.value, body)
-    Error(error) -> post_view.respond_error(error)
+      text_response(
+        status.ok,
+        post_view.format_show(user_param.value, post_param.value, body),
+      )
+    Error(error) ->
+      text_response(status.internal_server_error, post_view.format_error(error))
   }
 }

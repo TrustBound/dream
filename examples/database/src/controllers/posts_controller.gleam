@@ -1,13 +1,17 @@
 //// Posts Controller
 ////
 //// Demonstrates CRUD operations for posts with user relationships using type-safe Squirrel queries
+//// Handles HTTP concerns: parsing, error mapping, response building.
 
 import context.{type DatabaseContext}
+import dream/core/http/response.{json_response}
+import dream/core/http/status
 import dream/core/http/transaction.{type Request, type Response, get_param}
 import dream/core/http/validation.{validate_json}
 import models/post
 import services.{type Services}
-import views/errors
+import types/errors
+import views/errors as error_responses
 import views/post_view
 
 /// List all posts for a user
@@ -20,8 +24,10 @@ pub fn index(
   let assert Ok(user_id) = param.as_int
 
   let db = services.database.connection
-  post.list(db, user_id)
-  |> post_view.respond_list()
+  case post.list(db, user_id) {
+    Ok(posts) -> json_response(status.ok, post_view.list_to_json(posts))
+    Error(_) -> error_responses.internal_error()
+  }
 }
 
 /// Get a single post by ID
@@ -34,8 +40,11 @@ pub fn show(
   let assert Ok(id) = param.as_int
 
   let db = services.database.connection
-  post.get(db, id)
-  |> post_view.respond()
+  case post.get(db, id) {
+    Ok(post_data) -> json_response(status.ok, post_view.to_json(post_data))
+    Error(errors.NotFound) -> error_responses.not_found("Post not found")
+    Error(_) -> error_responses.internal_error()
+  }
 }
 
 /// Create a new post for a user
@@ -48,7 +57,7 @@ pub fn create(
   let assert Ok(user_id) = param.as_int
 
   case validate_json(request.body, post.decoder()) {
-    Error(_) -> errors.bad_request("Invalid post data")
+    Error(_) -> error_responses.bad_request("Invalid post data")
     Ok(data) -> create_with_data(services, user_id, data)
   }
 }
@@ -60,6 +69,8 @@ fn create_with_data(
 ) -> Response {
   let db = services.database.connection
   let #(title, content) = data
-  post.create(db, user_id, title, content)
-  |> post_view.respond_created()
+  case post.create(db, user_id, title, content) {
+    Ok(post_data) -> json_response(status.created, post_view.to_json(post_data))
+    Error(_) -> error_responses.internal_error()
+  }
 }

@@ -3,12 +3,18 @@
 
 set -e
 
-PORT=3000
+PORT=3003
 BASE_URL="http://localhost:$PORT"
 
 echo "=== Building streaming example ==="
 cd "$(dirname "$0")"
 make clean > /dev/null 2>&1 || true
+
+# Kill any existing processes on the port
+lsof -ti:$PORT | xargs kill -9 2>/dev/null || true
+pkill -f "dream_example_streaming" 2>/dev/null || true
+sleep 1
+
 if ! make run > /tmp/streaming_test.log 2>&1 & then
     echo "Failed to start server"
     exit 1

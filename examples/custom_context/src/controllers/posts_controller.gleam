@@ -5,6 +5,8 @@
 //// Assumes authentication is handled by middleware.
 
 import context.{type AuthContext}
+import dream/core/http/response.{text_response}
+import dream/core/http/status
 import dream/core/http/transaction.{type Request, type Response, get_param}
 import dream_http_client/client
 import dream_http_client/fetch
@@ -18,7 +20,7 @@ pub fn index(
   _context: AuthContext,
   _services: Services,
 ) -> Response {
-  post_view.respond_index()
+  text_response(status.ok, post_view.format_index())
 }
 
 /// Show action - demonstrates path parameters and makes HTTPS request
@@ -40,7 +42,12 @@ pub fn show(
     |> client.add_header("User-Agent", "Dream-Custom-Context-Example")
 
   case fetch.request(req) {
-    Ok(body) -> post_view.respond_show(user_param.value, post_param.value, body)
-    Error(error) -> post_view.respond_error(error)
+    Ok(body) ->
+      text_response(
+        status.ok,
+        post_view.format_show(user_param.value, post_param.value, body),
+      )
+    Error(error) ->
+      text_response(status.internal_server_error, post_view.format_error(error))
   }
 }

@@ -1,15 +1,15 @@
 #!/bin/bash
-# Integration test script for singleton example
+# Integration test script for rate_limiter example
 
 set -e
 
 PORT=3000
 BASE_URL="http://localhost:$PORT"
 
-echo "=== Building singleton example ==="
+echo "=== Building rate_limiter example ==="
 cd "$(dirname "$0")"
 make clean > /dev/null 2>&1 || true
-if ! make run > /tmp/singleton_test.log 2>&1 & then
+if ! make run > /tmp/rate_limiter_test.log 2>&1 & then
     echo "Failed to start server"
     exit 1
 fi
@@ -19,7 +19,7 @@ echo "Server started (PID: $SERVER_PID)"
 
 # Wait for server to be ready
 echo "Waiting for server to be ready..."
-sleep 3  # Give server extra time to initialize singleton services
+sleep 3  # Give server extra time to initialize rate limiter services
 for i in {1..30}; do
     if curl -s "$BASE_URL/" > /dev/null 2>&1; then
         # Test /api endpoint separately with a small delay
@@ -31,7 +31,7 @@ for i in {1..30}; do
     fi
     if [ $i -eq 30 ]; then
         echo "Server failed to start"
-        cat /tmp/singleton_test.log | tail -20
+        cat /tmp/rate_limiter_test.log | tail -20
         kill $SERVER_PID 2>/dev/null || true
         exit 1
     fi
@@ -44,7 +44,7 @@ echo "=== Testing endpoints ==="
 # Test GET /
 echo -n "Testing GET / ... "
 RESPONSE=$(curl -s "$BASE_URL/")
-if [[ "$RESPONSE" == *"Welcome"* ]] || [[ "$RESPONSE" == *"Singleton"* ]]; then
+if [[ "$RESPONSE" == *"Welcome"* ]] || [[ "$RESPONSE" == *"Rate Limiter"* ]]; then
     echo "✓"
 else
     echo "✗ Response doesn't contain expected content"
@@ -98,7 +98,7 @@ echo "Cleaning up..."
 kill $SERVER_PID 2>/dev/null || true
 sleep 2
 kill -9 $SERVER_PID 2>/dev/null || true
-pkill -f "dream_example_singleton" 2>/dev/null || true
+pkill -f "dream_example_rate_limiter" 2>/dev/null || true
 # Ensure port is free
 lsof -ti:$PORT | xargs kill -9 2>/dev/null || true
 sleep 1
