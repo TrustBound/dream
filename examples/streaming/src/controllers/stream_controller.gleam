@@ -4,6 +4,8 @@
 //// Follows Rails controller naming conventions.
 
 import dream/core/context.{type AppContext}
+import dream/core/http/response.{text_response}
+import dream/core/http/status
 import dream/core/http/transaction.{type Request, type Response}
 import dream/core/router.{type EmptyServices}
 import dream_http_client/client
@@ -24,7 +26,7 @@ pub fn index(
   _context: AppContext,
   _services: EmptyServices,
 ) -> Response {
-  stream_view.respond_index()
+  text_response(status.ok, stream_view.format_index())
 }
 
 /// Show action - demonstrates streaming HTTP requests
@@ -51,7 +53,7 @@ pub fn show(
     |> list.map(chunk_to_string)
     |> string.join("")
 
-  stream_view.respond_stream(body_string)
+  text_response(status.ok, stream_view.format_stream(body_string))
 }
 
 /// New action - demonstrates non-streaming HTTP requests
@@ -70,8 +72,12 @@ pub fn new(
     |> client.add_header("User-Agent", "Dream-Fetch-Example")
 
   case fetch.request(req) {
-    Ok(body) -> stream_view.respond_fetch(body)
-    Error(error) -> stream_view.respond_error(error)
+    Ok(body) -> text_response(status.ok, stream_view.format_fetch(body))
+    Error(error) ->
+      text_response(
+        status.internal_server_error,
+        stream_view.format_error(error),
+      )
   }
 }
 

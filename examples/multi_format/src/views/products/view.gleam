@@ -1,127 +1,112 @@
 //// Product view - presentation logic for products
 ////
-//// This module handles all presentation concerns including format conversion
-//// (JSON, HTML, HTMX, CSV) and response generation.
+//// Pure formatting functions: Product → String
+//// No Result types, no Response types, no error handling.
 
-import dream/core/http/response.{
-  html_response, json_response, stream_response, text_response,
-}
-import dream/core/http/status
-import dream/core/http/transaction.{type PathParam, type Response}
+import types/product.{type Product}
 import sql
 import views/products/templates/card
 import views/products/templates/index as index_view
 import views/products/templates/show as show_view
+import gleam/bit_array
 import gleam/float
 import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option
+import gleam/time/timestamp
 import gleam/yielder
 
-/// Convert product to JSON string
-pub fn to_json(product: sql.GetProductRow) -> String {
-  json.object([
-    #("id", json.int(product.id)),
-    #("name", json.string(product.name)),
-    #("price", json.float(product.price)),
-    #("stock", json.int(product.stock)),
-  ])
+/// Format single product as JSON string
+pub fn to_json(product: Product) -> String {
+  to_json_object(product)
   |> json.to_string()
 }
 
-/// Convert product to full HTML page using Matcha template
-pub fn to_html(product: sql.GetProductRow) -> String {
-  show_view.render(product: product)
+/// Format single product as HTML string
+pub fn to_html(product: Product) -> String {
+  product_to_sql_row(product)
+  |> show_view.render
 }
 
-/// Convert product to HTMX partial using Matcha template
-pub fn to_htmx(product: sql.GetProductRow) -> String {
-  card.render(product: product)
+/// Format single product as HTMX partial string
+pub fn to_htmx(product: Product) -> String {
+  product_to_sql_row(product)
+  |> card.render
 }
 
-/// Convert product to CSV row
-pub fn to_csv(product: sql.GetProductRow) -> String {
+/// Format single product as CSV row string
+pub fn to_csv(product: Product) -> String {
   int.to_string(product.id)
-  <> ","
-  <> product.name
-  <> ","
-  <> float.to_string(product.price)
-  <> ","
-  <> int.to_string(product.stock)
+  <> "," <> product.name
+  <> "," <> float.to_string(product.price)
+  <> "," <> int.to_string(product.stock)
 }
 
-/// Convert product list to JSON array string
-pub fn list_to_json(products: List(sql.ListProductsRow)) -> String {
-  products
-  |> list.map(fn(p) {
-    json.object([
-      #("id", json.int(p.id)),
-      #("name", json.string(p.name)),
-      #("price", json.float(p.price)),
-      #("stock", json.int(p.stock)),
-    ])
-  })
-  |> json.array(from: _, of: fn(x) { x })
+/// Format list of products as JSON array string
+pub fn list_to_json(products: List(Product)) -> String {
+  list.map(products, to_json_object)
+  |> json.array(from: _, of: identity)
   |> json.to_string()
 }
 
-/// Convert product list to HTML using Matcha template
-pub fn list_to_html(products: List(sql.ListProductsRow)) -> String {
-  index_view.render(products: products)
+/// Format list of products as HTML string
+pub fn list_to_html(products: List(Product)) -> String {
+  list.map(products, product_to_sql_row_list)
+  |> index_view.render
 }
 
-/// Convert product list to CSV stream (demonstrates streaming)
-pub fn list_to_csv_stream(
-  products: List(sql.ListProductsRow),
-) -> yielder.Yielder(BitArray) {
+/// Format list of products as CSV stream
+pub fn list_to_csv_stream(products: List(Product)) -> yielder.Yielder(BitArray) {
   let header = "id,name,price,stock\n"
+  yielder.from_list([header, ..list.map(products, product_to_csv_row)])
+  |> yielder.map(string_to_bit_array)
+}
 
-  yielder.from_list([
-    header,
-    ..list.map(products, fn(p) {
-      int.to_string(p.id)
-      <> ","
-      <> p.name
-      <> ","
-      <> float.to_string(p.price)
-      <> ","
-      <> int.to_string(p.stock)
-      <> "\n"
-    })
+// Private helpers - all named functions
+
+fn to_json_object(p: Product) -> json.Json {
+  json.object([
+    #("id", json.int(p.id)),
+    #("name", json.string(p.name)),
+    #("price", json.float(p.price)),
+    #("stock", json.int(p.stock)),
   ])
-  |> yielder.map(fn(s) { <<s:utf8>> })
 }
 
-/// Respond with a single product in the appropriate format based on PathParam
-pub fn respond(product: sql.GetProductRow, param: PathParam) -> Response {
-  case param.format {
-    option.Some("json") -> json_response(status.ok, to_json(product))
-    option.Some("htmx") -> html_response(status.ok, to_htmx(product))
-    option.Some("csv") -> text_response(status.ok, to_csv(product))
-    _ -> html_response(status.ok, to_html(product))
-  }
+fn product_to_csv_row(p: Product) -> String {
+  int.to_string(p.id)
+  <> "," <> p.name
+  <> "," <> float.to_string(p.price)
+  <> "," <> int.to_string(p.stock)
+  <> "\n"
 }
 
-/// Respond with a product list in the appropriate format
-pub fn respond_list(
-  products: List(sql.ListProductsRow),
-  format_param: option.Option(PathParam),
-) -> Response {
-  case format_param {
-    option.Some(param) -> respond_list_with_format(products, param)
-    option.None -> html_response(status.ok, list_to_html(products))
-  }
+fn string_to_bit_array(s: String) -> BitArray {
+  <<s:utf8>>
 }
 
-fn respond_list_with_format(
-  products: List(sql.ListProductsRow),
-  param: PathParam,
-) -> Response {
-  case param.format {
-    option.Some("json") -> json_response(status.ok, list_to_json(products))
-    option.Some("csv") ->
-      stream_response(status.ok, list_to_csv_stream(products), "text/csv")
-    _ -> html_response(status.ok, list_to_html(products))
-  }
+fn identity(x: a) -> a {
+  x
+}
+
+// Adapter functions for Matcha templates (they expect SQL row types)
+fn product_to_sql_row(product: Product) -> sql.GetProductRow {
+  sql.GetProductRow(
+    id: product.id,
+    name: product.name,
+    price: product.price,
+    stock: product.stock,
+    created_at: option.None,
+  )
+}
+
+fn product_to_sql_row_list(product: Product) -> sql.ListProductsRow {
+  sql.ListProductsRow(
+    id: product.id,
+    name: product.name,
+    price: product.price,
+    stock: product.stock,
+    created_at: option.None,
+  )
 }
