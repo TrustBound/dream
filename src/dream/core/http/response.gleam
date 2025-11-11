@@ -5,14 +5,13 @@
 import dream/core/http/transaction.{
   type Response, Bytes, Header, Response, Stream, Text,
 }
-import dream_helpers/statuses.{type Status}
 import gleam/option
 import gleam/yielder
 
 /// Create a plain text response
-pub fn text_response(status: Status, body: String) -> Response {
+pub fn text_response(status: Int, body: String) -> Response {
   Response(
-    status: statuses.to_code(status),
+    status: status,
     body: Text(body),
     headers: [Header("Content-Type", "text/plain; charset=utf-8")],
     cookies: [],
@@ -21,9 +20,9 @@ pub fn text_response(status: Status, body: String) -> Response {
 }
 
 /// Create a JSON response
-pub fn json_response(status: Status, body: String) -> Response {
+pub fn json_response(status: Int, body: String) -> Response {
   Response(
-    status: statuses.to_code(status),
+    status: status,
     body: Text(body),
     headers: [Header("Content-Type", "application/json; charset=utf-8")],
     cookies: [],
@@ -32,9 +31,9 @@ pub fn json_response(status: Status, body: String) -> Response {
 }
 
 /// Create an HTML response
-pub fn html_response(status: Status, body: String) -> Response {
+pub fn html_response(status: Int, body: String) -> Response {
   Response(
-    status: statuses.to_code(status),
+    status: status,
     body: Text(body),
     headers: [Header("Content-Type", "text/html; charset=utf-8")],
     cookies: [],
@@ -43,9 +42,9 @@ pub fn html_response(status: Status, body: String) -> Response {
 }
 
 /// Create a redirect response
-pub fn redirect_response(status: Status, location: String) -> Response {
+pub fn redirect_response(status: Int, location: String) -> Response {
   Response(
-    status: statuses.to_code(status),
+    status: status,
     body: Text(""),
     headers: [Header("Location", location)],
     cookies: [],
@@ -54,9 +53,9 @@ pub fn redirect_response(status: Status, location: String) -> Response {
 }
 
 /// Create an empty response
-pub fn empty_response(status: Status) -> Response {
+pub fn empty_response(status: Int) -> Response {
   Response(
-    status: statuses.to_code(status),
+    status: status,
     body: Text(""),
     headers: [],
     cookies: [],
@@ -66,12 +65,12 @@ pub fn empty_response(status: Status) -> Response {
 
 /// Create a binary response for files, images, PDFs, etc
 pub fn binary_response(
-  status: Status,
+  status: Int,
   body: BitArray,
   content_type: String,
 ) -> Response {
   Response(
-    status: statuses.to_code(status),
+    status: status,
     body: Bytes(body),
     headers: [Header("Content-Type", content_type)],
     cookies: [],
@@ -81,12 +80,12 @@ pub fn binary_response(
 
 /// Create a streaming response for large files or real-time data
 pub fn stream_response(
-  status: Status,
+  status: Int,
   stream: yielder.Yielder(BitArray),
   content_type: String,
 ) -> Response {
   Response(
-    status: statuses.to_code(status),
+    status: status,
     body: Stream(stream),
     headers: [Header("Content-Type", content_type)],
     cookies: [],
@@ -96,12 +95,12 @@ pub fn stream_response(
 
 /// Create a Server-Sent Events (SSE) response
 pub fn sse_response(
-  status: Status,
+  status: Int,
   stream: yielder.Yielder(BitArray),
   content_type: String,
 ) -> Response {
   Response(
-    status: statuses.to_code(status),
+    status: status,
     body: Stream(stream),
     headers: [
       Header("Content-Type", content_type),
@@ -112,3 +111,4 @@ pub fn sse_response(
     content_type: option.Some(content_type),
   )
 }
+

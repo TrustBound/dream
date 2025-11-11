@@ -3,11 +3,11 @@
 //// This module handles all presentation concerns including format conversion
 //// (JSON, HTML, HTMX, CSV) and response generation.
 
-import dream_helpers/statuses.{ok_status}
-import dream/core/http/transaction.{type PathParam, type Response}
-import dream_helpers/http.{
+import dream/core/http/response.{
   html_response, json_response, stream_response, text_response,
 }
+import dream/core/http/status
+import dream/core/http/transaction.{type PathParam, type Response}
 import sql
 import views/products/templates/card
 import views/products/templates/index as index_view
@@ -96,10 +96,10 @@ pub fn list_to_csv_stream(
 /// Respond with a single product in the appropriate format based on PathParam
 pub fn respond(product: sql.GetProductRow, param: PathParam) -> Response {
   case param.format {
-    option.Some("json") -> json_response(ok_status(), to_json(product))
-    option.Some("htmx") -> html_response(ok_status(), to_htmx(product))
-    option.Some("csv") -> text_response(ok_status(), to_csv(product))
-    _ -> html_response(ok_status(), to_html(product))
+    option.Some("json") -> json_response(status.ok, to_json(product))
+    option.Some("htmx") -> html_response(status.ok, to_htmx(product))
+    option.Some("csv") -> text_response(status.ok, to_csv(product))
+    _ -> html_response(status.ok, to_html(product))
   }
 }
 
@@ -110,7 +110,7 @@ pub fn respond_list(
 ) -> Response {
   case format_param {
     option.Some(param) -> respond_list_with_format(products, param)
-    option.None -> html_response(ok_status(), list_to_html(products))
+    option.None -> html_response(status.ok, list_to_html(products))
   }
 }
 
@@ -119,9 +119,9 @@ fn respond_list_with_format(
   param: PathParam,
 ) -> Response {
   case param.format {
-    option.Some("json") -> json_response(ok_status(), list_to_json(products))
+    option.Some("json") -> json_response(status.ok, list_to_json(products))
     option.Some("csv") ->
-      stream_response(ok_status(), list_to_csv_stream(products), "text/csv")
-    _ -> html_response(ok_status(), list_to_html(products))
+      stream_response(status.ok, list_to_csv_stream(products), "text/csv")
+    _ -> html_response(status.ok, list_to_html(products))
   }
 }

@@ -7,8 +7,8 @@ import dream/core/context.{type AppContext}
 import dream/core/http/transaction.{type Request, type Response}
 import dream/core/router.{type EmptyServices}
 import dream_http_client/client
-import dream_http_client/client/fetch as fetch_module
-import dream_http_client/client/stream as stream_module
+import dream_http_client/fetch
+import dream_http_client/stream
 import gleam/bit_array
 import gleam/bytes_tree
 import gleam/http
@@ -43,7 +43,7 @@ pub fn show(
     |> client.add_header("User-Agent", "Dream-Streaming-Example")
 
   // Stream the response chunks
-  let chunks = stream_module.stream_request(req) |> yielder.to_list
+  let chunks = stream.stream_request(req) |> yielder.to_list
 
   // Convert chunks to strings and concatenate
   let body_string =
@@ -69,7 +69,7 @@ pub fn new(
     |> client.path("/get")
     |> client.add_header("User-Agent", "Dream-Fetch-Example")
 
-  case fetch_module.request(req) {
+  case fetch.request(req) {
     Ok(body) -> stream_view.respond_fetch(body)
     Error(error) -> stream_view.respond_error(error)
   }

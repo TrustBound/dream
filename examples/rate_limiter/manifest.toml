@@ -4,7 +4,6 @@
 packages = [
   { name = "dream", version = "0.0.1", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_time", "gleam_yielder", "marceau", "mist", "simplifile"], source = "local", path = "../.." },
   { name = "dream_ets", version = "0.1.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_json", "gleam_stdlib"], source = "local", path = "../../modules/ets" },
-  { name = "dream_helpers", version = "0.1.0", build_tools = ["gleam"], requirements = ["dream", "gleam_json", "gleam_stdlib", "gleam_time", "gleam_yielder"], source = "local", path = "../../modules/helpers" },
   { name = "exception", version = "2.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "exception", source = "hex", outer_checksum = "329D269D5C2A314F7364BD2711372B6F2C58FA6F39981572E5CA68624D291F8C" },
   { name = "filepath", version = "1.1.2", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "filepath", source = "hex", outer_checksum = "B06A9AF0BF10E51401D64B98E4B627F1D2E48C154967DA7AF4D0914780A6D40A" },
   { name = "gleam_crypto", version = "1.5.1", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "gleam_crypto", source = "hex", outer_checksum = "50774BAFFF1144E7872814C566C5D653D83A3EBF23ACC3156B757A1B6819086E" },
@@ -28,7 +27,6 @@ packages = [
 [requirements]
 dream = { path = "../.." }
 dream_ets = { path = "../../modules/ets" }
-dream_helpers = { path = "../../modules/helpers" }
 gleam_stdlib = { version = ">= 0.44.0 and < 2.0.0" }
 gleam_time = { version = ">= 1.5.0 and < 2.0.0" }
 mist = { version = ">= 5.0.3 and < 6.0.0" }

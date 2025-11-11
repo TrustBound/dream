@@ -4,11 +4,9 @@
 //// Demonstrates format negotiation and operation delegation.
 
 import context.{type Context}
+import dream/core/http/response.{html_response, json_response, stream_response}
+import dream/core/http/status
 import dream/core/http/transaction.{type Request, type Response, get_param}
-import dream_helpers/http.{html_response, json_response, stream_response}
-import dream_helpers/statuses.{
-  forbidden_status, internal_server_error_status, not_found_status, ok_status,
-}
 import gleam/option
 import models/post/post as post_model
 import operations/export_posts
@@ -25,12 +23,9 @@ pub fn index(
   services: Services,
 ) -> Response {
   case post_model.list(services.db) {
-    Ok(posts) -> json_response(ok_status(), post_view.list_to_json(posts))
+    Ok(posts) -> json_response(status.ok, post_view.list_to_json(posts))
     Error(_) ->
-      json_response(
-        internal_server_error_status(),
-        "{\"error\": \"Internal error\"}",
-      )
+      json_response(status.internal_server_error, "{\"error\": \"Internal error\"}")
   }
 }
 
@@ -46,12 +41,9 @@ pub fn show(
   case post_model.get(services.db, id) {
     Ok(post_data) -> respond_with_format(post_data, param.format)
     Error(NotFound) ->
-      json_response(not_found_status(), "{\"error\": \"Post not found\"}")
+      json_response(status.not_found, "{\"error\": \"Post not found\"}")
     Error(_) ->
-      json_response(
-        internal_server_error_status(),
-        "{\"error\": \"Internal error\"}",
-      )
+      json_response(status.internal_server_error, "{\"error\": \"Internal error\"}")
   }
 }
 
@@ -67,16 +59,13 @@ pub fn publish(
   // TODO: get from context once auth is added
   
   case publish_post.execute(post_id, user_id, services) {
-    Ok(post_data) -> json_response(ok_status(), post_view.to_json(post_data))
+    Ok(post_data) -> json_response(status.ok, post_view.to_json(post_data))
     Error(NotFound) ->
-      json_response(not_found_status(), "{\"error\": \"Post not found\"}")
+      json_response(status.not_found, "{\"error\": \"Post not found\"}")
     Error(Unauthorized) ->
-      json_response(forbidden_status(), "{\"error\": \"Unauthorized\"}")
+      json_response(status.forbidden, "{\"error\": \"Unauthorized\"}")
     Error(_) ->
-      json_response(
-        internal_server_error_status(),
-        "{\"error\": \"Internal error\"}",
-      )
+      json_response(status.internal_server_error, "{\"error\": \"Internal error\"}")
   }
 }
 
@@ -87,12 +76,9 @@ pub fn export(
   services: Services,
 ) -> Response {
   case export_posts.execute(services) {
-    Ok(stream) -> stream_response(ok_status(), stream, "text/csv")
+    Ok(stream) -> stream_response(status.ok, stream, "text/csv")
     Error(_) ->
-      json_response(
-        internal_server_error_status(),
-        "{\"error\": \"Internal error\"}",
-      )
+      json_response(status.internal_server_error, "{\"error\": \"Internal error\"}")
   }
 }
 
@@ -103,10 +89,10 @@ fn respond_with_format(
   format: option.Option(String),
 ) -> Response {
   case format {
-    option.Some("json") -> json_response(ok_status(), post_view.to_json(post_data))
+    option.Some("json") -> json_response(status.ok, post_view.to_json(post_data))
     option.Some("csv") ->
-      html_response(ok_status(), post_view.to_csv(post_data))
-    _ -> html_response(ok_status(), post_view.to_html(post_data))
+      html_response(status.ok, post_view.to_csv(post_data))
+    _ -> html_response(status.ok, post_view.to_html(post_data))
   }
 }
 

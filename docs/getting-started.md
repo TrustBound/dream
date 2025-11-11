@@ -102,7 +102,7 @@ pub fn index(
   _context: AppContext,
   _services: EmptyServices,
 ) -> Response {
-  text_response(ok_status(), "Hello, World!")
+  text_response(status.ok, "Hello, World!")
 }
 
 pub fn greet(
@@ -111,8 +111,8 @@ pub fn greet(
   _services: EmptyServices,
 ) -> Response {
   case get_param(request, "name") {
-    Ok(param) -> text_response(ok_status(), "Hello, " <> param.value <> "!")
-    Error(_) -> text_response(ok_status(), "Hello, stranger!")
+    Ok(param) -> text_response(status.ok, "Hello, " <> param.value <> "!")
+    Error(_) -> text_response(status.ok, "Hello, stranger!")
   }
 }
 ```

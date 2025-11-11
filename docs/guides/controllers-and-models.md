@@ -313,9 +313,10 @@ but they don't perform queries or manage connections.
 ### Complete View Example
 
 ```gleam
-import dream/core/http/statuses.{created_status, not_found_status, ok_status, internal_server_error_status}
-import dream/core/http/transaction.{type Response, json_response}
-import dream/utilities/json/encoders
+import dream/core/http/response.{json_response}
+import dream/core/http/status
+import dream/core/http/transaction.{type Response}
+import dream_helpers/json_encoders
 import gleam/json
 import gleam/list
 import gleam/option
@@ -335,7 +336,7 @@ pub fn respond(
 
 fn respond_with_rows(rows: List(sql.GetUserRow)) -> Response {
   case rows {
-    [user] -> json_response(ok_status(), to_json(user))
+    [user] -> json_response(status.ok, to_json(user))
     [] -> errors.not_found("User not found")
     _ -> errors.not_found("User not found")
   }
@@ -346,7 +347,7 @@ pub fn respond_list(
   result: Result(pog.Returned(sql.ListUsersRow), pog.QueryError),
 ) -> Response {
   case result {
-    Ok(returned) -> json_response(ok_status(), list_to_json(returned.rows))
+    Ok(returned) -> json_response(status.ok, list_to_json(returned.rows))
     Error(_) -> errors.internal_error()
   }
 }
@@ -421,27 +422,23 @@ Generic HTTP errors belong in a shared view, not duplicated in every domain view
 ```gleam
 // views/errors.gleam
 
-import dream/core/http/statuses.{
-  bad_request_status, internal_server_error_status, not_found_status,
-}
-import dream/core/http/transaction.{type Response, json_response}
+import dream/core/http/response.{json_response}
+import dream/core/http/status
+import dream/core/http/transaction.{type Response}
 
 /// 404 Not Found response
 pub fn not_found(message: String) -> Response {
-  json_response(not_found_status(), "{\"error\": \"" <> message <> "\"}")
+  json_response(status.not_found, "{\"error\": \"" <> message <> "\"}")
 }
 
 /// 500 Internal Server Error response
 pub fn internal_error() -> Response {
-  json_response(
-    internal_server_error_status(),
-    "{\"error\": \"Internal server error\"}",
-  )
+  json_response(status.internal_server_error, "{\"error\": \"Internal server error\"}")
 }
 
 /// 400 Bad Request response
 pub fn bad_request(message: String) -> Response {
-  json_response(bad_request_status(), "{\"error\": \"" <> message <> "\"}")
+  json_response(status.bad_request, "{\"error\": \"" <> message <> "\"}")
 }
 ```
 

@@ -107,15 +107,14 @@ Create `src/your_app/controllers/posts_controller.gleam`:
 
 ```gleam
 import dream/core/context.{type AppContext}
-import dream/core/http/statuses.{
-  bad_request_status, internal_server_error_status, ok_status,
-}
+import dream/core/http/response.{text_response}
+import dream/core/http/status
 import dream/core/http/transaction.{
-  type PathParam, type Request, type Response, get_param, text_response,
+  type PathParam, type Request, type Response, get_param,
 }
 import dream/core/router.{type EmptyServices}
-import dream/utilities/http/client
-import dream/utilities/http/client/fetch as fetch_module
+import dream_http_client/client
+import dream_http_client/client/fetch as fetch_module
 import gleam/http
 
 pub fn index(
@@ -123,7 +122,7 @@ pub fn index(
   _context: AppContext,
   _services: EmptyServices,
 ) -> Response {
-  text_response(ok_status(), "Hello, World!")
+  text_response(status.ok, "Hello, World!")
 }
 
 pub fn show(
@@ -157,7 +156,7 @@ fn show_with_params(user_param: PathParam, post_param: PathParam) -> Response {
   case fetch_module.request(req) {
     Ok(body) ->
       text_response(
-        ok_status(),
+        status.ok,
         "User: "
           <> user_param.value
           <> ", Post: "
@@ -166,7 +165,7 @@ fn show_with_params(user_param: PathParam, post_param: PathParam) -> Response {
           <> body,
       )
     Error(error) ->
-      text_response(internal_server_error_status(), "Error: " <> error)
+      text_response(status.internal_server_error, "Error: " <> error)
   }
 }
 ```
@@ -440,38 +439,32 @@ Same path, different methods. REST at its finest.
 We've been using `text_response()`. There are others:
 
 ```gleam
-import dream/core/http/statuses.{
-  ok_status, 
-  created_status, 
-  not_found_status,
-  bad_request_status,
-  internal_server_error_status,
-}
-import dream/core/http/transaction.{
+import dream/core/http/response.{
+  empty_response,
+  html_response,
   json_response,
   text_response,
-  html_response,
-  empty_response,
 }
+import dream/core/http/status
 
 // Text response
-text_response(ok_status(), "Plain text")
+text_response(status.ok, "Plain text")
 
 // JSON response
-json_response(ok_status(), "{\"message\": \"Hello\"}")
+json_response(status.ok, "{\"message\": \"Hello\"}")
 
 // HTML response
-html_response(ok_status(), "<h1>Hello</h1>")
+html_response(status.ok, "<h1>Hello</h1>")
 
 // Empty response (for DELETE, etc.)
-empty_response(ok_status())
+empty_response(status.ok)
 
 // Custom status codes
-text_response(not_found_status(), "Not found")
-text_response(created_status(), "{\"id\": 42}")
+text_response(status.not_found, "Not found")
+text_response(status.created, "{\"id\": 42}")
 ```
 
-Each status function returns a `Status` type with the appropriate code, message, and description. The response function combines the status and body.
+Status constants are simple Int values (200, 404, etc.) with semantic names for clarity. Response builders construct proper HTTP responses with correct headers.
 
 ## The HTTP Client Bonus
 

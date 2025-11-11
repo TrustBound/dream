@@ -3,8 +3,8 @@
 //// This module handles all presentation concerns for post data,
 //// converting model data into HTTP responses. All JSON encoding lives here.
 
-import dream_helpers/statuses.{created_status, ok_status}
-import dream_helpers/http.{json_response}
+import dream/core/http/response.{json_response}
+import dream/core/http/status
 import dream/core/http/transaction.{type Response}
 import dream_helpers/json_encoders as encoders
 import gleam/json
@@ -27,7 +27,7 @@ pub fn respond(
 
 fn respond_with_rows(rows: List(sql.GetPostRow)) -> Response {
   case rows {
-    [post] -> json_response(ok_status(), to_json(post))
+    [post] -> json_response(status.ok, to_json(post))
     [] -> errors.not_found("Post not found")
     _ -> errors.not_found("Post not found")
   }
@@ -38,7 +38,7 @@ pub fn respond_list(
   result: Result(pog.Returned(sql.ListPostsRow), pog.QueryError),
 ) -> Response {
   case result {
-    Ok(returned) -> json_response(ok_status(), list_to_json(returned.rows))
+    Ok(returned) -> json_response(status.ok, list_to_json(returned.rows))
     Error(_) -> errors.internal_error()
   }
 }
@@ -55,7 +55,7 @@ pub fn respond_created(
 
 fn respond_created_with_rows(rows: List(sql.CreatePostRow)) -> Response {
   case rows {
-    [post] -> json_response(created_status(), to_json_created(post))
+    [post] -> json_response(status.created, to_json_created(post))
     [] -> errors.internal_error()
     _ -> errors.internal_error()
   }

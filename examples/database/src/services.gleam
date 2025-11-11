@@ -2,8 +2,7 @@
 ////
 //// Application-specific services for the database example
 
-import dream/services/service.{type DatabaseService}
-import database
+import database.{type DatabaseService}
 
 /// Application services
 pub type Services {

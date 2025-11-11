@@ -1,7 +1,6 @@
 //// Application services for multi-format example
 
-import dream/services/service.{type DatabaseService}
-import database
+import database.{type DatabaseService}
 
 /// Application services
 pub type Services {

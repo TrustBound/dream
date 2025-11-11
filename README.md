@@ -206,9 +206,9 @@ pub fn decoder() -> Decoder(ProductData)
 // product_view.gleam
 pub fn respond(product: Product, param: PathParam) -> Response {
   case param.format {
-    Some("json") -> json_response(ok_status(), to_json(product))
-    Some("csv") -> text_response(ok_status(), to_csv(product))
-    _ -> html_response(ok_status(), to_html(product))
+    Some("json") -> json_response(status.ok, to_json(product))
+    Some("csv") -> text_response(status.ok, to_csv(product))
+    _ -> html_response(status.ok, to_html(product))
   }
 }
 

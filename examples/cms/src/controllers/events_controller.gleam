@@ -4,9 +4,9 @@
 //// No nested cases, no anonymous functions.
 
 import context.{type Context}
+import dream/core/http/response.{json_response, sse_response}
+import dream/core/http/status
 import dream/core/http/transaction.{type Request, type Response}
-import dream_helpers/http.{json_response, sse_response}
-import dream_helpers/statuses.{internal_server_error_status, ok_status}
 import gleam/yielder
 import operations/enrich_events
 import services.{type Services}
@@ -22,14 +22,11 @@ pub fn index(
   case enrich_events.execute(services, 50) {
     Ok(enriched) ->
       json_response(
-        ok_status(),
+        status.ok,
         "{\"events\": " <> serialize_enriched_events(enriched) <> "}",
       )
     Error(_) ->
-      json_response(
-        internal_server_error_status(),
-        "{\"error\": \"Internal error\"}",
-      )
+      json_response(status.internal_server_error, "{\"error\": \"Internal error\"}")
   }
 }
 
@@ -45,7 +42,7 @@ pub fn stream(
     |> yielder.map(format_event_as_sse)
     |> yielder.map(string_to_bits)
   
-  sse_response(ok_status(), event_stream, "text/event-stream")
+  sse_response(status.ok, event_stream, "text/event-stream")
 }
 
 // Private helpers - all named functions

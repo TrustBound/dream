@@ -75,10 +75,9 @@ Middleware will populate the `user` field. Controllers can then check it.
 Create `src/your_app/middleware/auth_middleware.gleam`:
 
 ```gleam
-import dream/core/http/statuses.{unauthorized_status}
-import dream/core/http/transaction.{
-  type Request, type Response, get_header, text_response,
-}
+import dream/core/http/response.{text_response}
+import dream/core/http/status
+import dream/core/http/transaction.{type Request, type Response, get_header}
 import gleam/option
 import your_app/context.{type AuthContext, type User, AuthContext, User}
 import your_app/services.{type Services}
@@ -92,10 +91,7 @@ pub fn auth_middleware(
   // Check for Authorization header
   case get_header(request.headers, "Authorization") {
     option.None ->
-      text_response(
-        unauthorized_status(),
-        "Unauthorized: Missing Authorization header",
-      )
+      text_response(status.unauthorized, "Unauthorized: Missing Authorization header")
     option.Some(token) ->
       validate_and_authenticate(request, context, services, token, next)
   }
@@ -111,7 +107,7 @@ fn validate_and_authenticate(
   // Validate token and get user
   case validate_token(token) {
     option.None ->
-      text_response(unauthorized_status(), "Unauthorized: Invalid token")
+      text_response(status.unauthorized, "Unauthorized: Invalid token")
     option.Some(user) -> {
       // Update context with authenticated user
       let updated_context =
@@ -138,7 +134,7 @@ Middleware signature: `fn(Request, Context, Services, NextHandler) -> Response`
 
 That `next` parameter is the key. It's the next middleware or controller in the chain. We can:
 - **Call it** to continue processing: `next(request, updated_context, services)`
-- **Skip it** and return early: `text_response(unauthorized_status(), "Nope")`
+- **Skip it** and return early: `text_response(status.unauthorized, "Nope")`
 
 This is how middleware chains work. Each middleware can pass control to the next, or short-circuit and return immediately.
 
