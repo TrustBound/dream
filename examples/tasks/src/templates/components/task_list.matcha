@@ -1,0 +1,5 @@
+{> with list_items as String
+<ul id="task-list">
+  {{ list_items }}
+</ul>
+

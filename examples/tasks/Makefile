@@ -4,7 +4,7 @@ DATABASE_URL = postgres://postgres:postgres@localhost:5437/tasks_db
 .PHONY: run test clean db-up db-down db-logs db-shell db-reset squirrel matcha migrate migrate-up migrate-down migrate-new build
 
 run:
-	@gleam run -m main
+	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m main
 
 test:
 	@gleam test

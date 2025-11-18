@@ -1,0 +1,7 @@
+{> with task_id as String
+{> with tag_id as String
+{> with tag_name as String
+<button hx-post="/tasks/{{ task_id }}/tags?tag_id={{ tag_id }}" hx-target="closest article" hx-swap="outerHTML">
+  {{ tag_name }}
+</button>
+

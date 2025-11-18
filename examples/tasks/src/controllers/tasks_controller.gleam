@@ -4,6 +4,9 @@ import context.{type TasksContext}
 import dream/http/request.{type Request, get_param}
 import dream/http/response.{type Response, empty_response, html_response}
 import dream/http/status
+import gleam/int
+import gleam/io
+import gleam/list
 import gleam/option
 import models/tag/model as tag_model
 import models/task/model as task_model
@@ -56,9 +59,16 @@ pub fn index(
   _context: TasksContext,
   services: Services,
 ) -> Response {
+  io.println("Index controller: Fetching tasks...")
   case task_model.list(services.db) {
-    Ok(tasks) -> index_with_tags(services, tasks)
-    Error(_) -> errors.internal_error()
+    Ok(tasks) -> {
+      io.println("Index controller: Got " <> int.to_string(list.length(tasks)) <> " tasks")
+      index_with_tags(services, tasks)
+    }
+    Error(_) -> {
+      io.println("Index controller: Error fetching tasks")
+      errors.internal_error()
+    }
   }
 }
 
@@ -86,7 +96,7 @@ fn build_tags_by_task(
 
 /// Create a new task
 pub fn create(
-  request: Request,
+  _request: Request,
   _context: TasksContext,
   services: Services,
 ) -> Response {

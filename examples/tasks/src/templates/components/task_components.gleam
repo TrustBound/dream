@@ -1,84 +1,88 @@
-//// Task-specific components
+//// Task composition - calls task templates
 
 import gleam/int
 import gleam/option.{type Option}
 import gleam/string
+import templates/components/tag_components
+import templates/components/task_card
+import templates/components/task_form
+import templates/components/task_list
+import templates/elements/checkbox_htmx
+import templates/elements/date_display
+import templates/elements/delete_button
+import templates/elements/icon
+import templates/elements/list_item
+import templates/elements/priority_badge
 import types/tag.{type Tag}
 import types/task.{type Task}
-import templates/components/form_components
-import templates/components/tag_components
-import templates/elements/card
-import templates/elements/icon
 
 pub fn task_card(task: Task, tags: List(Tag)) -> String {
-  let content = task_card_content(task, tags)
-  card.render(
-    card_id: "task-" <> int.to_string(task.id),
-    card_content: content,
-  )
-}
+  let task_id = int.to_string(task.id)
 
-fn task_card_content(task: Task, tags: List(Tag)) -> String {
-  let completed_status = case task.completed {
+  let checked_attr = case task.completed {
     True -> "checked"
     False -> ""
   }
-
   let checkbox_html =
-    "<input type=\"checkbox\" "
-    <> completed_status
-    <> " hx-post=\"/tasks/"
-    <> int.to_string(task.id)
-    <> "/toggle.htmx\" hx-target=\"closest article\" hx-swap=\"outerHTML\">"
+    checkbox_htmx.render(task_id: task_id, checked_attr: checked_attr)
 
-  let title_html = "<h3>" <> task.title <> "</h3>"
-
-  let priority_badge = priority_indicator(task.priority)
-
-  let due_date_html = case task.due_date {
-    option.Some(date) -> "<small>" <> icon.render("calendar") <> " " <> date <> "</small>"
-    option.None -> ""
-  }
-
-  let tags_html = tag_components.tag_list(tags)
-
-  let delete_button =
-    "<button hx-delete=\"/tasks/"
-    <> int.to_string(task.id)
-    <> "\" hx-target=\"closest article\" hx-swap=\"outerHTML\" hx-confirm=\"Delete this task?\">Delete</button>"
-
-  checkbox_html
-  <> title_html
-  <> priority_badge
-  <> due_date_html
-  <> tags_html
-  <> delete_button
-}
-
-fn priority_indicator(priority: Int) -> String {
-  let text = case priority {
+  let priority_text = case task.priority {
     1 -> "🔴 Urgent"
     2 -> "🟠 High"
     3 -> "🟢 Normal"
     4 -> "🔵 Low"
     _ -> "Normal"
   }
-  "<mark>" <> text <> "</mark>"
+  let priority_badge_html = priority_badge.render(badge_text: priority_text)
+
+  let due_date_html = case task.due_date {
+    option.Some(date) -> {
+      let icon_html = icon.render(icon_name: "calendar")
+      date_display.render(icon_html: icon_html, date_text: date)
+    }
+    option.None -> ""
+  }
+
+  let tags_html = tag_components.tag_list(tags)
+
+  let delete_btn =
+    delete_button.render(
+      entity_type: "tasks",
+      entity_id: task_id,
+      confirm_msg: "Delete this task?",
+    )
+
+  task_card.render(
+    task_id: task_id,
+    checkbox_html: checkbox_html,
+    title: task.title,
+    priority_badge: priority_badge_html,
+    due_date_html: due_date_html,
+    tags_html: tags_html,
+    delete_button: delete_btn,
+  )
 }
 
-pub fn task_list(tasks: List(Task), tags_by_task: List(#(Int, List(Tag)))) -> String {
+pub fn task_list(
+  tasks: List(Task),
+  tags_by_task: List(#(Int, List(Tag))),
+) -> String {
   let items =
     tasks
     |> list_map(fn(task) {
       let task_tags = find_tags_for_task(task.id, tags_by_task)
-      "<li>" <> task_card(task, task_tags) <> "</li>"
+      let card = task_card(task, task_tags)
+      list_item.render(item_content: card)
     })
     |> string.join("\n")
 
-  "<ul id=\"task-list\">" <> items <> "</ul>"
+  task_list.render(list_items: items)
 }
 
-fn find_tags_for_task(task_id: Int, tags_by_task: List(#(Int, List(Tag)))) -> List(Tag) {
+fn find_tags_for_task(
+  task_id: Int,
+  tags_by_task: List(#(Int, List(Tag))),
+) -> List(Tag) {
   case tags_by_task {
     [] -> []
     [#(id, tags), ..rest] ->
@@ -97,28 +101,34 @@ pub fn task_form(task: Option(Task)) -> String {
 }
 
 fn create_form() -> String {
-  "<form hx-post=\"/tasks\" hx-target=\"#task-list\" hx-swap=\"beforeend\" hx-on::after-request=\"if(event.detail.successful) this.reset()\">"
-  <> form_components.text_field("title", "title", "Title", "")
-  <> form_components.text_area("description", "description", "Description", "")
-  <> form_components.priority_select("priority", "priority", 3)
-  <> form_components.date_field("due_date", "due_date", "Due Date", "")
-  <> form_components.submit_button("submit", "Add Task")
-  <> "</form>"
+  // Build form fields by calling element templates
+  let fields = ""
+  // TODO: build fields using form_components
+
+  task_form.render(
+    form_action: "/tasks",
+    form_method: "post",
+    form_target: "#task-list",
+    form_swap: "beforeend",
+    form_attrs: "hx-on::after-request=\"if(event.detail.successful) this.reset()\"",
+    form_fields: fields,
+    submit_text: "Add Task",
+  )
 }
 
 fn edit_form(task: Task) -> String {
-  let description = option.unwrap(task.description, "")
-  let due_date = option.unwrap(task.due_date, "")
+  let fields = ""
+  // TODO: build fields using form_components
 
-  "<form hx-put=\"/tasks/"
-  <> int.to_string(task.id)
-  <> ".htmx\" hx-target=\"closest article\" hx-swap=\"outerHTML\">"
-  <> form_components.text_field("title", "title", "Title", task.title)
-  <> form_components.text_area("description", "description", "Description", description)
-  <> form_components.priority_select("priority", "priority", task.priority)
-  <> form_components.date_field("due_date", "due_date", "Due Date", due_date)
-  <> form_components.submit_button("submit", "Save")
-  <> "</form>"
+  task_form.render(
+    form_action: "/tasks/" <> int.to_string(task.id) <> ".htmx",
+    form_method: "put",
+    form_target: "closest article",
+    form_swap: "outerHTML",
+    form_attrs: "",
+    form_fields: fields,
+    submit_text: "Save",
+  )
 }
 
 // Helper
@@ -128,4 +138,3 @@ fn list_map(list: List(a), f: fn(a) -> b) -> List(b) {
     [head, ..tail] -> [f(head), ..list_map(tail, f)]
   }
 }
-

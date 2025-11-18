@@ -6,23 +6,30 @@
 //// - Composable matcha templates
 //// - Clean separation of concerns
 
+import config
 import context
 import dream/servers/mist/server
+import gleam/int
 import gleam/io
 import router
 import services
 
 pub fn main() {
-  io.println("Initializing services...")
-  let svc = services.initialize()
+  io.println("Loading configuration...")
+  let assert Ok(cfg) = config.load()
 
-  io.println("Starting server on http://localhost:3000")
+  io.println("Initializing services...")
+  let svc = services.initialize(cfg)
+
+  io.println(
+    "Starting server on " <> cfg.host <> ":" <> int.to_string(cfg.port),
+  )
 
   server.new()
   |> server.context(context.new())
   |> server.services(svc)
   |> server.router(router.create_router())
-  |> server.bind("0.0.0.0")
-  |> server.listen(3000)
+  |> server.bind(cfg.host)
+  |> server.listen(cfg.port)
 }
 

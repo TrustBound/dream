@@ -4,6 +4,7 @@ import dream_postgres/client.{type Connection}
 import dream_postgres/query
 import gleam/float
 import gleam/int
+import gleam/io
 import gleam/list
 import gleam/option
 import gleam/string
@@ -24,9 +25,16 @@ pub fn get(db: Connection, task_id: Int) -> Result(Task, DataError) {
 
 /// List all tasks
 pub fn list(db: Connection) -> Result(List(Task), DataError) {
+  io.println("Model: Executing list_tasks query...")
   case sql.list_tasks(db) |> query.all_rows() {
-    Ok(rows) -> Ok(list.map(rows, list_row_to_task))
-    Error(_) -> Error(DatabaseError)
+    Ok(rows) -> {
+      io.println("Model: Got " <> int.to_string(list.length(rows)) <> " tasks from DB")
+      Ok(list.map(rows, list_row_to_task))
+    }
+    Error(_) -> {
+      io.println("Model: Query failed or error extracting rows")
+      Error(DatabaseError)
+    }
   }
 }
 

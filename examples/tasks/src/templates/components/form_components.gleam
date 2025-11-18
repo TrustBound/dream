@@ -1,11 +1,11 @@
 //// Form composition helpers
 
 import gleam/int
-import gleam/option.{type Option}
 import gleam/string
 import templates/elements/button
 import templates/elements/checkbox
 import templates/elements/input
+import templates/elements/option_item
 import templates/elements/select
 import templates/elements/textarea
 
@@ -39,7 +39,12 @@ pub fn date_field(
   )
 }
 
-pub fn text_area(id: String, name: String, label: String, value: String) -> String {
+pub fn text_area(
+  id: String,
+  name: String,
+  label: String,
+  value: String,
+) -> String {
   textarea.render(
     textarea_id: id,
     textarea_name: name,
@@ -78,17 +83,15 @@ pub fn priority_select(id: String, name: String, current: Int) -> String {
     options
     |> list_map(fn(opt) {
       let #(value, label) = opt
-      let selected = case value == current {
-        True -> " selected"
+      let selected_attr = case value == current {
+        True -> "selected"
         False -> ""
       }
-      "<option value=\""
-      <> int.to_string(value)
-      <> "\""
-      <> selected
-      <> ">"
-      <> label
-      <> "</option>"
+      option_item.render(
+        option_value: int.to_string(value),
+        option_label: label,
+        selected_attr: selected_attr,
+      )
     })
     |> string.join("")
 
@@ -115,4 +118,3 @@ fn list_map(list: List(a), f: fn(a) -> b) -> List(b) {
     [head, ..tail] -> [f(head), ..list_map(tail, f)]
   }
 }
-

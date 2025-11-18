@@ -1,10 +1,7 @@
 //// Task view - presentation layer
 
-import gleam/int
 import gleam/json
-import gleam/list
 import gleam/option
-import gleam/string
 import types/tag.{type Tag}
 import types/task.{type Task}
 import templates/pages/index
@@ -27,7 +24,7 @@ pub fn index_page(tasks: List(Task), tags_by_task: List(#(Int, List(Tag)))) -> S
   let list = task_components.task_list(tasks, tags_by_task)
   let content = index.render(task_form: form, task_list: list)
 
-  layout_components.page_layout("Tasks", content)
+  layout_components.build_page("Tasks", content)
 }
 
 /// Convert task to JSON

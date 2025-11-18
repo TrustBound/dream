@@ -1,74 +1,18 @@
-//// Layout components for page structure
+//// Layout composition - calls layout templates
 
-import gleam/string
+import templates/layouts/footer
+import templates/layouts/main_wrapper
+import templates/layouts/nav
+import templates/layouts/page
+import templates/layouts/scripts
 
-pub fn page_layout(title: String, content: String) -> String {
-  "<!DOCTYPE html>"
-  <> "<html lang=\"en\">"
-  <> page_head(title)
-  <> "<body>"
-  <> page_nav()
-  <> "<main>"
-  <> content
-  <> "</main>"
-  <> page_footer()
-  <> scripts()
-  <> "</body>"
-  <> "</html>"
+pub fn build_page(title: String, content: String) -> String {
+  let nav_html = nav.render(placeholder: "")
+  let main_html = main_wrapper.render(main_content: content)
+  let footer_html = footer.render(placeholder: "")
+  let scripts_html = scripts.render(placeholder: "")
+
+  let body_content = nav_html <> main_html <> footer_html <> scripts_html
+
+  page.render(page_title: title, page_content: body_content)
 }
-
-fn page_head(title: String) -> String {
-  "<head>"
-  <> "<meta charset=\"UTF-8\">"
-  <> "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
-  <> "<title>" <> title <> "</title>"
-  <> "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css\">"
-  <> "</head>"
-}
-
-fn page_nav() -> String {
-  "<nav>"
-  <> "<ul>"
-  <> "<li><strong>Task App</strong></li>"
-  <> "</ul>"
-  <> "<ul>"
-  <> "<li><a href=\"/\">Tasks</a></li>"
-  <> "<li><a href=\"/projects\">Projects</a></li>"
-  <> "</ul>"
-  <> "</nav>"
-}
-
-fn page_footer() -> String {
-  "<footer>"
-  <> "<small>Built with Dream + HTMX + Pico CSS</small>"
-  <> "</footer>"
-}
-
-fn scripts() -> String {
-  "<script src=\"https://unpkg.com/htmx.org@2.0.3\"></script>"
-  <> "<script src=\"https://unpkg.com/lucide@latest\"></script>"
-  <> "<script>lucide.createIcons();</script>"
-}
-
-pub fn section_with_header(header: String, content: String) -> String {
-  "<section>"
-  <> "<header><h2>" <> header <> "</h2></header>"
-  <> content
-  <> "</section>"
-}
-
-pub fn two_column_layout(left: String, right: String) -> String {
-  "<article>"
-  <> "<section>" <> left <> "</section>"
-  <> "<aside>" <> right <> "</aside>"
-  <> "</article>"
-}
-
-// Helper
-fn list_map(list: List(a), f: fn(a) -> b) -> List(b) {
-  case list {
-    [] -> []
-    [head, ..tail] -> [f(head), ..list_map(tail, f)]
-  }
-}
-

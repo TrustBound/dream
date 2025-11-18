@@ -2,7 +2,7 @@
 
 import context.{type TasksContext}
 import dream/http/request.{type Request, get_param}
-import dream/http/response.{type Response, empty_response, html_response, json_response}
+import dream/http/response.{type Response, html_response, json_response}
 import dream/http/status
 import gleam/option
 import models/tag/model as tag_model
