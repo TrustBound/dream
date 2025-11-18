@@ -1,5 +1,5 @@
-import dream/core/dream
-import dream/core/router.{router}
+import dream/dream
+import dream/router.{router}
 import dream/servers/mist/server
 import gleeunit/should
 

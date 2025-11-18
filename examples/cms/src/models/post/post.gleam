@@ -8,7 +8,7 @@ import gleam/list
 import gleam/result
 import models/post/sql
 import types/errors.{type DataError, DatabaseError, NotFound}
-import types/post.{type Post, type PostStatus, Draft, Post, Published}
+import types/post.{type Post, type PostStatus, Draft, Published}
 
 /// Get a single post by ID
 pub fn get(db: postgres.Connection, id: Int) -> Result(Post, DataError) {

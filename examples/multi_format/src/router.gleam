@@ -1,7 +1,7 @@
 //// Router for multi-format example
 
-import dream/core/http/transaction.{Get}
-import dream/core/router.{type Router, route, router}
+import dream/http/request.{Get}
+import dream/router.{type Router, route, router}
 import context.{type AppContext}
 import controllers/products_controller
 import services.{type Services}

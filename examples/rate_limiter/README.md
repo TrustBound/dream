@@ -4,7 +4,7 @@ Real-world rate limiting using the singleton pattern for global state management
 
 ## What This Demonstrates
 
-- **Singleton pattern** - Using `dream/core/singleton` for global state
+- **Singleton pattern** - Using `dream/singleton` for global state
 - **Global state management** - Shared state across all requests
 - **Services pattern** - Storing process Names in Services struct
 - **Rate limiting middleware** - 429 responses when limit exceeded

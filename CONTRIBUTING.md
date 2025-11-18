@@ -71,7 +71,7 @@ All public functions must have documentation comments:
 /// ## Example
 ///
 /// ```gleam
-/// import dream/core/router.{router}
+/// import dream/router.{router}
 ///
 /// let my_router = router
 /// ```
@@ -84,6 +84,15 @@ Include:
 - Brief description of what the function does
 - Example usage with imports
 - Any important notes or caveats
+
+### Contributing to Documentation
+
+For writing or improving user-facing documentation (guides, tutorials, examples), see the [Documentation Contributing Guide](docs/contributing/index.md). It covers:
+
+- Voice and tone guidelines
+- Documentation structure
+- Testing documentation
+- Review process
 
 ## Pull Request Process
 

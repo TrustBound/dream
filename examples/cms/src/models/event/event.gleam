@@ -12,8 +12,8 @@ import gleam/option
 import gleam/result
 import types/errors.{type DataError, DatabaseError}
 import types/event.{
-  type Event, type EventType, Event, PostCreated, PostPublished, RequestCompleted,
-  UserCreated,
+  type Event, type EventType, Event, PostCreated, PostPublished,
+  RequestCompleted, UserCreated,
 }
 
 /// Log an event to OpenSearch
@@ -29,7 +29,7 @@ pub fn recent(
   limit: Int,
 ) -> Result(List(Event), DataError) {
   let query = build_recent_query(limit)
-  
+
   document.search(client, "events", query)
   |> result.map_error(to_data_error)
   |> result.try(parse_search_response)
@@ -84,7 +84,9 @@ fn build_timestamp_sort() -> json.Json {
   ])
 }
 
-fn parse_search_response(response_json: String) -> Result(List(Event), DataError) {
+fn parse_search_response(
+  response_json: String,
+) -> Result(List(Event), DataError) {
   json.parse(response_json, decode.dynamic)
   |> result.map_error(json_error_to_data_error)
   |> result.try(extract_hits)
@@ -128,7 +130,7 @@ fn event_decoder() -> decode.Decoder(Event) {
   use status_code <- decode.field("status_code", decode.int)
   use duration_ms <- decode.field("duration_ms", decode.int)
   use timestamp <- decode.field("timestamp", decode.string)
-  
+
   decode.success(Event(
     id: option.unwrap(id, ""),
     event_type: event_type_from_string(event_type),
@@ -169,4 +171,3 @@ fn event_type_from_string(event_type: String) -> EventType {
     _ -> RequestCompleted
   }
 }
-

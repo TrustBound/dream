@@ -2,9 +2,8 @@
 ////
 //// Generic error responses used across the application.
 
-import dream/core/http/response.{html_response}
-import dream/core/http/status
-import dream/core/http/transaction.{type Response}
+import dream/http/response.{type Response, html_response}
+import dream/http/status
 
 /// 404 Not Found response
 pub fn not_found(message: String) -> Response {

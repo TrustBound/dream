@@ -1,0 +1,14 @@
+name = "dream_example_simplest"
+version = "0.1.0"
+description = "The simplest possible Dream example"
+licences = ["MIT"]
+
+[dependencies]
+dream = { path = "../.." }
+gleam_stdlib = ">= 0.44.0 and < 2.0.0"
+gleam_http = ">= 4.0.0 and < 5.0.0"
+mist = ">= 5.0.3 and < 6.0.0"
+
+
+
+

@@ -2,7 +2,7 @@
 ////
 //// Pure domain type - no serialization logic.
 
-import gleam/time/timestamp.{type Timestamp}
+import gleam/time/timestamp.{Timestamp}
 
 pub type Post {
   Post(

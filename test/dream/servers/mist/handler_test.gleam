@@ -1,5 +1,5 @@
-import dream/core/context.{type AppContext}
-import dream/core/router
+import dream/context.{type AppContext}
+import dream/router
 import dream/servers/mist/handler
 
 pub fn create_with_valid_config_returns_handler_function_test() {

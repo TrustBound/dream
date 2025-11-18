@@ -52,19 +52,19 @@ All modules are self-contained Gleam packages with:
 ### Dream Core Cleaned
 
 **Removed from core:**
-- `src/dream/core/http/statuses.gleam` → dream_helpers
+- `src/dream/http/statuses.gleam` → dream_helpers
 - `src/dream/core/singleton.gleam` → dream_singleton
 - `src/dream/services/` → modules
 - `src/dream/utilities/` → modules
 - `src/dream/validators/` → dream_helpers
 
 **Dream core now contains:**
-- `src/dream/core/router.gleam` - Route matching
-- `src/dream/core/http/transaction.gleam` - Request/Response types
-- `src/dream/core/http/response.gleam` - Response builders (json_response, html_response, etc.)
-- `src/dream/core/http/status.gleam` - Status code constants (ok, not_found, etc.)
-- `src/dream/core/http/validation.gleam` - JSON validation
-- `src/dream/core/context.gleam` - AppContext
+- `src/dream/router.gleam` - Route matching
+- `src/dream/http/transaction.gleam` - Request/Response types
+- `src/dream/http/response.gleam` - Response builders (json_response, html_response, etc.)
+- `src/dream/http/status.gleam` - Status code constants (ok, not_found, etc.)
+- `src/dream/http/validation.gleam` - JSON validation
+- `src/dream/context.gleam` - AppContext
 - `src/dream/servers/mist/` - Mist server integration
 - `src/dream/controllers/static.gleam` - Static file helper
 
@@ -94,15 +94,15 @@ All modules are self-contained Gleam packages with:
 
 **Core usage:**
 ```gleam
-import dream/core/http/response.{json_response}
-import dream/core/http/status
+import dream/http/response.{json_response}
+import dream/http/status
 
 json_response(status.ok, "{\"message\": \"Hello\"}")
 ```
 
 **With validation:**
 ```gleam
-import dream/core/http/validation.{validate_json}
+import dream/http/validation.{validate_json}
 
 case validate_json(request.body, user_decoder()) {
   Ok(data) -> json_response(status.created, to_json(data))

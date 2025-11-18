@@ -4,15 +4,16 @@
 //// Demonstrates format negotiation and operation delegation.
 
 import context.{type Context}
-import dream/core/http/response.{html_response, json_response, stream_response}
-import dream/core/http/status
-import dream/core/http/transaction.{type Request, type Response, get_param}
+import dream/http/response.{html_response, json_response, stream_response}
+import dream/http/status
+import dream/http/request.{type Request, get_param}
+import dream/http/response.{type Response}
 import gleam/option
 import models/post/post as post_model
 import operations/export_posts
 import operations/publish_post
 import services.{type Services}
-import types/errors.{NotFound, Unauthorized}
+import types/errors.{type DataError, NotFound, Unauthorized}
 import types/post.{type Post}
 import views/post_view
 

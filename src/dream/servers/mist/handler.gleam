@@ -4,8 +4,8 @@
 //// Mist requests to Dream requests, routes them, and converts the
 //// response back to Mist format.
 
-import dream/core/dream
-import dream/core/router.{type Router}
+import dream/dream
+import dream/router.{type Router}
 import dream/servers/mist/request as mist_request
 import dream/servers/mist/response as mist_response
 import gleam/bytes_tree

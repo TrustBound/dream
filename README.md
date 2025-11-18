@@ -350,35 +350,34 @@ Your choice: hire 20 engineers to manage microservices hell in the "safe" langua
 
 ## Quick Start
 
-Ready to build your first Dream app? Check out the [Getting Started Guide](docs/getting-started.md).
+Ready to build your first Dream app? Check out the [5-Minute Quickstart](docs/quickstart.md).
+
+Want to see what Dream adds over raw Mist? See the [Dream vs Mist comparison](docs/reference/dream-vs-mist.md).
 
 Want to dive into working examples? See `examples/` for complete applications you can run.
 
 ## Documentation
 
-**Getting Started:**
-- 📘 [Getting Started Guide](docs/getting-started.md) - Your first Dream app
-- 📗 [Tutorial: Basic Routing](docs/tutorials/basic-routing.md) - Routes and path parameters
-- 📙 [Tutorial: Database CRUD](docs/tutorials/database-crud.md) - Full CRUD with PostgreSQL
-- 📕 [Tutorial: Authentication](docs/tutorials/authentication.md) - Custom context and middleware
-- 📓 [Tutorial: HTTP Client](docs/tutorials/http-client.md) - Making HTTP requests
-- 📔 [Tutorial: Multi-Format Responses](docs/tutorials/multi-format-responses.md) - JSON, HTML, HTMX, CSV
+**Learning Path:**
+- 📘 [5-Minute Quickstart](docs/quickstart.md) - Your first Dream app
+- 📗 [Learning Path](docs/learn/) - 2 hours from hello world to production patterns
 
 **Guides:**
-- [Controllers and Models](docs/guides/controllers-and-models.md) - Three-layer architecture in depth
-- [Middleware](docs/guides/middleware.md) - Writing and using middleware
+- [REST API](docs/guides/rest-api.md) - Production API patterns
+- [Authentication](docs/guides/authentication.md) - JWT and sessions
+- [Multiple Formats](docs/guides/multiple-formats.md) - JSON, HTML, CSV
 - [Testing](docs/guides/testing.md) - Unit and integration testing
-- [Database](docs/guides/database.md) - PostgreSQL, migrations, Squirrel
 - [Deployment](docs/guides/deployment.md) - Running in production
+- [More guides...](docs/guides/)
 
 **Reference:**
 - [API Documentation](https://hexdocs.pm/dream) - Complete API reference on HexDocs
+- [Dream vs Mist](docs/reference/dream-vs-mist.md) - What Dream provides
 - [Architecture](docs/reference/architecture.md) - How it all fits together
 - [Design Principles](docs/reference/design-principles.md) - The "why" behind decisions
-- [Naming Conventions](docs/reference/naming-conventions.md) - For contributors
 
 **Examples:**
-- [Example Projects](docs/examples.md) - Working applications you can run
+- [Working Applications](examples/) - Complete runnable projects
 
 ## Philosophy
 

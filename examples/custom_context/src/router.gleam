@@ -1,5 +1,5 @@
-import dream/core/http/transaction.{Get}
-import dream/core/router.{type Router, route, router}
+import dream/http/request.{Get}
+import dream/router.{type Router, route, router}
 import context.{type AuthContext}
 import controllers/posts_controller
 import middleware/admin_middleware.{admin_middleware}

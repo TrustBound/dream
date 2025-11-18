@@ -4,8 +4,8 @@ import context.{type Context}
 import controllers/events_controller
 import controllers/posts_controller
 import controllers/users_controller
-import dream/core/http/transaction.{Get, Post}
-import dream/core/router.{type Router, route, router}
+import dream/http/request.{Get, Post}
+import dream/router.{type Router, route, router}
 import middleware/logging_middleware.{logging_middleware}
 import services.{type Services}
 
