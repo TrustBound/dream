@@ -1,0 +1,16 @@
+{> with modal_id as String
+{> with modal_title as String
+{> with modal_content as String
+<dialog id="{{ modal_id }}">
+  <article>
+    <header>
+      <h2>{{ modal_title }}</h2>
+    </header>
+    <section>
+      {{ modal_content }}
+    </section>
+    <footer>
+      <button onclick="document.getElementById('{{ modal_id }}').close()">Close</button>
+    </footer>
+  </article>
+</dialog>

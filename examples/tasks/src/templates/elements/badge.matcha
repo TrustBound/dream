@@ -1,0 +1,2 @@
+{> with badge_text as String
+<mark>{{ badge_text }}</mark>
