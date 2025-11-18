@@ -32,7 +32,7 @@ pub fn list(db: Connection) -> Result(List(Project), DataError) {
 pub fn create(db: Connection, data: ProjectData) -> Result(Project, DataError) {
   let description = option.unwrap(data.description, "")
   let color = option.unwrap(data.color, "")
-  
+
   case
     sql.create_project(db, data.name, description, color)
     |> query.first_row()

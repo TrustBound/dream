@@ -1,7 +1,6 @@
 //// Project view - presentation layer
 
 import gleam/json
-import gleam/list
 import gleam/option
 import types/project.{type Project}
 import types/tag.{type Tag}
@@ -32,12 +31,12 @@ pub fn show_page(
       task_list: task_list,
     )
 
-  layout_components.page_layout(project.name, content)
+  layout_components.build_page(project.name, content)
 }
 
 /// Render list of projects
 pub fn list_page(projects: List(Project)) -> String {
-  let form = project_components.project_form()
+  let form = project_components.project_form_html()
   let list = project_components.project_list(projects)
   let content =
     "<section>"
@@ -46,7 +45,7 @@ pub fn list_page(projects: List(Project)) -> String {
     <> list
     <> "</section>"
 
-  layout_components.page_layout("Projects", content)
+  layout_components.build_page("Projects", content)
 }
 
 /// Convert project to JSON

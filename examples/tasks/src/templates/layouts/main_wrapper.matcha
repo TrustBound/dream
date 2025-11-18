@@ -1,0 +1,5 @@
+{> with main_content as String
+<main>
+  {{ main_content }}
+</main>
+

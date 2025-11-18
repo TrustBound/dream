@@ -1,0 +1,5 @@
+{> with option_value as String
+{> with option_label as String
+{> with selected_attr as String
+<option value="{{ option_value }}" {{ selected_attr }}>{{ option_label }}</option>
+

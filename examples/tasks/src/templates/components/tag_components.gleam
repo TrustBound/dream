@@ -1,9 +1,12 @@
-//// Tag-specific components
+//// Tag composition - calls tag templates
 
 import gleam/int
 import gleam/string
 import types/tag.{type Tag}
+import templates/components/tag_list
+import templates/components/tag_selector
 import templates/elements/badge
+import templates/elements/tag_button
 
 pub fn tag_badge(tag: Tag) -> String {
   badge.render(badge_text: tag.name)
@@ -17,26 +20,25 @@ pub fn tag_list(tags: List(Tag)) -> String {
         tags
         |> list_map(tag_badge)
         |> string.join(" ")
-      "<footer>" <> badges <> "</footer>"
+      tag_list.render(badges_html: badges)
     }
   }
 }
 
-pub fn tag_selector(tags: List(Tag), task_id: Int) -> String {
+pub fn tag_selector_html(tags: List(Tag), task_id: Int) -> String {
+  let task_id_str = int.to_string(task_id)
   let options =
     tags
     |> list_map(fn(tag) {
-      "<button hx-post=\"/tasks/"
-      <> int.to_string(task_id)
-      <> "/tags?tag_id="
-      <> int.to_string(tag.id)
-      <> "\" hx-target=\"closest article\" hx-swap=\"outerHTML\">"
-      <> tag.name
-      <> "</button>"
+      tag_button.render(
+        task_id: task_id_str,
+        tag_id: int.to_string(tag.id),
+        tag_name: tag.name,
+      )
     })
     |> string.join("")
-
-  "<details><summary>Add Tag</summary>" <> options <> "</details>"
+  
+  tag_selector.render(tag_buttons: options)
 }
 
 // Helper
@@ -46,4 +48,3 @@ fn list_map(list: List(a), f: fn(a) -> b) -> List(b) {
     [head, ..tail] -> [f(head), ..list_map(tail, f)]
   }
 }
-

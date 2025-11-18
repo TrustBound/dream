@@ -1,0 +1,5 @@
+{> with list_items as String
+<ul>
+  {{ list_items }}
+</ul>
+

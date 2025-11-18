@@ -1,7 +1,6 @@
 //// Tag view - presentation layer
 
 import gleam/json
-import gleam/list
 import gleam/option
 import types/tag.{type Tag}
 import templates/components/tag_components
