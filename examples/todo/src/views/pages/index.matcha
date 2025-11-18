@@ -1,9 +1,0 @@
-{> with todo_form as String
-{> with todo_list as String
-<section>
-    <header>
-        <h1>My Todos</h1>
-    </header>
-    {{ todo_form }}
-    {{ todo_list }}
-</section>

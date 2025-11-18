@@ -4,7 +4,7 @@ import gleam/string_tree.{type StringTree}
 
 
 
-pub fn render_tree(placeholder placeholder: String) -> StringTree {
+pub fn render_tree() -> StringTree {
     let tree = string_tree.from_string("")
     let tree = string_tree.append(tree, "<script src=\"https://unpkg.com/htmx.org@2.0.3\"></script>
 <script src=\"https://unpkg.com/lucide@latest\"></script>
@@ -15,7 +15,7 @@ pub fn render_tree(placeholder placeholder: String) -> StringTree {
     tree
 }
 
-pub fn render(placeholder placeholder: String) -> String {
-    string_tree.to_string(render_tree(placeholder: placeholder))
+pub fn render() -> String {
+    string_tree.to_string(render_tree())
 }
 

@@ -25,4 +25,3 @@ pub fn load() -> Result(Config, String) {
 
   Ok(Config(database_url: database_url, host: host, port: port))
 }
-

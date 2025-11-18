@@ -1,4 +1,3 @@
-{> with placeholder as String
 <script src="https://unpkg.com/htmx.org@2.0.3"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <script>lucide.createIcons();</script>

@@ -1,4 +1,3 @@
-{> with placeholder as String
 <nav>
   <ul>
     <li><strong>Task App</strong></li>

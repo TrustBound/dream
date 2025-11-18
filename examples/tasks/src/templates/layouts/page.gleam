@@ -8,22 +8,23 @@ pub fn render_tree(page_title page_title: String, page_content page_content: Str
     let tree = string_tree.from_string("")
     let tree = string_tree.append(tree, "<!DOCTYPE html>
 <html lang=\"en\">
-  <head>
+
+<head>
     <meta charset=\"UTF-8\">
     <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
     <title>")
     let tree = string_tree.append(tree, page_title)
     let tree = string_tree.append(tree, "</title>
     <link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css\">
-  </head>
-  <body>
+</head>
+
+<body>
     ")
     let tree = string_tree.append(tree, page_content)
     let tree = string_tree.append(tree, "
-  </body>
-</html>
+</body>
 
-")
+</html>")
 
     tree
 }
