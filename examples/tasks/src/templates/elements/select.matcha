@@ -1,0 +1,10 @@
+{> with select_id as String
+{> with select_name as String
+{> with label_text as String
+{> with options_html as String
+<label for="{{ select_id }}">
+  {{ label_text }}
+  <select id="{{ select_id }}" name="{{ select_name }}">
+    {{ options_html }}
+  </select>
+</label>

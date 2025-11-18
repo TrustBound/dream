@@ -66,18 +66,19 @@ Custom context types and middleware for auth.
 
 ---
 
-### 5. [cms/](../examples/cms/)
-**Full application with operations.**
+### 5. [tasks/](../examples/tasks/)
+**Full-featured task app with HTMX.**
 
-Complex CMS with posts, users, events, and operations.
+Complete task management application with HTMX, semantic classless HTML, and composable templates.
 
 **Demonstrates:**
-- Operations pattern (business logic)
-- Multiple services (DB, OpenSearch, events)
-- Coordinating models
-- Complex workflows
+- HTMX patterns (create, update, delete, toggle)
+- Semantic HTML only (no divs/spans)
+- Classless CSS (Pico CSS)
+- Composable matcha templates (elements → components → views)
+- No raw HTML in Gleam code
 
-**Run:** `cd examples/cms && make db-up && make migrate && make run`
+**Run:** `cd examples/tasks && make db-up && make migrate && make squirrel && make matcha && make run`
 
 ---
 

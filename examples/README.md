@@ -75,13 +75,20 @@ Each example runs in complete isolation:
 - Each has its own dependencies and build artifacts
 - Integration tests (`run_example.sh`) clean up automatically
 
+### 9. Tasks (`tasks/`)
+**Port:** 3000  
+**Database:** PostgreSQL on port 5437  
+**Features:** HTMX, semantic HTML, classless CSS, composable templates, drag-and-drop
+
+Full-featured task management app with projects and tags, demonstrating HTMX patterns and composable matcha architecture.
+
 ## Testing All Examples
 
 To run all examples sequentially:
 
 ```bash
 cd examples
-for dir in simplest simple singleton streaming custom_context static database multi_format; do
+for dir in simplest simple singleton streaming custom_context static database multi_format tasks; do
   cd $dir && ./run_example.sh && cd ..
 done
 ```
