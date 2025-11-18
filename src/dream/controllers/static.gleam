@@ -7,18 +7,20 @@
 ////
 //// ```gleam
 //// import dream/controllers/static
-//// import dream/core/http/transaction.{get_param}
+//// import dream/http/transaction.{get_string_param}
 ////
 //// pub fn serve_assets(request, ctx, svc) {
-////   let assert Ok(path) = get_param(request, "path")
-////   static.serve(
-////     request: request,
-////     context: ctx,
-////     services: svc,
-////     root: "./public",
-////     filepath: path.value,
-////     config: static.default_config(),
-////   )
+////   case get_string_param(request, "path") {
+////     Ok(path) -> static.serve(
+////       request: request,
+////       context: ctx,
+////       services: svc,
+////       root: "./public",
+////       filepath: path,
+////       config: static.default_config(),
+////     )
+////     Error(msg) -> json_response(status.bad_request, error_json(msg))
+////   }
 //// }
 ////
 //// // In your router:
@@ -40,10 +42,17 @@
 //// - **Index serving** - Serves `index.html` for directory requests
 //// - **Directory listing** - Optional file browser (disabled by default)
 //// - **Custom 404s** - Use your own not-found handler
+//// Control how directories and missing files are handled.
+//// - Serves `index.html` for directories
+//// - No directory listing
+//// - Standard 404 response for missing files
+//// Shows a file browser when a directory has no `index.html`. Use this for
+//// development or when you want users to browse files. Don't enable in production
+//// unless you specifically want directory browsing.
 
-import dream/core/http/transaction.{
-  type Request, type Response, Header, Response, Text,
-}
+import dream/http/header.{Header}
+import dream/http/request.{type Request}
+import dream/http/response.{type Response, Response, Text}
 import gleam/int
 import gleam/list
 import gleam/option.{type Option}
@@ -53,7 +62,6 @@ import simplifile
 
 /// Configuration for static file serving
 ///
-//// Control how directories and missing files are handled.
 pub type Config(context, services) {
   Config(
     /// Whether to serve index.html for directory requests
@@ -67,9 +75,6 @@ pub type Config(context, services) {
 
 /// Default configuration with secure settings
 ///
-//// - Serves `index.html` for directories
-//// - No directory listing
-//// - Standard 404 response for missing files
 pub fn default_config() -> Config(context, services) {
   Config(
     serve_index: True,
@@ -80,9 +85,6 @@ pub fn default_config() -> Config(context, services) {
 
 /// Enable directory listing
 ///
-//// Shows a file browser when a directory has no `index.html`. Use this for
-//// development or when you want users to browse files. Don't enable in production
-//// unless you specifically want directory browsing.
 pub fn with_directory_listing(
   config: Config(context, services),
 ) -> Config(context, services) {
@@ -114,15 +116,17 @@ pub fn without_index(
 /// Usage:
 /// ```gleam
 /// pub fn serve_public(request: Request, ctx, svc) -> Response {
-///   let assert Ok(filepath) = get_param(request, "filepath")
-///   static.serve(
-///     request: request,
-///     context: ctx,
-///     services: svc,
-///     root: "./public",
-///     filepath: filepath,
-///     config: static.default_config(),
-///   )
+///   case get_string_param(request, "filepath") {
+///     Ok(filepath) -> static.serve(
+///       request: request,
+///       context: ctx,
+///       services: svc,
+///       root: "./public",
+///       filepath: filepath,
+///       config: static.default_config(),
+///     )
+///     Error(msg) -> json_response(status.bad_request, error_json(msg))
+///   }
 /// }
 /// ```
 pub fn serve(

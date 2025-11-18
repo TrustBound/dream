@@ -3,12 +3,11 @@
 //// Middleware that enforces rate limits using dream_ets.
 //// Demonstrates practical use of services and middleware together.
 
-import dream/core/context.{type AppContext}
-import dream/core/http/response.{text_response}
-import dream/core/http/status
-import dream/core/http/transaction.{
-  type Request, type Response, Response, add_header, get_header,
-}
+import dream/context.{type AppContext}
+import dream/http/header.{add_header, get_header}
+import dream/http/request.{type Request}
+import dream/http/response.{type Response, Response, text_response}
+import dream/http/status
 import gleam/int
 import gleam/option
 import gleam/string

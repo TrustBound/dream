@@ -245,5 +245,7 @@ These aren't rules. They're guidelines. Break them when you have a good reason.
 
 ---
 
-**[← Back: Documentation](../../README.md)** | **[Next: Architecture Reference →](architecture.md)**
+**See Also:**
+- [Architecture Reference](architecture.md) - How Dream is structured
+- [Dream vs Mist](dream-vs-mist.md) - What Dream provides
 

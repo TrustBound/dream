@@ -3,8 +3,12 @@
 //// This module provides functions to convert Mist HTTP requests
 //// to Dream request format, including method, header, and cookie conversion.
 
-import dream/core/dream
-import dream/core/http/transaction
+import dream/dream
+import dream/http/header.{type Header, Header}
+import dream/http/request.{
+  type Method, type Request, Delete, Get, Head, Http, Http1, Https, Options,
+  Patch, Post, Put, Request,
+}
 import gleam/bit_array
 import gleam/erlang/process
 import gleam/http.{
@@ -13,7 +17,7 @@ import gleam/http.{
   Options as HttpOptions, Other as HttpOther, Patch as HttpPatch,
   Post as HttpPost, Put as HttpPut, Trace as HttpTrace,
 }
-import gleam/http/request.{type Request as HttpRequest}
+import gleam/http/request as http_request
 import gleam/int
 import gleam/list
 import gleam/option
@@ -32,9 +36,9 @@ pub fn generate_request_id() -> String {
 /// Convert mist Request to Dream Request (immutable HTTP data only)
 /// Returns the Request and a generated request_id for context creation
 pub fn convert(
-  mist_req: HttpRequest(Connection),
-  req_with_body: HttpRequest(BitArray),
-) -> #(transaction.Request, String) {
+  mist_req: http_request.Request(Connection),
+  req_with_body: http_request.Request(BitArray),
+) -> #(Request, String) {
   // Generate request_id for context creation
   let request_id = generate_request_id()
 
@@ -43,12 +47,12 @@ pub fn convert(
 
   // Convert protocol
   let protocol = case mist_req.scheme {
-    HttpScheme -> transaction.Http
-    HttpHttps -> transaction.Https
+    HttpScheme -> Http
+    HttpHttps -> Https
   }
 
   // Convert HTTP version (defaulting to HTTP/1.1 for now)
-  let version = transaction.Http1
+  let version = Http1
 
   // Get path and query
   let path = mist_req.path
@@ -87,7 +91,7 @@ pub fn convert(
   }
 
   let request =
-    transaction.Request(
+    Request(
       method: method,
       protocol: protocol,
       version: version,
@@ -108,26 +112,26 @@ pub fn convert(
 }
 
 /// Convert HTTP method from gleam/http format to Dream format
-fn convert_method(http_method: HttpMethod) -> transaction.Method {
+fn convert_method(http_method: HttpMethod) -> Method {
   case http_method {
-    HttpGet -> transaction.Get
-    HttpPost -> transaction.Post
-    HttpPut -> transaction.Put
-    HttpDelete -> transaction.Delete
-    HttpPatch -> transaction.Patch
-    HttpOptions -> transaction.Options
-    HttpHead -> transaction.Head
-    HttpOther(_) -> transaction.Get
+    HttpGet -> Get
+    HttpPost -> Post
+    HttpPut -> Put
+    HttpDelete -> Delete
+    HttpPatch -> Patch
+    HttpOptions -> Options
+    HttpHead -> Head
+    HttpOther(_) -> Get
     // Fallback for unknown methods
-    HttpConnect -> transaction.Get
+    HttpConnect -> Get
     // Fallback
-    HttpTrace -> transaction.Get
+    HttpTrace -> Get
     // Fallback
   }
 }
 
-fn convert_header(header: #(String, String)) -> transaction.Header {
-  transaction.Header(name: header.0, value: header.1)
+fn convert_header(header: #(String, String)) -> Header {
+  Header(name: header.0, value: header.1)
 }
 
 fn format_ip_address_value(ip_address: IpAddress) -> String {

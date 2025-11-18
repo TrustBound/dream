@@ -1,5 +1,5 @@
-import dream/core/http/transaction.{Delete, Get, Post, Put}
-import dream/core/router.{type Router, route, router}
+import dream/http/request.{Delete, Get, Post, Put}
+import dream/router.{type Router, route, router}
 import context.{type DatabaseContext}
 import controllers/posts_controller
 import controllers/users_controller

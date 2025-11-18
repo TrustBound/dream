@@ -84,7 +84,9 @@ pub fn test1()             // Meaningless
 Controllers receive `Request`, `Context`, and `Services`. Mock the services:
 
 ```gleam
-import dream/core/http/transaction.{Request, Response}
+import dream/http/response.{text_response}
+import dream/http/status.{ok}
+import dream/http/transaction.{Request, Response}
 import gleam/dynamic/decode
 import gleeunit/should
 import your_app/controllers/users_controller
@@ -108,9 +110,9 @@ pub fn index_returns_list_of_users_test() {
 Create test helpers in `test/your_app/test_helpers.gleam`:
 
 ```gleam
-import dream/services/service.{type DatabaseService, DatabaseService}
-import your_app/context.{type AppContext, AppContext}
-import your_app/services.{type Services, Services}
+import dream/services/service.{DatabaseService}
+import your_app/context.{AppContext}
+import your_app/services.{Services}
 
 pub fn test_context() -> AppContext {
   AppContext(request_id: "test-request-id")
@@ -196,7 +198,7 @@ pub fn auth_middleware_with_valid_token_calls_next_test() {
   let context = test_context()
   let services = test_services()
   let next = fn(_req, _ctx, _svc) {
-    text_response(status.ok, "Success")
+    text_response(ok, "Success")
   }
   
   // Act
@@ -489,5 +491,7 @@ Good tests make refactoring safe. Write them.
 
 ---
 
-**[← Back: Middleware](middleware.md)** | **[Up: Documentation](../../README.md)** | **[Next: Deployment →](deployment.md)**
+**See Also:**
+- [Deployment](deployment.md) - Running tests in production
+- [REST API](rest-api.md) - Testing API endpoints
 

@@ -166,7 +166,7 @@ Services that maintain global state across requests should use the singleton pat
 **Pattern:**
 
 ```gleam
-import dream/core/singleton
+import dream/singleton
 
 pub type Services {
   Services(
@@ -330,10 +330,12 @@ Dream doesn't lock you in. Extend as needed.
 ## Further Reading
 
 - [Design Principles](design-principles.md) - The "why" behind decisions
-- [Controllers and Models Guide](../guides/controllers-and-models.md) - Architecture patterns
-- [Middleware Guide](../guides/middleware.md) - Middleware in depth
+- [Lesson 2: Building an API](../learn/02-building-api.md) - Models, views, controllers in practice
+- [Lesson 3: Adding Auth](../learn/03-adding-auth.md) - Middleware in depth
 
 ---
 
-**[← Back: Documentation](../../README.md)**
+**See Also:**
+- [Design Principles](design-principles.md) - Why Dream is built this way
+- [Dream vs Mist](dream-vs-mist.md) - What Dream adds over raw Mist
 

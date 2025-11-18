@@ -3,9 +3,8 @@
 //// Generic error responses used across the application.
 //// Views handle domain-specific formatting, this handles common HTTP errors.
 
-import dream/core/http/response.{json_response}
-import dream/core/http/status
-import dream/core/http/transaction.{type Response}
+import dream/http/response.{type Response, json_response}
+import dream/http/status
 
 /// 404 Not Found response
 pub fn not_found(message: String) -> Response {

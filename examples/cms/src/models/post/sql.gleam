@@ -5,7 +5,7 @@
 ////
 
 import gleam/dynamic/decode
-import gleam/time/timestamp.{type Timestamp}
+import gleam/time/timestamp.{Timestamp}
 import pog
 
 /// A row you get from running the `create_post` query

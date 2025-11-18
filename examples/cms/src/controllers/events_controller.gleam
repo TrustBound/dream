@@ -4,9 +4,9 @@
 //// No nested cases, no anonymous functions.
 
 import context.{type Context}
-import dream/core/http/response.{json_response, sse_response}
-import dream/core/http/status
-import dream/core/http/transaction.{type Request, type Response}
+import dream/http/request.{type Request}
+import dream/http/response.{type Response, json_response, sse_response}
+import dream/http/status
 import gleam/yielder
 import operations/enrich_events
 import services.{type Services}

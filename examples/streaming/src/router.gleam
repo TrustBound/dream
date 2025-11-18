@@ -2,9 +2,9 @@
 ////
 //// This router demonstrates both streaming and non-streaming HTTP client usage.
 
-import dream/core/context.{type AppContext}
-import dream/core/http/transaction.{Get}
-import dream/core/router.{type EmptyServices, type Router, route, router}
+import dream/context.{type AppContext}
+import dream/http/request.{Get}
+import dream/router.{type EmptyServices, type Router, route, router}
 import controllers/stream_controller
 
 /// Create a router with streaming examples

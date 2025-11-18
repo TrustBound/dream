@@ -105,7 +105,7 @@ examples/static/
 ```gleam
 // 1. Create controller
 import dream/controllers/static
-import dream/core/http/transaction.{type Request, type Response, get_param}
+import dream/http/transaction.{type Request, type Response, get_param}
 
 pub fn serve_static(request: Request, _ctx, _svc) -> Response {
   let assert Ok(filepath) = get_param(request, "filepath")
@@ -120,7 +120,7 @@ pub fn serve_static(request: Request, _ctx, _svc) -> Response {
 }
 
 // 2. Add route
-import dream/core/router.{route}
+import dream/router.{route}
 
 router
 |> route(Get, "/public/**filepath", serve_static, [])

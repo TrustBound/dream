@@ -38,9 +38,9 @@
 ////
 //// The type system ensures your controllers receive the correct context type.
 
-import dream/core/context.{type AppContext}
-import dream/core/dream
-import dream/core/router.{type EmptyServices, type Router}
+import dream/context.{type AppContext}
+import dream/dream
+import dream/router.{type EmptyServices, type Router}
 import dream/servers/mist/handler
 import gleam/bytes_tree
 import gleam/erlang/process

@@ -1,11 +1,11 @@
 //// Static file serving controllers for the example app
 
 import dream/controllers/static
-import dream/core/context.{type AppContext}
-import dream/core/http/response.{html_response}
-import dream/core/http/status
-import dream/core/http/transaction.{type Request, type Response, get_param}
-import dream/core/router.{type EmptyServices}
+import dream/context.{type AppContext}
+import dream/http/request.{type Request, get_param}
+import dream/http/response.{type Response, html_response}
+import dream/http/status
+import dream/router.{type EmptyServices}
 import gleam/string
 
 /// Serve files from /public with directory listing

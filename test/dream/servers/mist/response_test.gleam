@@ -1,4 +1,6 @@
-import dream/core/http/transaction
+import dream/http/header.{Header}
+import dream/http/response.{Response, Text}
+import dream/http/cookie.{simple_cookie, secure_cookie}
 import dream/servers/mist/response as mist_response
 import gleam/option
 import gleam/string
@@ -8,12 +10,12 @@ import test_helpers.{get_header_value, has_header, has_header_containing}
 pub fn convert_with_valid_response_creates_mist_response_test() {
   // Arrange - construct response with multiple elements to verify conversion
   let dream_resp =
-    transaction.Response(
+    Response(
       status: 200,
-      body: transaction.Text("Hello World"),
+      body: Text("Hello World"),
       headers: [
-        transaction.Header("Content-Type", "text/plain; charset=utf-8"),
-        transaction.Header("X-Custom-Header", "custom-value"),
+        Header("Content-Type", "text/plain; charset=utf-8"),
+        Header("X-Custom-Header", "custom-value"),
       ],
       cookies: [],
       content_type: option.Some("text/plain; charset=utf-8"),
@@ -31,12 +33,12 @@ pub fn convert_with_valid_response_creates_mist_response_test() {
 
 pub fn convert_with_response_with_cookies_includes_cookie_headers_test() {
   // Arrange - response with cookie to verify cookie → Set-Cookie conversion
-  let cookie = transaction.simple_cookie("session", "abc123")
+  let cookie = simple_cookie("session", "abc123")
   let dream_resp =
-    transaction.Response(
+    Response(
       status: 200,
-      body: transaction.Text("Hello"),
-      headers: [transaction.Header("X-Test", "value")],
+      body: Text("Hello"),
+      headers: [Header("X-Test", "value")],
       cookies: [cookie],
       content_type: option.None,
     )
@@ -54,13 +56,13 @@ pub fn convert_with_response_with_cookies_includes_cookie_headers_test() {
 pub fn convert_with_multiple_headers_preserves_all_headers_test() {
   // Arrange - response with multiple headers to verify all are converted
   let dream_resp =
-    transaction.Response(
+    Response(
       status: 201,
-      body: transaction.Text("Created"),
+      body: Text("Created"),
       headers: [
-        transaction.Header("X-Request-ID", "req-123"),
-        transaction.Header("Cache-Control", "no-cache"),
-        transaction.Header("X-API-Version", "v2"),
+        Header("X-Request-ID", "req-123"),
+        Header("Cache-Control", "no-cache"),
+        Header("X-API-Version", "v2"),
       ],
       cookies: [],
       content_type: option.Some("application/json"),
@@ -79,11 +81,11 @@ pub fn convert_with_multiple_headers_preserves_all_headers_test() {
 
 pub fn convert_with_secure_cookie_includes_cookie_attributes_test() {
   // Arrange - secure cookie to verify attributes are in Set-Cookie header
-  let cookie = transaction.secure_cookie("auth_token", "secret123")
+  let cookie = secure_cookie("auth_token", "secret123")
   let dream_resp =
-    transaction.Response(
+    Response(
       status: 200,
-      body: transaction.Text("OK"),
+      body: Text("OK"),
       headers: [],
       cookies: [cookie],
       content_type: option.None,

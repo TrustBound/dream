@@ -17,44 +17,50 @@ cd examples/simple
 
 ## Available Examples
 
-### 1. Simple (`simple/`)
+### 1. Simplest (`simplest/`)
+**Port:** 3000  
+**Features:** Absolute minimum Dream application
+
+The simplest possible Dream app - one file, one route, returning "Hello, World!". Perfect starting point to understand Dream's core concepts with zero complexity.
+
+### 2. Simple (`simple/`)
 **Port:** 3000  
 **Features:** Basic routing with path parameters
 
-Demonstrates the simplest possible Dream app with two routes.
+Demonstrates a simple Dream app with two routes and an HTTP client.
 
-### 2. Singleton (`singleton/`)
+### 3. Singleton (`singleton/`)
 **Port:** 3000  
 **Features:** Global state management, rate limiting
 
 Shows how to use Dream's singleton pattern for managing global state (rate limiter service).
 
-### 3. Streaming (`streaming/`)
+### 4. Streaming (`streaming/`)
 **Port:** 3000  
 **Features:** HTTP client (streaming and non-streaming)
 
 Demonstrates Dream's HTTP client for making external requests.
 
-### 4. Custom Context (`custom_context/`)
+### 5. Custom Context (`custom_context/`)
 **Port:** 3001  
 **Features:** Authentication, authorization, middleware chaining
 
 Shows how to extend Dream's context with custom types for auth and use middleware.
 
-### 5. Static (`static/`)
+### 6. Static (`static/`)
 **Port:** 3000  
 **Features:** Static file serving, wildcard routing, directory listing
 
 Comprehensive example of all wildcard pattern types and secure static file serving.
 
-### 6. Database (`database/`)
+### 7. Database (`database/`)
 **Port:** 3002  
 **Database:** PostgreSQL on port 5435  
 **Features:** Full CRUD, type-safe SQL with Squirrel, database migrations
 
 Complete REST API with PostgreSQL integration.
 
-### 7. Multi-Format (`multi_format/`)
+### 8. Multi-Format (`multi_format/`)
 **Port:** 3000  
 **Database:** PostgreSQL on port 5436  
 **Features:** JSON, HTML, HTMX, CSV responses, streaming, Matcha templates
@@ -75,7 +81,7 @@ To run all examples sequentially:
 
 ```bash
 cd examples
-for dir in simple singleton streaming custom_context static database multi_format; do
+for dir in simplest simple singleton streaming custom_context static database multi_format; do
   cd $dir && ./run_example.sh && cd ..
 done
 ```

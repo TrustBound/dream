@@ -4,8 +4,8 @@ Optional convenience utilities for Dream applications.
 
 > **Note:** Most functionality has moved to Dream core. This module now contains
 > only optional JSON encoding helpers. For response builders, status constants,
-> and validation, use `dream/core/http/response`, `dream/core/http/status`, and
-> `dream/core/http/validation`.
+> and validation, use `dream/http/response`, `dream/http/status`, and
+> `dream/http/validation`.
 
 ## Provides
 

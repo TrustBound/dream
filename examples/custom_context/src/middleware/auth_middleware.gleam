@@ -2,10 +2,11 @@
 ////
 //// Authentication middleware that validates tokens and populates user context.
 
-import context.{type AuthContext, type User, AuthContext, User}
-import dream/core/http/response.{text_response}
-import dream/core/http/status
-import dream/core/http/transaction.{type Request, type Response, get_header}
+import context.{type AuthContext, AuthContext, type User, User}
+import dream/http/header.{get_header}
+import dream/http/request.{type Request}
+import dream/http/response.{type Response, text_response}
+import dream/http/status
 import gleam/option
 import services.{type Services}
 

@@ -8,13 +8,11 @@ import sql
 import views/products/templates/card
 import views/products/templates/index as index_view
 import views/products/templates/show as show_view
-import gleam/bit_array
 import gleam/float
 import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option
-import gleam/time/timestamp
 import gleam/yielder
 
 /// Format single product as JSON string

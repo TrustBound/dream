@@ -4,10 +4,10 @@
 //// Demonstrates middleware that coordinates with services.
 
 import context.{type Context}
-import dream/core/http/transaction.{
-  type Method, type Request, type Response, Delete, Get, Head, Options, Patch,
-  Post, Put,
+import dream/http/request.{
+  type Method, type Request, Delete, Get, Head, Options, Patch, Post, Put,
 }
+import dream/http/response.{type Response}
 import gleam/int
 import gleam/option
 import models/event/event as event_model

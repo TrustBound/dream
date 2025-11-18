@@ -11,7 +11,7 @@ import models/event/event as event_model
 import models/post/post as post_model
 import services.{type Services}
 import types/errors.{type DataError, Unauthorized}
-import types/event.{Event, PostPublished}
+import types/event.{type Event, Event, PostPublished}
 import types/post.{type Post}
 
 /// Execute publish operation

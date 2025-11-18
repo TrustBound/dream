@@ -3,11 +3,9 @@
 //// Handles HTTP concerns: parsing, error mapping, response building.
 
 import context.{type AppContext}
-import dream/core/http/response.{
-  html_response, json_response, stream_response, text_response,
-}
-import dream/core/http/status
-import dream/core/http/transaction.{type Request, type Response, get_param}
+import dream/http/request.{type Request, get_param}
+import dream/http/response.{type Response, html_response, json_response, text_response}
+import dream/http/status
 import models/product as product_model
 import services.{type Services}
 import types/errors

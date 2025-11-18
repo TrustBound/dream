@@ -9,6 +9,6 @@ pub type Services {
 
 /// Initialize all services
 pub fn initialize_services() -> Services {
-  let assert Ok(database_service) = database.init_database()
-  Services(database: database_service)
+  let assert Ok(db_service) = database.init_database()
+  Services(database: db_service)
 }

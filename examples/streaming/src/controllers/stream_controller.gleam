@@ -3,11 +3,11 @@
 //// Controller for streaming example routes.
 //// Follows Rails controller naming conventions.
 
-import dream/core/context.{type AppContext}
-import dream/core/http/response.{text_response}
-import dream/core/http/status
-import dream/core/http/transaction.{type Request, type Response}
-import dream/core/router.{type EmptyServices}
+import dream/context.{type AppContext}
+import dream/http/request.{type Request}
+import dream/http/response.{type Response, text_response}
+import dream/http/status
+import dream/router.{type EmptyServices}
 import dream_http_client/client
 import dream_http_client/fetch
 import dream_http_client/stream

@@ -1,6 +1,6 @@
 //// Singleton Rate Limiter Example
 ////
-//// Demonstrates using dream/core/singleton for global state management
+//// Demonstrates using dream/singleton for global state management
 //// with a practical rate limiting middleware implementation.
 ////
 //// This example shows:
@@ -19,7 +19,7 @@
 ////   # Make multiple requests to trigger rate limiting
 ////   for i in {1..15}; do curl http://localhost:3000/api; echo ""; done
 
-import dream/core/context
+import dream/context
 import dream/servers/mist/server.{bind, context, listen, router, services} as dream
 import router.{create_router}
 import services.{initialize_services}
