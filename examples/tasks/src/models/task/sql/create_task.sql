@@ -9,7 +9,7 @@ INSERT INTO tasks (
   position,
   project_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, 0))
 RETURNING
   id,
   title,

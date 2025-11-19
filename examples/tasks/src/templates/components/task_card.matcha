@@ -4,13 +4,21 @@
 {> with priority_badge as String
 {> with due_date_html as String
 {> with tags_html as String
+{> with edit_button as String
 {> with delete_button as String
-<article id="task-{{ task_id }}">
+<article id="task-{{ task_id }}" class="task-row">
   {{ checkbox_html }}
-  <h3>{{ title }}</h3>
-  {{ priority_badge }}
-  {{ due_date_html }}
-  {{ tags_html }}
-  {{ delete_button }}
+  <div class="task-content">
+    <h3>{{ title }}</h3>
+    <div class="task-meta">
+      {{ priority_badge }}
+      {{ due_date_html }}
+      {{ tags_html }}
+    </div>
+  </div>
+  <div class="task-actions">
+    {{ edit_button }}
+    {{ delete_button }}
+  </div>
 </article>
 

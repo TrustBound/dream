@@ -40,6 +40,7 @@ import gleam/int
 import gleam/list
 import gleam/option
 import gleam/string
+import gleam/uri
 import gleam/yielder
 
 /// HTTP request methods
@@ -362,10 +363,10 @@ pub fn parse_method(str: String) -> option.Option(Method) {
 // Request utilities
 
 /// Get a query parameter value from the raw query string
-/// Note: This is a simple implementation. For full URL parsing,
-/// consider using a dedicated URL parsing library.
+/// 
+/// Properly decodes URL-encoded values (e.g., %20 → space, %26 → &)
+/// Returns None if the parameter is not found.
 pub fn get_query_param(query: String, name: String) -> option.Option(String) {
-  // Simple implementation - would need proper URL decoding in production
   get_query_param_recursive(string.split(query, "&"), name)
 }
 
@@ -375,15 +376,56 @@ fn get_query_param_recursive(
 ) -> option.Option(String) {
   case params {
     [] -> option.None
-    [param, ..rest] ->
-      case string.split(param, "=") {
-        [key, value] ->
-          case key == name {
-            True -> option.Some(value)
-            False -> get_query_param_recursive(rest, name)
-          }
-        _ -> get_query_param_recursive(rest, name)
+    [param, ..rest] -> {
+      let result = parse_query_pair(param, name)
+      case result {
+        option.Some(_) -> result
+        option.None -> get_query_param_recursive(rest, name)
       }
+    }
+  }
+}
+
+fn parse_query_pair(param: String, name: String) -> option.Option(String) {
+  case string.split(param, "=") {
+    [key, value] -> {
+      // Decode both key and value
+      let decoded_key = decode_url_component(key)
+      let decoded_value = decode_url_component(value)
+      match_query_key(decoded_key, name, decoded_value)
+    }
+    [key] -> {
+      // Parameter with no value (empty string)
+      let decoded_key = decode_url_component(key)
+      match_query_key(decoded_key, name, "")
+    }
+    _ -> option.None
+  }
+}
+
+fn match_query_key(
+  key: String,
+  name: String,
+  value: String,
+) -> option.Option(String) {
+  case key == name {
+    True -> option.Some(value)
+    False -> option.None
+  }
+}
+
+/// Decode a URL-encoded component (key or value)
+/// 
+/// Handles percent-encoded sequences (e.g., %20, %26) and plus signs (+ → space)
+/// Falls back to original string if decoding fails
+fn decode_url_component(component: String) -> String {
+  // Replace + with space (form encoding convention)
+  let with_spaces = string.replace(component, "+", " ")
+  
+  // Decode percent-encoded sequences
+  case uri.percent_decode(with_spaces) {
+    Ok(decoded) -> decoded
+    Error(_) -> with_spaces
   }
 }
 

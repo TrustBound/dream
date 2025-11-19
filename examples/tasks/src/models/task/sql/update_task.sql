@@ -7,7 +7,7 @@ SET
   completed = $4,
   priority = $5,
   due_date = $6,
-  project_id = $7,
+  project_id = NULLIF($7, 0),
   updated_at = NOW()
 WHERE id = $1
 RETURNING

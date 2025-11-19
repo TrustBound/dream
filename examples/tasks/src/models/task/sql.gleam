@@ -86,7 +86,7 @@ INSERT INTO tasks (
   position,
   project_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, 0))
 RETURNING
   id,
   title,
@@ -625,7 +625,7 @@ SET
   completed = $4,
   priority = $5,
   due_date = $6,
-  project_id = $7,
+  project_id = NULLIF($7, 0),
   updated_at = NOW()
 WHERE id = $1
 RETURNING

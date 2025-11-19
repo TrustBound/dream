@@ -2,6 +2,7 @@
 
 import context.{type TasksContext}
 import controllers/projects_controller
+import controllers/static_controller
 import controllers/tags_controller
 import controllers/tasks_controller
 import dream/http/request.{Delete, Get, Post, Put}
@@ -11,6 +12,13 @@ import services.{type Services}
 
 pub fn create_router() -> Router(TasksContext, Services) {
   router
+  // Static files
+  |> route(
+    method: Get,
+    path: "/public/**filepath",
+    controller: static_controller.serve_public,
+    middleware: [],
+  )
   // Main page
   |> route(
     method: Get,
@@ -23,6 +31,12 @@ pub fn create_router() -> Router(TasksContext, Services) {
     method: Get,
     path: "/tasks/:task_id",
     controller: tasks_controller.show,
+    middleware: [logging_middleware.logging_middleware],
+  )
+  |> route(
+    method: Get,
+    path: "/tasks/:task_id/edit",
+    controller: tasks_controller.edit,
     middleware: [logging_middleware.logging_middleware],
   )
   |> route(

@@ -6,7 +6,7 @@ import dream/http/response.{type Response, html_response, json_response}
 import dream/http/status
 import gleam/option
 import models/tag/tag_model
-import models/task/model as task_model
+import models/task/task_model
 import services.{type Services}
 import types/tag.{TagData}
 import views/errors

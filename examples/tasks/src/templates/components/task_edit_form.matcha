@@ -1,0 +1,11 @@
+{> with task_id as String
+{> with form_action as String
+{> with form_fields as String
+{> with submit_text as String
+<article id="task-{{ task_id }}">
+  <form hx-put="{{ form_action }}" hx-target="#task-{{ task_id }}" hx-swap="outerHTML">
+    {{ form_fields }}
+    <button type="submit">{{ submit_text }}</button>
+  </form>
+</article>
+

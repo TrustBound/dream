@@ -3,13 +3,16 @@
 import gleam/int
 import gleam/option.{type Option}
 import gleam/string
+import templates/components/form_components
 import templates/components/tag_components
 import templates/components/task_card
+import templates/components/task_edit_form
 import templates/components/task_form
 import templates/components/task_list
 import templates/elements/checkbox_htmx
 import templates/elements/date_display
 import templates/elements/delete_button
+import templates/elements/edit_button
 import templates/elements/icon
 import templates/elements/list_item
 import templates/elements/priority_badge
@@ -27,10 +30,10 @@ pub fn task_card(task: Task, tags: List(Tag)) -> String {
     checkbox_htmx.render(task_id: task_id, checked_attr: checked_attr)
 
   let priority_text = case task.priority {
-    1 -> "🔴 Urgent"
-    2 -> "🟠 High"
-    3 -> "🟢 Normal"
-    4 -> "🔵 Low"
+    1 -> "Urgent"
+    2 -> "High"
+    3 -> "Normal"
+    4 -> "Low"
     _ -> "Normal"
   }
   let priority_badge_html = priority_badge.render(badge_text: priority_text)
@@ -44,6 +47,12 @@ pub fn task_card(task: Task, tags: List(Tag)) -> String {
   }
 
   let tags_html = tag_components.tag_list(tags)
+
+  let edit_btn =
+    edit_button.render(
+      entity_type: "tasks",
+      entity_id: task_id,
+    )
 
   let delete_btn =
     delete_button.render(
@@ -59,6 +68,7 @@ pub fn task_card(task: Task, tags: List(Tag)) -> String {
     priority_badge: priority_badge_html,
     due_date_html: due_date_html,
     tags_html: tags_html,
+    edit_button: edit_btn,
     delete_button: delete_btn,
   )
 }
@@ -101,9 +111,21 @@ pub fn task_form(task: Option(Task)) -> String {
 }
 
 fn create_form() -> String {
-  // Build form fields by calling element templates
-  let fields = ""
-  // TODO: build fields using form_components
+  let title_field =
+    form_components.text_field("title", "title", "Title", "")
+  let description_field =
+    form_components.text_area("description", "description", "Description", "")
+  let priority_field = form_components.priority_select("priority", "priority", 3)
+  let due_date_field = form_components.date_field("due_date", "due_date", "Due Date", "")
+
+  let fields =
+    title_field
+    <> "\n"
+    <> description_field
+    <> "\n"
+    <> priority_field
+    <> "\n"
+    <> due_date_field
 
   task_form.render(
     form_action: "/tasks",
@@ -117,15 +139,32 @@ fn create_form() -> String {
 }
 
 fn edit_form(task: Task) -> String {
-  let fields = ""
-  // TODO: build fields using form_components
+  let task_id = int.to_string(task.id)
+  let title_value = task.title
+  let description_value = option.unwrap(task.description, "")
+  let due_date_value = option.unwrap(task.due_date, "")
 
-  task_form.render(
-    form_action: "/tasks/" <> int.to_string(task.id) <> ".htmx",
-    form_method: "put",
-    form_target: "closest article",
-    form_swap: "outerHTML",
-    form_attrs: "",
+  let title_field =
+    form_components.text_field("title", "title", "Title", title_value)
+  let description_field =
+    form_components.text_area("description", "description", "Description", description_value)
+  let priority_field =
+    form_components.priority_select("priority", "priority", task.priority)
+  let due_date_field =
+    form_components.date_field("due_date", "due_date", "Due Date", due_date_value)
+
+  let fields =
+    title_field
+    <> "\n"
+    <> description_field
+    <> "\n"
+    <> priority_field
+    <> "\n"
+    <> due_date_field
+
+  task_edit_form.render(
+    task_id: task_id,
+    form_action: "/tasks/" <> task_id <> ".htmx",
     form_fields: fields,
     submit_text: "Save",
   )

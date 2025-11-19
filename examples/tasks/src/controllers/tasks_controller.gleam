@@ -2,17 +2,19 @@
 
 import context.{type TasksContext}
 import dream/http/request.{type Request, get_param}
-import dream/http/response.{type Response, empty_response, html_response}
+import dream/http/response.{type Response, html_response}
 import dream/http/status
 import gleam/int
 import gleam/io
 import gleam/list
 import gleam/option
-import models/tag/model as tag_model
+import gleam/string
+import models/tag/tag_model
 import models/task/task_model
 import services.{type Services}
 import types/tag.{type Tag}
 import types/task.{type Task, TaskData}
+import utilities/form_parser
 import views/errors
 import views/task_view
 
@@ -27,6 +29,21 @@ pub fn show(
 
   case task_model.get(services.db, task_id) {
     Ok(task) -> show_with_tags(services, task, param.format)
+    Error(_) -> errors.not_found("Task not found")
+  }
+}
+
+/// Show edit form for a task
+pub fn edit(
+  request: Request,
+  _context: TasksContext,
+  services: Services,
+) -> Response {
+  let assert Ok(param) = get_param(request, "task_id")
+  let assert Ok(task_id) = param.as_int
+
+  case task_model.get(services.db, task_id) {
+    Ok(task) -> html_response(status.ok, task_view.edit_form(task))
     Error(_) -> errors.not_found("Task not found")
   }
 }
@@ -100,25 +117,41 @@ fn build_tags_by_task(
 
 /// Create a new task
 pub fn create(
-  _request: Request,
+  request: Request,
   _context: TasksContext,
   services: Services,
 ) -> Response {
-  // For now, return placeholder - would need JSON validation
+  let form_data = form_parser.parse_form_body(request.body)
+  let title = form_parser.get_form_field(form_data, "title")
+    |> option.unwrap("New Task")
+  let description = form_parser.get_form_field_optional(form_data, "description")
+  let priority = form_parser.get_form_field_int(form_data, "priority")
+    |> option.unwrap(3)
+  let due_date = form_parser.get_form_field_optional(form_data, "due_date")
+
   let data =
     TaskData(
-      title: "New Task",
-      description: option.None,
+      title: title,
+      description: description,
       completed: False,
-      priority: 3,
-      due_date: option.None,
+      priority: priority,
+      due_date: due_date,
       position: 0,
       project_id: option.None,
     )
 
   case task_model.create(services.db, data) {
-    Ok(task) -> html_response(status.ok, task_view.card(task, []))
-    Error(_) -> errors.internal_error()
+    Ok(task) -> {
+      let tags = case tag_model.get_tags_for_task(services.db, task.id) {
+        Ok(t) -> t
+        Error(_) -> []
+      }
+      html_response(status.ok, task_view.card(task, tags))
+    }
+    Error(e) -> {
+      io.println(string.inspect(e))
+      errors.internal_error()
+    }
   }
 }
 
@@ -131,21 +164,40 @@ pub fn update(
   let assert Ok(param) = get_param(request, "task_id")
   let assert Ok(task_id) = param.as_int
 
-  // Placeholder - would need JSON validation
-  let data =
-    TaskData(
-      title: "Updated Task",
-      description: option.None,
-      completed: False,
-      priority: 3,
-      due_date: option.None,
-      position: 0,
-      project_id: option.None,
-    )
+  // Get existing task to preserve fields not in form
+  case task_model.get(services.db, task_id) {
+    Ok(existing_task) -> {
+      let form_data = form_parser.parse_form_body(request.body)
+      let title = form_parser.get_form_field(form_data, "title")
+        |> option.unwrap(existing_task.title)
+      let description = form_parser.get_form_field_optional(form_data, "description")
+      let priority = form_parser.get_form_field_int(form_data, "priority")
+        |> option.unwrap(existing_task.priority)
+      let due_date = form_parser.get_form_field_optional(form_data, "due_date")
 
-  case task_model.update(services.db, task_id, data) {
-    Ok(task) -> html_response(status.ok, task_view.card(task, []))
-    Error(_) -> errors.internal_error()
+      let data =
+        TaskData(
+          title: title,
+          description: description,
+          completed: existing_task.completed,
+          priority: priority,
+          due_date: due_date,
+          position: existing_task.position,
+          project_id: existing_task.project_id,
+        )
+
+      case task_model.update(services.db, task_id, data) {
+        Ok(task) -> {
+          let tags = case tag_model.get_tags_for_task(services.db, task.id) {
+            Ok(t) -> t
+            Error(_) -> []
+          }
+          html_response(status.ok, task_view.card(task, tags))
+        }
+        Error(_) -> errors.internal_error()
+      }
+    }
+    Error(_) -> errors.not_found("Task not found")
   }
 }
 
@@ -159,7 +211,7 @@ pub fn delete(
   let assert Ok(task_id) = param.as_int
 
   case task_model.delete(services.db, task_id) {
-    Ok(_) -> empty_response(status.no_content)
+    Ok(_) -> html_response(status.ok, "")
     Error(_) -> errors.internal_error()
   }
 }
@@ -194,11 +246,18 @@ pub fn reorder(
   let assert Ok(param) = get_param(request, "task_id")
   let assert Ok(task_id) = param.as_int
 
-  // Would need to get position from request body
-  let new_position = 0
+  let form_data = form_parser.parse_form_body(request.body)
+  let new_position = form_parser.get_form_field_int(form_data, "position")
+    |> option.unwrap(0)
 
   case task_model.update_position(services.db, task_id, new_position) {
-    Ok(_) -> empty_response(status.ok)
+    Ok(task) -> {
+      let tags = case tag_model.get_tags_for_task(services.db, task.id) {
+        Ok(t) -> t
+        Error(_) -> []
+      }
+      html_response(status.ok, task_view.card(task, tags))
+    }
     Error(_) -> errors.internal_error()
   }
 }

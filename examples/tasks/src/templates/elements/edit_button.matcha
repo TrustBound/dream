@@ -1,0 +1,4 @@
+{> with entity_type as String
+{> with entity_id as String
+<button hx-get="/{{ entity_type }}/{{ entity_id }}/edit.htmx" hx-target="closest article" hx-swap="outerHTML">Edit</button>
+

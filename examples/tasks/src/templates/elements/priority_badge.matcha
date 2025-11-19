@@ -1,3 +1,3 @@
 {> with badge_text as String
-<mark>{{ badge_text }}</mark>
+<mark data-priority="{{ badge_text }}">{{ badge_text }}</mark>
 

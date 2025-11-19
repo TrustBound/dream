@@ -28,7 +28,9 @@ pub fn list(db: Connection) -> Result(List(Task), DataError) {
   io.println("Model: Executing list_tasks query...")
   case sql.list_tasks(db) |> query.all_rows() {
     Ok(rows) -> {
-      io.println("Model: Got " <> int.to_string(list.length(rows)) <> " tasks from DB")
+      io.println(
+        "Model: Got " <> int.to_string(list.length(rows)) <> " tasks from DB",
+      )
       Ok(list.map(rows, list_row_to_task))
     }
     Error(_) -> {
@@ -51,12 +53,19 @@ pub fn list_by_project(
 
 /// Create a new task
 pub fn create(db: Connection, data: TaskData) -> Result(Task, DataError) {
-  // Simplified for now - passing default values for optional fields
   let description = option.unwrap(data.description, "")
   let default_date = calendar.Date(year: 2025, month: calendar.January, day: 1)
-  let due_date = default_date
+  let due_date = case data.due_date {
+    option.Some(date_str) -> {
+      case parse_date_string(date_str) {
+        option.Some(parsed_date) -> parsed_date
+        option.None -> default_date
+      }
+    }
+    option.None -> default_date
+  }
   let project_id = option.unwrap(data.project_id, 0)
-  
+
   case
     sql.create_task(
       db,
@@ -83,9 +92,17 @@ pub fn update(
 ) -> Result(Task, DataError) {
   let description = option.unwrap(data.description, "")
   let default_date = calendar.Date(year: 2025, month: calendar.January, day: 1)
-  let due_date = default_date
+  let due_date = case data.due_date {
+    option.Some(date_str) -> {
+      case parse_date_string(date_str) {
+        option.Some(parsed_date) -> parsed_date
+        option.None -> default_date
+      }
+    }
+    option.None -> default_date
+  }
   let project_id = option.unwrap(data.project_id, 0)
-  
+
   case
     sql.update_task(
       db,
@@ -250,7 +267,11 @@ fn timestamp_to_string(ts: timestamp.Timestamp) -> String {
 fn calendar_date_to_string(date: calendar.Date) -> String {
   let calendar.Date(year: y, month: m, day: d) = date
   let month_int = month_to_int(m)
-  int.to_string(y) <> "-" <> pad_zero(int.to_string(month_int)) <> "-" <> pad_zero(int.to_string(d))
+  int.to_string(y)
+  <> "-"
+  <> pad_zero(int.to_string(month_int))
+  <> "-"
+  <> pad_zero(int.to_string(d))
 }
 
 fn month_to_int(month: calendar.Month) -> Int {
@@ -277,3 +298,40 @@ fn pad_zero(s: String) -> String {
   }
 }
 
+/// Parse date string (YYYY-MM-DD) into calendar.Date
+/// Returns None if parsing fails
+fn parse_date_string(date_str: String) -> option.Option(calendar.Date) {
+  case string.split(date_str, "-") {
+    [year_str, month_str, day_str] -> {
+      case int.parse(year_str), int.parse(month_str), int.parse(day_str) {
+        Ok(year), Ok(month_int), Ok(day) -> {
+          case int_to_month(month_int) {
+            option.Some(month) ->
+              option.Some(calendar.Date(year: year, month: month, day: day))
+            option.None -> option.None
+          }
+        }
+        _, _, _ -> option.None
+      }
+    }
+    _ -> option.None
+  }
+}
+
+fn int_to_month(month_int: Int) -> option.Option(calendar.Month) {
+  case month_int {
+    1 -> option.Some(calendar.January)
+    2 -> option.Some(calendar.February)
+    3 -> option.Some(calendar.March)
+    4 -> option.Some(calendar.April)
+    5 -> option.Some(calendar.May)
+    6 -> option.Some(calendar.June)
+    7 -> option.Some(calendar.July)
+    8 -> option.Some(calendar.August)
+    9 -> option.Some(calendar.September)
+    10 -> option.Some(calendar.October)
+    11 -> option.Some(calendar.November)
+    12 -> option.Some(calendar.December)
+    _ -> option.None
+  }
+}
