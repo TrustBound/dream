@@ -1,25 +1,48 @@
 # Dream Documentation
 
-Dream is a web toolkit for Gleam that provides type-safe routing, dependency injection, and middleware. No magic, everything explicit.
+**Clean, composable web development for Gleam.**
+
+Dream is a web toolkit that gets out of your way. It provides type-safe routing, explicit dependency injection, and composable middleware. No magic. No global state. Just functions and data.
 
 ---
 
-## Where to Start?
+## Explore the System
 
-**Never used Dream?**  
-→ [5-Minute Quickstart](quickstart.md)
+### 🚀 [Quickstart](quickstart.md)
+**New to Dream?** Get a server running in 5 minutes. Copy-paste ready code to get you started immediately.
 
-**Learning Dream?**  
-→ [Learning Path](learn/) - 2 hours, start to finish
+### 🎓 [Learning Path](learn/)
+**Want to understand the system?** A structured 2-hour course taking you from "Hello World" to advanced production patterns.
+- [Hello World](learn/01-hello-world.md)
+- [Building an API](learn/02-building-api.md)
+- [Adding Auth](learn/03-adding-auth.md)
+- [Advanced Patterns](learn/04-advanced-patterns.md)
 
-**Building something?**  
-→ [Guides](guides/) - Task-based how-tos
+### 🛠️ [Guides](guides/)
+**Building something specific?** Task-based guides for common requirements.
+- [Authentication](guides/authentication.md) - JWT, Sessions, Context
+- [Controllers & Models](guides/controllers-and-models.md) - MVC Patterns
+- [Multiple Formats](guides/multiple-formats.md) - JSON, HTML, HTMX
+- [Operations](guides/operations.md) - Complex Business Logic
+- [Testing](guides/testing.md) - Unit and Integration Testing
 
-**Looking up details?**  
-→ [Reference](reference/) - API docs and deep dives
+### 📚 [Reference](reference/)
+**Need details?** Deep dives into the architecture and API.
+- [Architecture](reference/architecture.md) - How it all fits together
+- [Design Principles](reference/design-principles.md) - The "Why" behind Dream
+- [Naming Conventions](reference/naming-conventions.md) - Code Style
 
-**Contributing?**  
-→ [Contributing Guide](contributing/)
+### 📦 Ecosystem
+Dream is modular. You use what you need:
+- **Core:** `dream` (Router, HTTP types)
+- **Data:** `dream_postgres`, `dream_opensearch`
+- **Utils:** `dream_helpers`, `dream_config`
+
+---
+
+## Contributing
+Want to help? Check out the [Contributing Guide](contributing/).
+
 
 
 

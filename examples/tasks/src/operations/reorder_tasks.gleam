@@ -2,7 +2,7 @@
 
 import dream_postgres/client.{type Connection}
 import gleam/list
-import models/task/model as task_model
+import models/task/task_model
 import types/errors.{type DataError}
 import types/task.{type Task}
 
@@ -35,9 +35,9 @@ fn batch_reorder_recursive(
     [] -> Ok(list.reverse(results))
     [#(task_id, position), ..rest] ->
       case task_model.update_position(db, task_id, position) {
-        Ok(task_item) -> batch_reorder_recursive(db, rest, [task_item, ..results])
+        Ok(task_item) ->
+          batch_reorder_recursive(db, rest, [task_item, ..results])
         Error(err) -> Error(err)
       }
   }
 }
-

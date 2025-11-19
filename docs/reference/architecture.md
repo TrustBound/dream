@@ -172,58 +172,7 @@ pub type Services {
   Services(
     rate_limiter_name: process.Name(
       singleton.SingletonMessage(RateLimiterMessage, RateLimiterReply)
-    ),
-  )
-}
-
-pub fn initialize_services() -> Services {
-  // Create Name once
-  let name = process.new_name("rate_limiter_service")
-  
-  // Start singleton
-  case rate_limiter_service.start_with_name(name, config) {
-    Ok(_) -> Services(rate_limiter_name: name)
-    Error(msg) -> panic as "Failed to start service"
-  }
-}
-```
-
-**Critical:** Store the `process.Name` in Services, not a function that creates it. `process.new_name("name")` creates a new Name object each time—you must create it once and reuse that same object to reference the singleton.
-
-See the [Singleton Rate Limiter Example](../../examples.md#singleton-rate-limiter-example) for a complete implementation.
-
-### 6. HTTP Client
-
-Dream includes an HTTP client with builder pattern.
-
-**Builder:**
-
-```gleam
-client.new
-|> client.method(http.Get)
-|> client.scheme(http.Https)
-|> client.host("api.example.com")
-|> client.path("/users")
-```
-
-**Modes:**
-
-- **Non-streaming** - `fetch_module.request(req)` returns full response
-- **Streaming** - `stream_module.stream_request(req)` returns yielder of chunks
-
-## Request Pipeline
-
-When a request arrives:
-
-1. **Mist receives HTTP request**
-2. **Dream parses into Request type**
-3. **Router matches path/method**
-4. **Middleware chain executes** (if any)
-5. **Controller runs** with (Request, Context, Services)
-6. **Controller returns Response**
-7. **Response sent back through Mist**
-
-No hidden steps. No magic processing.
+Middleware enriches the context before it reaches the controller.
 
 ## Type Safety
 

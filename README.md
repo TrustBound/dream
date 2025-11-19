@@ -222,8 +222,45 @@ Controller orchestrates. Model fetches data. View formats it. All just functions
 ---
 
 Use what you need. Skip what you don't.
-
-## What a Real App Looks Like
+ 
+ ## Core Patterns
+ 
+ Beyond the basics, Dream provides patterns for scaling your application logic.
+ 
+ ### Operations *(Business Logic)*
+ 
+ Controllers should be thin. When logic gets complex (validation, multiple database calls, external services), use an **Operation**.
+ 
+ ```gleam
+ // operations/create_user.gleam
+ pub fn execute(services: Services, params: Params) -> Result(User, Error) {
+   use _ <- result.try(validate(params))
+   use user <- result.try(user_model.create(services.db, params))
+   let _ = mailer.send_welcome(services.mailer, user)
+   Ok(user)
+ }
+ ```
+ 
+ **Why?** Operations are testable without HTTP. They can be reused by API endpoints, background jobs, and CLI tasks.
+ 
+ ### Multi-Format Responses *(JSON + HTML)*
+ 
+ Serve API clients and browsers from the same controller.
+ 
+ ```gleam
+ pub fn show(request: Request, context: Context, services: Services) -> Response {
+   // ... fetch data ...
+   case format {
+     "json" -> json_response(ok, view.to_json(data))
+     "html" -> html_response(ok, view.to_html(data))
+     "htmx" -> html_response(ok, view.card(data)) // Partial for dynamic updates
+   }
+ }
+ ```
+ 
+ **Why?** Don't build two separate backends. One app, multiple views.
+ 
+ ## What a Real App Looks Like
 
 Here's a complete Dream app with models, views, and controllers:
 
@@ -234,40 +271,41 @@ your_app/
 │   ├── router.gleam
 │   ├── services.gleam
 │   ├── context.gleam
+│   ├── config.gleam
 │   │
 │   ├── controllers/
 │   │   ├── users_controller.gleam
-│   │   └── products_controller.gleam
+│   │   └── tasks_controller.gleam
+│   │
+│   ├── middleware/
+│   │   └── logging_middleware.gleam
 │   │
 │   ├── models/
 │   │   ├── user/
 │   │   │   ├── user_model.gleam
-│   │   │   ├── sql.gleam          # Generated
-│   │   │   └── sql/
-│   │   │       ├── list_users.sql
-│   │   │       ├── get_user.sql
-│   │   │       └── create_user.sql
-│   │   │
-│   │   └── product/
-│   │       ├── product_model.gleam
-│   │       ├── sql.gleam          # Generated
-│   │       └── sql/
-│   │           ├── list_products.sql
-│   │           └── get_product.sql
+│   │   │   └── sql.gleam
+│   │   └── task/
+│   │       ├── task_model.gleam
+│   │       └── sql.gleam
 │   │
 │   ├── views/
-│   │   ├── users/
-│   │   │   └── user_view.gleam
-│   │   └── products/
-│   │       ├── product_view.gleam
-│   │       └── templates/
-│   │           ├── index.gleam    # Generated
-│   │           ├── index.matcha
-│   │           ├── show.gleam     # Generated
-│   │           └── show.matcha
+│   │   ├── user_view.gleam
+│   │   └── task_view.gleam
 │   │
-│   └── services/
-│       └── database.gleam
+│   ├── operations/
+│   │   └── reorder_tasks.gleam
+│   │
+│   ├── templates/
+│   │   ├── components/
+│   │   ├── elements/
+│   │   ├── layouts/
+│   │   └── pages/
+│   │
+│   ├── services/
+│   │   └── database.gleam
+│   │
+│   └── types/
+│       └── user.gleam
 │
 └── gleam.toml
 ```
@@ -363,12 +401,12 @@ Want to dive into working examples? See `examples/` for complete applications yo
 - 📗 [Learning Path](docs/learn/) - 2 hours from hello world to production patterns
 
 **Guides:**
-- [REST API](docs/guides/rest-api.md) - Production API patterns
-- [Authentication](docs/guides/authentication.md) - JWT and sessions
-- [Multiple Formats](docs/guides/multiple-formats.md) - JSON, HTML, CSV
-- [Testing](docs/guides/testing.md) - Unit and integration testing
+- [Authentication](docs/guides/authentication.md) - JWT, Sessions, Context
+- [Controllers & Models](docs/guides/controllers-and-models.md) - MVC Patterns
+- [Multiple Formats](docs/guides/multiple-formats.md) - JSON, HTML, HTMX
+- [Operations](docs/guides/operations.md) - Complex Business Logic
+- [Testing](docs/guides/testing.md) - Unit and Integration Testing
 - [Deployment](docs/guides/deployment.md) - Running in production
-- [More guides...](docs/guides/)
 
 **Reference:**
 - [API Documentation](https://hexdocs.pm/dream) - Complete API reference on HexDocs

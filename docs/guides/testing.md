@@ -181,7 +181,7 @@ pub fn auth_middleware_without_token_returns_401_test() {
   let request = test_request()
   let context = test_context()
   let services = test_services()
-  let next = fn(_req, _ctx, _svc) {
+  let next = fn(_req, _context, _services) {
     panic as "Should not call next"
   }
   
@@ -197,7 +197,7 @@ pub fn auth_middleware_with_valid_token_calls_next_test() {
   let request = test_request_with_header("Authorization", "Bearer valid-token")
   let context = test_context()
   let services = test_services()
-  let next = fn(_req, _ctx, _svc) {
+  let next = fn(_req, _context, _services) {
     text_response(ok, "Success")
   }
   

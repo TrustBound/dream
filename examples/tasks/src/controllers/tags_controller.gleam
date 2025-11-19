@@ -5,7 +5,7 @@ import dream/http/request.{type Request, get_param}
 import dream/http/response.{type Response, html_response, json_response}
 import dream/http/status
 import gleam/option
-import models/tag/model as tag_model
+import models/tag/tag_model
 import models/task/model as task_model
 import services.{type Services}
 import types/tag.{TagData}
@@ -98,4 +98,3 @@ pub fn remove_from_task(
     Error(_) -> errors.internal_error()
   }
 }
-

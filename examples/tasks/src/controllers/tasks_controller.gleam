@@ -9,7 +9,7 @@ import gleam/io
 import gleam/list
 import gleam/option
 import models/tag/model as tag_model
-import models/task/model as task_model
+import models/task/task_model
 import services.{type Services}
 import types/tag.{type Tag}
 import types/task.{type Task, TaskData}
@@ -62,7 +62,11 @@ pub fn index(
   io.println("Index controller: Fetching tasks...")
   case task_model.list(services.db) {
     Ok(tasks) -> {
-      io.println("Index controller: Got " <> int.to_string(list.length(tasks)) <> " tasks")
+      io.println(
+        "Index controller: Got "
+        <> int.to_string(list.length(tasks))
+        <> " tasks",
+      )
       index_with_tags(services, tasks)
     }
     Error(_) -> {

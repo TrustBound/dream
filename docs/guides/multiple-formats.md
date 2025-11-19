@@ -1,6 +1,12 @@
 # Multiple Formats
 
-Serve the same data in different formats: JSON, HTML, CSV, XML.
+Serve the same data in different formats (JSON, HTML, CSV) from the same controller. This allows you to build a rich web UI and a JSON API with a single backend.
+
+## Concept
+
+**One Controller, Multiple Views.**
+
+Instead of separate `api/users_controller.gleam` and `web/users_controller.gleam`, you have one `users_controller.gleam` that responds with the requested format.
 
 ## Setup
 
@@ -10,309 +16,118 @@ Add Matcha for HTML templates:
 gleam add marceau
 ```
 
-Add to your `Makefile`:
+## Pattern: JSON + HTML (Side-by-Side)
 
-```makefile
-matcha:
-	@gleam run -m marceau
-```
+This pattern is powerful for modern web apps. You can serve:
+1.  **JSON** for mobile apps or external API clients.
+2.  **HTML** for the browser.
+3.  **HTMX Partials** for dynamic page updates without full reloads.
 
-Generate templates:
+### Controller Implementation
 
-```bash
-make matcha
-```
-
-This compiles `.matcha` files in your project to Gleam functions.
-
-## Format Detection
-
-### URL Extension
+Use a helper function to switch formats based on the request.
 
 ```gleam
-import dream/http/response.{json_response, text_response, html_response}
-import dream/http/status.{ok, not_found}
-import dream/http/transaction.{Request, Response, get_param}
-import dream/context.{AppContext}
-import gleam/option.{Option, None, Some}
-import models/product.{get, Product}
-import services.{Services}
-import views/product_view.{to_json, to_csv, to_html}
+import dream/http/response.{json_response, html_response}
+import dream/http/status.{ok}
+import dream/http/transaction.{type Request, type Response, get_param}
+import gleam/option.{type Option, Some, None}
+import views/task_view
+import models/task/task_model
 
-// Route: /products/:id.:format
-// URLs: /products/1.json, /products/1.html, /products/1.csv
-
-pub fn show(request: Request, context: AppContext, services: Services) -> Response {
+pub fn show(
+  request: Request,
+  _context: Context,
+  services: Services,
+) -> Response {
   let assert Ok(param) = get_param(request, "id")
   let assert Ok(id) = param.as_int
   
-  case get(services.db, id) {
-    Ok(product) -> respond_with_format(product, param.format)
-    Error(_) -> not_found_response()
+  case task_model.get(services.db, id) {
+    Ok(task) -> respond_with_format(task, param.format)
+    Error(_) -> errors.not_found()
   }
 }
 
-fn respond_with_format(product: Product, format: Option(String)) -> Response {
+fn respond_with_format(task: Task, format: Option(String)) -> Response {
   case format {
-    Some("json") -> json_response(ok, to_json(product))
-    Some("csv") -> text_response(ok, to_csv(product))
-    Some("html") -> html_response(ok, to_html(product))
-    _ -> html_response(ok, to_html(product))
+    // HTMX request asking for just the card partial
+    Some("htmx") -> html_response(ok, task_view.card(task))
+    
+    // Full HTML page
+    Some("html") -> html_response(ok, task_view.page(task))
+    
+    // Default to JSON
+    _ -> json_response(ok, task_view.to_json(task))
   }
-}
-
-fn not_found_response() -> Response {
-  text_response(not_found, "Not found")
 }
 ```
 
-### Accept Header
+### View Layer
+
+Your view module handles the different presentations.
 
 ```gleam
-import dream/http/response.{json_response, text_response, html_response}
-import dream/http/status.{ok, not_found}
-import dream/http/transaction.{Request, Response, get_header, get_param}
-import dream/context.{AppContext}
-import gleam/option.{unwrap, Option}
-import gleam/string.{contains}
-import models/product.{get, Product}
-import services.{Services}
-import views/product_view.{to_json, to_csv, to_html}
+// views/task_view.gleam
 
-pub fn show(request: Request, context: AppContext, services: Services) -> Response {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
-  let accept = get_header(request.headers, "Accept") |> unwrap("text/html")
-  
-  case get(services.db, id) {
-    Ok(product) -> respond_by_accept(product, accept)
-    Error(_) -> not_found_response()
-  }
-}
-
-fn respond_by_accept(product: Product, accept: String) -> Response {
-  case contains(accept, "application/json") {
-    True -> json_response(ok, to_json(product))
-    False -> check_csv_or_html(product, accept)
-  }
-}
-
-fn check_csv_or_html(product: Product, accept: String) -> Response {
-  case contains(accept, "text/csv") {
-    True -> text_response(ok, to_csv(product))
-    False -> html_response(ok, to_html(product))
-  }
-}
-
-fn not_found_response() -> Response {
-  text_response(not_found, "Not found")
-}
-```
-
-## View Layer
-
-Create `src/views/product_view.gleam`:
-
-```gleam
-import types/product.{Product}
-import gleam/float.{to_string}
-import gleam/int.{to_string}
-import gleam/json
-import gleam/list.{List, map}
-import gleam/option.{None, Option}
-import gleam/string.{join}
-import views/products/templates/show
-
-pub fn to_json(product: Product) -> String {
-  product_to_json_object(product)
-  |> json.to_string()
-}
-
-pub fn to_html(product: Product) -> String {
-  // Convert Product to SQL row type (Matcha templates expect SQL types)
-  let sql_row = product_to_sql_row(product)
-  show.render(sql_row)
-}
-
-pub fn to_csv(product: Product) -> String {
-  int.to_string(product.id)
-  <> "," <> product.name
-  <> "," <> float.to_string(product.price)
-  <> "," <> int.to_string(product.stock)
-}
-
-pub fn list_to_json(products: List(Product)) -> String {
-  map(products, product_to_json_object)
-  |> json.array(from: _, of: identity)
-  |> json.to_string()
-}
-
-pub fn list_to_csv(products: List(Product)) -> String {
-  let header = "id,name,price,stock\n"
-  let rows = map(products, product_to_csv_row) |> join("\n")
-  header <> rows
-}
-
-fn product_to_json_object(p: Product) -> json.Json {
+// JSON representation
+pub fn to_json(task: Task) -> String {
   json.object([
-    #("id", json.int(p.id)),
-    #("name", json.string(p.name)),
-    #("price", json.float(p.price)),
-    #("stock", json.int(p.stock)),
+    #("id", json.int(task.id)),
+    #("title", json.string(task.title)),
   ])
+  |> json.to_string()
 }
 
-fn product_to_csv_row(p: Product) -> String {
-  int.to_string(p.id)
-  <> "," <> p.name
-  <> "," <> float.to_string(p.price)
-  <> "," <> int.to_string(p.stock)
+// HTML Partial (for HTMX or including in other pages)
+pub fn card(task: Task) -> String {
+  // Uses Matcha template
+  templates.task_card(task)
 }
 
-fn identity(x: a) -> a {
-  x
-}
-
-// Adapter: Convert domain type to SQL row type for Matcha templates
-fn product_to_sql_row(product: Product) -> sql.GetProductRow {
-  sql.GetProductRow(
-    id: product.id,
-    name: product.name,
-    price: product.price,
-    stock: product.stock,
-    created_at: None,
+// Full HTML Page
+pub fn page(task: Task) -> String {
+  // Wraps the card in a layout
+  layout.main(
+    title: task.title,
+    content: card(task)
   )
 }
 ```
 
 ## Content Negotiation
 
+You can detect the desired format via:
+
+1.  **URL Extension:** `/tasks/1.json`, `/tasks/1.html` (Dream parses this into `param.format`)
+2.  **Accept Header:** `Accept: application/json`
+3.  **Custom Header:** `HX-Request: true` (common with HTMX)
+
+### Example with Headers
+
 ```gleam
-import dream/http/response.{json_response, text_response, html_response}
-import dream/http/status.{ok, not_found}
-import dream/http/transaction.{Request, Response, PathParam, get_header, get_param}
-import dream/context.{AppContext}
-import gleam/option.{Some, None, Option}
-import gleam/string.{contains}
-import models/product.{get, Product}
-import services.{Services}
-import views/product_view.{to_json, to_csv, to_html}
+import dream/http/transaction.{get_header}
 
-pub fn show(request: Request, context: AppContext, services: Services) -> Response {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
-  
-  case get(services.db, id) {
-    Ok(product) -> negotiate_format(request, param, product)
-    Error(_) -> not_found_response()
-  }
-}
-
-fn negotiate_format(request: Request, param: PathParam, product: Product) -> Response {
-  // Priority: URL extension > Accept header > default
+fn detect_format(request: Request, param: PathParam) -> String {
   case param.format {
-    Some(format) -> respond_with_format(product, Some(format))
-    None -> check_accept_header(request, product)
+    Some(f) -> f
+    None -> check_headers(request)
   }
 }
 
-fn check_accept_header(request: Request, product: Product) -> Response {
-  let accept = get_header(request.headers, "Accept")
-  respond_by_accept(product, accept)
-}
-
-fn respond_with_format(product: Product, format: Option(String)) -> Response {
-  case format {
-    Some("json") -> json_response(ok, to_json(product))
-    Some("csv") -> text_response(ok, to_csv(product))
-    Some("html") -> html_response(ok, to_html(product))
-    _ -> html_response(ok, to_html(product))
+fn check_headers(request: Request) -> String {
+  case get_header(request.headers, "HX-Request") {
+    Some("true") -> "htmx"
+    None -> "json" // Default
   }
-}
-
-fn respond_by_accept(product: Product, accept: Option(String)) -> Response {
-  case accept {
-    Some(header) -> check_format_in_header(product, header)
-    None -> html_response(ok, to_html(product))
-  }
-}
-
-fn check_format_in_header(product: Product, accept: String) -> Response {
-  case contains(accept, "application/json") {
-    True -> json_response(ok, to_json(product))
-    False -> check_csv_or_html(product, accept)
-  }
-}
-
-fn check_csv_or_html(product: Product, accept: String) -> Response {
-  case contains(accept, "text/csv") {
-    True -> text_response(ok, to_csv(product))
-    False -> html_response(ok, to_html(product))
-  }
-}
-
-fn not_found_response() -> Response {
-  text_response(not_found, "Not found")
 }
 ```
-
-## HTML Templates with Matcha
-
-Create `src/views/products/templates/show.matcha`:
-
-```matcha
-{> import sql.{type GetProductRow}
-{> import gleam/int
-{> import gleam/float
-{> with product as GetProductRow
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>{{ product.name }}</title>
-</head>
-<body>
-  <div class="product">
-    <h1>{{ product.name }}</h1>
-    <p>Price: ${{ float.to_string(product.price) }}</p>
-    <p>Stock: {{ int.to_string(product.stock) }}</p>
-  </div>
-</body>
-</html>
-```
-
-**Generate Gleam code:**
-
-```bash
-make matcha
-```
-
-This creates `src/views/products/templates/show.gleam` with a `render()` function.
-
-**Use in your view:**
-
-```gleam
-import views/products/templates/show
-
-pub fn to_html(product: Product) -> String {
-  let sql_row = product_to_sql_row(product)
-  show.render(sql_row)
-}
-```
-
-**Why Matcha?** Type-safe templates that compile to Gleam functions. The compiler catches template errors at build time.
 
 ## Working Example
 
-See [examples/multi_format/](../../examples/multi_format/) for complete code with:
-- JSON, HTML, CSV responses
-- Matcha templates
-- Format detection
-- HTMX partials
+See [examples/tasks](../../examples/tasks/) for a complete application demonstrating:
+- Side-by-side JSON and HTML
+- HTMX for dynamic updates
+- Shared business logic
 
-## See Also
-
-- [Streaming](streaming.md) - Stream large CSV files
-- [Testing](testing.md) - Test multiple formats
 

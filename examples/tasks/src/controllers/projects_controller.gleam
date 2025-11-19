@@ -5,9 +5,9 @@ import dream/http/request.{type Request, get_param}
 import dream/http/response.{type Response, empty_response, html_response}
 import dream/http/status
 import gleam/option
-import models/project/model as project_model
-import models/tag/model as tag_model
-import models/task/model as task_model
+import models/project/project_model
+import models/tag/tag_model
+import models/task/task_model
 import services.{type Services}
 import types/project.{type Project, ProjectData}
 import types/tag.{type Tag}
@@ -90,7 +90,11 @@ pub fn create(
 ) -> Response {
   // Placeholder - would need JSON/form validation
   let data =
-    ProjectData(name: "New Project", description: option.None, color: option.None)
+    ProjectData(
+      name: "New Project",
+      description: option.None,
+      color: option.None,
+    )
 
   case project_model.create(services.db, data) {
     Ok(project) -> html_response(status.ok, project_view.card(project))
@@ -112,4 +116,3 @@ pub fn delete(
     Error(_) -> errors.internal_error()
   }
 }
-
