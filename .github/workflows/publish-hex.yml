@@ -12,6 +12,36 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if version changed
+        id: version_check
+        run: |
+          # Get current version
+          CURRENT_VERSION=$(grep '^version = ' gleam.toml | sed 's/version = "\(.*\)"/\1/')
+
+          # Get previous version from the commit on main before this push
+          # github.event.before is the SHA of the commit before the push
+          if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            if git show ${{ github.event.before }}:gleam.toml > /dev/null 2>&1; then
+              PREVIOUS_VERSION=$(git show ${{ github.event.before }}:gleam.toml | grep '^version = ' | sed 's/version = "\(.*\)"/\1/')
+            else
+              # gleam.toml didn't exist in previous commit, treat as version change
+              PREVIOUS_VERSION=""
+            fi
+          else
+            # First push or no previous commit, treat as version change
+            PREVIOUS_VERSION=""
+          fi
+
+          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
+            echo "Version changed from '$PREVIOUS_VERSION' to '$CURRENT_VERSION'"
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+          else
+            echo "Version unchanged ($CURRENT_VERSION), skipping publish"
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Install Gleam
         uses: gleam-lang/setup-gleam@v2
@@ -33,6 +63,7 @@ jobs:
         run: gleam test
 
       - name: Publish to Hex
+        if: steps.version_check.outputs.should_publish == 'true'
         env:
           HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
         run: |
@@ -43,9 +74,11 @@ jobs:
           gleam publish
 
       - name: Build documentation
+        if: steps.version_check.outputs.should_publish == 'true'
         run: gleam docs build
 
       - name: Publish documentation
+        if: steps.version_check.outputs.should_publish == 'true'
         env:
           HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
         run: |
