@@ -1,0 +1,56 @@
+name: Publish to Hex
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Gleam
+        uses: gleam-lang/setup-gleam@v2
+        with:
+          gleam-version: "latest"
+
+      - name: Install Erlang
+        uses: erlang/setup-erlang@v1
+        with:
+          otp-version: "26"
+
+      - name: Download dependencies
+        run: gleam deps download
+
+      - name: Build project
+        run: gleam build
+
+      - name: Run tests
+        run: gleam test
+
+      - name: Publish to Hex
+        env:
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run: |
+          if [ -z "$HEX_API_KEY" ]; then
+            echo "Error: HEX_API_KEY secret is not set"
+            exit 1
+          fi
+          gleam publish
+
+      - name: Build documentation
+        run: gleam docs build
+
+      - name: Publish documentation
+        env:
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run: |
+          if [ -z "$HEX_API_KEY" ]; then
+            echo "Error: HEX_API_KEY secret is not set"
+            exit 1
+          fi
+          gleam docs publish
