@@ -253,7 +253,7 @@ pub fn new_inline(
   _context: TasksContext,
   services: Services,
 ) -> http.Response {
-  let project_id = case http.get_query_param(request, "project_id") {
+  let project_id = case http.get_query_param(request.query, "project_id") {
     option.Some(id_str) -> {
       case int.parse(id_str) {
         Ok(id) -> option.Some(id)

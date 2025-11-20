@@ -22,39 +22,39 @@ describe("Tasks Application", () => {
   describe("Inline Task Creation", () => {
     it("should create new inline task via + button", () => {
       cy.get("#add-task-btn").click();
-      
+
       // Inline editor should appear
       cy.get('article:has(input[name="title"])').should("be.visible");
       cy.get('input[name="title"]').should("have.focus");
-      
+
       // Type and save
       cy.get('input[name="title"]').type("New Task{enter}");
-      
+
       // Task should be created and new editor should appear
       cy.contains("article", "New Task").should("be.visible");
     });
 
     it("should create new inline task via Cmd+N keyboard shortcut", () => {
       cy.get("body").type("{meta}n");
-      
+
       // Inline editor should appear
       cy.get('article:has(input[name="title"])').should("be.visible");
       cy.get('input[name="title"]').type("Keyboard Task{enter}");
-      
+
       cy.contains("article", "Keyboard Task").should("be.visible");
     });
 
     it("should create task with all fields in inline editor", () => {
       cy.get("body").type("{meta}n");
-      
+
       cy.get('input[name="title"]').type("Full Task");
       cy.get('textarea[name="description"]').type("Full description");
       cy.get('select[name="priority"]').select("1"); // Urgent
       cy.get('input[name="due_date"]').type("2025-12-31");
-      
+
       // Save by pressing Enter in title field
       cy.get('input[name="title"]').type("{enter}");
-      
+
       cy.contains("article", "Full Task").should("be.visible");
       cy.contains("Full description").should("be.visible");
       cy.contains("Urgent").should("be.visible");
@@ -64,7 +64,7 @@ describe("Tasks Application", () => {
       cy.get("body").type("{meta}n");
       cy.get('input[name="title"]').type("Task to close");
       cy.get('input[name="title"]').type("{esc}");
-      
+
       // Editor should be closed (no input visible)
       cy.get('article:has(input[name="title"])').should("not.exist");
     });
@@ -74,14 +74,18 @@ describe("Tasks Application", () => {
       cy.get("body").type("{meta}n");
       cy.get('input[name="title"]').type("First Task{enter}");
       cy.contains("article", "First Task").should("be.visible");
-      
+
       // Click to select it
       cy.contains("article", "First Task").click();
-      cy.contains("article", "First Task").should("have.attr", "data-selected", "true");
-      
+      cy.contains("article", "First Task").should(
+        "have.attr",
+        "data-selected",
+        "true"
+      );
+
       // Press Cmd+N to create new task after selected one
       cy.get("body").type("{meta}n");
-      
+
       // New inline editor should appear
       cy.get('article:has(input[name="title"])').should("be.visible");
     });
@@ -99,7 +103,7 @@ describe("Tasks Application", () => {
         .find('input[type="checkbox"]')
         .should("not.be.checked")
         .check();
-      
+
       cy.contains("article", "Toggle Test Task")
         .find('input[type="checkbox"]')
         .should("be.checked");
@@ -110,7 +114,7 @@ describe("Tasks Application", () => {
         .find('input[type="checkbox"]')
         .check()
         .uncheck();
-      
+
       cy.contains("article", "Toggle Test Task")
         .find('input[type="checkbox"]')
         .should("not.be.checked");
@@ -129,14 +133,14 @@ describe("Tasks Application", () => {
         .find("button")
         .contains("Edit")
         .click();
-      
+
       // Edit form should be visible
       cy.get('input[name="title"]').should("have.value", "Edit Test Task");
     });
 
     it("should open edit form when task is double-clicked", () => {
       cy.contains("article", "Edit Test Task").dblclick();
-      
+
       // Edit form should be visible
       cy.get('input[name="title"]').should("have.value", "Edit Test Task");
     });
@@ -146,15 +150,17 @@ describe("Tasks Application", () => {
         .find("button")
         .contains("Edit")
         .click();
-      
+
       // Update fields
       cy.get('input[name="title"]').clear().type("Updated Task Title");
-      cy.get('textarea[name="description"]').clear().type("Updated description");
+      cy.get('textarea[name="description"]')
+        .clear()
+        .type("Updated description");
       cy.get('select[name="priority"]').select("1");
-      
+
       // Save by pressing Enter
       cy.get('input[name="title"]').type("{enter}");
-      
+
       // Verify task was updated
       cy.contains("article", "Updated Task Title").should("be.visible");
       cy.contains("Updated description").should("be.visible");
@@ -166,9 +172,9 @@ describe("Tasks Application", () => {
         .find("button")
         .contains("Edit")
         .click();
-      
+
       cy.get('input[name="title"]').type("Unsaved Change{esc}");
-      
+
       // Editor should be closed (back to card view)
       cy.contains("article", "Edit Test Task").should("be.visible");
       cy.contains("article", "Unsaved Change").should("not.exist");
@@ -186,12 +192,12 @@ describe("Tasks Application", () => {
       cy.window().then((win) => {
         cy.stub(win, "confirm").returns(true);
       });
-      
+
       cy.contains("article", "Delete Test Task")
         .find("button")
         .contains("Delete")
         .click();
-      
+
       cy.contains("article", "Delete Test Task").should("not.exist");
     });
 
@@ -199,12 +205,12 @@ describe("Tasks Application", () => {
       cy.window().then((win) => {
         cy.stub(win, "confirm").returns(false);
       });
-      
+
       cy.contains("article", "Delete Test Task")
         .find("button")
         .contains("Delete")
         .click();
-      
+
       cy.contains("article", "Delete Test Task").should("be.visible");
     });
   });
@@ -220,15 +226,23 @@ describe("Tasks Application", () => {
 
     it("should select task when clicked", () => {
       cy.contains("article", "Task 1").click();
-      cy.contains("article", "Task 1").should("have.attr", "data-selected", "true");
+      cy.contains("article", "Task 1").should(
+        "have.attr",
+        "data-selected",
+        "true"
+      );
     });
 
     it("should deselect previous task when new task is clicked", () => {
       cy.contains("article", "Task 1").click();
       cy.contains("article", "Task 2").click();
-      
+
       cy.contains("article", "Task 1").should("not.have.attr", "data-selected");
-      cy.contains("article", "Task 2").should("have.attr", "data-selected", "true");
+      cy.contains("article", "Task 2").should(
+        "have.attr",
+        "data-selected",
+        "true"
+      );
     });
   });
 
@@ -241,7 +255,7 @@ describe("Tasks Application", () => {
     it("should create a new project", () => {
       cy.visit("/projects");
       cy.contains("button", "Create Project").click();
-      
+
       // Project should appear in list
       cy.contains("article", "New Project").should("be.visible");
     });
@@ -253,7 +267,7 @@ describe("Tasks Application", () => {
         // Extract project ID from response or visit projects page to find it
         cy.visit("/projects");
         cy.contains("article", "New Project").should("be.visible");
-        
+
         // Create a task for the project (we'll need to get the project ID)
         // For now, just verify the project page loads
         cy.contains("article", "New Project").click();
@@ -267,18 +281,18 @@ describe("Tasks Application", () => {
         cy.visit("/projects");
         cy.contains("article", "New Project").click();
         cy.url().should("match", /\/projects\/\d+/);
-        
+
         // Extract project ID from URL
         cy.url().then((url) => {
           const projectId = url.match(/\/projects\/(\d+)/)?.[1];
-          
+
           // Create task via + button
           cy.get("#add-task-btn").click();
           cy.get('input[name="title"]').type("Project Task{enter}");
-          
+
           // Task should be created and associated with project
           cy.contains("article", "Project Task").should("be.visible");
-          
+
           // Verify it's in the project (refresh to see)
           cy.reload();
           cy.contains("article", "Project Task").should("be.visible");
@@ -294,11 +308,11 @@ describe("Tasks Application", () => {
           .find("button")
           .contains("Delete")
           .click();
-        
+
         cy.window().then((win) => {
           cy.stub(win, "confirm").returns(true);
         });
-        
+
         cy.contains("article", "New Project").should("not.exist");
       });
     });
@@ -322,10 +336,10 @@ describe("Tasks Application", () => {
     it("should navigate between pages", () => {
       cy.visit("/");
       cy.contains("My Tasks").should("be.visible");
-      
+
       cy.visit("/projects");
       cy.url().should("include", "/projects");
-      
+
       cy.visit("/");
       cy.url().should("eq", Cypress.config().baseUrl + "/");
     });
