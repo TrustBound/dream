@@ -1,5 +1,5 @@
 - add all files to the commit (i.e. `git add .`)
-- create a proper conventional commit with the issue number as the scope (i.e. feat(SVC-123): descriptive name of change)
+- create a proper conventional commit with the issue number as the scope, if we're on a branch with an issue number (i.e. feat(SVC-123): descriptive name of change)
 - push the branch to the remote repository
 - add all files to the commit (i.e. `git add .`)
 - create a conventional commit message for the changes
