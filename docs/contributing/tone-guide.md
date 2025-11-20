@@ -148,10 +148,12 @@ Step 3: Create the Model
 Create `src/models/user.gleam`:
 
 ```gleam
+import dream/http/error.{type Error, InternalServerError}
+
 pub fn get(db: Connection, id: Int) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
-    Error(_) -> Error(DatabaseError)
+    Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 ```
@@ -552,10 +554,12 @@ Here's an example:
 Here's a typical model:
 
 ```gleam
+import dream/http/error.{type Error, InternalServerError}
+
 pub fn get(db: Connection, id: Int) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
-    Error(_) -> Error(DatabaseError)
+    Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 ```

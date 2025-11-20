@@ -8,9 +8,9 @@ pub fn get_header_with_existing_header_returns_value_test() {
     Header("Content-Type", "application/json"),
     Header("Authorization", "Bearer token"),
   ]
-  
+
   let result = get_header(headers, "Content-Type")
-  
+
   case result {
     option.Some(value) -> value |> should.equal("application/json")
     option.None -> should.fail()
@@ -20,10 +20,6 @@ pub fn get_header_with_existing_header_returns_value_test() {
 pub fn set_header_with_new_header_adds_header_test() {
   let headers = []
   let result = set_header(headers, "X-Custom", "value")
-  
+
   list.length(result) |> should.equal(1)
 }
-
-
-
-

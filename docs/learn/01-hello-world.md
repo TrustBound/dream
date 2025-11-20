@@ -10,9 +10,8 @@ Your first Dream app is just one file with three pieces: a router, a controller,
 Create `src/hello_dream.gleam`:
 
 ```gleam
-import dream/http/response.{text_response}
-import dream/http/status.{ok}
-import dream/http/transaction.{type Request, type Response, Get}
+import dream/http.{type Request, type Response, text_response, ok}
+import dream/http/request.{Get}
 import dream/router.{type EmptyServices, route, router}
 import dream/servers/mist/server.{
   bind, listen, new, router as set_router, services,

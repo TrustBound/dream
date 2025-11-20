@@ -3,9 +3,9 @@
 //// Application-level services for the rate limiter example.
 //// Initializes and manages the rate limiter using dream_ets.
 
+import dream_ets/table
 import gleam/io
 import services/rate_limiter_service
-import dream_ets/table
 
 /// Services type holding the rate limiter
 pub type Services {
@@ -21,8 +21,16 @@ pub fn initialize_services() -> Services {
   }
 }
 
-fn create_rate_limiter() -> Result(rate_limiter_service.RateLimiter, table.EtsError) {
-  case rate_limiter_service.new("rate_limiter", rate_limiter_service.default_config()) {
+fn create_rate_limiter() -> Result(
+  rate_limiter_service.RateLimiter,
+  table.EtsError,
+) {
+  case
+    rate_limiter_service.new(
+      "rate_limiter",
+      rate_limiter_service.default_config(),
+    )
+  {
     Ok(limiter) -> {
       io.println("✓ Rate limiter service initialized")
       Ok(limiter)
@@ -30,7 +38,10 @@ fn create_rate_limiter() -> Result(rate_limiter_service.RateLimiter, table.EtsEr
     Error(table.TableAlreadyExists) -> {
       io.println("✓ Rate limiter service already initialized")
       // Table exists from previous run - recreate the wrapper
-      rate_limiter_service.new("rate_limiter", rate_limiter_service.default_config())
+      rate_limiter_service.new(
+        "rate_limiter",
+        rate_limiter_service.default_config(),
+      )
     }
     Error(err) -> {
       io.println("✗ Failed to initialize rate limiter service")

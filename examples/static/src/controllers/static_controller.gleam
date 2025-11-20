@@ -1,7 +1,7 @@
 //// Static file serving controllers for the example app
 
-import dream/controllers/static
 import dream/context.{type AppContext}
+import dream/controllers/static
 import dream/http/request.{type Request, get_param}
 import dream/http/response.{type Response, html_response}
 import dream/http/status

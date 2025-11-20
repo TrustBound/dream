@@ -2,6 +2,30 @@
 ////
 //// Core request types and functions for working with HTTP requests in Dream.
 //// Includes request methods, path parameters, query parameters, and request inspection.
+////
+//// ## Quick Example
+////
+//// ```gleam
+//// import dream/http/request.{type Request}
+////
+//// pub fn show_user(request: Request, context, services) {
+////   // Extract path parameter
+////   case request.get_int_param(request, "id") {
+////     Ok(id) -> {
+////       // Get query parameter
+////       let format = request.get_query_param(request.query, "format")
+////       
+////       // Access request data
+////       let method = request.method  // Get, Post, etc.
+////       let path = request.path      // "/users/123"
+////       let body = request.body      // Request body as string
+////       
+////       // Build response...
+////     }
+////     Error(msg) -> // Handle error
+////   }
+//// }
+//// ```
 
 import dream/http/cookie.{type Cookie}
 import dream/http/header.{type Header}
@@ -16,6 +40,19 @@ import gleam/uri
 ///
 /// The standard HTTP methods your routes can handle. Use these in your router
 /// to specify which method a route responds to.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream/http/request.{Get, Post, Put, Delete}
+/// import dream/router
+///
+/// router.new
+/// |> router.route(Get, "/users", list_users, [])
+/// |> router.route(Post, "/users", create_user, [])
+/// |> router.route(Put, "/users/:id", update_user, [])
+/// |> router.route(Delete, "/users/:id", delete_user, [])
+/// ```
 pub type Method {
   Post
   Get
@@ -27,12 +64,36 @@ pub type Method {
 }
 
 /// HTTP protocol type
+///
+/// Specifies whether the request came over HTTP or HTTPS.
+///
+/// ## Example
+///
+/// ```gleam
+/// case request.protocol {
+///   Http -> // Insecure connection
+///   Https -> // Secure connection
+/// }
+/// ```
 pub type Protocol {
   Http
   Https
 }
 
 /// HTTP version type
+///
+/// Specifies which HTTP protocol version was used.
+/// Most requests will be Http1 (HTTP/1.1).
+///
+/// ## Example
+///
+/// ```gleam
+/// case request.version {
+///   Http1 -> // HTTP/1.1
+///   Http2 -> // HTTP/2
+///   Http3 -> // HTTP/3 (QUIC)
+/// }
+/// ```
 pub type Version {
   Http1
   Http2
@@ -40,6 +101,45 @@ pub type Version {
 }
 
 /// HTTP request type
+///
+/// Represents a complete HTTP request with all its data.
+/// This is what your controllers receive as their first parameter.
+///
+/// ## Fields
+///
+/// - `method`: HTTP method (Get, Post, Put, etc.)
+/// - `protocol`: HTTP or HTTPS
+/// - `version`: HTTP version (Http1, Http2, Http3)
+/// - `path`: Request path (e.g., "/users/123")
+/// - `query`: Raw query string (e.g., "format=json&page=2")
+/// - `params`: Path parameters extracted by router (e.g., [#("id", "123")])
+/// - `host`: Host header value (e.g., "example.com")
+/// - `port`: Port number (e.g., 443)
+/// - `remote_address`: Client IP address
+/// - `body`: Request body as string
+/// - `headers`: List of HTTP headers
+/// - `cookies`: List of cookies
+/// - `content_type`: Content-Type header value
+/// - `content_length`: Content-Length header value
+///
+/// ## Example
+///
+/// ```gleam
+/// pub fn show_user(request: Request, context, services) {
+///   // Access request data
+///   let method = request.method      // Get
+///   let path = request.path          // "/users/123"
+///   let body = request.body          // Request body
+///   let headers = request.headers    // All headers
+///   let cookies = request.cookies    // All cookies
+///   
+///   // Extract path parameter
+///   case get_int_param(request, "id") {
+///     Ok(id) -> show_user_by_id(services.db, id)
+///     Error(msg) -> error_response(msg)
+///   }
+/// }
+/// ```
 pub type Request {
   Request(
     method: Method,

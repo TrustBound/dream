@@ -2,24 +2,37 @@
 
 import gleam/string_tree.{type StringTree}
 
+pub fn render_tree(
+  option_value option_value: String,
+  option_label option_label: String,
+  selected_attr selected_attr: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree = string_tree.append(tree, "<option value=\"")
+  let tree = string_tree.append(tree, option_value)
+  let tree = string_tree.append(tree, "\" ")
+  let tree = string_tree.append(tree, selected_attr)
+  let tree = string_tree.append(tree, ">")
+  let tree = string_tree.append(tree, option_label)
+  let tree =
+    string_tree.append(
+      tree,
+      "</option>
 
+",
+    )
 
-pub fn render_tree(option_value option_value: String, option_label option_label: String, selected_attr selected_attr: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<option value=\"")
-    let tree = string_tree.append(tree, option_value)
-    let tree = string_tree.append(tree, "\" ")
-    let tree = string_tree.append(tree, selected_attr)
-    let tree = string_tree.append(tree, ">")
-    let tree = string_tree.append(tree, option_label)
-    let tree = string_tree.append(tree, "</option>
-
-")
-
-    tree
+  tree
 }
 
-pub fn render(option_value option_value: String, option_label option_label: String, selected_attr selected_attr: String) -> String {
-    string_tree.to_string(render_tree(option_value: option_value, option_label: option_label, selected_attr: selected_attr))
+pub fn render(
+  option_value option_value: String,
+  option_label option_label: String,
+  selected_attr selected_attr: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    option_value: option_value,
+    option_label: option_label,
+    selected_attr: selected_attr,
+  ))
 }
-

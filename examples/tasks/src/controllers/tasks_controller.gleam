@@ -1,133 +1,108 @@
 //// Tasks controller - HTTP handlers with HTMX support
+////
+//// Thin HTTP layer that validates inputs, calls operations, and renders views.
 
 import context.{type TasksContext}
-import dream/http/request.{type Request, get_param}
-import dream/http/response.{type Response, html_response}
-import dream/http/status
+import dream/http as http
 import gleam/int
 import gleam/io
 import gleam/list
 import gleam/option
+import gleam/result
 import gleam/string
-import models/tag/tag_model
-import models/task/task_model
+import operations/task_operations
 import services.{type Services}
-import types/tag.{type Tag}
-import types/task.{type Task, TaskData}
-import utilities/form_parser
-import views/errors
+import types/task.{TaskData}
+import utilities/response_helpers
 import views/task_view
 
 /// Show single task
 pub fn show(
-  request: Request,
+  request: http.Request,
   _context: TasksContext,
   services: Services,
-) -> Response {
-  let assert Ok(param) = get_param(request, "task_id")
-  let assert Ok(task_id) = param.as_int
+) -> http.Response {
+  let result = {
+    use task_id <- result.try(http.require_int(request, "task_id"))
+    task_operations.get_task_with_tags(services.db, task_id)
+  }
 
-  case task_model.get(services.db, task_id) {
-    Ok(task) -> show_with_tags(services, task, param.format)
-    Error(_) -> errors.not_found("Task not found")
+  case result {
+    Ok(#(task, tags)) -> http.html_response(http.ok, task_view.card(task, tags))
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
-/// Show edit form for a task
+/// Show edit form for a task (returns inline editor)
 pub fn edit(
-  request: Request,
+  request: http.Request,
   _context: TasksContext,
   services: Services,
-) -> Response {
-  let assert Ok(param) = get_param(request, "task_id")
-  let assert Ok(task_id) = param.as_int
-
-  case task_model.get(services.db, task_id) {
-    Ok(task) -> html_response(status.ok, task_view.edit_form(task))
-    Error(_) -> errors.not_found("Task not found")
+) -> http.Response {
+  let result = {
+    use task_id <- result.try(http.require_int(request, "task_id"))
+    task_operations.get_task_with_tags(services.db, task_id)
   }
-}
 
-fn show_with_tags(
-  services: Services,
-  task: Task,
-  format: option.Option(String),
-) -> Response {
-  case tag_model.get_tags_for_task(services.db, task.id) {
-    Ok(tags) -> respond_with_format(task, tags, format)
-    Error(_) -> respond_with_format(task, [], format)
-  }
-}
-
-fn respond_with_format(
-  task: Task,
-  tags: List(Tag),
-  format: option.Option(String),
-) -> Response {
-  case format {
-    option.Some("htmx") -> html_response(status.ok, task_view.card(task, tags))
-    _ -> html_response(status.ok, task_view.to_json(task))
+  case result {
+    Ok(#(task, tags)) ->
+      http.html_response(http.ok, task_view.editor(task, tags))
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
 /// List all tasks
 pub fn index(
-  _request: Request,
+  _request: http.Request,
   _context: TasksContext,
   services: Services,
-) -> Response {
+) -> http.Response {
   io.println("Index controller: Fetching tasks...")
-  case task_model.list(services.db) {
-    Ok(tasks) -> {
+
+  case task_operations.list_tasks_with_tags(services.db) {
+    Ok(tasks_with_tags) -> {
       io.println(
         "Index controller: Got "
-        <> int.to_string(list.length(tasks))
+        <> int.to_string(list.length(tasks_with_tags))
         <> " tasks",
       )
-      index_with_tags(services, tasks)
+
+      // Separate tasks and tags_by_task for the view
+      let tasks = list.map(tasks_with_tags, response_helpers.extract_task)
+      let tags_by_task =
+        list.map(tasks_with_tags, response_helpers.extract_tags_by_task)
+
+      http.html_response(http.ok, task_view.index_page(tasks, tags_by_task))
     }
-    Error(_) -> {
+    Error(err) -> {
       io.println("Index controller: Error fetching tasks")
-      errors.internal_error()
-    }
-  }
-}
-
-fn index_with_tags(services: Services, tasks: List(Task)) -> Response {
-  // Get tags for all tasks
-  let tags_by_task = build_tags_by_task(services, tasks)
-  html_response(status.ok, task_view.index_page(tasks, tags_by_task))
-}
-
-fn build_tags_by_task(
-  services: Services,
-  tasks: List(Task),
-) -> List(#(Int, List(Tag))) {
-  case tasks {
-    [] -> []
-    [task, ..rest] -> {
-      let tags = case tag_model.get_tags_for_task(services.db, task.id) {
-        Ok(t) -> t
-        Error(_) -> []
-      }
-      [#(task.id, tags), ..build_tags_by_task(services, rest)]
+      response_helpers.handle_error(err)
     }
   }
 }
 
 /// Create a new task
 pub fn create(
-  request: Request,
+  request: http.Request,
   _context: TasksContext,
   services: Services,
-) -> Response {
-  let form_data = form_parser.parse_form_body(request.body)
-  let title = form_parser.get_form_field(form_data, "title")
-    |> option.unwrap("New Task")
-  let description = form_parser.get_form_field_optional(form_data, "description")
-  let priority = form_parser.get_form_field_int(form_data, "priority")
-    |> option.unwrap(3)
-  let due_date = form_parser.get_form_field_optional(form_data, "due_date")
+) -> http.Response {
+  let result = {
+    use form <- result.try(http.require_form(request))
+
+    let title = http.field_optional(form, "title") |> option.unwrap("New Task")
+    let description = http.field_optional(form, "description")
+    let priority =
+      http.require_field_int(form, "priority")
+      |> result.unwrap(3)
+    let due_date = http.field_optional(form, "due_date")
+    let project_id = http.field_optional(form, "project_id")
+      |> option.then(fn(id_str) {
+        case int.parse(id_str) {
+          Ok(id) -> option.Some(id)
+          Error(_) -> option.None
+        }
+      })
 
   let data =
     TaskData(
@@ -137,43 +112,45 @@ pub fn create(
       priority: priority,
       due_date: due_date,
       position: 0,
-      project_id: option.None,
+      project_id: project_id,
     )
 
-  case task_model.create(services.db, data) {
-    Ok(task) -> {
-      let tags = case tag_model.get_tags_for_task(services.db, task.id) {
-        Ok(t) -> t
-        Error(_) -> []
-      }
-      html_response(status.ok, task_view.card(task, tags))
-    }
+    use task <- result.try(task_operations.create_task(services.db, data))
+    task_operations.get_task_with_tags(services.db, task.id)
+  }
+
+  case result {
+    Ok(#(task, tags)) -> http.html_response(http.ok, task_view.card(task, tags))
     Error(e) -> {
       io.println(string.inspect(e))
-      errors.internal_error()
+      response_helpers.handle_error(e)
     }
   }
 }
 
 /// Update a task
 pub fn update(
-  request: Request,
+  request: http.Request,
   _context: TasksContext,
   services: Services,
-) -> Response {
-  let assert Ok(param) = get_param(request, "task_id")
-  let assert Ok(task_id) = param.as_int
+) -> http.Response {
+  let result = {
+    use task_id <- result.try(http.require_int(request, "task_id"))
 
-  // Get existing task to preserve fields not in form
-  case task_model.get(services.db, task_id) {
-    Ok(existing_task) -> {
-      let form_data = form_parser.parse_form_body(request.body)
-      let title = form_parser.get_form_field(form_data, "title")
-        |> option.unwrap(existing_task.title)
-      let description = form_parser.get_form_field_optional(form_data, "description")
-      let priority = form_parser.get_form_field_int(form_data, "priority")
-        |> option.unwrap(existing_task.priority)
-      let due_date = form_parser.get_form_field_optional(form_data, "due_date")
+    use existing_task <- result.try(task_operations.get_task(
+      services.db,
+      task_id,
+    ))
+
+    use form <- result.try(http.require_form(request))
+
+    let title =
+      http.field_optional(form, "title") |> option.unwrap(existing_task.title)
+    let description = http.field_optional(form, "description")
+    let priority =
+      http.require_field_int(form, "priority")
+      |> result.unwrap(existing_task.priority)
+    let due_date = http.field_optional(form, "due_date")
 
       let data =
         TaskData(
@@ -186,78 +163,141 @@ pub fn update(
           project_id: existing_task.project_id,
         )
 
-      case task_model.update(services.db, task_id, data) {
-        Ok(task) -> {
-          let tags = case tag_model.get_tags_for_task(services.db, task.id) {
-            Ok(t) -> t
-            Error(_) -> []
-          }
-          html_response(status.ok, task_view.card(task, tags))
-        }
-        Error(_) -> errors.internal_error()
-      }
-    }
-    Error(_) -> errors.not_found("Task not found")
+    use task <- result.try(task_operations.update_task(
+      services.db,
+      task_id,
+      data,
+    ))
+
+    task_operations.get_task_with_tags(services.db, task.id)
+  }
+
+  case result {
+    Ok(#(task, tags)) -> http.html_response(http.ok, task_view.card(task, tags))
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
 /// Delete a task
 pub fn delete(
-  request: Request,
+  request: http.Request,
   _context: TasksContext,
   services: Services,
-) -> Response {
-  let assert Ok(param) = get_param(request, "task_id")
-  let assert Ok(task_id) = param.as_int
+) -> http.Response {
+  let result = {
+    use task_id <- result.try(http.require_int(request, "task_id"))
+    task_operations.delete_task(services.db, task_id)
+  }
 
-  case task_model.delete(services.db, task_id) {
-    Ok(_) -> html_response(status.ok, "")
-    Error(_) -> errors.internal_error()
+  case result {
+    Ok(_) -> http.empty_response(http.no_content)
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
 /// Toggle task completion
 pub fn toggle(
-  request: Request,
+  request: http.Request,
   _context: TasksContext,
   services: Services,
-) -> Response {
-  let assert Ok(param) = get_param(request, "task_id")
-  let assert Ok(task_id) = param.as_int
+) -> http.Response {
+  let result = {
+    use task_id <- result.try(http.require_int(request, "task_id"))
 
-  case task_model.toggle_completed(services.db, task_id) {
-    Ok(task) -> {
-      let tags = case tag_model.get_tags_for_task(services.db, task.id) {
-        Ok(t) -> t
-        Error(_) -> []
-      }
-      html_response(status.ok, task_view.card(task, tags))
-    }
-    Error(_) -> errors.internal_error()
+    use task <- result.try(task_operations.toggle_completion(
+      services.db,
+      task_id,
+    ))
+
+    task_operations.get_task_with_tags(services.db, task.id)
+  }
+
+  case result {
+    Ok(#(task, tags)) -> http.html_response(http.ok, task_view.card(task, tags))
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
 /// Reorder task (update position)
 pub fn reorder(
-  request: Request,
+  request: http.Request,
   _context: TasksContext,
   services: Services,
-) -> Response {
-  let assert Ok(param) = get_param(request, "task_id")
-  let assert Ok(task_id) = param.as_int
+) -> http.Response {
+  let result = {
+    use task_id <- result.try(http.require_int(request, "task_id"))
+    use form <- result.try(http.require_form(request))
 
-  let form_data = form_parser.parse_form_body(request.body)
-  let new_position = form_parser.get_form_field_int(form_data, "position")
-    |> option.unwrap(0)
+    let new_position =
+      http.require_field_int(form, "position")
+      |> result.unwrap(0)
 
-  case task_model.update_position(services.db, task_id, new_position) {
-    Ok(task) -> {
-      let tags = case tag_model.get_tags_for_task(services.db, task.id) {
-        Ok(t) -> t
-        Error(_) -> []
+    use task <- result.try(task_operations.update_position(
+      services.db,
+      task_id,
+      new_position,
+    ))
+
+    task_operations.get_task_with_tags(services.db, task.id)
+  }
+
+  case result {
+    Ok(#(task, tags)) -> http.html_response(http.ok, task_view.card(task, tags))
+    Error(err) -> response_helpers.handle_error(err)
+  }
+}
+
+/// Render inline editor for new task
+pub fn new_inline(
+  request: http.Request,
+  _context: TasksContext,
+  services: Services,
+) -> http.Response {
+  let project_id = case http.get_query_param(request, "project_id") {
+    option.Some(id_str) -> {
+      case int.parse(id_str) {
+        Ok(id) -> option.Some(id)
+        Error(_) -> option.None
       }
-      html_response(status.ok, task_view.card(task, tags))
     }
-    Error(_) -> errors.internal_error()
+    option.None -> option.None
+  }
+
+  let data =
+    TaskData(
+    title: "",
+    description: option.None,
+    completed: False,
+    priority: 3,
+    due_date: option.None,
+    position: 0,
+    project_id: project_id,
+  )
+
+  case task_operations.create_task(services.db, data) {
+    Ok(task) -> http.html_response(http.ok, task_view.editor(task, []))
+    Error(err) -> response_helpers.handle_error(err)
+  }
+}
+
+/// Update a single field (auto-save)
+pub fn update_field(
+  request: http.Request,
+  _context: TasksContext,
+  services: Services,
+) -> http.Response {
+  let result = {
+    use task_id <- result.try(http.require_int(request, "task_id"))
+    use form <- result.try(http.require_form(request))
+
+    let field = http.field_optional(form, "field") |> option.unwrap("")
+    let value = http.field_optional(form, field) |> option.unwrap("")
+
+    task_operations.update_field(services.db, task_id, field, value)
+  }
+
+  case result {
+    Ok(_) -> http.empty_response(http.ok)
+    Error(err) -> response_helpers.handle_error(err)
   }
 }

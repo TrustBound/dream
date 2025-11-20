@@ -4,15 +4,24 @@
 //// Handles HTTP concerns: parsing, error mapping, response building.
 
 import context.{type DatabaseContext}
-import dream/http/request.{type Request, get_param}
-import dream/http/response.{type Response, json_response}
+import dream/http.{type Request, type Response, require_int}
+import dream/http/error.{type Error, BadRequest}
+import dream/http/response.{json_response}
 import dream/http/status
 import dream/http/validation.{validate_json}
+import gleam/result
 import models/post
+import operations/post_operations
 import services.{type Services}
-import types/errors
-import views/errors as error_responses
+import utilities/response_helpers
 import views/post_view
+
+fn parse_post_data(body: String) -> Result(#(String, String), Error) {
+  case validate_json(body, post.decoder()) {
+    Ok(d) -> Ok(d)
+    Error(_) -> Error(BadRequest("Invalid post data"))
+  }
+}
 
 /// List all posts for a user
 pub fn index(
@@ -20,13 +29,15 @@ pub fn index(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  let assert Ok(param) = get_param(request, "user_id")
-  let assert Ok(user_id) = param.as_int
-
+  let result = {
+    use user_id <- result.try(require_int(request, "user_id"))
   let db = services.database.connection
-  case post.list(db, user_id) {
+    post_operations.list_posts(db, user_id)
+  }
+
+  case result {
     Ok(posts) -> json_response(status.ok, post_view.list_to_json(posts))
-    Error(_) -> error_responses.internal_error()
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
@@ -36,14 +47,15 @@ pub fn show(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
-
+  let result = {
+    use id <- result.try(require_int(request, "id"))
   let db = services.database.connection
-  case post.get(db, id) {
+    post_operations.get_post(db, id)
+  }
+
+  case result {
     Ok(post_data) -> json_response(status.ok, post_view.to_json(post_data))
-    Error(errors.NotFound) -> error_responses.not_found("Post not found")
-    Error(_) -> error_responses.internal_error()
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
@@ -53,24 +65,16 @@ pub fn create(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  let assert Ok(param) = get_param(request, "user_id")
-  let assert Ok(user_id) = param.as_int
-
-  case validate_json(request.body, post.decoder()) {
-    Error(_) -> error_responses.bad_request("Invalid post data")
-    Ok(data) -> create_with_data(services, user_id, data)
-  }
-}
-
-fn create_with_data(
-  services: Services,
-  user_id: Int,
-  data: #(String, String),
-) -> Response {
+  let result = {
+    use user_id <- result.try(require_int(request, "user_id"))
+    use data <- result.try(parse_post_data(request.body))
+    let #(title, content) = data
   let db = services.database.connection
-  let #(title, content) = data
-  case post.create(db, user_id, title, content) {
+    post_operations.create_post(db, user_id, title, content)
+  }
+
+  case result {
     Ok(post_data) -> json_response(status.created, post_view.to_json(post_data))
-    Error(_) -> error_responses.internal_error()
+    Error(err) -> response_helpers.handle_error(err)
   }
 }

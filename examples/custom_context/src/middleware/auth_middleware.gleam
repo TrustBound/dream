@@ -2,7 +2,7 @@
 ////
 //// Authentication middleware that validates tokens and populates user context.
 
-import context.{type AuthContext, AuthContext, type User, User}
+import context.{type AuthContext, type User, AuthContext, User}
 import dream/http/header.{get_header}
 import dream/http/request.{type Request}
 import dream/http/response.{type Response, text_response}
@@ -18,7 +18,10 @@ pub fn auth_middleware(
 ) -> Response {
   case get_header(request.headers, "Authorization") {
     option.None ->
-      text_response(status.unauthorized, "Unauthorized: Missing Authorization header")
+      text_response(
+        status.unauthorized,
+        "Unauthorized: Missing Authorization header",
+      )
     option.Some(token) ->
       validate_and_authenticate(request, context, services, token, next)
   }

@@ -3,16 +3,31 @@
 //// Handles HTTP concerns: parsing, error mapping, response building.
 
 import context.{type AppContext}
-import dream/http/request.{type Request, get_param}
-import dream/http/response.{type Response, html_response, json_response, text_response}
+import dream/http.{type Request, type Response}
+import dream/http/error.{type Error, BadRequest}
+import dream/http/request.{get_param, type PathParam}
+import dream/http/response.{
+  html_response, json_response, text_response,
+}
 import dream/http/status
-import models/product as product_model
-import services.{type Services}
-import types/errors
-import types/product
-import views/errors as error_responses
-import views/products/view as product_view
 import gleam/option
+import gleam/result
+import operations/product_operations
+import services.{type Services}
+import types/product.{type Product}
+import utilities/response_helpers
+import views/products/view as product_view
+
+fn parse_int_param(param: PathParam) -> Result(Int, Error) {
+  case param.as_int {
+    Ok(i) -> Ok(i)
+    Error(_) -> Error(BadRequest("id must be an integer"))
+  }
+}
+
+fn map_param_error(msg: String) -> Error {
+  BadRequest(msg)
+}
 
 /// Show single product - supports .json, .htmx, .csv extensions
 pub fn show(
@@ -20,24 +35,32 @@ pub fn show(
   _context: AppContext,
   services: Services,
 ) -> Response {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
-
+  let result = {
+    use param <- result.try(
+      result.map_error(get_param(request, "id"), map_param_error)
+    )
+    use id <- result.try(parse_int_param(param))
+    let format = param.format
   let db = services.database.connection
-  case product_model.get(db, id) {
-    Ok(product) -> respond_with_format(product, param.format)
-    Error(errors.NotFound) -> error_responses.not_found("Product not found")
-    Error(_) -> error_responses.internal_error()
+    use product <- result.try(product_operations.get_product(db, id))
+    Ok(#(product, format))
+  }
+
+  case result {
+    Ok(#(product, format)) -> respond_with_format(product, format)
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
 fn respond_with_format(
-  product: product.Product,
+  product: Product,
   format: option.Option(String),
 ) -> Response {
   case format {
-    option.Some("json") -> json_response(status.ok, product_view.to_json(product))
-    option.Some("htmx") -> html_response(status.ok, product_view.to_htmx(product))
+    option.Some("json") ->
+      json_response(status.ok, product_view.to_json(product))
+    option.Some("htmx") ->
+      html_response(status.ok, product_view.to_htmx(product))
     option.Some("csv") -> text_response(status.ok, product_view.to_csv(product))
     _ -> html_response(status.ok, product_view.to_html(product))
   }
@@ -49,9 +72,14 @@ pub fn index(
   _context: AppContext,
   services: Services,
 ) -> Response {
+  let result = {
   let db = services.database.connection
-  case product_model.list(db) {
-    Ok(products) -> html_response(status.ok, product_view.list_to_html(products))
-    Error(_) -> error_responses.internal_error()
+    product_operations.list_products(db)
+  }
+
+  case result {
+    Ok(products) ->
+      html_response(status.ok, product_view.list_to_html(products))
+    Error(err) -> response_helpers.handle_error(err)
   }
 }

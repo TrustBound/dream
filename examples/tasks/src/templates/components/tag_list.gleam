@@ -2,22 +2,27 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
 pub fn render_tree(badges_html badges_html: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<footer>
-  ")
-    let tree = string_tree.append(tree, badges_html)
-    let tree = string_tree.append(tree, "
+  let tree = string_tree.from_string("")
+  let tree =
+    string_tree.append(
+      tree,
+      "<footer>
+  ",
+    )
+  let tree = string_tree.append(tree, badges_html)
+  let tree =
+    string_tree.append(
+      tree,
+      "
 </footer>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
 pub fn render(badges_html badges_html: String) -> String {
-    string_tree.to_string(render_tree(badges_html: badges_html))
+  string_tree.to_string(render_tree(badges_html: badges_html))
 }
-

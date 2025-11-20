@@ -1,11 +1,11 @@
 //// Custom context example - demonstrating authentication and authorization
 
-import dream/servers/mist/server.{bind, context, listen, router, services} as dream
 import context as app_context
-import router as app_router
-import services as app_services
+import dream/servers/mist/server.{bind, context, listen, router, services} as dream
 import gleam/io
 import gleam/option
+import router as app_router
+import services as app_services
 
 pub fn main() {
   // Initialize services
@@ -22,6 +22,10 @@ pub fn main() {
   io.println("Custom context example server listening on http://localhost:3001")
   io.println("Try:")
   io.println("  GET /                          - Public endpoint")
-  io.println("  GET /users/1/posts/2           - Requires auth (Bearer user-token)")
-  io.println("  GET /admin                     - Requires admin (Bearer admin-token)")
+  io.println(
+    "  GET /users/1/posts/2           - Requires auth (Bearer user-token)",
+  )
+  io.println(
+    "  GET /admin                     - Requires admin (Bearer admin-token)",
+  )
 }

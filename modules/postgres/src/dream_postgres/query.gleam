@@ -72,4 +72,3 @@ pub fn all_rows(
     Error(_) -> Error(DatabaseError)
   }
 }
-

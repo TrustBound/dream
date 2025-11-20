@@ -69,6 +69,18 @@ pub fn create_router() -> Router(TasksContext, Services) {
     controller: tasks_controller.reorder,
     middleware: [logging_middleware.logging_middleware],
   )
+  |> route(
+    method: Get,
+    path: "/tasks/new-inline",
+    controller: tasks_controller.new_inline,
+    middleware: [logging_middleware.logging_middleware],
+  )
+  |> route(
+    method: Post,
+    path: "/tasks/:task_id/update-field",
+    controller: tasks_controller.update_field,
+    middleware: [logging_middleware.logging_middleware],
+  )
   // Projects routes
   |> route(
     method: Get,
@@ -108,9 +120,21 @@ pub fn create_router() -> Router(TasksContext, Services) {
     middleware: [],
   )
   |> route(
+    method: Get,
+    path: "/tasks/:task_id/tags",
+    controller: tags_controller.get_task_tags,
+    middleware: [logging_middleware.logging_middleware],
+  )
+  |> route(
     method: Post,
     path: "/tasks/:task_id/tags",
     controller: tags_controller.add_to_task,
+    middleware: [],
+  )
+  |> route(
+    method: Post,
+    path: "/tasks/:task_id/tags/create",
+    controller: tags_controller.create_and_add_to_task,
     middleware: [],
   )
   |> route(
@@ -120,4 +144,3 @@ pub fn create_router() -> Router(TasksContext, Services) {
     middleware: [],
   )
 }
-

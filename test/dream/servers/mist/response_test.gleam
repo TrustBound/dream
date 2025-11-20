@@ -1,6 +1,6 @@
+import dream/http/cookie.{secure_cookie, simple_cookie}
 import dream/http/header.{Header}
 import dream/http/response.{Response, Text}
-import dream/http/cookie.{simple_cookie, secure_cookie}
 import dream/servers/mist/response as mist_response
 import gleam/option
 import gleam/string

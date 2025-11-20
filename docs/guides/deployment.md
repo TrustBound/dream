@@ -205,9 +205,7 @@ Docker/Kubernetes will capture stdout and route it to your log aggregator.
 Add a health endpoint:
 
 ```gleam
-import dream/http/response.{text_response}
-import dream/http/status.{ok, service_unavailable}
-import dream/http/transaction.{Request, Response}
+import dream/http.{type Request, type Response, text_response, ok, service_unavailable}
 import dream/context.{AppContext}
 import pog.{query}
 import services.{Services}
@@ -234,7 +232,7 @@ fn check_database(db: pog.Connection) -> Result(Nil, Nil) {
 Add to router:
 
 ```gleam
-import dream/http/transaction.{Get}
+import dream/http/request.{Get}
 import dream/router.{route}
 
 router
@@ -361,7 +359,7 @@ Never commit secrets to Git. Use secret management:
 Log key metrics:
 
 ```gleam
-import dream/http/transaction.{Request, Response}
+import dream/http.{type Request, type Response}
 import gleam/io.{println}
 import gleam/json.{object, string, int, to_string}
 import gleam/http.{method_to_string}

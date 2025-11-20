@@ -2,23 +2,28 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
 pub fn render_tree(form_fields form_fields: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<form hx-post=\"/projects\" hx-swap=\"beforebegin\">
-  ")
-    let tree = string_tree.append(tree, form_fields)
-    let tree = string_tree.append(tree, "
+  let tree = string_tree.from_string("")
+  let tree =
+    string_tree.append(
+      tree,
+      "<form hx-post=\"/projects\" hx-swap=\"beforebegin\">
+  ",
+    )
+  let tree = string_tree.append(tree, form_fields)
+  let tree =
+    string_tree.append(
+      tree,
+      "
   <button type=\"submit\">Create Project</button>
 </form>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
 pub fn render(form_fields form_fields: String) -> String {
-    string_tree.to_string(render_tree(form_fields: form_fields))
+  string_tree.to_string(render_tree(form_fields: form_fields))
 }
-

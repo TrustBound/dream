@@ -2,20 +2,21 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
 pub fn render_tree() -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<footer>
+  let tree = string_tree.from_string("")
+  let tree =
+    string_tree.append(
+      tree,
+      "<footer>
   <small>Built with Dream + HTMX + Pico CSS</small>
 </footer>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
 pub fn render() -> String {
-    string_tree.to_string(render_tree())
+  string_tree.to_string(render_tree())
 }
-

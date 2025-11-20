@@ -2,19 +2,20 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
 pub fn render_tree(icon_name icon_name: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<i data-lucide=\"")
-    let tree = string_tree.append(tree, icon_name)
-    let tree = string_tree.append(tree, "\"></i>
-")
+  let tree = string_tree.from_string("")
+  let tree = string_tree.append(tree, "<i data-lucide=\"")
+  let tree = string_tree.append(tree, icon_name)
+  let tree =
+    string_tree.append(
+      tree,
+      "\"></i>
+",
+    )
 
-    tree
+  tree
 }
 
 pub fn render(icon_name icon_name: String) -> String {
-    string_tree.to_string(render_tree(icon_name: icon_name))
+  string_tree.to_string(render_tree(icon_name: icon_name))
 }
-

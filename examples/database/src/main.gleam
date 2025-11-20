@@ -7,8 +7,8 @@
 //// - Perform CRUD operations (Create, Read, Update, Delete)
 //// - Use the service pattern for database connections
 
-import dream/servers/mist/server.{bind, context, listen, router, services} as dream
 import context as db_context
+import dream/servers/mist/server.{bind, context, listen, router, services} as dream
 import router.{create_router}
 import services.{initialize_services}
 

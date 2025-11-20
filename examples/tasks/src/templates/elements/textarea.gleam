@@ -2,30 +2,80 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(textarea_id textarea_id: String, textarea_name textarea_name: String, label_text label_text: String, textarea_value textarea_value: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<label for=\"")
-    let tree = string_tree.append(tree, textarea_id)
-    let tree = string_tree.append(tree, "\">
-  ")
-    let tree = string_tree.append(tree, label_text)
-    let tree = string_tree.append(tree, "
-  <textarea id=\"")
-    let tree = string_tree.append(tree, textarea_id)
-    let tree = string_tree.append(tree, "\" name=\"")
-    let tree = string_tree.append(tree, textarea_name)
-    let tree = string_tree.append(tree, "\">")
-    let tree = string_tree.append(tree, textarea_value)
-    let tree = string_tree.append(tree, "</textarea>
+pub fn render_tree(
+  textarea_id textarea_id: String,
+  textarea_name textarea_name: String,
+  textarea_value textarea_value: String,
+  label_text label_text: String,
+  placeholder placeholder: String,
+  attributes attributes: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree = string_tree.append(tree, "<label for=\"")
+  let tree = string_tree.append(tree, textarea_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "\">
+  <span>",
+    )
+  let tree = string_tree.append(tree, label_text)
+  let tree =
+    string_tree.append(
+      tree,
+      "</span>
+  <textarea 
+    id=\"",
+    )
+  let tree = string_tree.append(tree, textarea_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "\" 
+    name=\"",
+    )
+  let tree = string_tree.append(tree, textarea_name)
+  let tree =
+    string_tree.append(
+      tree,
+      "\"
+    placeholder=\"",
+    )
+  let tree = string_tree.append(tree, placeholder)
+  let tree =
+    string_tree.append(
+      tree,
+      "\"
+    ",
+    )
+  let tree = string_tree.append(tree, attributes)
+  let tree = string_tree.append(tree, ">")
+  let tree = string_tree.append(tree, textarea_value)
+  let tree =
+    string_tree.append(
+      tree,
+      "</textarea>
 </label>
-")
+",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(textarea_id textarea_id: String, textarea_name textarea_name: String, label_text label_text: String, textarea_value textarea_value: String) -> String {
-    string_tree.to_string(render_tree(textarea_id: textarea_id, textarea_name: textarea_name, label_text: label_text, textarea_value: textarea_value))
+pub fn render(
+  textarea_id textarea_id: String,
+  textarea_name textarea_name: String,
+  textarea_value textarea_value: String,
+  label_text label_text: String,
+  placeholder placeholder: String,
+  attributes attributes: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    textarea_id: textarea_id,
+    textarea_name: textarea_name,
+    textarea_value: textarea_value,
+    label_text: label_text,
+    placeholder: placeholder,
+    attributes: attributes,
+  ))
 }
-

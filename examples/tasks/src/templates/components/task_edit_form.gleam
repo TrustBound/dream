@@ -2,33 +2,61 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(task_id task_id: String, form_action form_action: String, form_fields form_fields: String, submit_text submit_text: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<article id=\"task-")
-    let tree = string_tree.append(tree, task_id)
-    let tree = string_tree.append(tree, "\">
-  <form hx-put=\"")
-    let tree = string_tree.append(tree, form_action)
-    let tree = string_tree.append(tree, "\" hx-target=\"#task-")
-    let tree = string_tree.append(tree, task_id)
-    let tree = string_tree.append(tree, "\" hx-swap=\"outerHTML\">
-    ")
-    let tree = string_tree.append(tree, form_fields)
-    let tree = string_tree.append(tree, "
-    <button type=\"submit\">")
-    let tree = string_tree.append(tree, submit_text)
-    let tree = string_tree.append(tree, "</button>
+pub fn render_tree(
+  task_id task_id: String,
+  form_action form_action: String,
+  form_fields form_fields: String,
+  submit_text submit_text: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree = string_tree.append(tree, "<article id=\"task-")
+  let tree = string_tree.append(tree, task_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "\">
+  <form hx-put=\"",
+    )
+  let tree = string_tree.append(tree, form_action)
+  let tree = string_tree.append(tree, "\" hx-target=\"#task-")
+  let tree = string_tree.append(tree, task_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "\" hx-swap=\"outerHTML\">
+    ",
+    )
+  let tree = string_tree.append(tree, form_fields)
+  let tree =
+    string_tree.append(
+      tree,
+      "
+    <button type=\"submit\">",
+    )
+  let tree = string_tree.append(tree, submit_text)
+  let tree =
+    string_tree.append(
+      tree,
+      "</button>
   </form>
 </article>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(task_id task_id: String, form_action form_action: String, form_fields form_fields: String, submit_text submit_text: String) -> String {
-    string_tree.to_string(render_tree(task_id: task_id, form_action: form_action, form_fields: form_fields, submit_text: submit_text))
+pub fn render(
+  task_id task_id: String,
+  form_action form_action: String,
+  form_fields form_fields: String,
+  submit_text submit_text: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    task_id: task_id,
+    form_action: form_action,
+    form_fields: form_fields,
+    submit_text: submit_text,
+  ))
 }
-

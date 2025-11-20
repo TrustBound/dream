@@ -85,4 +85,3 @@ pub fn validate_json_with_missing_fields_returns_error_test() {
     }
   }
 }
-

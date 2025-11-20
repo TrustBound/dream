@@ -1,5 +1,0 @@
-{> with entity_type as String
-{> with entity_id as String
-{> with confirm_msg as String
-<button hx-delete="/{{ entity_type }}/{{ entity_id }}" hx-target="closest article" hx-swap="outerHTML" hx-confirm="{{ confirm_msg }}">Delete</button>
-

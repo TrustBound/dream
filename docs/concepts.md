@@ -18,9 +18,7 @@ Here's what a controller module looks like with two actions:
 
 ```gleam
 // controllers/hello_controller.gleam
-import dream/http/response.{text_response}
-import dream/http/status
-import dream/http/transaction.{type Request, type Response}
+import dream/http.{type Request, type Response, text_response, ok}
 import dream/context.{type AppContext}
 import dream/router.{type EmptyServices}
 
@@ -29,9 +27,15 @@ pub fn hello_world(_request: Request, _context: AppContext, _services: EmptyServ
 }
 
 pub fn hello_name(request: Request, _context: AppContext, _services: EmptyServices) -> Response {
-  let assert Ok(param) = get_param(request, "name")
-  let assert Ok(name) = param.as_string
-  text_response(status.ok, "Hello, " <> name <> "!")
+  let result = {
+    use name <- result.try(require_string(request, "name"))
+    Ok(name)
+  }
+  
+  case result {
+    Ok(name) -> text_response(status.ok, "Hello, " <> name <> "!")
+    Error(err) -> response_helpers.handle_error(err)
+  }
 }
 ```
 
@@ -56,7 +60,7 @@ pub fn create_router() -> Router(AppContext, Services) {
 }
 ```
 
-Path parameters like `:id` get extracted automatically. So `/users/:id` matches `/users/123` and makes `id` available via `get_param(request, "id")`. You can have multiple parameters too—`/posts/:post_id/comments/:id` extracts both.
+Path parameters like `:id` get extracted automatically. So `/users/:id` matches `/users/123` and makes `id` available via `require_int(request, "id")` or `require_string(request, "id")`. These functions safely extract and validate parameters, returning `Result` types for error handling. You can have multiple parameters too—`/posts/:post_id/comments/:id` extracts both.
 
 The router is generic over your Context and Services types. This means the compiler verifies every controller action has the right signature. Change your Context or Services type? The compiler will tell you exactly which actions need updating. It's type-safe routing.
 
@@ -240,24 +244,40 @@ Say you need to publish a post:
 That's coordinating Postgres, OpenSearch, and SSE with authorization logic. Extract it to an operation:
 
 ```gleam
+import dream/http.{require_int, type Request, type Response}
+import dream/http.{json_response, ok}
+import gleam/option
+import gleam/result
+import operations/publish_post
+import utilities/response_helpers
+import views/post_view
+
 // Controller action stays thin - just HTTP concerns
-pub fn publish(request, context, services) {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
-  let assert Some(user) = context.user
+pub fn publish(request: Request, context: Context, services: Services) -> Response {
+  let result = {
+    use id <- result.try(require_int(request, "id"))
+    use user <- result.try(
+      case context.user {
+        option.Some(u) -> Ok(u)
+        option.None -> Error(error.Unauthorized("Authentication required"))
+      }
+    )
+    publish_post.execute(id, user.id, services)
+  }
   
-  case publish_post.execute(id, user.id, services) {
+  case result {
     Ok(post) -> json_response(ok, post_view.to_json(post))
-    Error(NotAuthorized) -> json_response(forbidden, "{\"error\": \"Forbidden\"}")
-    Error(NotFound) -> json_response(not_found, "{\"error\": \"Not found\"}")
-    Error(_) -> json_response(internal_server_error, "{\"error\": \"Server error\"}")
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 ```
 
 ```gleam
+import dream/http/error.{type Error, Forbidden, NotFound, InternalServerError}
+import gleam/result
+
 // Operation handles business logic - no HTTP
-pub fn execute(post_id: Int, user_id: Int, services: Services) -> Result(Post, DataError) {
+pub fn execute(post_id: Int, user_id: Int, services: Services) -> Result(Post, Error) {
   use post <- result.try(post_model.get(services.db, post_id))
   use _ <- result.try(check_authorization(user_id, post))
   use published <- result.try(post_model.publish(services.db, post_id))
@@ -269,10 +289,10 @@ pub fn execute(post_id: Int, user_id: Int, services: Services) -> Result(Post, D
   Ok(published)
 }
 
-fn check_authorization(user_id: Int, post: Post) -> Result(Nil, DataError) {
+fn check_authorization(user_id: Int, post: Post) -> Result(Nil, Error) {
   case user_id == post.author_id {
     True -> Ok(Nil)
-    False -> Error(NotAuthorized)
+    False -> Error(Forbidden("Not authorized to publish this post"))
   }
 }
 ```
@@ -280,13 +300,13 @@ fn check_authorization(user_id: Int, post: Post) -> Result(Nil, DataError) {
 The big win? Operations are testable without HTTP. No mocking requests, no building Request objects—just test the business logic:
 
 ```gleam
-pub fn publish_post_with_wrong_user_returns_unauthorized_test() {
+pub fn publish_post_with_wrong_user_returns_forbidden_test() {
   let services = test_services()
   let post = create_test_post(services)
   
   let result = publish_post.execute(post.id, wrong_user_id, services)
   
-  assert Error(NotAuthorized) = result
+  assert Error(error.Forbidden(_)) = result
 }
 ```
 
@@ -302,17 +322,19 @@ Models handle data access. They take a database connection (explicit dependency,
 
 ```gleam
 // models/user/user.gleam
-pub fn get(db: pog.Connection, id: Int) -> Result(User, DataError) {
+import dream/http/error.{type Error, NotFound, InternalServerError}
+
+pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
-    Error(err) -> Error(DatabaseError(err))
+    Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 
-pub fn create(db: pog.Connection, data: UserData) -> Result(User, DataError) {
+pub fn create(db: pog.Connection, data: UserData) -> Result(User, Error) {
   case sql.create_user(db, data.email, data.name) {
     Ok(returned) -> extract_first_user(returned)
-    Error(err) -> Error(DatabaseError(err))
+    Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 
@@ -360,6 +382,19 @@ pub fn to_json(user: User) -> String {
 Views are testable in isolation. Give them a `User`, get back JSON. No database, no HTTP, no mocks. Just formatting.
 
 **See:** [examples/multi_format/src/views/](../examples/multi_format/src/views/)
+
+### Template Composition for HTML
+
+For server-side rendering with full type safety, Dream recommends a layered template composition approach:
+
+1. **Elements** (`templates/elements/*.matcha`): Low-level HTML components compiled from Matcha templates
+2. **Components** (`templates/components/*.gleam`): Gleam functions that compose elements into reusable pieces
+3. **Pages** (`templates/pages/*.matcha` or `.gleam`): Compose components into full pages
+4. **Layouts** (`templates/layouts/*.gleam`): Wrap pages with consistent structure (nav, footer, scripts)
+
+This pattern eliminates markup duplication, keeps styling consistent, and provides full type safety through Gleam. See [Template Composition](../guides/templates.md) for a complete guide.
+
+**See:** [examples/tasks/src/templates/](../examples/tasks/src/templates/) for a working example
 
 ---
 

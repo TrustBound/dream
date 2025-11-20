@@ -3,10 +3,10 @@
 //// Route definitions for the singleton example.
 //// Demonstrates middleware application on specific routes.
 
+import controllers/api_controller
 import dream/context.{type AppContext}
 import dream/http/request.{Get}
 import dream/router.{type Router, route, router}
-import controllers/api_controller
 import middleware/rate_limit_middleware
 import services.{type Services}
 

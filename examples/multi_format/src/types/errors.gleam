@@ -6,4 +6,3 @@ pub type DataError {
   NotFound
   DatabaseError
 }
-

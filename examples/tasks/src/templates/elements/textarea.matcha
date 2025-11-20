@@ -1,8 +1,14 @@
 {> with textarea_id as String
 {> with textarea_name as String
-{> with label_text as String
 {> with textarea_value as String
+{> with label_text as String
+{> with placeholder as String
+{> with attributes as String
 <label for="{{ textarea_id }}">
-  {{ label_text }}
-  <textarea id="{{ textarea_id }}" name="{{ textarea_name }}">{{ textarea_value }}</textarea>
+  <span>{{ label_text }}</span>
+  <textarea 
+    id="{{ textarea_id }}" 
+    name="{{ textarea_name }}"
+    placeholder="{{ placeholder }}"
+    {{ attributes }}>{{ textarea_value }}</textarea>
 </label>

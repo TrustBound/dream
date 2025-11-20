@@ -2,13 +2,13 @@
 
 import gleam/json
 import gleam/option
-import types/project.{type Project}
-import types/tag.{type Tag}
-import types/task.{type Task}
-import templates/pages/project as project_page
 import templates/components/layout_components
 import templates/components/project_components
 import templates/components/task_components
+import templates/pages/project as project_page
+import types/project.{type Project}
+import types/tag.{type Tag}
+import types/task.{type Task}
 
 /// Render project card for HTMX swap
 pub fn card(project: Project) -> String {

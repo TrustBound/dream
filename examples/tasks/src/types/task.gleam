@@ -28,4 +28,3 @@ pub type TaskData {
     project_id: Option(Int),
   )
 }
-

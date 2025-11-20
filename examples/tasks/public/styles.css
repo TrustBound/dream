@@ -1,4 +1,4 @@
-/* Things 3 - Polished & Refined */
+/* Things 3 - Properly Implemented */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -17,6 +17,14 @@
   --low: #8e8e93;
   
   --transition: cubic-bezier(0.4, 0, 0.2, 1);
+  
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  
+  --radius-lg: 12px;
 }
 
 * {
@@ -39,7 +47,7 @@ body {
 }
 
 /* Sidebar */
-nav {
+body > nav {
   width: 240px;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
@@ -48,7 +56,7 @@ nav {
   overflow-y: auto;
 }
 
-nav strong {
+body > nav strong {
   font-size: 17px;
   font-weight: 700;
   color: var(--text);
@@ -58,15 +66,15 @@ nav strong {
   letter-spacing: -0.3px;
 }
 
-nav ul {
+body > nav ul {
   list-style: none;
 }
 
-nav li {
+body > nav li {
   margin-bottom: 1px;
 }
 
-nav a {
+body > nav a {
   display: block;
   padding: 8px 12px;
   color: var(--text);
@@ -78,7 +86,7 @@ nav a {
   letter-spacing: -0.1px;
 }
 
-nav a:hover {
+body > nav a:hover {
   background: rgba(0,0,0,0.04);
 }
 
@@ -91,16 +99,59 @@ main {
   scroll-behavior: smooth;
 }
 
-header h1 {
+main > section > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+main > section > header h1 {
   font-size: 32px;
   font-weight: 700;
-  margin-bottom: 32px;
   color: var(--text);
   letter-spacing: -0.6px;
   line-height: 1.2;
+  margin: 0;
 }
 
-/* Form - Subtle & Integrated */
+main > section > header button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  border: none;
+  font-size: 24px;
+  font-weight: 300;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s var(--transition);
+  flex-shrink: 0;
+}
+
+main > section > header button:hover {
+  background: var(--accent-hover);
+  transform: scale(1.05);
+}
+
+main > section > header button:active {
+  transform: scale(0.98);
+}
+
+/* Page Footer */
+body > footer {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: -0.1px;
+}
+
+/* Legacy Forms */
 form {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -119,13 +170,13 @@ form:focus-within {
   box-shadow: 0 0 0 3px rgba(0,122,255,0.08);
 }
 
-label {
+form label {
   display: flex;
   flex-direction: column;
   gap: 7px;
 }
 
-label > :first-child {
+form label span {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -134,10 +185,10 @@ label > :first-child {
   line-height: 1.2;
 }
 
-input[type="text"],
-input[type="date"],
-textarea,
-select {
+form input[type="text"],
+form input[type="date"],
+form textarea,
+form select {
   width: 100%;
   height: 36px;
   padding: 0 13px;
@@ -151,44 +202,22 @@ select {
   letter-spacing: -0.1px;
 }
 
-input[type="text"]:hover,
-input[type="date"]:hover,
-textarea:hover,
-select:hover {
-  border-color: #c7c7cc;
-}
-
-textarea {
+form textarea {
   height: 36px;
   padding-top: 9px;
   resize: none;
   line-height: 1.4;
 }
 
-input:focus,
-textarea:focus,
-select:focus {
+form input:focus,
+form textarea:focus,
+form select:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(0,122,255,0.08);
 }
 
-input::placeholder,
-textarea::placeholder {
-  color: var(--text-tertiary);
-  opacity: 0.8;
-}
-
-select {
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%2386868b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 13px center;
-  padding-right: 38px;
-}
-
-button[type="submit"] {
+form button[type="submit"] {
   height: 36px;
   padding: 0 22px;
   background: var(--accent);
@@ -198,17 +227,12 @@ button[type="submit"] {
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s var(--transition), transform 0.1s var(--transition);
+  transition: background 0.2s var(--transition);
   letter-spacing: -0.1px;
 }
 
-button[type="submit"]:hover {
+form button[type="submit"]:hover {
   background: var(--accent-hover);
-  transform: translateY(-0.5px);
-}
-
-button[type="submit"]:active {
-  transform: translateY(0);
 }
 
 /* Task List */
@@ -220,33 +244,28 @@ button[type="submit"]:active {
   list-style: none;
 }
 
-/* Task Row - Minimalist */
-.task-row {
+/* Task Card - Clean Minimalist Rows */
+article:not(:has(input[name="title"])) {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 14px;
-  padding: 11px 0;
+  gap: 12px;
+  padding: 10px 0;
   border-bottom: 1px solid var(--border);
   align-items: start;
-  transition: background 0.2s var(--transition);
-  position: relative;
+  transition: background 0.15s var(--transition);
+  cursor: pointer;
 }
 
-.task-row:last-child {
+article:not(:has(input[name="title"])):last-child {
   border-bottom: none;
 }
 
-.task-row:hover {
+article:not(:has(input[name="title"])):hover {
   background: rgba(0,0,0,0.015);
 }
 
-.task-row:hover .task-actions {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* Checkbox - Circular */
-.task-row input[type="checkbox"] {
+/* Checkbox */
+article input[type="checkbox"] {
   appearance: none;
   width: 18px;
   height: 18px;
@@ -254,23 +273,22 @@ button[type="submit"]:active {
   border-radius: 50%;
   cursor: pointer;
   margin-top: 2px;
-  position: relative;
   transition: all 0.2s var(--transition);
   flex-shrink: 0;
   background: transparent;
 }
 
-.task-row input[type="checkbox"]:hover {
+article input[type="checkbox"]:hover {
   border-color: var(--text-secondary);
-  transform: scale(1.05);
+  transform: scale(1.08);
 }
 
-.task-row input[type="checkbox"]:checked {
+article input[type="checkbox"]:checked {
   background: var(--text-tertiary);
   border-color: var(--text-tertiary);
 }
 
-.task-row input[type="checkbox"]:checked::after {
+article input[type="checkbox"]:checked::after {
   content: '';
   position: absolute;
   top: 4px;
@@ -281,154 +299,272 @@ button[type="submit"]:active {
   border-top: none;
   border-right: none;
   transform: rotate(-45deg);
-  animation: checkmark 0.2s var(--transition);
 }
 
-@keyframes checkmark {
-  from {
-    opacity: 0;
-    transform: rotate(-45deg) scale(0.8);
-  }
-  to {
-    opacity: 1;
-    transform: rotate(-45deg) scale(1);
-  }
-}
-
-/* Task Content */
-.task-content {
-  flex: 1;
+/* Task Content Area */
+article:not(:has(input[name="title"])) > section {
   min-width: 0;
 }
 
-.task-content h3 {
+article:not(:has(input[name="title"])) h3 {
   font-size: 15px;
   font-weight: 500;
   color: var(--text);
-  margin-bottom: 5px;
-  line-height: 1.45;
-  margin-top: 0;
+  margin-bottom: 4px;
+  line-height: 1.4;
   letter-spacing: -0.1px;
-  transition: color 0.2s var(--transition);
 }
 
-.task-meta {
+article:not(:has(input[name="title"])) > section > footer {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
   font-size: 13px;
-  margin-top: 3px;
-  transition: opacity 0.2s var(--transition);
+  margin-top: 2px;
 }
 
-/* Priority Badge - Text Only */
-.task-row mark {
+/* Priority Badge */
+article mark {
   background: none;
   padding: 0;
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.5px;
   color: var(--normal);
-  transition: color 0.2s var(--transition);
 }
 
-.task-row mark[data-priority="Urgent"] {
+article mark[data-priority="Urgent"] {
   color: var(--urgent);
 }
 
-.task-row mark[data-priority="High"] {
+article mark[data-priority="High"] {
   color: var(--high);
 }
 
-.task-row mark[data-priority="Low"] {
+article mark[data-priority="Low"] {
   color: var(--low);
 }
 
 /* Date */
-.task-row small {
+article small {
   color: var(--text-tertiary);
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-size: 13px;
-  letter-spacing: -0.1px;
 }
 
-.task-row small svg {
+article small svg {
   width: 12px;
   height: 12px;
-  opacity: 0.65;
-  transition: opacity 0.2s var(--transition);
+  opacity: 0.6;
 }
 
-/* Actions - Hidden Until Hover */
-.task-actions {
+/* Action Buttons - Completely Hidden */
+article:not(:has(input[name="title"])) > aside {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   opacity: 0;
-  transition: opacity 0.2s var(--transition);
+  transition: opacity 0.15s var(--transition);
   pointer-events: none;
-  align-items: center;
 }
 
-.task-actions button {
+article:not(:has(input[name="title"])):hover > aside {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+article:not(:has(input[name="title"])) > aside button {
   background: none;
   border: none;
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  padding: 5px 10px;
+  padding: 4px 10px;
   border-radius: 6px;
-  transition: all 0.2s var(--transition);
-  letter-spacing: -0.1px;
+  transition: all 0.15s var(--transition);
 }
 
-.task-actions button:hover {
+article:not(:has(input[name="title"])) > aside button:hover {
   background: rgba(0,0,0,0.06);
   color: var(--text);
-  transform: translateY(-0.5px);
 }
 
-.task-actions button:active {
-  transform: translateY(0);
-}
-
-.task-actions button:last-child:hover {
+article:not(:has(input[name="title"])) > aside button:last-child:hover {
   color: var(--urgent);
-  background: rgba(255, 59, 48, 0.12);
+  background: rgba(255, 59, 48, 0.1);
 }
 
 /* Completed State */
-.task-row:has(input:checked) h3 {
+article:has(input:checked) h3 {
   color: var(--text-tertiary);
   text-decoration: line-through;
   text-decoration-thickness: 1px;
-  text-decoration-color: var(--text-tertiary);
 }
 
-.task-row:has(input:checked) .task-meta {
-  opacity: 0.45;
+article:has(input:checked) > section > footer {
+  opacity: 0.5;
 }
 
-.task-row:has(input:checked) .task-row small svg {
-  opacity: 0.4;
-}
-
-/* Edit Form Inline */
-.task-row form {
-  grid-column: 1 / -1;
-  margin: 0;
-  padding: 14px;
+/* Task Editor - Expanded Card */
+article:has(input[name="title"]) {
   background: var(--bg);
-  border: 2px solid var(--accent);
-  border-radius: 12px;
-  box-shadow: 0 0 0 3px rgba(0,122,255,0.08);
-  animation: formAppear 0.2s var(--transition);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  margin: var(--space-2) 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  gap: var(--space-3);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  animation: taskExpand 0.2s var(--transition);
 }
 
-@keyframes formAppear {
+article:has(input[name="title"]) > input[type="checkbox"] {
+  grid-row: 1;
+}
+
+article:has(input[name="title"]) > section {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+article:has(input[name="title"]) > footer {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  position: relative;
+}
+
+/* Editor Inputs */
+article:has(input[name="title"]) label {
+  display: contents;
+}
+
+article:has(input[name="title"]) label span {
+  display: none;
+}
+
+article:has(input[name="title"]) input[name="title"] {
+  font-size: 15px;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--text);
+  font-family: inherit;
+  letter-spacing: -0.1px;
+}
+
+article:has(input[name="title"]) textarea[name="description"] {
+  font-size: 14px;
+  color: var(--text-secondary);
+  border: none;
+  background: transparent;
+  padding: 0;
+  resize: none;
+  min-height: 60px;
+  font-family: inherit;
+  line-height: 1.5;
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+article:has(input[name="title"]) textarea[name="description"]::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+article:has(input[name="title"]) input:focus,
+article:has(input[name="title"]) textarea:focus {
+  outline: none;
+}
+
+article:has(input[name="title"]) input::placeholder {
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
+article:has(input[name="title"]) textarea::placeholder {
+  color: var(--text-tertiary);
+  opacity: 0.6;
+}
+
+/* Editor Footer Inputs */
+article:has(input[name="title"]) > footer input[type="date"] {
+  font-size: 13px;
+  color: var(--text-secondary);
+  border: none;
+  background: transparent;
+  padding: 6px 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+article:has(input[name="title"]) > footer input[type="date"]:focus {
+  outline: none;
+  color: var(--text);
+}
+
+article:has(input[name="title"]) > footer input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+article:has(input[name="title"]) > footer input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Editor Footer Buttons */
+article:has(input[name="title"]) > footer button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.15s var(--transition);
+}
+
+article:has(input[name="title"]) > footer button:hover {
+  background: rgba(0,0,0,0.05);
+  color: var(--text);
+}
+
+article:has(input[name="title"]) > footer > aside {
+  position: absolute;
+  top: -50px;
+  right: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  padding: var(--space-2);
+}
+
+article:has(input[name="title"]) > footer > aside:empty {
+  display: none;
+}
+
+/* Selected State */
+article[data-selected] {
+  background: rgba(0,122,255,0.04);
+}
+
+/* Animations */
+@keyframes taskExpand {
   from {
     opacity: 0;
     transform: translateY(-4px);
@@ -439,33 +575,10 @@ button[type="submit"]:active {
   }
 }
 
-/* Footer */
-footer {
-  text-align: center;
-  padding: 40px 32px;
-  color: var(--text-tertiary);
-  font-size: 13px;
-  letter-spacing: -0.1px;
-}
-
-/* Loading States */
+/* Loading */
 .htmx-request {
   opacity: 0.6;
   pointer-events: none;
-}
-
-.htmx-request::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(0,122,255,0.03), transparent);
-  animation: shimmer 1.5s infinite;
-  pointer-events: none;
-}
-
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
 }
 
 /* Responsive */
@@ -475,14 +588,14 @@ footer {
     overflow: auto;
   }
   
-  nav {
+  body > nav {
     width: 100%;
     border-right: none;
     border-bottom: 1px solid var(--border);
     padding: 16px;
   }
   
-  nav ul {
+  body > nav ul {
     display: flex;
     gap: 8px;
     overflow-x: auto;
@@ -492,24 +605,23 @@ footer {
     padding: 24px 16px;
   }
   
-  header h1 {
+  main > section > header h1 {
     font-size: 28px;
     margin-bottom: 24px;
   }
   
   form {
     grid-template-columns: 1fr;
-    padding: 16px;
-    gap: 12px;
   }
   
-  .task-actions {
+  article:not(:has(input[name="title"])) > aside {
     opacity: 1;
     pointer-events: auto;
   }
   
-  .task-row {
-    gap: 12px;
-    padding: 12px 0;
+  body > footer {
+    position: static;
+    text-align: center;
+    padding: 16px;
   }
 }

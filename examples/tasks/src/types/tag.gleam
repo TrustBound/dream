@@ -9,4 +9,3 @@ pub type Tag {
 pub type TagData {
   TagData(name: String, color: Option(String))
 }
-

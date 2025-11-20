@@ -2,32 +2,63 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(project_id project_id: String, project_name project_name: String, project_link project_link: String, description_html description_html: String, delete_button delete_button: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<article id=\"project-")
-    let tree = string_tree.append(tree, project_id)
-    let tree = string_tree.append(tree, "\">
-  <h3><a href=\"")
-    let tree = string_tree.append(tree, project_link)
-    let tree = string_tree.append(tree, "\">")
-    let tree = string_tree.append(tree, project_name)
-    let tree = string_tree.append(tree, "</a></h3>
-  ")
-    let tree = string_tree.append(tree, description_html)
-    let tree = string_tree.append(tree, "
-  ")
-    let tree = string_tree.append(tree, delete_button)
-    let tree = string_tree.append(tree, "
+pub fn render_tree(
+  project_id project_id: String,
+  project_name project_name: String,
+  project_link project_link: String,
+  description_html description_html: String,
+  delete_button delete_button: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree = string_tree.append(tree, "<article id=\"project-")
+  let tree = string_tree.append(tree, project_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "\">
+  <h3><a href=\"",
+    )
+  let tree = string_tree.append(tree, project_link)
+  let tree = string_tree.append(tree, "\">")
+  let tree = string_tree.append(tree, project_name)
+  let tree =
+    string_tree.append(
+      tree,
+      "</a></h3>
+  ",
+    )
+  let tree = string_tree.append(tree, description_html)
+  let tree =
+    string_tree.append(
+      tree,
+      "
+  ",
+    )
+  let tree = string_tree.append(tree, delete_button)
+  let tree =
+    string_tree.append(
+      tree,
+      "
 </article>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(project_id project_id: String, project_name project_name: String, project_link project_link: String, description_html description_html: String, delete_button delete_button: String) -> String {
-    string_tree.to_string(render_tree(project_id: project_id, project_name: project_name, project_link: project_link, description_html: description_html, delete_button: delete_button))
+pub fn render(
+  project_id project_id: String,
+  project_name project_name: String,
+  project_link project_link: String,
+  description_html description_html: String,
+  delete_button delete_button: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    project_id: project_id,
+    project_name: project_name,
+    project_link: project_link,
+    description_html: description_html,
+    delete_button: delete_button,
+  ))
 }
-

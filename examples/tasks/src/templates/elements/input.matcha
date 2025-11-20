@@ -1,9 +1,17 @@
 {> with input_id as String
 {> with input_name as String
-{> with label_text as String
-{> with input_value as String
 {> with input_type as String
+{> with input_value as String
+{> with label_text as String
+{> with placeholder as String
+{> with attributes as String
 <label for="{{ input_id }}">
-  {{ label_text }}
-  <input id="{{ input_id }}" name="{{ input_name }}" type="{{ input_type }}" value="{{ input_value }}">
+  <span>{{ label_text }}</span>
+  <input 
+    id="{{ input_id }}" 
+    name="{{ input_name }}" 
+    type="{{ input_type }}" 
+    value="{{ input_value }}"
+    placeholder="{{ placeholder }}"
+    {{ attributes }}>
 </label>

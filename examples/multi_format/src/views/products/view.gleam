@@ -3,17 +3,17 @@
 //// Pure formatting functions: Product → String
 //// No Result types, no Response types, no error handling.
 
-import types/product.{type Product}
-import sql
-import views/products/templates/card
-import views/products/templates/index as index_view
-import views/products/templates/show as show_view
 import gleam/float
 import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option
 import gleam/yielder
+import sql
+import types/product.{type Product}
+import views/products/templates/card
+import views/products/templates/index as index_view
+import views/products/templates/show as show_view
 
 /// Format single product as JSON string
 pub fn to_json(product: Product) -> String {
@@ -36,9 +36,12 @@ pub fn to_htmx(product: Product) -> String {
 /// Format single product as CSV row string
 pub fn to_csv(product: Product) -> String {
   int.to_string(product.id)
-  <> "," <> product.name
-  <> "," <> float.to_string(product.price)
-  <> "," <> int.to_string(product.stock)
+  <> ","
+  <> product.name
+  <> ","
+  <> float.to_string(product.price)
+  <> ","
+  <> int.to_string(product.stock)
 }
 
 /// Format list of products as JSON array string
@@ -74,9 +77,12 @@ fn to_json_object(p: Product) -> json.Json {
 
 fn product_to_csv_row(p: Product) -> String {
   int.to_string(p.id)
-  <> "," <> p.name
-  <> "," <> float.to_string(p.price)
-  <> "," <> int.to_string(p.stock)
+  <> ","
+  <> p.name
+  <> ","
+  <> float.to_string(p.price)
+  <> ","
+  <> int.to_string(p.stock)
   <> "\n"
 }
 

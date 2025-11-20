@@ -1,6 +1,10 @@
 {> with button_id as String
-{> with button_text as String
 {> with button_type as String
-<button id="{{ button_id }}" type="{{ button_type }}">
+{> with button_text as String
+{> with attributes as String
+<button 
+  id="{{ button_id }}" 
+  type="{{ button_type }}"
+  {{ attributes }}>
   {{ button_text }}
 </button>

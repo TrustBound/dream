@@ -7,7 +7,9 @@ Server-Sent Events (SSE) and large file streaming in Dream.
 ### Basic SSE
 
 ```gleam
-import dream/http/transaction.{Request, Response, Bytes, Header}
+import dream/http.{type Request, type Response}
+import dream/http/response.{Bytes}
+import dream/http/header.{Header}
 import dream/context.{AppContext}
 import gleam/bytes_tree
 import gleam/option.{Some}
@@ -71,9 +73,9 @@ Each event ends with double newline (`\n\n`).
 ### CSV Export
 
 ```gleam
-import dream/http/response.{json_response}
-import dream/http/status.{ok, internal_server_error}
-import dream/http/transaction.{Request, Response, Bytes, Header}
+import dream/http.{type Request, type Response, json_response, ok, internal_server_error}
+import dream/http/response.{Bytes}
+import dream/http/header.{Header}
 import dream/context.{AppContext}
 import gleam/list.{List}
 import gleam/option.{Some}
@@ -82,10 +84,18 @@ import models/product.{list_all, Product}
 import services.{Services}
 import views/product_view.{list_to_csv_stream}
 
+import dream/http/error.{type Error}
+import utilities/response_helpers
+
 pub fn export_csv(request: Request, context: AppContext, services: Services) -> Response {
-  case list_all(services.db) {
+  let result = {
+    let db = services.database.connection
+    list_all(db)
+  }
+  
+  case result {
     Ok(products) -> stream_csv(products)
-    Error(_) -> json_response(internal_server_error, "{\"error\": \"Export failed\"}")
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
@@ -141,7 +151,7 @@ fn string_to_bits(s: String) -> BitArray {
 ### Stream External API
 
 ```gleam
-import dream/http/transaction.{Request, Response}
+import dream/http.{type Request, type Response}
 import dream/context.{AppContext}
 import dream_http_client/client.{new, method, url}
 import dream_http_client/stream.{stream}
@@ -152,24 +162,24 @@ import gleam/io.{println}
 import services.{Services}
 
 pub fn proxy_stream(request: Request, context: AppContext, services: Services) -> Response {
-  let stream_handler = fn(chunk: BitArray) {
-    // Process each chunk
-    println("Received chunk: " <> to_string(byte_size(chunk)))
-  }
-  
   new()
   |> method(Get)
   |> url("https://api.example.com/large-file")
-  |> stream(stream_handler)
+  |> stream(handle_chunk)
+}
+
+fn handle_chunk(chunk: BitArray) {
+  // Process each chunk
+  println("Received chunk: " <> to_string(byte_size(chunk)))
 }
 ```
 
 ### Download and Stream
 
 ```gleam
-import dream/http/response.{json_response}
-import dream/http/status.{ok, bad_gateway}
-import dream/http/transaction.{Request, Response, Bytes, Header}
+import dream/http.{type Request, type Response, json_response, ok, bad_gateway}
+import dream/http/response.{Bytes}
+import dream/http/header.{Header}
 import dream/context.{AppContext}
 import dream_http_client/client.{new, url, fetch, Response as ClientResponse}
 import gleam/option.{Some}
@@ -206,7 +216,9 @@ fn forward_stream(external_response: ClientResponse) -> Response {
 For large streams, yielders provide natural backpressure:
 
 ```gleam
-import dream/http/transaction.{Request, Response, Bytes, Header}
+import dream/http.{type Request, type Response}
+import dream/http/response.{Bytes}
+import dream/http/header.{Header}
 import dream/context.{AppContext}
 import gleam/bytes_tree
 import gleam/option.{Some}

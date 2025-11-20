@@ -5,9 +5,7 @@ Handle multipart form uploads in Dream.
 ## Basic Upload
 
 ```gleam
-import dream/http/response.{json_response}
-import dream/http/status.{created, bad_request, internal_server_error}
-import dream/http/transaction.{Request, Response}
+import dream/http.{type Request, type Response, json_response, created, bad_request, internal_server_error}
 import dream/context.{AppContext}
 import gleam/http
 import services.{Services}
@@ -48,9 +46,7 @@ fn success_json(filename: String) -> String {
 ### File Size
 
 ```gleam
-import dream/http/response.{json_response}
-import dream/http/status.{bad_request, payload_too_large, unsupported_media_type}
-import dream/http/transaction.{Request, Response}
+import dream/http.{type Request, type Response, json_response, bad_request, payload_too_large, unsupported_media_type}
 import dream/context.{AppContext}
 import gleam/bit_array.{byte_size}
 import services.{Services}
@@ -171,9 +167,7 @@ fn save_to_s3(
 ## Multiple Files
 
 ```gleam
-import dream/http/response.{json_response}
-import dream/http/status.{created, bad_request, internal_server_error}
-import dream/http/transaction.{Request, Response}
+import dream/http.{type Request, type Response, json_response, created, bad_request, internal_server_error}
 import dream/context.{AppContext}
 import gleam/list.{List, map, all, filter_map}
 import gleam/result.{is_ok}
@@ -200,8 +194,15 @@ fn save_all_files(files: List(FileData)) -> Response {
   }
 }
 
+fn extract_ok_value(result: Result(String, FileError)) -> Option(String) {
+  case result {
+    Ok(value) -> Some(value)
+    Error(_) -> None
+  }
+}
+
 fn create_success_response(results: List(Result(String, FileError))) -> Response {
-  let filenames = filter_map(results, fn(x) { x })
+  let filenames = filter_map(results, extract_ok_value)
   json_response(created, filenames_json(filenames))
 }
 
@@ -213,22 +214,26 @@ fn filenames_json(filenames: List(String)) -> String {
 ## Download Endpoint
 
 ```gleam
-import dream/http/response.{text_response}
-import dream/http/status.{ok, not_found}
-import dream/http/transaction.{Request, Response, Header, Bytes, get_param}
+import dream/http.{require_string, type Request, type Response}
+import dream/http.{type Request, type Response, text_response, ok, not_found}
 import dream/context.{AppContext}
 import gleam/option.{Some}
+import gleam/result
 import services.{Services}
 import simplifile
+import utilities/response_helpers
 
 pub fn download(request: Request, context: AppContext, services: Services) -> Response {
-  let assert Ok(param) = get_param(request, "filename")
+  let result = {
+    use filename <- result.try(require_string(request, "filename"))
+    let path = "uploads/" <> sanitize_filename(filename)
+    use content <- result.try(simplifile.read_bits(path))
+    Ok(#(content, filename))
+  }
   
-  let path = "uploads/" <> sanitize_filename(param.value)
-  
-  case simplifile.read_bits(path) {
-    Ok(content) -> file_response(ok, content, param.value)
-    Error(_) -> text_response(not_found, "File not found")
+  case result {
+    Ok(#(content, filename)) -> file_response(ok, content, filename)
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
@@ -249,9 +254,7 @@ fn file_response(status_code: Int, content: BitArray, filename: String) -> Respo
 ## Image Resizing
 
 ```gleam
-import dream/http/response.{json_response}
-import dream/http/status.{bad_request, unsupported_media_type, internal_server_error}
-import dream/http/transaction.{Request, Response}
+import dream/http.{type Request, type Response, json_response, bad_request, unsupported_media_type, internal_server_error}
 import dream/context.{AppContext}
 import services.{Services}
 

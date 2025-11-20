@@ -2,21 +2,28 @@
 
 import gleam/string_tree.{type StringTree}
 
-import sql.{type GetProductRow}
-import gleam/int
 import gleam/float
+import gleam/int
+import sql.{type GetProductRow}
 
 pub fn render_tree(product product: GetProductRow) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "
+  let tree = string_tree.from_string("")
+  let tree =
+    string_tree.append(
+      tree,
+      "
 <!DOCTYPE html>
 <html lang=\"en\">
 <head>
   <meta charset=\"UTF-8\">
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-  <title>")
-    let tree = string_tree.append(tree, product.name)
-    let tree = string_tree.append(tree, " - Product Details</title>
+  <title>",
+    )
+  let tree = string_tree.append(tree, product.name)
+  let tree =
+    string_tree.append(
+      tree,
+      " - Product Details</title>
   <link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css\">
 </head>
 <body>
@@ -24,36 +31,56 @@ pub fn render_tree(product product: GetProductRow) -> StringTree {
     <nav aria-label=\"Breadcrumb\">
       <ul>
         <li><a href=\"/products\">Products</a></li>
-        <li>")
-    let tree = string_tree.append(tree, product.name)
-    let tree = string_tree.append(tree, "</li>
+        <li>",
+    )
+  let tree = string_tree.append(tree, product.name)
+  let tree =
+    string_tree.append(
+      tree,
+      "</li>
       </ul>
     </nav>
 
     <article>
       <header>
         <i data-lucide=\"package\"></i>
-        <h2>")
-    let tree = string_tree.append(tree, product.name)
-    let tree = string_tree.append(tree, "</h2>
+        <h2>",
+    )
+  let tree = string_tree.append(tree, product.name)
+  let tree =
+    string_tree.append(
+      tree,
+      "</h2>
       </header>
       
       <section>
         <dl>
           <dt>Product ID</dt>
-          <dd>#")
-    let tree = string_tree.append(tree, int.to_string(product.id))
-    let tree = string_tree.append(tree, "</dd>
+          <dd>#",
+    )
+  let tree = string_tree.append(tree, int.to_string(product.id))
+  let tree =
+    string_tree.append(
+      tree,
+      "</dd>
           
           <dt>Price</dt>
-          <dd>$")
-    let tree = string_tree.append(tree, float.to_string(product.price))
-    let tree = string_tree.append(tree, "</dd>
+          <dd>$",
+    )
+  let tree = string_tree.append(tree, float.to_string(product.price))
+  let tree =
+    string_tree.append(
+      tree,
+      "</dd>
           
           <dt>Stock</dt>
-          <dd>")
-    let tree = string_tree.append(tree, int.to_string(product.stock))
-    let tree = string_tree.append(tree, " units</dd>
+          <dd>",
+    )
+  let tree = string_tree.append(tree, int.to_string(product.stock))
+  let tree =
+    string_tree.append(
+      tree,
+      " units</dd>
         </dl>
       </section>
       
@@ -68,12 +95,12 @@ pub fn render_tree(product product: GetProductRow) -> StringTree {
 </body>
 </html>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
 pub fn render(product product: GetProductRow) -> String {
-    string_tree.to_string(render_tree(product: product))
+  string_tree.to_string(render_tree(product: product))
 }
-

@@ -2,11 +2,12 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
 pub fn render_tree() -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<nav>
+  let tree = string_tree.from_string("")
+  let tree =
+    string_tree.append(
+      tree,
+      "<nav>
   <ul>
     <li><strong>Task App</strong></li>
   </ul>
@@ -16,12 +17,12 @@ pub fn render_tree() -> StringTree {
   </ul>
 </nav>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
 pub fn render() -> String {
-    string_tree.to_string(render_tree())
+  string_tree.to_string(render_tree())
 }
-

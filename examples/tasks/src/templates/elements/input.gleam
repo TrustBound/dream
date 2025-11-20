@@ -2,32 +2,95 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(input_id input_id: String, input_name input_name: String, label_text label_text: String, input_value input_value: String, input_type input_type: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<label for=\"")
-    let tree = string_tree.append(tree, input_id)
-    let tree = string_tree.append(tree, "\">
-  ")
-    let tree = string_tree.append(tree, label_text)
-    let tree = string_tree.append(tree, "
-  <input id=\"")
-    let tree = string_tree.append(tree, input_id)
-    let tree = string_tree.append(tree, "\" name=\"")
-    let tree = string_tree.append(tree, input_name)
-    let tree = string_tree.append(tree, "\" type=\"")
-    let tree = string_tree.append(tree, input_type)
-    let tree = string_tree.append(tree, "\" value=\"")
-    let tree = string_tree.append(tree, input_value)
-    let tree = string_tree.append(tree, "\">
+pub fn render_tree(
+  input_id input_id: String,
+  input_name input_name: String,
+  input_type input_type: String,
+  input_value input_value: String,
+  label_text label_text: String,
+  placeholder placeholder: String,
+  attributes attributes: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree = string_tree.append(tree, "<label for=\"")
+  let tree = string_tree.append(tree, input_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "\">
+  <span>",
+    )
+  let tree = string_tree.append(tree, label_text)
+  let tree =
+    string_tree.append(
+      tree,
+      "</span>
+  <input 
+    id=\"",
+    )
+  let tree = string_tree.append(tree, input_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "\" 
+    name=\"",
+    )
+  let tree = string_tree.append(tree, input_name)
+  let tree =
+    string_tree.append(
+      tree,
+      "\" 
+    type=\"",
+    )
+  let tree = string_tree.append(tree, input_type)
+  let tree =
+    string_tree.append(
+      tree,
+      "\" 
+    value=\"",
+    )
+  let tree = string_tree.append(tree, input_value)
+  let tree =
+    string_tree.append(
+      tree,
+      "\"
+    placeholder=\"",
+    )
+  let tree = string_tree.append(tree, placeholder)
+  let tree =
+    string_tree.append(
+      tree,
+      "\"
+    ",
+    )
+  let tree = string_tree.append(tree, attributes)
+  let tree =
+    string_tree.append(
+      tree,
+      ">
 </label>
-")
+",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(input_id input_id: String, input_name input_name: String, label_text label_text: String, input_value input_value: String, input_type input_type: String) -> String {
-    string_tree.to_string(render_tree(input_id: input_id, input_name: input_name, label_text: label_text, input_value: input_value, input_type: input_type))
+pub fn render(
+  input_id input_id: String,
+  input_name input_name: String,
+  input_type input_type: String,
+  input_value input_value: String,
+  label_text label_text: String,
+  placeholder placeholder: String,
+  attributes attributes: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    input_id: input_id,
+    input_name: input_name,
+    input_type: input_type,
+    input_value: input_value,
+    label_text: label_text,
+    placeholder: placeholder,
+    attributes: attributes,
+  ))
 }
-

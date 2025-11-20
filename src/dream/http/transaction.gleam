@@ -421,7 +421,7 @@ fn match_query_key(
 fn decode_url_component(component: String) -> String {
   // Replace + with space (form encoding convention)
   let with_spaces = string.replace(component, "+", " ")
-  
+
   // Decode percent-encoded sequences
   case uri.percent_decode(with_spaces) {
     Ok(decoded) -> decoded

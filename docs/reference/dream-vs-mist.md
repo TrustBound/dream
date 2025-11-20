@@ -48,9 +48,8 @@ pub fn main() {
 ### With Dream
 
 ```gleam
-import dream/http/response.{text_response}
-import dream/http/status.{ok}
-import dream/http/transaction.{Request, Response, Get}
+import dream/http.{type Request, type Response, text_response, ok}
+import dream/http/request.{Get}
 import dream/router.{route, router}
 import dream/servers/mist/server
 
@@ -121,22 +120,24 @@ fn show_user(id: Int) -> Response(ResponseData) {
 ### With Dream
 
 ```gleam
-import dream/http/response.{json_response, text_response}
-import dream/http/status.{ok, not_found}
-import dream/http/transaction.{Request, Response, get_param, Get}
+import dream/http.{type Request, type Response, require_int, json_response, text_response, ok, not_found}
+import dream/http/request.{Get}
 import dream/router.{Router, route, router}
 import dream/context.{AppContext}
 import models/user.{get}
 import services.{Services}
 import views/user_view.{to_json}
 
-fn show_user(req: Request, ctx: AppContext, svc: Services) -> Response {
-  let assert Ok(param) = get_param(req, "id")
-  let assert Ok(id) = param.as_int
+fn show_user(request: Request, context: AppContext, services: Services) -> Response {
+  let result = {
+    use id <- result.try(require_int(request, "id"))
+    let db = services.database.connection
+    get(db, id)
+  }
   
-  case get(svc.db, id) {
+  case result {
     Ok(user) -> json_response(ok, to_json(user))
-    Error(_) -> text_response(not_found, "Not found")
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
@@ -151,7 +152,7 @@ pub fn main() {
 ```
 
 **Dream provides:**
-- Automatic parameter extraction (`get_param`)
+- Automatic parameter extraction (`require_int`, `require_string`)
 - Type-safe dependency injection (Services)
 - Clean controller signature
 
@@ -271,7 +272,7 @@ fn(Request, Context, Services) -> Response  // Every controller has this signatu
 | Feature | Raw Mist | With Dream |
 |---------|----------|------------|
 | **Routing** | Manual string parsing | Pattern-based with `:params` |
-| **Path params** | Write parser per route | `get_param(req, "id")` |
+| **Path params** | Write parser per route | `require_int(request, "id")` |
 | **Dependencies** | Globals or process dictionary | Type-safe Services parameter |
 | **Per-request data** | Thread manually or use process dictionary | Type-safe Context parameter |
 | **Middleware** | Reimplement per project | Built-in, composable |

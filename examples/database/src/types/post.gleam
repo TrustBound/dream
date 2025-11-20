@@ -14,4 +14,3 @@ pub type Post {
     created_at: Timestamp,
   )
 }
-

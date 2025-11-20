@@ -1,7 +1,7 @@
-import dream/http/request.{Get}
-import dream/router.{type Router, route, router}
 import context.{type AuthContext}
 import controllers/posts_controller
+import dream/http/request.{Get}
+import dream/router.{type Router, route, router}
 import middleware/admin_middleware.{admin_middleware}
 import middleware/auth_middleware.{auth_middleware}
 import services.{type Services}

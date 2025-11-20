@@ -1,4 +1,5 @@
 {> with task_id as String
+{> with attributes as String
 {> with checkbox_html as String
 {> with title as String
 {> with priority_badge as String
@@ -6,19 +7,18 @@
 {> with tags_html as String
 {> with edit_button as String
 {> with delete_button as String
-<article id="task-{{ task_id }}" class="task-row">
+<article id="task-{{ task_id }}" {{ attributes }} onclick="closeAllEditorsBeforeEdit(event, this)">
   {{ checkbox_html }}
-  <div class="task-content">
+  <section>
     <h3>{{ title }}</h3>
-    <div class="task-meta">
+    <footer>
       {{ priority_badge }}
       {{ due_date_html }}
       {{ tags_html }}
-    </div>
-  </div>
-  <div class="task-actions">
+    </footer>
+  </section>
+  <aside>
     {{ edit_button }}
     {{ delete_button }}
-  </div>
+  </aside>
 </article>
-

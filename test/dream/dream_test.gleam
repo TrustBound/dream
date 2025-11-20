@@ -2,17 +2,14 @@ import dream/context.{type AppContext}
 import dream/dream
 import dream/http/cookie.{cookie_name, cookie_value}
 import dream/http/header.{Header}
-import dream/http/request.{type Method, type Request, Request, Get, Http, Http1}
+import dream/http/request.{type Method, type Request, Get, Http, Http1, Request}
 import dream/http/response.{type Response, Response, Text}
 import dream/router.{type EmptyServices, Route, Router, router}
 import gleam/list
 import gleam/option
 import gleeunit/should
 
-fn create_test_request(
-  _method_value: Method,
-  path_value: String,
-) -> Request {
+fn create_test_request(_method_value: Method, path_value: String) -> Request {
   Request(
     method: Get,
     protocol: Http,
@@ -48,12 +45,7 @@ fn test_handler(
 pub fn route_request_with_matching_route_returns_controller_response_test() {
   // Arrange
   let test_route =
-    Route(
-      method: Get,
-      path: "/test",
-      controller: test_handler,
-      middleware: [],
-    )
+    Route(method: Get, path: "/test", controller: test_handler, middleware: [])
   let test_router = Router(routes: [test_route])
   let request = create_test_request(Get, "/test")
   let context = context.AppContext(request_id: "test-id")

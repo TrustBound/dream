@@ -18,9 +18,11 @@ pub fn text_field(
   input.render(
     input_id: id,
     input_name: name,
-    label_text: label,
-    input_value: value,
     input_type: "text",
+    input_value: value,
+    label_text: label,
+    placeholder: "",
+    attributes: "",
   )
 }
 
@@ -33,9 +35,11 @@ pub fn date_field(
   input.render(
     input_id: id,
     input_name: name,
-    label_text: label,
-    input_value: value,
     input_type: "date",
+    input_value: value,
+    label_text: label,
+    placeholder: "",
+    attributes: "",
   )
 }
 
@@ -48,8 +52,10 @@ pub fn text_area(
   textarea.render(
     textarea_id: id,
     textarea_name: name,
-    label_text: label,
     textarea_value: value,
+    label_text: label,
+    placeholder: "",
+    attributes: "",
   )
 }
 
@@ -68,6 +74,7 @@ pub fn checkbox_field(
     checkbox_name: name,
     label_text: label,
     checked_attr: checked_attr,
+    attributes: "",
   )
 }
 
@@ -104,11 +111,21 @@ pub fn priority_select(id: String, name: String, current: Int) -> String {
 }
 
 pub fn submit_button(id: String, text: String) -> String {
-  button.render(button_id: id, button_text: text, button_type: "submit")
+  button.render(
+    button_id: id,
+    button_type: "submit",
+    button_text: text,
+    attributes: "",
+  )
 }
 
 pub fn regular_button(id: String, text: String) -> String {
-  button.render(button_id: id, button_text: text, button_type: "button")
+  button.render(
+    button_id: id,
+    button_type: "button",
+    button_text: text,
+    attributes: "",
+  )
 }
 
 // Helper to map over lists

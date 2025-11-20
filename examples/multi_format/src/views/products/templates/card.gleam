@@ -2,38 +2,53 @@
 
 import gleam/string_tree.{type StringTree}
 
-import sql.{type GetProductRow}
-import gleam/int
 import gleam/float
+import gleam/int
+import sql.{type GetProductRow}
 
 pub fn render_tree(product product: GetProductRow) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "
+  let tree = string_tree.from_string("")
+  let tree =
+    string_tree.append(
+      tree,
+      "
 <article>
   <header>
     <i data-lucide=\"package\"></i>
-    <h3>")
-    let tree = string_tree.append(tree, product.name)
-    let tree = string_tree.append(tree, "</h3>
+    <h3>",
+    )
+  let tree = string_tree.append(tree, product.name)
+  let tree =
+    string_tree.append(
+      tree,
+      "</h3>
   </header>
   <dl>
     <dt>Price</dt>
-    <dd>$")
-    let tree = string_tree.append(tree, float.to_string(product.price))
-    let tree = string_tree.append(tree, "</dd>
+    <dd>$",
+    )
+  let tree = string_tree.append(tree, float.to_string(product.price))
+  let tree =
+    string_tree.append(
+      tree,
+      "</dd>
     <dt>Stock</dt>
-    <dd>")
-    let tree = string_tree.append(tree, int.to_string(product.stock))
-    let tree = string_tree.append(tree, " units</dd>
+    <dd>",
+    )
+  let tree = string_tree.append(tree, int.to_string(product.stock))
+  let tree =
+    string_tree.append(
+      tree,
+      " units</dd>
   </dl>
 </article>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
 pub fn render(product product: GetProductRow) -> String {
-    string_tree.to_string(render_tree(product: product))
+  string_tree.to_string(render_tree(product: product))
 }
-

@@ -2,23 +2,37 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(card_id card_id: String, card_content card_content: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<article id=\"")
-    let tree = string_tree.append(tree, card_id)
-    let tree = string_tree.append(tree, "\">
-  ")
-    let tree = string_tree.append(tree, card_content)
-    let tree = string_tree.append(tree, "
+pub fn render_tree(
+  card_id card_id: String,
+  card_content card_content: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree = string_tree.append(tree, "<article id=\"")
+  let tree = string_tree.append(tree, card_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "\">
+  ",
+    )
+  let tree = string_tree.append(tree, card_content)
+  let tree =
+    string_tree.append(
+      tree,
+      "
 </article>
-")
+",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(card_id card_id: String, card_content card_content: String) -> String {
-    string_tree.to_string(render_tree(card_id: card_id, card_content: card_content))
+pub fn render(
+  card_id card_id: String,
+  card_content card_content: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    card_id: card_id,
+    card_content: card_content,
+  ))
 }
-

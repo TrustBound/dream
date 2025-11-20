@@ -66,7 +66,6 @@ fn ets_info_ffi_by_name(
   name_atom: atom.Atom,
 ) -> Result(List(dynamic.Dynamic), EtsFfiError)
 
-
 @external(erlang, "internal_ffi", "ets_match")
 pub fn ets_match(
   table_id: Int,

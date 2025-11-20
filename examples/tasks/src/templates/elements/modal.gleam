@@ -2,37 +2,62 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(modal_id modal_id: String, modal_title modal_title: String, modal_content modal_content: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<dialog id=\"")
-    let tree = string_tree.append(tree, modal_id)
-    let tree = string_tree.append(tree, "\">
+pub fn render_tree(
+  modal_id modal_id: String,
+  modal_title modal_title: String,
+  modal_content modal_content: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree = string_tree.append(tree, "<dialog id=\"")
+  let tree = string_tree.append(tree, modal_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "\">
   <article>
     <header>
-      <h2>")
-    let tree = string_tree.append(tree, modal_title)
-    let tree = string_tree.append(tree, "</h2>
+      <h2>",
+    )
+  let tree = string_tree.append(tree, modal_title)
+  let tree =
+    string_tree.append(
+      tree,
+      "</h2>
     </header>
     <section>
-      ")
-    let tree = string_tree.append(tree, modal_content)
-    let tree = string_tree.append(tree, "
+      ",
+    )
+  let tree = string_tree.append(tree, modal_content)
+  let tree =
+    string_tree.append(
+      tree,
+      "
     </section>
     <footer>
-      <button onclick=\"document.getElementById('")
-    let tree = string_tree.append(tree, modal_id)
-    let tree = string_tree.append(tree, "').close()\">Close</button>
+      <button onclick=\"document.getElementById('",
+    )
+  let tree = string_tree.append(tree, modal_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "').close()\">Close</button>
     </footer>
   </article>
 </dialog>
-")
+",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(modal_id modal_id: String, modal_title modal_title: String, modal_content modal_content: String) -> String {
-    string_tree.to_string(render_tree(modal_id: modal_id, modal_title: modal_title, modal_content: modal_content))
+pub fn render(
+  modal_id modal_id: String,
+  modal_title modal_title: String,
+  modal_content modal_content: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    modal_id: modal_id,
+    modal_title: modal_title,
+    modal_content: modal_content,
+  ))
 }
-

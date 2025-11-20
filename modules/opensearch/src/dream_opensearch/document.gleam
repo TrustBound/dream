@@ -45,7 +45,10 @@ pub fn create_index(
 }
 
 /// Delete an index
-pub fn delete_index(client: Client, index_name: String) -> Result(String, String) {
+pub fn delete_index(
+  client: Client,
+  index_name: String,
+) -> Result(String, String) {
   let path = "/" <> index_name
   client.send_request(client, http.Delete, path, "")
 }
@@ -55,4 +58,3 @@ pub fn bulk(client: Client, ndjson: String) -> Result(String, String) {
   let path = "/_bulk"
   client.send_request(client, http.Post, path, ndjson)
 }
-

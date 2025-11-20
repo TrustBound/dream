@@ -2,25 +2,62 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(button_id button_id: String, button_text button_text: String, button_type button_type: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<button id=\"")
-    let tree = string_tree.append(tree, button_id)
-    let tree = string_tree.append(tree, "\" type=\"")
-    let tree = string_tree.append(tree, button_type)
-    let tree = string_tree.append(tree, "\">
-  ")
-    let tree = string_tree.append(tree, button_text)
-    let tree = string_tree.append(tree, "
+pub fn render_tree(
+  button_id button_id: String,
+  button_type button_type: String,
+  button_text button_text: String,
+  attributes attributes: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree =
+    string_tree.append(
+      tree,
+      "<button 
+  id=\"",
+    )
+  let tree = string_tree.append(tree, button_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "\" 
+  type=\"",
+    )
+  let tree = string_tree.append(tree, button_type)
+  let tree =
+    string_tree.append(
+      tree,
+      "\"
+  ",
+    )
+  let tree = string_tree.append(tree, attributes)
+  let tree =
+    string_tree.append(
+      tree,
+      ">
+  ",
+    )
+  let tree = string_tree.append(tree, button_text)
+  let tree =
+    string_tree.append(
+      tree,
+      "
 </button>
-")
+",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(button_id button_id: String, button_text button_text: String, button_type button_type: String) -> String {
-    string_tree.to_string(render_tree(button_id: button_id, button_text: button_text, button_type: button_type))
+pub fn render(
+  button_id button_id: String,
+  button_type button_type: String,
+  button_text button_text: String,
+  attributes attributes: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    button_id: button_id,
+    button_type: button_type,
+    button_text: button_text,
+    attributes: attributes,
+  ))
 }
-

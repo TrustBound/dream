@@ -24,4 +24,3 @@ pub fn format_fetch(body: String) -> String {
 pub fn format_error(error: String) -> String {
   "Error: " <> error
 }
-

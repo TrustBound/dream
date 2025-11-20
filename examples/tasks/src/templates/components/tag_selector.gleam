@@ -2,23 +2,44 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(tag_buttons tag_buttons: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<details>
+pub fn render_tree(
+  tag_buttons tag_buttons: String,
+  create_tag_form create_tag_form: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree =
+    string_tree.append(
+      tree,
+      "<details>
   <summary>Add Tag</summary>
-  ")
-    let tree = string_tree.append(tree, tag_buttons)
-    let tree = string_tree.append(tree, "
+  ",
+    )
+  let tree = string_tree.append(tree, create_tag_form)
+  let tree =
+    string_tree.append(
+      tree,
+      "
+  ",
+    )
+  let tree = string_tree.append(tree, tag_buttons)
+  let tree =
+    string_tree.append(
+      tree,
+      "
 </details>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(tag_buttons tag_buttons: String) -> String {
-    string_tree.to_string(render_tree(tag_buttons: tag_buttons))
+pub fn render(
+  tag_buttons tag_buttons: String,
+  create_tag_form create_tag_form: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    tag_buttons: tag_buttons,
+    create_tag_form: create_tag_form,
+  ))
 }
-

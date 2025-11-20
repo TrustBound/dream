@@ -16,4 +16,3 @@ pub fn format_status() -> String {
 pub fn format_welcome() -> String {
   "Welcome to the Singleton Rate Limiter Example!\n\nEndpoints:\n  GET /      - This welcome page (no rate limit)\n  GET /api   - Rate-limited API endpoint\n  GET /api/status - Rate limit status (also rate-limited)\n\nThe rate limiter uses the singleton pattern to maintain\nglobal state across all requests. Try making multiple\nrapid requests to /api to see it in action!"
 }
-

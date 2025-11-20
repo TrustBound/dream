@@ -4,6 +4,7 @@
 <section>
     <header>
         <h1>{{ project_name }}</h1>
+        <button id="add-task-btn" onclick="insertNewTask()">+</button>
         <p>{{ project_description }}</p>
     </header>
     {{ task_list }}

@@ -2,26 +2,43 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(task_id task_id: String, tag_id tag_id: String, tag_name tag_name: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<button hx-post=\"/tasks/")
-    let tree = string_tree.append(tree, task_id)
-    let tree = string_tree.append(tree, "/tags?tag_id=")
-    let tree = string_tree.append(tree, tag_id)
-    let tree = string_tree.append(tree, "\" hx-target=\"closest article\" hx-swap=\"outerHTML\">
-  ")
-    let tree = string_tree.append(tree, tag_name)
-    let tree = string_tree.append(tree, "
+pub fn render_tree(
+  task_id task_id: String,
+  tag_id tag_id: String,
+  tag_name tag_name: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree = string_tree.append(tree, "<button hx-post=\"/tasks/")
+  let tree = string_tree.append(tree, task_id)
+  let tree = string_tree.append(tree, "/tags?tag_id=")
+  let tree = string_tree.append(tree, tag_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "\" hx-target=\"closest article\" hx-swap=\"outerHTML\">
+  ",
+    )
+  let tree = string_tree.append(tree, tag_name)
+  let tree =
+    string_tree.append(
+      tree,
+      "
 </button>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(task_id task_id: String, tag_id tag_id: String, tag_name tag_name: String) -> String {
-    string_tree.to_string(render_tree(task_id: task_id, tag_id: tag_id, tag_name: tag_name))
+pub fn render(
+  task_id task_id: String,
+  tag_id tag_id: String,
+  tag_name tag_name: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    task_id: task_id,
+    tag_id: tag_id,
+    tag_name: tag_name,
+  ))
 }
-

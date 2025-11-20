@@ -3,28 +3,28 @@
 //// This module handles database operations and returns domain types.
 //// Presentation logic (JSON encoding) lives in views/post_view.
 
+import dream/http/error.{type Error, InternalServerError, NotFound}
 import gleam/dynamic/decode
 import gleam/list
 import gleam/option
 import gleam/time/timestamp
 import pog
 import sql
-import types/errors.{type DataError, DatabaseError, NotFound}
 import types/post.{type Post, Post}
 
 /// List all posts for a user
-pub fn list(db: pog.Connection, user_id: Int) -> Result(List(Post), DataError) {
+pub fn list(db: pog.Connection, user_id: Int) -> Result(List(Post), Error) {
   case sql.list_posts(db, user_id) {
     Ok(returned) -> Ok(extract_all_posts(returned))
-    Error(_) -> Error(DatabaseError)
+    Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 
 /// Get a single post by ID
-pub fn get(db: pog.Connection, id: Int) -> Result(Post, DataError) {
+pub fn get(db: pog.Connection, id: Int) -> Result(Post, Error) {
   case sql.get_post(db, id) {
     Ok(returned) -> extract_first_post(returned)
-    Error(_) -> Error(DatabaseError)
+    Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 
@@ -34,10 +34,10 @@ pub fn create(
   user_id: Int,
   title: String,
   content: String,
-) -> Result(Post, DataError) {
+) -> Result(Post, Error) {
   case sql.create_post(db, user_id, title, content) {
     Ok(returned) -> extract_created_post(returned)
-    Error(_) -> Error(DatabaseError)
+    Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 
@@ -52,11 +52,11 @@ pub fn decoder() -> decode.Decoder(#(String, String)) {
 
 fn extract_first_post(
   returned: pog.Returned(sql.GetPostRow),
-) -> Result(Post, DataError) {
+) -> Result(Post, Error) {
   case returned.rows {
     [row] -> Ok(row_to_post(row))
-    [] -> Error(NotFound)
-    _ -> Error(NotFound)
+    [] -> Error(NotFound("Post not found"))
+    _ -> Error(NotFound("Post not found"))
   }
 }
 
@@ -66,11 +66,11 @@ fn extract_all_posts(returned: pog.Returned(sql.ListPostsRow)) -> List(Post) {
 
 fn extract_created_post(
   returned: pog.Returned(sql.CreatePostRow),
-) -> Result(Post, DataError) {
+) -> Result(Post, Error) {
   case returned.rows {
     [row] -> Ok(row_to_post_create(row))
-    [] -> Error(NotFound)
-    _ -> Error(NotFound)
+    [] -> Error(InternalServerError("Failed to create post"))
+    _ -> Error(InternalServerError("Failed to create post"))
   }
 }
 

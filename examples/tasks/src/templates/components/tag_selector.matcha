@@ -1,6 +1,8 @@
 {> with tag_buttons as String
+{> with create_tag_form as String
 <details>
   <summary>Add Tag</summary>
+  {{ create_tag_form }}
   {{ tag_buttons }}
 </details>
 

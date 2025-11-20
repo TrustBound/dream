@@ -6,12 +6,39 @@
 //// - Single wildcards: "*" or "*name"
 //// - Multi-segment wildcards: "**" or "**path"
 //// - Extension patterns: "*.jpg" or "*.{jpg,png,gif}"
+////
+//// This is an internal module used by the router for path matching.
+//// Most applications won't need to use this directly - the router
+//// handles pattern matching automatically.
+////
+//// ## Pattern Examples
+////
+//// ```gleam
+//// // Static: /users/profile
+//// // Param: /users/:id → extracts id
+//// // Single wildcard: /files/* → matches one segment
+//// // Multi wildcard: /files/** → matches multiple segments
+//// // Extension: /images/*.jpg → matches .jpg files
+//// // Multiple extensions: /images/*.{jpg,png,gif}
+//// ```
 
 import gleam/list
 import gleam/option
 import gleam/string
 
 /// Pattern segment type
+///
+/// Classifies what kind of pattern segment we're matching against.
+/// Used internally by the pattern matcher to determine how to handle
+/// each segment of a route pattern.
+///
+/// ## Variants
+///
+/// - `StaticSegment`: Exact match required (e.g., "users")
+/// - `ParamSegment`: Named parameter (e.g., ":id")
+/// - `SingleWildcard`: Matches one segment (e.g., "*" or "*name")
+/// - `MultiWildcard`: Matches multiple segments (e.g., "**" or "**path")
+/// - `ExtensionPattern`: Matches file extension (e.g., "*.jpg")
 pub type PatternType {
   StaticSegment
   ParamSegment
@@ -21,6 +48,40 @@ pub type PatternType {
 }
 
 /// Match a pattern against path segments and extract parameters
+///
+/// Core pattern matching function that compares a route pattern
+/// (split into segments) against a request path (also split into segments).
+/// Returns extracted parameters if the pattern matches, None if it doesn't.
+///
+/// ## Parameters
+///
+/// - `pattern_segments`: Route pattern split by "/" (e.g., ["users", ":id"])
+/// - `path_segments`: Request path split by "/" (e.g., ["users", "123"])
+///
+/// ## Returns
+///
+/// - `Some(params)`: List of extracted parameters as key-value tuples
+/// - `None`: Pattern doesn't match the path
+///
+/// ## Examples
+///
+/// ```gleam
+/// // Named parameter
+/// match_segments(["users", ":id"], ["users", "123"])
+/// // Some([#("id", "123")])
+///
+/// // Multiple parameters
+/// match_segments(["users", ":user_id", "posts", ":id"], ["users", "1", "posts", "2"])
+/// // Some([#("user_id", "1"), #("id", "2")])
+///
+/// // Wildcard
+/// match_segments(["files", "**path"], ["files", "docs", "guide.pdf"])
+/// // Some([#("path", "docs/guide.pdf")])
+///
+/// // No match
+/// match_segments(["users", ":id"], ["posts", "123"])
+/// // None
+/// ```
 pub fn match_segments(
   pattern_segments: List(String),
   path_segments: List(String),

@@ -2,11 +2,11 @@
 
 import gleam/json
 import gleam/option
-import types/tag.{type Tag}
-import types/task.{type Task}
-import templates/pages/index
 import templates/components/layout_components
 import templates/components/task_components
+import templates/pages/index
+import types/tag.{type Tag}
+import types/task.{type Task}
 
 /// Render task card for HTMX swap
 pub fn card(task: Task, tags: List(Tag)) -> String {
@@ -18,11 +18,18 @@ pub fn edit_form(task: Task) -> String {
   task_components.task_form(option.Some(task))
 }
 
+/// Render task editor (inline editing)
+pub fn editor(task: Task, tags: List(Tag)) -> String {
+  task_components.task_editor(task, tags)
+}
+
 /// Render full index page with tasks
-pub fn index_page(tasks: List(Task), tags_by_task: List(#(Int, List(Tag)))) -> String {
-  let form = task_components.task_form(option.None)
+pub fn index_page(
+  tasks: List(Task),
+  tags_by_task: List(#(Int, List(Tag))),
+) -> String {
   let list = task_components.task_list(tasks, tags_by_task)
-  let content = index.render(task_form: form, task_list: list)
+  let content = index.render(task_list: list)
 
   layout_components.build_page("Tasks", content)
 }
@@ -78,4 +85,3 @@ fn json_option_int(opt: option.Option(Int)) -> json.Json {
     option.None -> json.null()
   }
 }
-

@@ -1,4 +1,0 @@
-{> with task_id as String
-{> with checked_attr as String
-<input type="checkbox" {{ checked_attr }} hx-post="/tasks/{{ task_id }}/toggle.htmx" hx-target="closest article" hx-swap="outerHTML">
-

@@ -2,22 +2,27 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
 pub fn render_tree(list_items list_items: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<ul id=\"task-list\">
-  ")
-    let tree = string_tree.append(tree, list_items)
-    let tree = string_tree.append(tree, "
+  let tree = string_tree.from_string("")
+  let tree =
+    string_tree.append(
+      tree,
+      "<ul id=\"task-list\">
+  ",
+    )
+  let tree = string_tree.append(tree, list_items)
+  let tree =
+    string_tree.append(
+      tree,
+      "
 </ul>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
 pub fn render(list_items list_items: String) -> String {
-    string_tree.to_string(render_tree(list_items: list_items))
+  string_tree.to_string(render_tree(list_items: list_items))
 }
-

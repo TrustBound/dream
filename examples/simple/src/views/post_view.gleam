@@ -21,4 +21,3 @@ pub fn format_show(user: String, post: String, http_body: String) -> String {
 pub fn format_error(error: String) -> String {
   "Error: " <> error
 }
-

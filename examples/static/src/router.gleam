@@ -1,7 +1,7 @@
+import controllers/static_controller
 import dream/context.{type AppContext}
 import dream/http/request.{Get}
 import dream/router.{type EmptyServices, type Router, route, router}
-import controllers/static_controller
 
 pub fn create_router() -> Router(AppContext, EmptyServices) {
   router

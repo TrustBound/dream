@@ -84,9 +84,7 @@ pub fn test1()             // Meaningless
 Controllers receive `Request`, `Context`, and `Services`. Mock the services:
 
 ```gleam
-import dream/http/response.{text_response}
-import dream/http/status.{ok}
-import dream/http/transaction.{Request, Response}
+import dream/http.{type Request, type Response, text_response, ok}
 import gleam/dynamic/decode
 import gleeunit/should
 import your_app/controllers/users_controller
@@ -176,14 +174,28 @@ Test middleware with mock `next` functions:
 import gleeunit/should
 import your_app/middleware/auth_middleware
 
+fn should_not_call_next(
+  _request: Request,
+  _context: Context,
+  _services: Services,
+) -> Response {
+  panic as "Should not call next"
+}
+
+fn success_handler(
+  _request: Request,
+  _context: Context,
+  _services: Services,
+) -> Response {
+  text_response(ok, "Success")
+}
+
 pub fn auth_middleware_without_token_returns_401_test() {
   // Arrange
   let request = test_request()
   let context = test_context()
   let services = test_services()
-  let next = fn(_req, _context, _services) {
-    panic as "Should not call next"
-  }
+  let next = should_not_call_next
   
   // Act
   let response = auth_middleware.auth_middleware(request, context, services, next)
@@ -197,9 +209,7 @@ pub fn auth_middleware_with_valid_token_calls_next_test() {
   let request = test_request_with_header("Authorization", "Bearer valid-token")
   let context = test_context()
   let services = test_services()
-  let next = fn(_req, _context, _services) {
-    text_response(ok, "Success")
-  }
+  let next = success_handler
   
   // Act
   let response = auth_middleware.auth_middleware(request, context, services, next)
@@ -229,15 +239,19 @@ pub fn get_user(db: Database, id: Int) -> Result(User, Error) {
 Create mock implementations:
 
 ```gleam
+fn mock_query(_sql: String, _params: List(Dynamic)) -> Result(List(User), Error) {
+  // Return test data
+  Ok([test_user()])
+}
+
+fn mock_execute(_sql: String, _params: List(Dynamic)) -> Result(Int, Error) {
+  Ok(1)
+}
+
 pub fn mock_database() -> Database {
   Database {
-    query: fn(sql, params) {
-      // Return test data
-      Ok([test_user()])
-    },
-    execute: fn(sql, params) {
-      Ok(1)
-    },
+    query: mock_query,
+    execute: mock_execute,
   }
 }
 ```

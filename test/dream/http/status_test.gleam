@@ -30,4 +30,3 @@ pub fn internal_server_error_has_correct_value_test() {
   // Arrange & Act & Assert
   status.internal_server_error |> should.equal(500)
 }
-

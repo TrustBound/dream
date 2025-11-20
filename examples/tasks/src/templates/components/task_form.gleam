@@ -2,35 +2,68 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(form_action form_action: String, form_method form_method: String, form_target form_target: String, form_swap form_swap: String, form_attrs form_attrs: String, form_fields form_fields: String, submit_text submit_text: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<form hx-")
-    let tree = string_tree.append(tree, form_method)
-    let tree = string_tree.append(tree, "=\"")
-    let tree = string_tree.append(tree, form_action)
-    let tree = string_tree.append(tree, "\" hx-target=\"")
-    let tree = string_tree.append(tree, form_target)
-    let tree = string_tree.append(tree, "\" hx-swap=\"")
-    let tree = string_tree.append(tree, form_swap)
-    let tree = string_tree.append(tree, "\" ")
-    let tree = string_tree.append(tree, form_attrs)
-    let tree = string_tree.append(tree, ">
-  ")
-    let tree = string_tree.append(tree, form_fields)
-    let tree = string_tree.append(tree, "
-  <button type=\"submit\">")
-    let tree = string_tree.append(tree, submit_text)
-    let tree = string_tree.append(tree, "</button>
+pub fn render_tree(
+  form_action form_action: String,
+  form_method form_method: String,
+  form_target form_target: String,
+  form_swap form_swap: String,
+  form_attrs form_attrs: String,
+  form_fields form_fields: String,
+  submit_text submit_text: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree = string_tree.append(tree, "<form hx-")
+  let tree = string_tree.append(tree, form_method)
+  let tree = string_tree.append(tree, "=\"")
+  let tree = string_tree.append(tree, form_action)
+  let tree = string_tree.append(tree, "\" hx-target=\"")
+  let tree = string_tree.append(tree, form_target)
+  let tree = string_tree.append(tree, "\" hx-swap=\"")
+  let tree = string_tree.append(tree, form_swap)
+  let tree = string_tree.append(tree, "\" ")
+  let tree = string_tree.append(tree, form_attrs)
+  let tree =
+    string_tree.append(
+      tree,
+      ">
+  ",
+    )
+  let tree = string_tree.append(tree, form_fields)
+  let tree =
+    string_tree.append(
+      tree,
+      "
+  <button type=\"submit\">",
+    )
+  let tree = string_tree.append(tree, submit_text)
+  let tree =
+    string_tree.append(
+      tree,
+      "</button>
 </form>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(form_action form_action: String, form_method form_method: String, form_target form_target: String, form_swap form_swap: String, form_attrs form_attrs: String, form_fields form_fields: String, submit_text submit_text: String) -> String {
-    string_tree.to_string(render_tree(form_action: form_action, form_method: form_method, form_target: form_target, form_swap: form_swap, form_attrs: form_attrs, form_fields: form_fields, submit_text: submit_text))
+pub fn render(
+  form_action form_action: String,
+  form_method form_method: String,
+  form_target form_target: String,
+  form_swap form_swap: String,
+  form_attrs form_attrs: String,
+  form_fields form_fields: String,
+  submit_text submit_text: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    form_action: form_action,
+    form_method: form_method,
+    form_target: form_target,
+    form_swap: form_swap,
+    form_attrs: form_attrs,
+    form_fields: form_fields,
+    submit_text: submit_text,
+  ))
 }
-

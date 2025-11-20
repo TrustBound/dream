@@ -7,22 +7,22 @@ import gleam/string_tree.{type StringTree}
 pub fn render_tree(project_name project_name: String, project_description project_description: String, task_list task_list: String) -> StringTree {
     let tree = string_tree.from_string("")
     let tree = string_tree.append(tree, "<section>
-  <header>
-    <h1>")
+    <header>
+        <h1>")
     let tree = string_tree.append(tree, project_name)
     let tree = string_tree.append(tree, "</h1>
-    <p>")
+        <button id=\"add-task-btn\" onclick=\"insertNewTask()\">+</button>
+        <p>")
     let tree = string_tree.append(tree, project_description)
     let tree = string_tree.append(tree, "</p>
-  </header>
-  ")
+    </header>
+    ")
     let tree = string_tree.append(tree, task_list)
     let tree = string_tree.append(tree, "
-  <footer>
-    <a href=\"/\">Back to All Tasks</a>
-  </footer>
-</section>
-")
+    <footer>
+        <a href=\"/\">Back to All Todos</a>
+    </footer>
+</section>")
 
     tree
 }

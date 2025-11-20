@@ -1,9 +1,9 @@
 //// Router for multi-format example
 
-import dream/http/request.{Get}
-import dream/router.{type Router, route, router}
 import context.{type AppContext}
 import controllers/products_controller
+import dream/http/request.{Get}
+import dream/router.{type Router, route, router}
 import services.{type Services}
 
 pub fn create_router() -> Router(AppContext, Services) {

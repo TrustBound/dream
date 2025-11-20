@@ -28,7 +28,7 @@ pub fn execute(
   db: Connection,
   task_id: Int,
   new_position: Int,
-) -> Result(Task, Error) {
+) -> Result(Task, dream.Error) {
   // In a real app, this might also:
   // 1. Check permissions
   // 2. Shift other tasks to make room
@@ -44,25 +44,32 @@ pub fn execute(
 The controller becomes a simple coordinator:
 
 ```gleam
+import dream/http.{require_int, type Request, type Response, empty_response, ok}
+import gleam/result
 import operations/reorder_tasks
+import utilities/response_helpers
 
 pub fn reorder(
   request: Request,
   _context: Context,
   services: Services,
 ) -> Response {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
-  
-  // Parse body for new_position...
-  let new_position = 5
+  let result = {
+    use id <- result.try(require_int(request, "id"))
+    // Parse body for new_position...
+    let new_position = 5
+    let db = services.database.connection
+    reorder_tasks.execute(db, id, new_position)
+  }
 
-  case reorder_tasks.execute(services.db, id, new_position) {
-    Ok(_) -> empty_response(status.ok)
-    Error(_) -> errors.internal_error()
+  case result {
+    Ok(_) -> empty_response(ok)
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 ```
+
+This controller uses `require_int` to safely extract the path parameter, then calls the operation. The `use` syntax keeps the code flat and readable. All errors from the operation (which returns `dream.Error`) are handled uniformly through `response_helpers.handle_error`.
 
 ## Benefits
 
@@ -75,6 +82,9 @@ pub fn reorder(
 Operations are the perfect place to coordinate multiple services.
 
 ```gleam
+import dream/http/error.{type Error}
+import gleam/result
+
 pub fn publish_post(services: Services, post_id: Int) -> Result(Post, Error) {
   use post <- result.try(post_model.publish(services.db, post_id))
   
@@ -87,3 +97,5 @@ pub fn publish_post(services: Services, post_id: Int) -> Result(Post, Error) {
 ```
 
 Use the `use` syntax (Gleam's equivalent of `do` notation) to chain operations flatly, avoiding nested cases.
+
+**Important:** Operations should return `Result(_, dream.Error)` to keep error handling consistent across the application. This allows controllers to handle all errors uniformly without needing to map between different error types.

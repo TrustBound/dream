@@ -2,8 +2,8 @@
 
 import gleam/json
 import gleam/option
-import types/tag.{type Tag}
 import templates/components/tag_components
+import types/tag.{type Tag}
 
 /// Render tag badge
 pub fn badge(tag: Tag) -> String {

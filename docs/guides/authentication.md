@@ -37,9 +37,7 @@ Create middleware that checks for an Authorization header, validates the token, 
 
 ```gleam
 import context.{type AuthContext, type User, AuthContext}
-import dream/http/response.{text_response}
-import dream/http/status.{unauthorized}
-import dream/http/transaction.{type Request, type Response, get_header}
+import dream/http.{type Request, type Response, text_response, unauthorized, get_header}
 import gleam/option.{None, Some}
 import services.{type Services}
 
@@ -87,7 +85,7 @@ Apply the middleware to routes that require authentication.
 
 ```gleam
 import dream/router.{type Router, route, router}
-import dream/http/transaction.{Get, Post}
+import dream/http/request.{Get, Post}
 import middleware/auth_middleware.{auth_middleware}
 
 pub fn create_router() -> Router(AuthContext, Services) {
@@ -106,24 +104,36 @@ pub fn create_router() -> Router(AuthContext, Services) {
 In your controller, check `context.user` to access the authenticated user.
 
 ```gleam
-import dream/http/response.{json_response, text_response}
-import dream/http/status.{ok, unauthorized}
-import dream/http/transaction.{type Request, type Response}
+import dream/http.{type Request, type Response, json_response, ok}
+import dream/http/error.{type Error, Unauthorized}
 import context.{type AuthContext}
-import gleam/option.{None, Some}
+import gleam/option
+import gleam/result
+import utilities/response_helpers
 
 pub fn show_profile(
   _request: Request,
   context: AuthContext,
   _services: Services,
 ) -> Response {
-  case context.user {
-    Some(user) -> json_response(ok, user_to_json(user))
-    // Should not happen if middleware is applied, but good to handle
-    None -> text_response(unauthorized, "Unauthorized")
+  let result = {
+    use user <- result.try(
+      case context.user {
+        option.Some(u) -> Ok(u)
+        option.None -> Error(error.Unauthorized("Authentication required"))
+      }
+    )
+    Ok(user)
+  }
+  
+  case result {
+    Ok(user) -> json_response(ok, user_to_json(user))
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 ```
+
+**Note:** This example shows the pattern, but in practice, if middleware is applied to the route, `context.user` should always be `Some(user)`. The `None` case is handled defensively.
 
 ## See Also
 

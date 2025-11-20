@@ -4,15 +4,24 @@
 //// Handles HTTP concerns: parsing, error mapping, response building.
 
 import context.{type DatabaseContext}
-import dream/http/request.{type Request, get_param}
-import dream/http/response.{type Response, json_response}
+import dream/http.{type Request, type Response, require_int}
+import dream/http/error.{type Error, BadRequest}
+import dream/http/response.{json_response}
 import dream/http/status
 import dream/http/validation.{validate_json}
+import gleam/result
 import models/user
+import operations/user_operations
 import services.{type Services}
-import types/errors
-import views/errors as error_responses
+import utilities/response_helpers
 import views/user_view
+
+fn parse_user_data(body: String) -> Result(#(String, String), Error) {
+  case validate_json(body, user.decoder()) {
+    Ok(d) -> Ok(d)
+    Error(_) -> Error(BadRequest("Invalid user data"))
+  }
+}
 
 /// List all users
 pub fn index(
@@ -20,10 +29,14 @@ pub fn index(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  let db = services.database.connection
-  case user.list(db) {
+  let result = {
+    let db = services.database.connection
+    user_operations.list_users(db)
+  }
+
+  case result {
     Ok(users) -> json_response(status.ok, user_view.list_to_json(users))
-    Error(_) -> error_responses.internal_error()
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
@@ -33,14 +46,15 @@ pub fn show(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
+  let result = {
+    use id <- result.try(require_int(request, "id"))
+    let db = services.database.connection
+    user_operations.get_user(db, id)
+  }
 
-  let db = services.database.connection
-  case user.get(db, id) {
+  case result {
     Ok(user_data) -> json_response(status.ok, user_view.to_json(user_data))
-    Error(errors.NotFound) -> error_responses.not_found("User not found")
-    Error(_) -> error_responses.internal_error()
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
@@ -50,18 +64,16 @@ pub fn create(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  case validate_json(request.body, user.decoder()) {
-    Error(_) -> error_responses.bad_request("Invalid user data")
-    Ok(data) -> create_with_data(services, data)
+  let result = {
+    use data <- result.try(parse_user_data(request.body))
+    let #(name, email) = data
+    let db = services.database.connection
+    user_operations.create_user(db, name, email)
   }
-}
 
-fn create_with_data(services: Services, data: #(String, String)) -> Response {
-  let db = services.database.connection
-  let #(name, email) = data
-  case user.create(db, name, email) {
+  case result {
     Ok(user_data) -> json_response(status.created, user_view.to_json(user_data))
-    Error(_) -> error_responses.internal_error()
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
@@ -71,26 +83,17 @@ pub fn update(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
-
-  case validate_json(request.body, user.decoder()) {
-    Error(_) -> error_responses.bad_request("Invalid user data")
-    Ok(data) -> update_with_data(services, id, data)
+  let result = {
+    use id <- result.try(require_int(request, "id"))
+    use data <- result.try(parse_user_data(request.body))
+    let #(name, email) = data
+    let db = services.database.connection
+    user_operations.update_user(db, id, name, email)
   }
-}
 
-fn update_with_data(
-  services: Services,
-  id: Int,
-  data: #(String, String),
-) -> Response {
-  let db = services.database.connection
-  let #(name, email) = data
-  case user.update(db, id, name, email) {
+  case result {
     Ok(user_data) -> json_response(status.ok, user_view.to_json(user_data))
-    Error(errors.NotFound) -> error_responses.not_found("User not found")
-    Error(_) -> error_responses.internal_error()
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
@@ -100,12 +103,14 @@ pub fn delete(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
+  let result = {
+    use id <- result.try(require_int(request, "id"))
+    let db = services.database.connection
+    user_operations.delete_user(db, id)
+  }
 
-  let db = services.database.connection
-  case user.delete(db, id) {
+  case result {
     Ok(_) -> json_response(status.ok, "{\"message\": \"User deleted\"}")
-    Error(_) -> error_responses.not_found("User not found")
+    Error(err) -> response_helpers.handle_error(err)
   }
 }

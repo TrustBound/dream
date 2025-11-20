@@ -2,24 +2,35 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(icon_html icon_html: String, date_text date_text: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<small>
-  ")
-    let tree = string_tree.append(tree, icon_html)
-    let tree = string_tree.append(tree, " ")
-    let tree = string_tree.append(tree, date_text)
-    let tree = string_tree.append(tree, "
+pub fn render_tree(
+  icon_html icon_html: String,
+  date_text date_text: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree =
+    string_tree.append(
+      tree,
+      "<small>
+  ",
+    )
+  let tree = string_tree.append(tree, icon_html)
+  let tree = string_tree.append(tree, " ")
+  let tree = string_tree.append(tree, date_text)
+  let tree =
+    string_tree.append(
+      tree,
+      "
 </small>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(icon_html icon_html: String, date_text date_text: String) -> String {
-    string_tree.to_string(render_tree(icon_html: icon_html, date_text: date_text))
+pub fn render(
+  icon_html icon_html: String,
+  date_text date_text: String,
+) -> String {
+  string_tree.to_string(render_tree(icon_html: icon_html, date_text: date_text))
 }
-

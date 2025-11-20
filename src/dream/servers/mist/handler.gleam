@@ -3,6 +3,9 @@
 //// This module provides handler creation functionality that converts
 //// Mist requests to Dream requests, routes them, and converts the
 //// response back to Mist format.
+////
+//// This is an internal module used by the Dream server implementation.
+//// Most applications won't need to use this directly.
 
 import dream/dream
 import dream/router.{type Router}
@@ -13,8 +16,46 @@ import gleam/http/request.{type Request as HttpRequest}
 import gleam/http/response as http_response
 import mist.{type Connection, type ResponseData, Bytes, read_body}
 
-/// Create a request handler that converts mist requests to Dream requests,
-/// routes them, and converts the response back to mist format
+/// Create a request handler that converts Mist requests to Dream requests
+///
+/// This function creates the main request handler used by the Mist server.
+/// It handles the complete request/response cycle:
+///
+/// 1. Read the request body (with size limit)
+/// 2. Convert Mist request to Dream request format
+/// 3. Generate a request ID and update context
+/// 4. Route the request through the router
+/// 5. Convert Dream response back to Mist format
+///
+/// ## Parameters
+///
+/// - `router`: The application's router with all routes configured
+/// - `max_body_size`: Maximum allowed request body size in bytes
+/// - `template_context`: Template context to clone for each request
+/// - `services_instance`: Application services (database, cache, etc.)
+/// - `update_context`: Function to update context with request-specific data
+///
+/// ## Returns
+///
+/// A function that takes a Mist HTTP request and returns a Mist HTTP response.
+/// This function is what you pass to `mist.new()`.
+///
+/// ## Example
+///
+/// ```gleam
+/// // Internal use - normally called by dream.listen()
+/// let handler = handler.create(
+///   my_router,
+///   10_000_000,  // 10MB max body
+///   my_context,
+///   my_services,
+///   fn(ctx, request_id) { MyContext(..ctx, request_id: request_id) }
+/// )
+///
+/// mist.new(handler)
+/// |> mist.port(3000)
+/// |> mist.start()
+/// ```
 pub fn create(
   router: Router(context, services),
   max_body_size: Int,
@@ -48,7 +89,7 @@ pub fn create(
         mist_response.convert(dream_resp)
       }
       Error(_) -> {
-        // Return error response if body read failed
+        // Return error response if body read failed (body too large or read error)
         http_response.new(400)
         |> http_response.set_body(Bytes(bytes_tree.new()))
       }

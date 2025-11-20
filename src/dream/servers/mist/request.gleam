@@ -2,6 +2,9 @@
 ////
 //// This module provides functions to convert Mist HTTP requests
 //// to Dream request format, including method, header, and cookie conversion.
+////
+//// This is an internal module used by the Dream server implementation.
+//// Most applications won't need to use this directly.
 
 import dream/dream
 import dream/http/header.{type Header, Header}
@@ -25,7 +28,21 @@ import gleam/result
 import gleam/string
 import mist.{type Connection, type IpAddress, get_client_info}
 
-/// Generate a simple request ID (using process ID)
+/// Generate a simple request ID
+///
+/// Creates a request ID using the current process ID.
+/// This provides a unique identifier for each request that can be used
+/// for logging, tracing, and debugging.
+///
+/// In production applications, you may want to use UUID or a more
+/// sophisticated ID generation strategy.
+///
+/// ## Example
+///
+/// ```gleam
+/// let request_id = generate_request_id()
+/// // Returns something like: "#PID<0.123.0>"
+/// ```
 pub fn generate_request_id() -> String {
   // Simple ID generation - in production you might want to use UUID
   let pid = process.self()
@@ -33,8 +50,44 @@ pub fn generate_request_id() -> String {
   pid_string
 }
 
-/// Convert mist Request to Dream Request (immutable HTTP data only)
-/// Returns the Request and a generated request_id for context creation
+/// Convert Mist request to Dream request format
+///
+/// Converts a Mist HTTP request (with Erlang/BEAM specific types) to
+/// Dream's unified request format. This includes converting:
+///
+/// - HTTP method (from gleam/http to dream/http/request)
+/// - Protocol and version (HTTP/HTTPS, HTTP/1.1)
+/// - Headers and cookies
+/// - Request body (from BitArray to String)
+/// - Client information (IP address, port)
+///
+/// Returns a tuple with the Dream Request and a generated request ID.
+///
+/// ## Parameters
+///
+/// - `mist_req`: The original Mist request with Connection
+/// - `req_with_body`: The same request but with body read as BitArray
+///
+/// ## Returns
+///
+/// A tuple of `#(Dream Request, request_id)` where:
+/// - Dream Request contains all HTTP data in Dream's format
+/// - request_id is a unique identifier for this request
+///
+/// ## Example
+///
+/// ```gleam
+/// // Internal use - normally called by the request handler
+/// let body_result = mist.read_body(mist_req, max_body_limit: 10_000_000)
+///
+/// case body_result {
+///   Ok(req_with_body) -> {
+///     let #(dream_req, request_id) = convert(mist_req, req_with_body)
+///     // Now use dream_req in your router
+///   }
+///   Error(_) -> // Handle error
+/// }
+/// ```
 pub fn convert(
   mist_req: http_request.Request(Connection),
   req_with_body: http_request.Request(BitArray),

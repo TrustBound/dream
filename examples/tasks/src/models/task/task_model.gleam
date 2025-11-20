@@ -1,5 +1,6 @@
 //// Task model - data access layer
 
+import dream/http/error.{type Error, InternalServerError, NotFound}
 import dream_postgres/client.{type Connection}
 import dream_postgres/query
 import gleam/float
@@ -11,20 +12,19 @@ import gleam/string
 import gleam/time/calendar
 import gleam/time/timestamp
 import models/task/sql
-import types/errors.{type DataError, DatabaseError, NotFound}
 import types/task.{type Task, type TaskData, Task}
 
 /// Get a single task by ID
-pub fn get(db: Connection, task_id: Int) -> Result(Task, DataError) {
+pub fn get(db: Connection, task_id: Int) -> Result(Task, Error) {
   case sql.get_task(db, task_id) |> query.first_row() {
     Ok(row) -> Ok(row_to_task(row))
-    Error(query.NotFound) -> Error(NotFound)
-    Error(query.DatabaseError) -> Error(DatabaseError)
+    Error(query.NotFound) -> Error(NotFound("Task not found"))
+    Error(query.DatabaseError) -> Error(InternalServerError("Database error"))
   }
 }
 
 /// List all tasks
-pub fn list(db: Connection) -> Result(List(Task), DataError) {
+pub fn list(db: Connection) -> Result(List(Task), Error) {
   io.println("Model: Executing list_tasks query...")
   case sql.list_tasks(db) |> query.all_rows() {
     Ok(rows) -> {
@@ -35,7 +35,7 @@ pub fn list(db: Connection) -> Result(List(Task), DataError) {
     }
     Error(_) -> {
       io.println("Model: Query failed or error extracting rows")
-      Error(DatabaseError)
+      Error(InternalServerError("Database error"))
     }
   }
 }
@@ -44,15 +44,15 @@ pub fn list(db: Connection) -> Result(List(Task), DataError) {
 pub fn list_by_project(
   db: Connection,
   project_id: Int,
-) -> Result(List(Task), DataError) {
+) -> Result(List(Task), Error) {
   case sql.list_by_project(db, project_id) |> query.all_rows() {
     Ok(rows) -> Ok(list.map(rows, list_by_project_row_to_task))
-    Error(_) -> Error(DatabaseError)
+    Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 
 /// Create a new task
-pub fn create(db: Connection, data: TaskData) -> Result(Task, DataError) {
+pub fn create(db: Connection, data: TaskData) -> Result(Task, Error) {
   let description = option.unwrap(data.description, "")
   let default_date = calendar.Date(year: 2025, month: calendar.January, day: 1)
   let due_date = case data.due_date {
@@ -80,7 +80,7 @@ pub fn create(db: Connection, data: TaskData) -> Result(Task, DataError) {
     |> query.first_row()
   {
     Ok(row) -> Ok(create_row_to_task(row))
-    Error(_) -> Error(DatabaseError)
+    Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 
@@ -89,7 +89,7 @@ pub fn update(
   db: Connection,
   task_id: Int,
   data: TaskData,
-) -> Result(Task, DataError) {
+) -> Result(Task, Error) {
   let description = option.unwrap(data.description, "")
   let default_date = calendar.Date(year: 2025, month: calendar.January, day: 1)
   let due_date = case data.due_date {
@@ -117,25 +117,31 @@ pub fn update(
     |> query.first_row()
   {
     Ok(row) -> Ok(update_row_to_task(row))
-    Error(query.NotFound) -> Error(NotFound)
-    Error(_) -> Error(DatabaseError)
+    Error(query.NotFound) -> Error(NotFound("Task not found"))
+    Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 
 /// Delete a task
-pub fn delete(db: Connection, task_id: Int) -> Result(Nil, DataError) {
-  case sql.delete_task(db, task_id) {
-    Ok(_) -> Ok(Nil)
-    Error(_) -> Error(DatabaseError)
+pub fn delete(db: Connection, task_id: Int) -> Result(Nil, Error) {
+  // Check if task exists first
+  case get(db, task_id) {
+    Ok(_) -> {
+      case sql.delete_task(db, task_id) {
+        Ok(_) -> Ok(Nil)
+        Error(_) -> Error(InternalServerError("Database error"))
+      }
+    }
+    Error(err) -> Error(err)
   }
 }
 
 /// Toggle the completed status of a task
-pub fn toggle_completed(db: Connection, task_id: Int) -> Result(Task, DataError) {
+pub fn toggle_completed(db: Connection, task_id: Int) -> Result(Task, Error) {
   case sql.toggle_completed(db, task_id) |> query.first_row() {
     Ok(row) -> Ok(toggle_row_to_task(row))
-    Error(query.NotFound) -> Error(NotFound)
-    Error(_) -> Error(DatabaseError)
+    Error(query.NotFound) -> Error(NotFound("Task not found"))
+    Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 
@@ -144,11 +150,61 @@ pub fn update_position(
   db: Connection,
   task_id: Int,
   position: Int,
-) -> Result(Task, DataError) {
+) -> Result(Task, Error) {
   case sql.update_position(db, task_id, position) |> query.first_row() {
     Ok(row) -> Ok(update_position_row_to_task(row))
-    Error(query.NotFound) -> Error(NotFound)
-    Error(_) -> Error(DatabaseError)
+    Error(query.NotFound) -> Error(NotFound("Task not found"))
+    Error(_) -> Error(InternalServerError("Database error"))
+  }
+}
+
+/// Update a single field (for auto-save)
+pub fn update_field(
+  db: Connection,
+  task_id: Int,
+  field: String,
+  value: String,
+) -> Result(Task, Error) {
+  case get(db, task_id) {
+    Ok(task) -> {
+      let updated_data = case field {
+        "title" ->
+          task.TaskData(
+            title: value,
+            description: task.description,
+            completed: task.completed,
+            priority: task.priority,
+            due_date: task.due_date,
+            position: task.position,
+            project_id: task.project_id,
+          )
+        "description" ->
+          task.TaskData(
+            title: task.title,
+            description: case value {
+              "" -> option.None
+              _ -> option.Some(value)
+            },
+            completed: task.completed,
+            priority: task.priority,
+            due_date: task.due_date,
+            position: task.position,
+            project_id: task.project_id,
+          )
+        _ ->
+          task.TaskData(
+            title: task.title,
+            description: task.description,
+            completed: task.completed,
+            priority: task.priority,
+            due_date: task.due_date,
+            position: task.position,
+            project_id: task.project_id,
+          )
+      }
+      update(db, task_id, updated_data)
+    }
+    Error(e) -> Error(e)
   }
 }
 

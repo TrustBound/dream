@@ -37,7 +37,7 @@ router
 
 **Path parameters:**
 
-Paths like `/users/:id/posts/:post_id` are parsed into patterns. Parameters are extracted and made available via `get_param(request, "id")`.
+Paths like `/users/:id/posts/:post_id` are parsed into patterns. Parameters are extracted and validated via `require_int(request, "id")` or `require_string(request, "id")`, which return `Result` types for safe error handling.
 
 ### 2. Server
 
@@ -220,6 +220,190 @@ Same pattern. Predictable API. Easy to learn.
 
 Dream is a library of building blocks. You compose them.
 
+## Model-View-Controller (MVC) Architecture
+
+Dream encourages a clean separation of concerns using the Model-View-Controller pattern. This architecture keeps your code organized, testable, and maintainable as your application grows.
+
+### The Three Layers
+
+**Controllers** handle HTTP concerns:
+- Parse and validate request parameters
+- Call models to fetch or update data
+- Call operations for complex business logic
+- Call views to format responses
+- Map domain errors to HTTP status codes
+- Return `Response` objects
+
+**Models** handle data access:
+- Execute database queries (using `dream_postgres` and `squirrel`)
+- Convert database rows to domain types
+- Return `Result(domain_type, dream.Error)`
+- Know nothing about HTTP, views, or business logic
+
+**Views** handle presentation:
+- Format domain types as strings (HTML, JSON, CSV, etc.)
+- Pure functions with no side effects
+- Know nothing about HTTP or data access
+
+### Request Flow
+
+Here's how a typical request flows through the MVC layers:
+
+```
+1. Router matches request → finds controller
+2. Controller extracts parameters (e.g., `require_int(request, "id")`)
+3. Controller calls Model to fetch data
+4. Model queries database, returns domain type or error
+5. Controller calls View to format data
+6. View returns formatted string (HTML, JSON, etc.)
+7. Controller wraps string in Response and returns it
+```
+
+### Complete Example
+
+Let's trace through a complete example showing all three layers working together:
+
+**Model** (`models/task/task_model.gleam`):
+```gleam
+import dream/http/error.{type Error, NotFound, InternalServerError}
+import dream_postgres/client.{type Connection}
+import dream_postgres/query
+import models/task/sql
+import types/task.{type Task}
+
+pub fn get(db: Connection, task_id: Int) -> Result(Task, Error) {
+  case sql.get_task(db, task_id) |> query.first_row() {
+    Ok(row) -> Ok(row_to_task(row))
+    Error(query.NotFound) -> Error(NotFound("Task not found"))
+    Error(query.DatabaseError) -> Error(InternalServerError("Database error"))
+  }
+}
+
+fn row_to_task(row: sql.GetTaskRow) -> Task {
+  Task(
+    id: row.id,
+    title: row.title,
+    completed: row.completed,
+    // ... other fields
+  )
+}
+```
+
+**View** (`views/task_view.gleam`):
+```gleam
+import gleam/json
+import types/task.{type Task}
+
+pub fn to_json(task: Task) -> String {
+  json.object([
+    #("id", json.int(task.id)),
+    #("title", json.string(task.title)),
+    #("completed", json.bool(task.completed)),
+  ])
+  |> json.to_string()
+}
+
+pub fn card(task: Task, tags: List(Tag)) -> String {
+  // Composes template components into HTML
+  task_components.task_card(task, tags)
+}
+```
+
+**Controller** (`controllers/tasks_controller.gleam`):
+```gleam
+import dream/http.{type Request, type Response, require_int, json_response, html_response, ok}
+import gleam/result
+import models/task/task_model
+import utilities/response_helpers
+import views/task_view
+
+pub fn show(
+  request: Request,
+  _context: Context,
+  services: Services,
+) -> Response {
+  let result = {
+    use task_id <- result.try(require_int(request, "id"))
+    let db = services.database.connection
+    use task <- result.try(task_model.get(db, task_id))
+    Ok(task)
+  }
+
+  case result {
+    Ok(task) -> {
+      // Check format for content negotiation
+      case request.format {
+        Some("json") -> json_response(ok, task_view.to_json(task))
+        _ -> html_response(ok, task_view.card(task, []))
+      }
+    }
+    Error(err) -> response_helpers.handle_error(err)
+  }
+}
+```
+
+### Separation of Concerns
+
+Each layer has a single, clear responsibility:
+
+- **Controllers** know about HTTP (requests, responses, status codes) but not about SQL or HTML structure
+- **Models** know about data (database queries, domain types) but not about HTTP or presentation
+- **Views** know about presentation (formatting, templates) but not about HTTP or data access
+
+This separation makes your code:
+- **Testable**: Test models without HTTP, test views without databases
+- **Reusable**: Use the same model from REST API, GraphQL, or background jobs
+- **Maintainable**: Change HTML structure without touching database code
+- **Type-safe**: The compiler ensures each layer gets the right types
+
+### When to Use Operations
+
+For simple CRUD operations, the Controller → Model → View flow is sufficient. But when business logic gets complex, use the **Operations** pattern:
+
+**Use Controllers directly when:**
+- Simple CRUD (create, read, update, delete)
+- Single model operation
+- Direct request → model → view flow
+
+**Use Operations when:**
+- Coordinating multiple models or services
+- Complex business rules or validation
+- Reusable logic across multiple endpoints
+- Side effects (indexing, notifications, events)
+
+For example, publishing a post might require:
+1. Update database (Model)
+2. Index in search engine (Service)
+3. Send notifications (Service)
+4. Broadcast event (Service)
+
+This coordination belongs in an Operation, not a Controller. See [Operations Guide](../guides/operations.md) and [Advanced Patterns](../learn/04-advanced-patterns.md) for details.
+
+### Best Practices
+
+**Controllers:**
+- Keep them thin—coordinate, don't calculate
+- Use `require_*` functions for parameter validation
+- Use flat `use` chains instead of nested `case` statements
+- Handle all errors uniformly via `response_helpers.handle_error`
+
+**Models:**
+- Return domain types, not SQL row types
+- Convert database errors to `dream.Error`
+- Keep database logic isolated from business logic
+- Use type-safe SQL with `squirrel`
+
+**Views:**
+- Pure functions with no side effects
+- Accept domain types, return strings
+- Handle multiple formats (JSON, HTML, CSV) in the same view module
+- Compose templates for reusable HTML components
+
+For detailed patterns and examples, see:
+- [Controllers & Models Guide](../guides/controllers-and-models.md) - Detailed MVC patterns
+- [Operations Guide](../guides/operations.md) - Complex business logic
+- [Multiple Formats Guide](../guides/multiple-formats.md) - Content negotiation
+
 ## Design Decisions
 
 ### Why No Global Middleware?
@@ -265,6 +449,133 @@ Dream runs on the BEAM. Performance characteristics:
 
 The BEAM is battle-tested. It scales.
 
+## Modules Ecosystem
+
+Dream is modular. Core provides routing and HTTP primitives. Additional functionality lives in separate modules that you can use as needed.
+
+### Core Module: `dream`
+
+The core `dream` package provides:
+- Router with pattern matching and middleware
+- HTTP types (Request, Response, Header, Cookie)
+- Response builders (json_response, html_response, etc.)
+- Status constants (ok, created, not_found, etc.)
+- Parameter validation (require_int, require_string, etc.)
+- JSON validation (validate_json)
+- Server adapter (Mist)
+
+### Data Modules
+
+**`dream_postgres`** - PostgreSQL utilities
+- Query result helpers (first_row, all_rows)
+- Type-safe error handling
+- Connection pooling support
+- Works with Squirrel-generated SQL queries
+
+```gleam
+import dream_postgres/client
+import dream_postgres/query
+
+let db = client.from_url("postgresql://localhost/db")
+case sql.get_user(db, id) |> query.first_row() {
+  Ok(row) -> // Process row
+  Error(query.NotFound) -> // Handle not found
+  Error(query.DatabaseError) -> // Handle error
+}
+```
+
+**`dream_opensearch`** - OpenSearch client
+- Document indexing and search
+- Query builders (match_all, term, match)
+- HTTP wrapper for OpenSearch API
+
+```gleam
+import dream_opensearch/client
+import dream_opensearch/document
+
+let opensearch = client.new("http://localhost:9200")
+document.index(opensearch, "logs", "doc-id-123", json_string)
+```
+
+### Utility Modules
+
+**`dream_http_client`** - HTTP client
+- Streaming and non-streaming modes
+- HTTPS support
+- Builder pattern for requests
+- Built on Erlang's httpc
+
+```gleam
+import dream_http_client/client
+import gleam_http as http
+
+let response = client.new()
+  |> client.method(http.Get)
+  |> client.scheme(http.Https)
+  |> client.host("api.example.com")
+  |> client.path("/users")
+  |> client.fetch()
+```
+
+**`dream_config`** - Configuration management
+- Environment variable loading
+- .env file support
+- Type-safe configuration loading
+
+```gleam
+import dream_config/loader
+
+pub fn load_config() -> Result(AppConfig, String) {
+  loader.load_dotenv()
+  use db_url <- result.try(loader.get_required("DATABASE_URL"))
+  let port = loader.get_int("PORT") |> result.unwrap(3000)
+  Ok(AppConfig(database_url: db_url, port: port))
+}
+```
+
+**`dream_helpers`** - Optional convenience utilities
+- JSON encoders for optional values and timestamps
+- Note: Most functionality has moved to Dream core
+
+```gleam
+import dream_helpers/json_encoders
+import gleam/json
+import gleam/option
+
+json.object([
+  #("email", json_encoders.optional_string(option.Some("user@example.com"))),
+  #("age", json_encoders.optional_int(option.None)),
+])
+```
+
+**`dream_ets`** - ETS (Erlang Term Storage) utilities
+- In-memory key-value storage
+- Process-safe table operations
+- Useful for caching, rate limiting, and shared state
+
+### Using Modules
+
+Modules are independent Gleam packages. For local development, add them as path dependencies:
+
+```toml
+[dependencies]
+dream = { path = "../dream" }
+dream_postgres = { path = "../dream/modules/postgres" }
+dream_http_client = { path = "../dream/modules/http_client" }
+```
+
+Each module has its own README with detailed usage examples. See the `modules/` directory for complete documentation.
+
+### Module Philosophy
+
+Dream modules follow the same principles as core:
+- Explicit dependencies (no global state)
+- Type-safe APIs
+- Builder patterns for configuration
+- Clear separation of concerns
+
+Use only what you need. Mix and match modules as your application requires.
+
 ## Extending Dream
 
 Want to add functionality?
@@ -275,6 +586,46 @@ Want to add functionality?
 - **Custom response helpers** - Write functions that return Response
 
 Dream doesn't lock you in. Extend as needed.
+
+## API Stability
+
+Dream is currently in pre-1.0 development. Nothing is considered stable yet, and the API may change between versions.
+
+### Versioning Policy
+
+- **0.x.x versions:** May have breaking changes. Use semantic versioning, but breaking changes are allowed in minor versions during pre-1.0 development.
+- **1.0.0 and later:** Will follow semantic versioning strictly. Breaking changes only in major versions.
+
+### What's Unlikely to Change
+
+While nothing is guaranteed until 1.0.0, these core components are unlikely to change significantly:
+
+- **Context system:** The pattern of per-request context passed to controllers
+- **Services pattern:** Application-level dependencies injected via Services
+- **Request/Response types:** Core HTTP request and response structures
+- **Router:** Route matching and middleware chaining patterns
+
+These form the foundation of Dream's architecture and changing them would require significant refactoring of existing applications.
+
+### What May Change
+
+Everything else is subject to change based on feedback and real-world usage:
+
+- Function names and signatures
+- Error types and handling
+- Response builders
+- Parameter validation APIs
+- Module APIs
+- Server configuration options
+
+### Upgrading Between Versions
+
+When upgrading between 0.x.x versions:
+- Review the [CHANGELOG](../CHANGELOG.md) for breaking changes
+- Test your application thoroughly
+- Update code to match new APIs as needed
+
+We aim to minimize breaking changes, but during pre-1.0 development, we prioritize getting the API right over maintaining backward compatibility.
 
 ## Further Reading
 

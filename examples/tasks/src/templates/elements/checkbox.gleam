@@ -2,30 +2,76 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(checkbox_id checkbox_id: String, checkbox_name checkbox_name: String, label_text label_text: String, checked_attr checked_attr: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<label for=\"")
-    let tree = string_tree.append(tree, checkbox_id)
-    let tree = string_tree.append(tree, "\">
-  <input id=\"")
-    let tree = string_tree.append(tree, checkbox_id)
-    let tree = string_tree.append(tree, "\" name=\"")
-    let tree = string_tree.append(tree, checkbox_name)
-    let tree = string_tree.append(tree, "\" type=\"checkbox\" ")
-    let tree = string_tree.append(tree, checked_attr)
-    let tree = string_tree.append(tree, ">
-  ")
-    let tree = string_tree.append(tree, label_text)
-    let tree = string_tree.append(tree, "
+pub fn render_tree(
+  checkbox_id checkbox_id: String,
+  checkbox_name checkbox_name: String,
+  label_text label_text: String,
+  checked_attr checked_attr: String,
+  attributes attributes: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree = string_tree.append(tree, "<label for=\"")
+  let tree = string_tree.append(tree, checkbox_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "\">
+  <input 
+    id=\"",
+    )
+  let tree = string_tree.append(tree, checkbox_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "\" 
+    name=\"",
+    )
+  let tree = string_tree.append(tree, checkbox_name)
+  let tree =
+    string_tree.append(
+      tree,
+      "\" 
+    type=\"checkbox\" 
+    ",
+    )
+  let tree = string_tree.append(tree, checked_attr)
+  let tree =
+    string_tree.append(
+      tree,
+      "
+    ",
+    )
+  let tree = string_tree.append(tree, attributes)
+  let tree =
+    string_tree.append(
+      tree,
+      ">
+  <span>",
+    )
+  let tree = string_tree.append(tree, label_text)
+  let tree =
+    string_tree.append(
+      tree,
+      "</span>
 </label>
-")
+",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(checkbox_id checkbox_id: String, checkbox_name checkbox_name: String, label_text label_text: String, checked_attr checked_attr: String) -> String {
-    string_tree.to_string(render_tree(checkbox_id: checkbox_id, checkbox_name: checkbox_name, label_text: label_text, checked_attr: checked_attr))
+pub fn render(
+  checkbox_id checkbox_id: String,
+  checkbox_name checkbox_name: String,
+  label_text label_text: String,
+  checked_attr checked_attr: String,
+  attributes attributes: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    checkbox_id: checkbox_id,
+    checkbox_name: checkbox_name,
+    label_text: label_text,
+    checked_attr: checked_attr,
+    attributes: attributes,
+  ))
 }
-

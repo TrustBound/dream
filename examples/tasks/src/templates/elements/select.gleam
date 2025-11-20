@@ -2,32 +2,60 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(select_id select_id: String, select_name select_name: String, label_text label_text: String, options_html options_html: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<label for=\"")
-    let tree = string_tree.append(tree, select_id)
-    let tree = string_tree.append(tree, "\">
-  ")
-    let tree = string_tree.append(tree, label_text)
-    let tree = string_tree.append(tree, "
-  <select id=\"")
-    let tree = string_tree.append(tree, select_id)
-    let tree = string_tree.append(tree, "\" name=\"")
-    let tree = string_tree.append(tree, select_name)
-    let tree = string_tree.append(tree, "\">
-    ")
-    let tree = string_tree.append(tree, options_html)
-    let tree = string_tree.append(tree, "
+pub fn render_tree(
+  select_id select_id: String,
+  select_name select_name: String,
+  label_text label_text: String,
+  options_html options_html: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree = string_tree.append(tree, "<label for=\"")
+  let tree = string_tree.append(tree, select_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "\">
+  ",
+    )
+  let tree = string_tree.append(tree, label_text)
+  let tree =
+    string_tree.append(
+      tree,
+      "
+  <select id=\"",
+    )
+  let tree = string_tree.append(tree, select_id)
+  let tree = string_tree.append(tree, "\" name=\"")
+  let tree = string_tree.append(tree, select_name)
+  let tree =
+    string_tree.append(
+      tree,
+      "\">
+    ",
+    )
+  let tree = string_tree.append(tree, options_html)
+  let tree =
+    string_tree.append(
+      tree,
+      "
   </select>
 </label>
-")
+",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(select_id select_id: String, select_name select_name: String, label_text label_text: String, options_html options_html: String) -> String {
-    string_tree.to_string(render_tree(select_id: select_id, select_name: select_name, label_text: label_text, options_html: options_html))
+pub fn render(
+  select_id select_id: String,
+  select_name select_name: String,
+  label_text label_text: String,
+  options_html options_html: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    select_id: select_id,
+    select_name: select_name,
+    label_text: label_text,
+    options_html: options_html,
+  ))
 }
-

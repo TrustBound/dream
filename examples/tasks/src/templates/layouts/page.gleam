@@ -2,34 +2,52 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(page_title page_title: String, page_content page_content: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<!DOCTYPE html>
+pub fn render_tree(
+  page_title page_title: String,
+  page_content page_content: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree =
+    string_tree.append(
+      tree,
+      "<!DOCTYPE html>
 <html lang=\"en\">
 
 <head>
     <meta charset=\"UTF-8\">
     <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-    <title>")
-    let tree = string_tree.append(tree, page_title)
-    let tree = string_tree.append(tree, "</title>
+    <title>",
+    )
+  let tree = string_tree.append(tree, page_title)
+  let tree =
+    string_tree.append(
+      tree,
+      "</title>
     <link rel=\"stylesheet\" href=\"/public/styles.css\">
 </head>
 
 <body>
-    ")
-    let tree = string_tree.append(tree, page_content)
-    let tree = string_tree.append(tree, "
+    ",
+    )
+  let tree = string_tree.append(tree, page_content)
+  let tree =
+    string_tree.append(
+      tree,
+      "
 </body>
 
-</html>")
+</html>",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(page_title page_title: String, page_content page_content: String) -> String {
-    string_tree.to_string(render_tree(page_title: page_title, page_content: page_content))
+pub fn render(
+  page_title page_title: String,
+  page_content page_content: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    page_title: page_title,
+    page_content: page_content,
+  ))
 }
-

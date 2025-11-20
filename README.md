@@ -180,18 +180,26 @@ But here's the thing: figuring out where code goes, how to separate concerns, an
 
 **Controller** calls model and view:
 ```gleam
+import dream/http.{require_int}
+import dream/http/error
+import utilities/response_helpers
+
 pub fn show(request: Request, _context: Context, services: Services) -> Response {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
+  let result = {
+    use id <- result.try(require_int(request, "id"))
+    let db = services.database.connection
+    use product <- result.try(product_model.get(db, id))
+    Ok(product)
+  }
   
-  case product_model.get(services.db, id) {
-    Ok(product) -> product_view.respond(product, param)
-    Error(_) -> not_found_response()
+  case result {
+    Ok(product) -> product_view.respond(product, request)
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 ```
 
-Clean. Dream's router guarantees path parameters exist for matched routes—if they don't, that's a bug worth panicking over. Use `assert` for impossible errors. Use `case` for real errors (database failures, not found).
+This pattern uses `require_int` to safely extract and validate the path parameter. If the parameter is missing or invalid, it returns a `BadRequest` error. The `use` syntax keeps the code flat and readable, avoiding nested `case` statements. Errors are handled uniformly through `response_helpers.handle_error`, which maps `dream.Error` types to appropriate HTTP responses.
 
 **Model** handles data:
 ```gleam
@@ -311,6 +319,63 @@ your_app/
 ```
 
 Everything has its place. Nothing is hidden. Scale from "Hello World" to production without restructuring.
+
+### Template Composition for Server-Side Rendering
+
+Many developers choose front-end frameworks like React or Vue, which is perfectly fine. Dream lets you choose whatever you want for a front-end.
+
+For those who wish to have server-side rendering with full type safety through Gleam, we have a suggested layered approach that keeps markup consistent, DRY, and reusable as applications grow.
+
+**The Problem We Solved:**
+
+In real-world applications, we've experienced pain points from:
+- Duplicated markup with slight variations
+- Duplicated CSS styling as a result
+- Embedded inline HTML within Gleam files
+- These issues compound as applications grow
+
+**The Solution:**
+
+A layered approach with four levels:
+
+1. **Elements** (`templates/elements/*.matcha`): Low-level HTML components
+   - Reusable semantic HTML templates (buttons, inputs, cards, badges)
+   - Compiled from Matcha templates
+   - Classless, styled via CSS frameworks like Pico CSS
+
+2. **Components** (`templates/components/*.gleam`): Compose elements into reusable pieces
+   - Gleam functions that combine multiple elements
+   - Examples: `task_card()`, `task_form()`, `project_list()`
+   - Handle business logic for presentation (formatting, conditional rendering)
+
+3. **Pages** (`templates/pages/*.matcha` or `.gleam`): Compose components into full pages
+   - Page-level templates that combine multiple components
+   - Examples: `index_page()`, `show_page()`
+
+4. **Layouts** (`templates/layouts/*.gleam`): Page structure (nav, footer, main wrapper)
+   - Wraps pages with consistent structure
+   - Handles navigation, footer, scripts
+   - Example: `build_page(title, content)` wraps any page content
+
+**Example Flow:**
+
+```gleam
+// View layer (views/task_view.gleam)
+pub fn index_page(tasks: List(Task), tags_by_task: List(#(Int, List(Tag)))) -> String {
+  // Components compose elements
+  let list = task_components.task_list(tasks, tags_by_task)
+  
+  // Pages compose components
+  let content = index.render(task_form: "", task_list: list)
+  
+  // Layouts wrap pages
+  layout_components.build_page("Tasks", content)
+}
+```
+
+This pattern is by no means the only way to do server-side rendering, but we have found that it serves our needs well as our applications grow. It provides full type safety through Gleam, eliminates markup duplication, and keeps styling consistent.
+
+See [examples/tasks](../../examples/tasks/) for a complete working example of this pattern.
 
 ## Yeah, But Gleam? Really?
 

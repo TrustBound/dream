@@ -264,22 +264,19 @@ import gleam/dynamic/decode.{type Decoder, field, string, success}
 import gleam/result.{try}
 import pog.{type Connection, type Returned}
 
-pub type DataError {
-  NotFound
-  DatabaseError
-}
+import dream/http/error.{type Error, NotFound, InternalServerError}
 
-pub fn list(db: Connection) -> Result(List(User), DataError) {
+pub fn list(db: Connection) -> Result(List(User), Error) {
   case sql.list_users(db) {
     Ok(returned) -> Ok(map(returned.rows, row_to_user))
-    Error(_) -> Error(DatabaseError)
+    Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 
-pub fn get(db: Connection, id: Int) -> Result(User, DataError) {
+pub fn get(db: Connection, id: Int) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
-    Error(_) -> Error(DatabaseError)
+    Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 
@@ -287,10 +284,10 @@ pub fn create(
   db: Connection,
   name: String,
   email: String,
-) -> Result(User, DataError) {
+) -> Result(User, Error) {
   case sql.create_user(db, name, email) {
     Ok(returned) -> extract_first_user(returned)
-    Error(_) -> Error(DatabaseError)
+    Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 
@@ -302,11 +299,11 @@ pub fn decoder() -> Decoder(#(String, String)) {
 
 fn extract_first_user(
   returned: Returned(sql.GetUserRow),
-) -> Result(User, DataError) {
+) -> Result(User, Error) {
   case returned.rows {
     [row] -> Ok(row_to_user(row))
-    [] -> Error(NotFound)
-    _ -> Error(NotFound)
+    [] -> Error(NotFound("User not found"))
+    _ -> Error(NotFound("User not found"))
   }
 }
 
@@ -394,12 +391,11 @@ Create `src/controllers/users_controller.gleam`:
 
 ```gleam
 import dream/context.{type AppContext}
-import dream/http/response.{json_response}
-import dream/http/status.{ok, created, bad_request, not_found, internal_server_error}
-import dream/http/transaction.{type Request, type Response, get_param}
-import dream/http/validation.{validate_json}
-import models/user.{list, get, create, decoder, NotFound, DatabaseError}
+import dream/http.{require_int, type Request, type Response, json_response, ok, created, validate_json}
+import gleam/result
+import models/user.{list, get, create, decoder}
 import services.{type Services}
+import utilities/response_helpers
 import views/user_view.{to_json, list_to_json}
 
 pub fn index(
@@ -407,9 +403,14 @@ pub fn index(
   _context: AppContext,
   services: Services,
 ) -> Response {
-  case list(services.db) {
+  let result = {
+    let db = services.database.connection
+    list(db)
+  }
+  
+  case result {
     Ok(users) -> json_response(ok, list_to_json(users))
-    Error(_) -> internal_error_response()
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
@@ -418,13 +419,15 @@ pub fn show(
   _context: AppContext,
   services: Services,
 ) -> Response {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
+  let result = {
+    use id <- result.try(require_int(request, "id"))
+    let db = services.database.connection
+    get(db, id)
+  }
   
-  case get(services.db, id) {
+  case result {
     Ok(user_data) -> json_response(ok, to_json(user_data))
-    Error(NotFound) -> not_found_response()
-    Error(DatabaseError) -> internal_error_response()
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
@@ -433,64 +436,58 @@ pub fn create(
   _context: AppContext,
   services: Services,
 ) -> Response {
-  case validate_json(request.body, decoder()) {
-    Error(_) -> bad_request_response()
-    Ok(data) -> create_with_data(services, data)
+  let result = {
+    use data <- result.try(validate_json(request.body, decoder()))
+    let #(name, email) = data
+    let db = services.database.connection
+    create(db, name, email)
   }
-}
-
-fn create_with_data(services: Services, data: #(String, String)) -> Response {
-  let #(name, email) = data
-  case create(services.db, name, email) {
+  
+  case result {
     Ok(user_data) -> json_response(created, to_json(user_data))
-    Error(_) -> internal_error_response()
+    Error(err) -> response_helpers.handle_error(err)
   }
-}
-
-fn bad_request_response() -> Response {
-  json_response(bad_request, "{\"error\": \"Invalid request data\"}")
-}
-
-fn not_found_response() -> Response {
-  json_response(not_found, "{\"error\": \"User not found\"}")
-}
-
-fn internal_error_response() -> Response {
-  json_response(internal_server_error, "{\"error\": \"An error occurred\"}")
 }
 ```
 
 **What's happening here:**
 
 Controllers orchestrate the flow:
-1. Extract path parameters (`get_param`)
-2. Call models for data access
-3. Map errors to HTTP status codes
+1. Extract and validate path parameters using `require_int` (returns `Result` for safe handling)
+2. Call models for data access (models return `Result(_, dream.Error)`)
+3. Handle errors uniformly through `response_helpers.handle_error` (maps `dream.Error` to HTTP responses)
 4. Call views for formatting
+
+**Why this pattern?**
+
+- **`require_int`**: Safely extracts and validates path parameters. Returns `BadRequest` if missing or invalid, eliminating the need for `let assert`.
+- **Flat `use` chains**: The `use` syntax keeps code readable without nested `case` statements.
+- **Unified errors**: All errors use `dream.Error`, so controllers don't need to map between different error types.
+- **Centralized error handling**: `response_helpers.handle_error` ensures consistent error responses across the application.
 5. Build responses
 
-**The assert pattern:**
+**The require_* pattern (recommended):**
 
 ```gleam
-let assert Ok(param) = get_param(request, "id")
-let assert Ok(id) = param.as_int
+use id <- result.try(require_int(request, "id"))
 ```
 
-This is safe because:
-- The router only matches `/users/:id` when `id` exists
-- If the router matched, the parameter is guaranteed to be there
-- If it's not there, that's a programming error (crash is appropriate)
+This pattern:
+- Safely extracts and validates path parameters
+- Returns `Result` types for error handling
+- Works with flat `use` chains to keep code readable
+- Handles missing or invalid parameters gracefully
 
-For type conversion (`param.as_int`), we use assert because invalid types are client errors we want to catch during development.
+**Note:** While `let assert` is still valid for path parameters (since the router guarantees they exist), `require_*` functions are preferred as they provide better error messages and work consistently with the unified error handling pattern.
 
-**No nested cases:** Each controller extracts helpers (`create_with_data`, `internal_error_response`) to keep the code flat and readable.
+**No nested cases:** Each controller uses flat `use` chains and extracts helpers to keep the code readable.
 
 ## Step 12: Create the Router
 
 Create `src/router.gleam`:
 
 ```gleam
-import dream/http/transaction.{Get, Post}
+import dream/http.{Get, Post}
 import dream/router.{type Router, route, router}
 import dream/context.{type AppContext}
 import controllers/users_controller.{index, show, create}

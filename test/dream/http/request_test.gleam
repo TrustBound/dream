@@ -1,4 +1,7 @@
-import dream/http/request.{Request, Get, Http, Http1, get_param, get_int_param, get_string_param, get_query_param}
+import dream/http/request.{
+  Get, Http, Http1, Request, get_int_param, get_param, get_query_param,
+  get_string_param,
+}
 import gleam/option
 import gleeunit/should
 
@@ -20,7 +23,7 @@ pub fn get_param_with_format_extension_extracts_format_test() {
       content_type: option.None,
       content_length: option.None,
     )
-  
+
   case get_param(request, "id") {
     Ok(param) -> {
       param.value |> should.equal("123")
@@ -52,7 +55,7 @@ pub fn get_int_param_with_valid_integer_returns_ok_test() {
       content_type: option.None,
       content_length: option.None,
     )
-  
+
   case get_int_param(request, "id") {
     Ok(id) -> id |> should.equal(123)
     Error(_) -> should.fail()
@@ -77,7 +80,7 @@ pub fn get_int_param_with_missing_parameter_returns_error_test() {
       content_type: option.None,
       content_length: option.None,
     )
-  
+
   case get_int_param(request, "id") {
     Ok(_) -> should.fail()
     Error(msg) -> msg |> should.equal("Missing id parameter")
@@ -102,7 +105,7 @@ pub fn get_int_param_with_non_integer_returns_error_test() {
       content_type: option.None,
       content_length: option.None,
     )
-  
+
   case get_int_param(request, "id") {
     Ok(_) -> should.fail()
     Error(msg) -> msg |> should.equal("id must be an integer")
@@ -127,7 +130,7 @@ pub fn get_string_param_with_valid_parameter_returns_ok_test() {
       content_type: option.None,
       content_length: option.None,
     )
-  
+
   case get_string_param(request, "name") {
     Ok(name) -> name |> should.equal("john")
     Error(_) -> should.fail()
@@ -152,7 +155,7 @@ pub fn get_string_param_with_missing_parameter_returns_error_test() {
       content_type: option.None,
       content_length: option.None,
     )
-  
+
   case get_string_param(request, "name") {
     Ok(_) -> should.fail()
     Error(msg) -> msg |> should.equal("Missing name parameter")
@@ -267,4 +270,3 @@ pub fn get_query_param_handles_equals_sign_in_value_test() {
     option.None -> should.fail()
   }
 }
-

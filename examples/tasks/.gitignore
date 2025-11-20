@@ -1,0 +1,20 @@
+# Gleam build artifacts
+_build/
+build/
+*.beam
+erl_crash.dump
+
+# Cypress
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
+node_modules/
+package-lock.json
+
+# Test logs
+/tmp/tasks_test.log
+/tmp/tasks_e2e.log
+
+# Coverage
+coverage/
+

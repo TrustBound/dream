@@ -2,20 +2,23 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
 pub fn render_tree(badge_text badge_text: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<mark>")
-    let tree = string_tree.append(tree, badge_text)
-    let tree = string_tree.append(tree, "</mark>
+  let tree = string_tree.from_string("")
+  let tree = string_tree.append(tree, "<mark data-priority=\"")
+  let tree = string_tree.append(tree, badge_text)
+  let tree = string_tree.append(tree, "\">")
+  let tree = string_tree.append(tree, badge_text)
+  let tree =
+    string_tree.append(
+      tree,
+      "</mark>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
 pub fn render(badge_text badge_text: String) -> String {
-    string_tree.to_string(render_tree(badge_text: badge_text))
+  string_tree.to_string(render_tree(badge_text: badge_text))
 }
-

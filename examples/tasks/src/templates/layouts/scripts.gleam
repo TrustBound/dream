@@ -8,7 +8,123 @@ pub fn render_tree() -> StringTree {
     let tree = string_tree.from_string("")
     let tree = string_tree.append(tree, "<script src=\"https://unpkg.com/htmx.org@2.0.3\"></script>
 <script src=\"https://unpkg.com/lucide@latest\"></script>
-<script>lucide.createIcons();</script>")
+<script>lucide.createIcons();</script>
+<script>
+document.addEventListener('keydown', function(e) {
+  const isTyping = ['INPUT', 'TEXTAREA'].includes(e.target.tagName);
+  const isTitleInput = e.target.matches('input[name=\"title\"]');
+  
+  if ((e.metaKey && e.key === 'n') || (e.key === 'n' && !isTyping)) {
+    e.preventDefault();
+    insertNewTask();
+  }
+  
+  if (e.key === 'Escape' && isTyping) {
+    closeEditor();
+  }
+  
+  // Enter in title input saves, closes editor, and creates new task
+  if (e.key === 'Enter' && isTitleInput) {
+    e.preventDefault();
+    
+    const editor = e.target.closest('article');
+    const taskId = editor.id.replace('task-', '');
+    const value = e.target.value;
+    
+    if (taskId && taskId !== '0') {
+      // Manually save the title with correct field name
+      const values = { field: 'title' };
+      values['title'] = value;
+      
+      htmx.ajax('POST', '/tasks/' + taskId + '/update-field', {
+        values: values,
+        swap: 'none'
+      }).then(() => {
+        // Once saved, insert new task (which closes this one)
+        insertNewTask();
+      });
+    } else {
+      insertNewTask();
+    }
+  }
+});
+
+function closeAllEditors() {
+  const editors = document.querySelectorAll('article:has(input[name=\"title\"])');
+  const promises = [];
+  
+  editors.forEach(editor => {
+    const taskId = editor.id.replace('task-', '');
+    if (taskId && taskId !== '0') {
+      promises.push(htmx.ajax('GET', '/tasks/' + taskId + '.htmx', {
+        target: '#' + editor.id,
+        swap: 'outerHTML'
+      }));
+    } else {
+      editor.remove();
+    }
+  });
+  
+  return Promise.all(promises);
+}
+
+function insertNewTask() {
+  // Close any open editors first
+  closeAllEditors().then(() => {
+    const selected = document.querySelector('article[data-selected]');
+    const target = selected || document.querySelector('#task-list');
+    
+    // Detect if we're on a project page and get project_id
+    const urlMatch = window.location.pathname.match(/\\/projects\\/(\\d+)/);
+    const projectId = urlMatch ? urlMatch[1] : null;
+    const url = projectId ? '/tasks/new-inline?project_id=' + projectId : '/tasks/new-inline';
+    
+    htmx.ajax('GET', url, {
+      target: selected ? '#' + selected.id : '#task-list',
+      swap: selected ? 'afterend' : 'afterbegin'
+    });
+  });
+}
+
+function closeEditor() {
+  const editor = document.querySelector('article:has(input[name=\"title\"])');
+  if (editor) {
+    const taskId = editor.id.replace('task-', '');
+    htmx.ajax('GET', '/tasks/' + taskId + '.htmx', {
+      target: '#' + editor.id,
+      swap: 'outerHTML'
+    });
+  }
+}
+
+document.addEventListener('click', function(e) {
+  const article = e.target.closest('article');
+  if (article && !e.target.matches('button, a, input[type=\"checkbox\"], input, textarea')) {
+    document.querySelectorAll('article[data-selected]').forEach(el => {
+      el.removeAttribute('data-selected');
+    });
+    article.setAttribute('data-selected', 'true');
+  }
+});
+
+// Handle double-click to edit (called from onclick in template)
+function closeAllEditorsBeforeEdit(event, element) {
+  // Only intercept double-clicks
+  if (event.detail === 2) {
+    event.stopPropagation();
+    event.preventDefault();
+    
+    // Close all editors first
+    closeAllEditors().then(() => {
+      const taskId = element.id.replace('task-', '');
+      htmx.ajax('GET', '/tasks/' + taskId + '/edit', {
+        target: '#' + element.id,
+        swap: 'outerHTML'
+      });
+    });
+  }
+}
+</script>")
 
     tree
 }

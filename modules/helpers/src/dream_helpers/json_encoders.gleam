@@ -52,4 +52,3 @@ pub fn optional_bool(value: option.Option(Bool)) -> json.Json {
     option.None -> json.null()
   }
 }
-

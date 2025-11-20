@@ -2,48 +2,120 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(task_id task_id: String, checkbox_html checkbox_html: String, title title: String, priority_badge priority_badge: String, due_date_html due_date_html: String, tags_html tags_html: String, edit_button edit_button: String, delete_button delete_button: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<article id=\"task-")
-    let tree = string_tree.append(tree, task_id)
-    let tree = string_tree.append(tree, "\" class=\"task-row\">
-  ")
-    let tree = string_tree.append(tree, checkbox_html)
-    let tree = string_tree.append(tree, "
-  <div class=\"task-content\">
-    <h3>")
-    let tree = string_tree.append(tree, title)
-    let tree = string_tree.append(tree, "</h3>
-    <div class=\"task-meta\">
-      ")
-    let tree = string_tree.append(tree, priority_badge)
-    let tree = string_tree.append(tree, "
-      ")
-    let tree = string_tree.append(tree, due_date_html)
-    let tree = string_tree.append(tree, "
-      ")
-    let tree = string_tree.append(tree, tags_html)
-    let tree = string_tree.append(tree, "
-    </div>
-  </div>
-  <div class=\"task-actions\">
-    ")
-    let tree = string_tree.append(tree, edit_button)
-    let tree = string_tree.append(tree, "
-    ")
-    let tree = string_tree.append(tree, delete_button)
-    let tree = string_tree.append(tree, "
-  </div>
+pub fn render_tree(
+  task_id task_id: String,
+  attributes attributes: String,
+  checkbox_html checkbox_html: String,
+  title title: String,
+  priority_badge priority_badge: String,
+  due_date_html due_date_html: String,
+  tags_html tags_html: String,
+  edit_button edit_button: String,
+  delete_button delete_button: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree =
+    string_tree.append(
+      tree,
+      "<article 
+  id=\"task-",
+    )
+  let tree = string_tree.append(tree, task_id)
+  let tree =
+    string_tree.append(
+      tree,
+      "\" 
+  ",
+    )
+  let tree = string_tree.append(tree, attributes)
+  let tree =
+    string_tree.append(
+      tree,
+      "
+  onclick=\"closeAllEditorsBeforeEdit(event, this)\">
+  ",
+    )
+  let tree = string_tree.append(tree, checkbox_html)
+  let tree =
+    string_tree.append(
+      tree,
+      "
+  <section>
+    <h3>",
+    )
+  let tree = string_tree.append(tree, title)
+  let tree =
+    string_tree.append(
+      tree,
+      "</h3>
+    <footer>
+      ",
+    )
+  let tree = string_tree.append(tree, priority_badge)
+  let tree =
+    string_tree.append(
+      tree,
+      "
+      ",
+    )
+  let tree = string_tree.append(tree, due_date_html)
+  let tree =
+    string_tree.append(
+      tree,
+      "
+      ",
+    )
+  let tree = string_tree.append(tree, tags_html)
+  let tree =
+    string_tree.append(
+      tree,
+      "
+    </footer>
+  </section>
+  <aside>
+    ",
+    )
+  let tree = string_tree.append(tree, edit_button)
+  let tree =
+    string_tree.append(
+      tree,
+      "
+    ",
+    )
+  let tree = string_tree.append(tree, delete_button)
+  let tree =
+    string_tree.append(
+      tree,
+      "
+  </aside>
 </article>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(task_id task_id: String, checkbox_html checkbox_html: String, title title: String, priority_badge priority_badge: String, due_date_html due_date_html: String, tags_html tags_html: String, edit_button edit_button: String, delete_button delete_button: String) -> String {
-    string_tree.to_string(render_tree(task_id: task_id, checkbox_html: checkbox_html, title: title, priority_badge: priority_badge, due_date_html: due_date_html, tags_html: tags_html, edit_button: edit_button, delete_button: delete_button))
+pub fn render(
+  task_id task_id: String,
+  attributes attributes: String,
+  checkbox_html checkbox_html: String,
+  title title: String,
+  priority_badge priority_badge: String,
+  due_date_html due_date_html: String,
+  tags_html tags_html: String,
+  edit_button edit_button: String,
+  delete_button delete_button: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    task_id: task_id,
+    attributes: attributes,
+    checkbox_html: checkbox_html,
+    title: title,
+    priority_badge: priority_badge,
+    due_date_html: due_date_html,
+    tags_html: tags_html,
+    edit_button: edit_button,
+    delete_button: delete_button,
+  ))
 }
-

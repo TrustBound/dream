@@ -7,4 +7,3 @@ pub type DataError {
   DatabaseError
   InvalidData
 }
-

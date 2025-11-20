@@ -52,7 +52,7 @@ fn parse_form_pair(pair: String) -> option.Option(#(String, String)) {
 fn decode_url_component(component: String) -> String {
   // Replace + with space (form encoding convention)
   let with_spaces = string.replace(component, "+", " ")
-  
+
   // Decode percent-encoded sequences
   case uri.percent_decode(with_spaces) {
     Ok(decoded) -> decoded
@@ -100,4 +100,3 @@ pub fn get_form_field_optional(
     option.None -> option.None
   }
 }
-

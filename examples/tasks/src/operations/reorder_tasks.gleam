@@ -1,9 +1,10 @@
 //// Reorder tasks operation - business logic for drag-and-drop reordering
 
+import dream/http/error.{type Error}
 import dream_postgres/client.{type Connection}
 import gleam/list
+import gleam/result
 import models/task/task_model
-import types/errors.{type DataError}
 import types/task.{type Task}
 
 /// Reorder a task by moving it to a new position
@@ -13,7 +14,7 @@ pub fn execute(
   db: Connection,
   task_id: Int,
   new_position: Int,
-) -> Result(Task, DataError) {
+) -> Result(Task, Error) {
   task_model.update_position(db, task_id, new_position)
 }
 
@@ -22,7 +23,7 @@ pub fn execute(
 pub fn batch_reorder(
   db: Connection,
   updates: List(#(Int, Int)),
-) -> Result(List(Task), DataError) {
+) -> Result(List(Task), Error) {
   batch_reorder_recursive(db, updates, [])
 }
 
@@ -30,14 +31,16 @@ fn batch_reorder_recursive(
   db: Connection,
   updates: List(#(Int, Int)),
   results: List(Task),
-) -> Result(List(Task), DataError) {
+) -> Result(List(Task), Error) {
   case updates {
     [] -> Ok(list.reverse(results))
-    [#(task_id, position), ..rest] ->
-      case task_model.update_position(db, task_id, position) {
-        Ok(task_item) ->
-          batch_reorder_recursive(db, rest, [task_item, ..results])
-        Error(err) -> Error(err)
-      }
+    [#(task_id, position), ..rest] -> {
+      use task_item <- result.try(task_model.update_position(
+        db,
+        task_id,
+        position,
+      ))
+      batch_reorder_recursive(db, rest, [task_item, ..results])
+    }
   }
 }

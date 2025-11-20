@@ -64,9 +64,7 @@ Create `src/middleware/auth_middleware.gleam`:
 
 ```gleam
 import context.{type AuthContext, type User}
-import dream/http/response.{text_response}
-import dream/http/status.{unauthorized}
-import dream/http/transaction.{type Request, type Response, get_header}
+import dream/http.{type Request, type Response, text_response, unauthorized, get_header}
 import gleam/option.{None, Some}
 import services.{type Services}
 
@@ -136,7 +134,7 @@ Middleware lets you write it once and apply to any route.
 Update `src/router.gleam`:
 
 ```gleam
-import dream/http/transaction.{Delete, Get, Post}
+import dream/http/request.{Delete, Get, Post}
 import dream/router.{type Router, route, router}
 import context.{type AuthContext}
 import controllers/users_controller.{index, show, create, delete}
@@ -165,13 +163,14 @@ Notice:
 Update `src/controllers/users_controller.gleam`:
 
 ```gleam
-import dream/http/response.{json_response, text_response}
-import dream/http/status.{unauthorized, bad_request, created, internal_server_error}
-import dream/http/transaction.{type Request, type Response}
-import dream/http/validation.{validate_json}
+import dream/http.{type Request, type Response, json_response, created, validate_json}
+import dream/http/error.{type Error, Unauthorized}
 import context.{type AuthContext, type User}
+import gleam/option
+import gleam/result
 import models/user.{decoder, create}
 import services.{type Services}
+import utilities/response_helpers
 import views/user_view.{to_json}
 
 pub fn create(
@@ -179,37 +178,36 @@ pub fn create(
   context: AuthContext,
   services: Services,
 ) -> Response {
-  case context.user {
-    None -> text_response(unauthorized, "Unauthorized")
-    Some(user) -> create_with_user(request, user, services)
+  let result = {
+    use user <- result.try(
+      case context.user {
+        option.Some(u) -> Ok(u)
+        option.None -> Error(error.Unauthorized("Authentication required"))
+      }
+    )
+    use data <- result.try(validate_json(request.body, decoder()))
+    let #(name, email) = data
+    let db = services.database.connection
+    use created_user <- result.try(create(db, name, email))
+    Ok(created_user)
   }
-}
-
-fn create_with_user(
-  request: Request,
-  user: User,
-  services: Services,
-) -> Response {
-  case validate_json(request.body, decoder()) {
-    Error(_) -> json_response(bad_request, "{\"error\": \"Invalid request data\"}")
-    Ok(data) -> create_user(services, data)
-  }
-}
-
-fn create_user(services: Services, data: #(String, String)) -> Response {
-  let #(name, email) = data
-  case create(services.db, name, email) {
+  
+  case result {
     Ok(created) -> json_response(created, to_json(created))
-    Error(_) -> json_response(internal_server_error, "{\"error\": \"An error occurred\"}")
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 ```
 
 **What's happening:**
 
-The middleware populated `context.user`, so the controller can check:
-- `None` - Middleware didn't run or auth failed (shouldn't happen if middleware is on the route)
-- `Some(user)` - User is authenticated, proceed
+The controller uses a flat `use` chain to:
+1. Extract the authenticated user from context (returns `Unauthorized` if missing)
+2. Validate the JSON request body
+3. Create the user in the database
+4. Handle all errors uniformly through `response_helpers.handle_error`
+
+This pattern keeps the controller thin and readable, avoiding nested `case` statements. The middleware populated `context.user`, so if it's `None`, that indicates the middleware didn't run or auth failed (shouldn't happen if middleware is on the route).
 
 ## Step 5: Update Main
 

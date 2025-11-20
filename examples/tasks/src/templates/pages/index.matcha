@@ -1,9 +1,8 @@
-{> with task_form as String
 {> with task_list as String
 <section>
     <header>
-        <h1>My Todos</h1>
+        <h1>My Tasks</h1>
+        <button id="add-task-btn" onclick="insertNewTask()">+</button>
     </header>
-    {{ task_form }}
     {{ task_list }}
 </section>

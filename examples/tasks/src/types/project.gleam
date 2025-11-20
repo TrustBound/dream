@@ -15,4 +15,3 @@ pub type Project {
 pub type ProjectData {
   ProjectData(name: String, description: Option(String), color: Option(String))
 }
-

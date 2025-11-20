@@ -13,7 +13,10 @@ pub fn not_found(message: String) -> Response {
 
 /// 500 Internal Server Error response
 pub fn internal_error() -> Response {
-  json_response(status.internal_server_error, "{\"error\": \"Internal server error\"}")
+  json_response(
+    status.internal_server_error,
+    "{\"error\": \"Internal server error\"}",
+  )
 }
 
 /// 400 Bad Request response

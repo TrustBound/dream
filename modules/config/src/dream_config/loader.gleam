@@ -45,7 +45,7 @@ pub fn get_int(name: String) -> Result(Int, Nil) {
 /// Get required environment variable as Int
 pub fn get_required_int(name: String) -> Result(Int, String) {
   use value <- result.try(get_required(name))
-  
+
   int.parse(value)
   |> result.replace_error(
     "Environment variable " <> name <> " must be an integer",
@@ -66,4 +66,3 @@ pub fn get_bool(name: String) -> Bool {
     _ -> False
   }
 }
-

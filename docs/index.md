@@ -34,9 +34,21 @@ Dream is a web toolkit that gets out of your way. It provides type-safe routing,
 
 ### 📦 Ecosystem
 Dream is modular. You use what you need:
-- **Core:** `dream` (Router, HTTP types)
-- **Data:** `dream_postgres`, `dream_opensearch`
-- **Utils:** `dream_helpers`, `dream_config`
+
+**Core:**
+- `dream` - Router, HTTP types, response builders, validation
+
+**Data:**
+- `dream_postgres` - PostgreSQL utilities, query helpers
+- `dream_opensearch` - OpenSearch client for search
+
+**Utilities:**
+- `dream_http_client` - HTTP client with streaming support
+- `dream_config` - Configuration management (env vars, .env files)
+- `dream_helpers` - Optional JSON encoding utilities
+- `dream_ets` - ETS (Erlang Term Storage) for in-memory storage
+
+See the [Architecture Reference](reference/architecture.md#modules-ecosystem) for detailed module documentation and usage examples.
 
 ---
 

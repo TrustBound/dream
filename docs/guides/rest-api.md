@@ -7,28 +7,27 @@ Production-ready patterns for building REST APIs with Dream.
 ### Offset-based Pagination
 
 ```gleam
+import dream/http/error.{type Error, InternalServerError}
 import gleam/list.{List, map}
 import pog.{Connection, Returned}
 import sql
-import types/product.{Product, DatabaseError}
+import types/product.{Product}
 
 // models/product.gleam
 pub fn list_paginated(
   db: Connection,
   offset: Int,
   limit: Int,
-) -> Result(List(Product), DatabaseError) {
+) -> Result(List(Product), Error) {
   case sql.list_products_paginated(db, offset, limit) {
     Ok(returned) -> Ok(map(returned.rows, row_to_product))
-    Error(_) -> Error(DatabaseError)
+    Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 ```
 
 ```gleam
-import dream/http/response.{json_response}
-import dream/http/status.{ok, internal_server_error}
-import dream/http/transaction.{Request, Response, get_query_param}
+import dream/http.{type Request, type Response, json_response, ok, internal_server_error, get_query_param}
 import dream/context.{AppContext}
 import gleam/int
 import gleam/option.{Option, None, Some, unwrap}
@@ -53,11 +52,15 @@ fn internal_error_response() -> Response {
 
 fn parse_optional_int(value: Option(String)) -> Option(Int) {
   case value {
-    Some(str) -> case int.parse(str) {
-      Ok(num) -> Some(num)
-      Error(_) -> None
-    }
+    Some(str) -> parse_int_string(str)
     None -> None
+  }
+}
+
+fn parse_int_string(str: String) -> Option(Int) {
+  case int.parse(str) {
+    Ok(num) -> Some(num)
+    Error(_) -> None
   }
 }
 ```
@@ -65,6 +68,7 @@ fn parse_optional_int(value: Option(String)) -> Option(Int) {
 ### Cursor-based Pagination
 
 ```gleam
+import dream/http/error.{type Error}
 import gleam/list.{List}
 import gleam/option.{Option, None, Some}
 import pog.{Connection}
@@ -130,46 +134,39 @@ fn check_price(price: Int, name: String, description: String) -> Result(ProductD
 ### Domain Errors
 
 ```gleam
-pub type ProductError {
-  NotFound
-  InvalidPrice(Int)
-  NameTooLong(String)
-  DatabaseError(pog.QueryError)
-}
+// Note: Use dream.Error instead of custom error types
+// This keeps error handling consistent across the application
+// import dream/http/error.{type Error, NotFound, UnprocessableContent, InternalServerError}
 ```
 
 ### Map to HTTP Status
 
 ```gleam
-import dream/http/response.{json_response}
-import dream/http/status.{created, bad_request, unprocessable_content, not_found, internal_server_error}
-import dream/http/transaction.{Request, Response}
-import dream/http/validation.{validate_json}
+import dream/http.{type Request, type Response, json_response, created, bad_request, unprocessable_content, not_found, internal_server_error, validate_json}
 import dream/context.{AppContext}
 import gleam/int.{to_string}
-import models/product.{decoder, create, InvalidPrice, NameTooLong, NotFound, DatabaseError}
+import dream/http/error.{type Error, UnprocessableContent, NotFound, InternalServerError}
+import gleam/result
+import models/product.{decoder, create}
 import services.{Services}
+import utilities/response_helpers
 import views/product_view.{to_json}
 
 pub fn create(request: Request, context: AppContext, services: Services) -> Response {
-  case validate_json(request.body, decoder()) {
-    Error(_) -> json_response(bad_request, "{\"error\": \"Invalid data\"}")
-    Ok(data) -> create_product(services, data)
+  let result = {
+    use data <- result.try(validate_json(request.body, decoder()))
+    create_product(services, data)
+  }
+  
+  case result {
+    Ok(product) -> json_response(created, to_json(product))
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 
-fn create_product(services: Services, data: ProductData) -> Response {
-  case create(services.db, data) {
-    Ok(product) -> json_response(created, to_json(product))
-    Error(InvalidPrice(price)) ->
-      json_response(unprocessable_content, error_json("Invalid price: " <> to_string(price)))
-    Error(NameTooLong(name)) ->
-      json_response(unprocessable_content, error_json("Name too long: " <> name))
-    Error(NotFound) ->
-      json_response(not_found, "{\"error\": \"Not found\"}")
-    Error(DatabaseError(_)) ->
-      json_response(internal_server_error, "{\"error\": \"Server error\"}")
-  }
+fn create_product(services: Services, data: ProductData) -> Result(Product, Error) {
+  let db = services.database.connection
+  create(db, data)
 }
 
 fn error_json(message: String) -> String {
@@ -191,9 +188,7 @@ router
 ### Header-based Versioning
 
 ```gleam
-import dream/http/response.{json_response}
-import dream/http/status.{ok, bad_request}
-import dream/http/transaction.{Request, Response, get_header}
+import dream/http.{type Request, type Response, json_response, ok, bad_request, get_header}
 import dream/context.{AppContext}
 import gleam/option.{unwrap}
 import services.{Services}
@@ -222,9 +217,7 @@ fn v2_index(services: Services) -> Response {
 ## Rate Limiting
 
 ```gleam
-import dream/http/response.{json_response}
-import dream/http/status.{too_many_requests}
-import dream/http/transaction.{Request, Response}
+import dream/http.{type Request, type Response, json_response, too_many_requests}
 import dream/context.{AppContext}
 import dream_ets
 import services.{Services}
@@ -260,9 +253,7 @@ fn error_json(message: String) -> String {
 ## Filtering and Sorting
 
 ```gleam
-import dream/http/response.{json_response}
-import dream/http/status.{ok}
-import dream/http/transaction.{Request, Response}
+import dream/http.{type Request, type Response, json_response, ok}
 import dream/context.{AppContext}
 import gleam/int
 import gleam/list.{List}
@@ -291,11 +282,15 @@ fn parse_filters(query: List(#(String, String))) -> ProductFilters {
 
 fn parse_optional_int(value: Option(String)) -> Option(Int) {
   case value {
-    Some(str) -> case int.parse(str) {
-      Ok(num) -> Some(num)
-      Error(_) -> None
-    }
+    Some(str) -> parse_int_string(str)
     None -> None
+  }
+}
+
+fn parse_int_string(str: String) -> Option(Int) {
+  case int.parse(str) {
+    Ok(num) -> Some(num)
+    Error(_) -> None
   }
 }
 ```
@@ -303,7 +298,8 @@ fn parse_optional_int(value: Option(String)) -> Option(Int) {
 ## CORS
 
 ```gleam
-import dream/http/transaction.{Request, Response, Header}
+import dream/http.{type Request, type Response}
+import dream/http/header.{Header}
 import dream/context.{AppContext}
 import services.{Services}
 
@@ -334,13 +330,11 @@ fn add_cors_headers(response: Response) -> Response {
 ## Health Check Endpoint
 
 ```gleam
-import dream/http/response.{json_response}
-import dream/http/status.{ok, service_unavailable}
-import dream/http/transaction.{Request, Response}
+import dream/http.{type Request, type Response, json_response, ok, service_unavailable}
 import dream/context.{AppContext}
 import pog.{Connection, query}
 import services.{Services}
-import types/product.{DatabaseError}
+import dream/http/error.{type Error, InternalServerError}
 
 pub fn health_check(
   _request: Request,
@@ -353,10 +347,10 @@ pub fn health_check(
   }
 }
 
-fn check_database(db: Connection) -> Result(Nil, DatabaseError) {
+fn check_database(db: Connection) -> Result(Nil, Error) {
   case query("SELECT 1", db, []) {
     Ok(_) -> Ok(Nil)
-    Error(_) -> Error(DatabaseError)
+    Error(_) -> Error(InternalServerError("Database connection failed"))
   }
 }
 ```

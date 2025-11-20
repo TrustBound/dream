@@ -32,4 +32,3 @@ pub fn main() {
   |> server.bind(cfg.host)
   |> server.listen(cfg.port)
 }
-

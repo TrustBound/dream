@@ -1,0 +1,20 @@
+{> with task_id as String
+{> with attributes as String
+{> with checkbox_html as String
+{> with title_input_html as String
+{> with description_textarea_html as String
+{> with due_date_input_html as String
+{> with tag_button_html as String
+{> with tag_selector_html as String
+<article id="task-{{ task_id }}" {{ attributes }}>
+    {{ checkbox_html }}
+    <section>
+        {{ title_input_html }}
+        {{ description_textarea_html }}
+    </section>
+    <footer>
+        {{ due_date_input_html }}
+        {{ tag_button_html }}
+        <aside id="tag-selector-{{ task_id }}">{{ tag_selector_html }}</aside>
+    </footer>
+</article>

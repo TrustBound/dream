@@ -2,7 +2,13 @@
 {> with checkbox_name as String
 {> with label_text as String
 {> with checked_attr as String
+{> with attributes as String
 <label for="{{ checkbox_id }}">
-  <input id="{{ checkbox_id }}" name="{{ checkbox_name }}" type="checkbox" {{ checked_attr }}>
-  {{ label_text }}
+  <input 
+    id="{{ checkbox_id }}" 
+    name="{{ checkbox_name }}" 
+    type="checkbox" 
+    {{ checked_attr }}
+    {{ attributes }}>
+  <span>{{ label_text }}</span>
 </label>

@@ -57,4 +57,3 @@ pub fn match(field: String, text: String) -> String {
   ])
   |> json.to_string()
 }
-

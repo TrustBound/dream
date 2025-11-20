@@ -2,9 +2,11 @@
 
 import context.{type TasksContext}
 import dream/controllers/static
-import dream/http/request.{type Request, get_param}
-import dream/http/response.{type Response}
+import dream/http.{type Request, type Response}
+import dream/http/error
+import dream/http/request.{get_param}
 import services.{type Services}
+import utilities/response_helpers
 
 /// Serve static files from /public directory
 pub fn serve_public(
@@ -12,15 +14,18 @@ pub fn serve_public(
   context: TasksContext,
   services: Services,
 ) -> Response {
-  let assert Ok(param) = get_param(request, "filepath")
-
-  static.serve(
-    request: request,
-    context: context,
-    services: services,
-    root: "./public",
-    filepath: param.raw,
-    config: static.default_config(),
-  )
+  case get_param(request, "filepath") {
+    Ok(param) ->
+      static.serve(
+        request: request,
+        context: context,
+        services: services,
+        root: "./public",
+        filepath: param.raw,
+        config: static.default_config(),
+      )
+    Error(_) -> response_helpers.handle_error(
+      error.BadRequest("File path required")
+    )
+  }
 }
-

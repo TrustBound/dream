@@ -19,7 +19,11 @@ import mist.{type ResponseData}
 
 // Header comparison functions
 
-fn header_matches(header: #(String, String), name: String, value: String) -> Bool {
+fn header_matches(
+  header: #(String, String),
+  name: String,
+  value: String,
+) -> Bool {
   let #(header_name, header_value) = header
   header_name == name && header_value == value
 }
@@ -79,4 +83,3 @@ pub fn count_headers(response: Response(ResponseData), name: String) -> Int {
   |> list.filter(header_name_matches(_, name))
   |> list.length()
 }
-

@@ -29,9 +29,9 @@ pub fn send_request(
   body: String,
 ) -> Result(String, String) {
   let url = client.base_url <> path
-  
+
   let assert Ok(req) = request.to(url)
-  
+
   req
   |> request.set_method(method)
   |> request.set_body(body)
@@ -48,4 +48,3 @@ fn extract_body(response: Response(String)) -> String {
 fn error_to_string(_error: httpc.HttpError) -> String {
   "HTTP request failed"
 }
-

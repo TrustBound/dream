@@ -32,49 +32,56 @@ That's 5 steps coordinating 3 services (Postgres, OpenSearch, SSE). **This is to
 
 **Keep it in the controller:**
 ```gleam
-import dream/http/response.{json_response, text_response}
-import dream/http/status.{ok, not_found}
-import dream/http/transaction.{type Request, type Response, get_param}
+import dream/http.{require_int, type Request, type Response, json_response, ok}
 import dream/context.{type AppContext}
+import gleam/result
 import models/user.{get}
 import services.{type Services}
+import utilities/response_helpers
 import views/user_view.{to_json}
 
 // Simple: one model, one action
 pub fn show(request: Request, context: AppContext, services: Services) -> Response {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
+  let result = {
+    use id <- result.try(require_int(request, "id"))
+    let db = services.database.connection
+    get(db, id)
+  }
   
-  case get(services.db, id) {
+  case result {
     Ok(user) -> json_response(ok, to_json(user))
-    Error(_) -> text_response(not_found, "Not found")
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 ```
 
 **Extract to operation:**
 ```gleam
-import dream/http/response.{json_response}
-import dream/http/status.{ok, forbidden, not_found, internal_server_error}
-import dream/http/transaction.{type Request, type Response, get_param}
+import dream/http.{require_int, type Request, type Response, json_response, ok}
 import context.{type AuthContext}
-import gleam/option.{Some}
+import gleam/option
+import gleam/result
 import operations/publish_post.{execute}
 import services.{type Services}
-import types/errors.{Unauthorized, NotFound}
+import utilities/response_helpers
 import views/post_view.{to_json}
 
 // Complex: multiple services, business rules, side effects
 pub fn publish(request: Request, context: AuthContext, services: Services) -> Response {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
-  let assert Some(user) = context.user
+  let result = {
+    use id <- result.try(require_int(request, "id"))
+    use user <- result.try(
+      case context.user {
+        option.Some(u) -> Ok(u)
+        option.None -> Error(error.Unauthorized("Authentication required"))
+      }
+    )
+    execute(id, user.id, services)
+  }
   
-  case execute(id, user.id, services) {
+  case result {
     Ok(post) -> json_response(ok, to_json(post))
-    Error(Unauthorized) -> json_response(forbidden, "{\"error\": \"Forbidden\"}")
-    Error(NotFound) -> json_response(not_found, "{\"error\": \"Not found\"}")
-    Error(_) -> json_response(internal_server_error, "{\"error\": \"Server error\"}")
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 ```
@@ -88,11 +95,11 @@ pub fn publish(request: Request, context: AuthContext, services: Services) -> Re
 Create `src/operations/publish_post.gleam`:
 
 ```gleam
+import dream/http/error.{type Error, Forbidden, NotFound, InternalServerError}
 import gleam/result.{try}
 import models/post as post_model
 import models/event as event_model
 import services.{type Services}
-import types/errors.{type DataError, Unauthorized}
 import types/post.{type Post}
 import types/event.{type Event, PostPublished}
 
@@ -100,7 +107,7 @@ pub fn execute(
   post_id: Int,
   user_id: Int,
   services: Services,
-) -> Result(Post, DataError) {
+) -> Result(Post, Error) {
   use post <- try(post_model.get(services.db, post_id))
   use _ <- try(check_authorization(user_id, post))
   use published <- try(post_model.publish(services.db, post_id))
@@ -110,10 +117,10 @@ pub fn execute(
   Ok(published)
 }
 
-fn check_authorization(user_id: Int, post: Post) -> Result(Nil, DataError) {
+fn check_authorization(user_id: Int, post: Post) -> Result(Nil, Error) {
   case user_id == post.author_id {
     True -> Ok(Nil)
-    False -> Error(Unauthorized)
+    False -> Error(Forbidden("Not authorized to publish this post"))
   }
 }
 
@@ -121,7 +128,7 @@ fn log_publish_event(
   post: Post,
   user_id: Int,
   services: Services,
-) -> Result(Nil, DataError) {
+) -> Result(Nil, Error) {
   let publish_event = Event(
     event_type: PostPublished,
     user_id: user_id,
@@ -154,13 +161,13 @@ All business logic in one place, easy to test.
 Create `src/controllers/posts_controller.gleam`:
 
 ```gleam
-import dream/http/response.{json_response}
-import dream/http/status.{ok, forbidden, not_found, internal_server_error}
-import dream/http/transaction.{Request, Response, get_param}
+import dream/http.{require_int, type Request, type Response, json_response, ok}
 import context.{AuthContext}
+import gleam/option
+import gleam/result
 import operations/publish_post.{execute}
 import services.{Services}
-import types/errors.{Unauthorized, NotFound}
+import utilities/response_helpers
 import views/post_view.{to_json}
 
 pub fn publish(
@@ -168,33 +175,31 @@ pub fn publish(
   context: AuthContext,
   services: Services,
 ) -> Response {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
-  let assert Some(user) = context.user
-  
-  case execute(id, user.id, services) {
-    Ok(post) -> json_response(ok, to_json(post))
-    Error(Unauthorized) ->
-      json_response(forbidden, error_json("Not the author"))
-    Error(NotFound) ->
-      json_response(not_found, error_json("Post not found"))
-    Error(_) ->
-      json_response(internal_server_error, error_json("Server error"))
+  let result = {
+    use id <- result.try(require_int(request, "id"))
+    use user <- result.try(
+      case context.user {
+        option.Some(u) -> Ok(u)
+        option.None -> Error(error.Unauthorized("Authentication required"))
+      }
+    )
+    execute(id, user.id, services)
   }
-}
-
-fn error_json(message: String) -> String {
-  "{\"error\": \"" <> message <> "\"}"
+  
+  case result {
+    Ok(post) -> json_response(ok, to_json(post))
+    Error(err) -> response_helpers.handle_error(err)
+  }
 }
 ```
 
 The controller is clean:
-- Extract parameters
-- Call operation
-- Map domain errors → HTTP status codes
+- Extract parameters using `require_int` (returns `Result` for safe handling)
+- Call operation (which returns `dream.Error`)
+- Handle errors uniformly through `response_helpers.handle_error`
 - Build response
 
-All complexity is in the operation.
+All complexity is in the operation. The unified error type (`dream.Error`) eliminates the need for error mapping in controllers.
 
 ## When You Need Operations
 
@@ -244,7 +249,7 @@ pub fn publish_post_with_wrong_user_returns_unauthorized_test() {
   let result = publish_post.execute(post.id, wrong_user_id, services)
   
   // Assert
-  assert Error(Unauthorized) = result
+  assert Error(error.Forbidden(_)) = result
 }
 ```
 
@@ -256,6 +261,7 @@ Test the business logic without HTTP concerns.
 ✅ Extract from controllers when complexity grows  
 ✅ Business rules live in operations  
 ✅ Controllers stay simple: params → operation → response  
+✅ Unified error handling with `dream.Error` keeps controllers thin
 ✅ Most apps don't need operations (only for complex workflows)
 
 ## You've Completed the Learning Path!

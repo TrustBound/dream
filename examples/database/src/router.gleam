@@ -1,8 +1,8 @@
-import dream/http/request.{Delete, Get, Post, Put}
-import dream/router.{type Router, route, router}
 import context.{type DatabaseContext}
 import controllers/posts_controller
 import controllers/users_controller
+import dream/http/request.{Delete, Get, Post, Put}
+import dream/router.{type Router, route, router}
 import services.{type Services}
 
 pub fn create_router() -> Router(DatabaseContext, Services) {
