@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="dream.png" alt="Dream Logo" width="200">
+  <img src="ricky_and_lucy.png" alt="Dream Logo" width="200" alt="Ricky Moony and Lucy, a moon shaped mascot for Dream with the star shaped mascot for Gleam, each with cute cartoon eyes and a smile">
 
   <b>Clean, composable web development for Gleam. No magic.</b>
 </div>
