@@ -50,8 +50,8 @@ jobs:
 
       - name: Install Gleam
         run: |
-          curl -L https://github.com/gleam-lang/gleam/releases/latest/download/gleam-ubuntu-22.04.tar.gz | tar -xz
-          sudo mv gleam /usr/local/bin/
+          curl -fsSL https://raw.githubusercontent.com/gleam-lang/gleam/main/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
           gleam --version
 
       - name: Download dependencies
