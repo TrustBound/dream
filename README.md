@@ -1,6 +1,12 @@
-# Dream
+<div align="center">
+  <img src="dream.png" alt="Dream Logo" width="200"  style="margin-bottom: 20px;">
+  
+  <a href="https://github.com/TrustBound/dream/releases">
+    <img src="https://img.shields.io/github/v/release/TrustBound/dream?label=Release" alt="Latest Release" style="margin-bottom: 20px;">
+  </a>
 
-**Clean, composable web development for Gleam. No magic. No surprises.**
+  <b>Clean, composable web development for Gleam. No magic.</b>
+</div>
 
 Dream is a web toolkit that gets out of your way. Everything is explicit. Your `main()` function shows exactly what's happening—no framework deciding things for you behind the scenes.
 
@@ -68,25 +74,26 @@ Example with auth and logging (your middleware, not Dream's):
 
 ```mermaid
 sequenceDiagram
+    autonumber
     participant Client
     participant Router
     participant Logging as Logging Middleware
     participant Auth as Auth Middleware
-    participant Controller
+    participant Controller as Controller Action
     
     Client->>Router: Request
-    Router->>Router: Create Context { request_id: "abc" }
+    Router->>Router: Create Context with request_id
     Router->>Logging: (Request, Context, Services)
     Logging->>Logging: Log incoming request
     Logging->>Auth: (Request, Context, Services)
     Auth->>Auth: Check token, add user to context
-    Auth->>Controller: (Request, Context { request_id, user }, Services)
+    Auth->>Controller: (Request, Context with user, Services)
     Controller->>Controller: Do work
-    Controller->>Auth: Response
-    Auth->>Logging: Response
+    Controller-->>Auth: Response
+    Auth-->>Logging: Response
     Logging->>Logging: Log outgoing response
-    Logging->>Router: Response
-    Router->>Client: Response
+    Logging-->>Router: Response
+    Router-->>Client: Response
 ```
 
 Simple pipeline. No magic.
@@ -504,7 +511,7 @@ Because finding where that database connection came from shouldn't require a tre
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [Contributing Guide](docs/contributing/contributing.md) for guidelines.
 
 ## License
 

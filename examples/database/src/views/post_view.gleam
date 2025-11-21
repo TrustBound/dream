@@ -3,7 +3,7 @@
 //// Pure formatting functions: Post → String
 //// No Result types, no Response types, no error handling.
 
-import dream_helpers/json_encoders as encoders
+import dream_json/json_encoders as encoders
 import gleam/json
 import gleam/list
 import gleam/option

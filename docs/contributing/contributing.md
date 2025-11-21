@@ -12,11 +12,11 @@ Before contributing, understand Dream's core philosophy:
 - **Type-safe** - Leverage Gleam's type system fully
 - **No closures** - All dependencies explicit
 
-Read [Design Principles](docs/reference/design-principles.md) for the full picture.
+Read [Design Principles](../reference/design-principles.md) for the full picture.
 
 ## Code Style
 
-Follow the [Naming Conventions](docs/reference/naming-conventions.md):
+Follow the [Naming Conventions](../reference/naming-conventions.md):
 
 - Functions: `{verb}_{noun}` pattern
 - No module name prefixes
@@ -40,7 +40,7 @@ All code must have tests. Dream requires **100% test coverage** of `src/dream/`.
 - Fast (milliseconds)
 - Deterministic (same result every time)
 
-See [Testing Guide](docs/guides/testing.md) for details.
+See [Testing Guide](../guides/testing.md) for details.
 
 ### Running Tests
 
@@ -87,7 +87,7 @@ Include:
 
 ### Contributing to Documentation
 
-For writing or improving user-facing documentation (guides, tutorials, examples), see the [Documentation Contributing Guide](docs/contributing/index.md). It covers:
+For writing or improving user-facing documentation (guides, tutorials, examples), see the [Documentation Contributing Guide](index.md). It covers:
 
 - Voice and tone guidelines
 - Documentation structure
@@ -193,39 +193,24 @@ dream/
 
 ## Publishing (Maintainers Only)
 
-Dream is published to Hex.pm. Only maintainers can publish.
+Dream and its modules are published to Hex.pm. Only maintainers can publish.
 
-### Publishing Process
+### Core Dream Package
 
-1. **Update version in `gleam.toml`**
-   ```toml
-   version = "1.0.1"
-   ```
+For publishing the main `dream` package, see the [Publishing Strategy](publishing.md).
 
-2. **Update CHANGELOG.md**
-   Document all changes since last release.
+### Dream Modules
 
-3. **Create release commit and tag**
-   ```bash
-   git add gleam.toml CHANGELOG.md
-   git commit -m "chore: bump version to 1.0.1"
-   git tag v1.0.1
-   git push origin main --tags
-   ```
+Dream modules are published automatically via GitHub Actions when version numbers change. See the [Publishing Strategy](publishing.md) for details.
 
-4. **Publish to Hex**
-   ```bash
-   gleam publish
-   ```
-
-5. **Publish documentation**
-   ```bash
-   gleam docs publish
-   ```
+**Quick version bump:**
+1. Update `modules/<module_name>/gleam.toml` version
+2. Commit and push to `main`
+3. GitHub Actions automatically publishes if version changed
 
 ### Semantic Versioning
 
-Dream follows [Semantic Versioning](https://semver.org/):
+Dream and all modules follow [Semantic Versioning](https://semver.org/):
 
 - **MAJOR** (1.0.0 → 2.0.0) - Breaking changes
 - **MINOR** (1.0.0 → 1.1.0) - New features (backward compatible)

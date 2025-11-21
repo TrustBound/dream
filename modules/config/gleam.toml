@@ -1,10 +1,17 @@
 name = "dream_config"
 version = "0.1.0"
+description = "Type-safe configuration management for Gleam applications"
+licences = ["MIT"]
+repository = { type = "github", user = "TrustBound", repo = "dream" }
+links = [
+    { title = "Documentation", href = "https://hexdocs.pm/dream_config" },
+    { title = "GitHub", href = "https://github.com/TrustBound/dream" },
+]
 
 [dependencies]
-gleam_stdlib = ">= 0.44.0"
-envoy = ">= 1.0.0"
-dot_env = ">= 1.0.0"
+gleam_stdlib = ">= 0.44.0 and < 2.0.0"
+envoy = ">= 1.0.0 and < 2.0.0"
+dot_env = ">= 1.0.0 and < 2.0.0"
 
 [dev-dependencies]
-gleeunit = ">= 1.0.0"
+gleeunit = ">= 1.0.0 and < 2.0.0"

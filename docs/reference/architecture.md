@@ -533,12 +533,12 @@ pub fn load_config() -> Result(AppConfig, String) {
 }
 ```
 
-**`dream_helpers`** - Optional convenience utilities
+**`dream_json`** - JSON encoding utilities
 - JSON encoders for optional values and timestamps
-- Note: Most functionality has moved to Dream core
+- Convenience functions for common JSON encoding patterns
 
 ```gleam
-import dream_helpers/json_encoders
+import dream_json/json_encoders
 import gleam/json
 import gleam/option
 

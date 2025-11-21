@@ -8,30 +8,42 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Install Gleam
         uses: gleam-lang/setup-gleam@v2
         with:
           gleam-version: "latest"
-      
+
       - name: Install Erlang
         uses: erlang/setup-erlang@v1
         with:
           otp-version: "26"
-      
+
       - name: Download dependencies
         run: gleam deps download
-      
+
       - name: Check code format
         run: gleam format --check
-      
+
       - name: Build project
         run: gleam build
-      
+
       - name: Run tests
         run: gleam test
 
+      - name: Test modules
+        run: |
+          for module in modules/*/; do
+            if [ -f "${module}gleam.toml" ]; then
+              echo "Testing module: $(basename "$module")"
+              cd "$module"
+              gleam deps download
+              gleam build
+              gleam test || exit 1
+              cd - > /dev/null
+            fi
+          done

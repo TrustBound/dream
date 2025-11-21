@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Parameter validation functions: `require_int`, `require_string`, `require_form`, `require_field`, `require_field_int`
 - Consolidated HTTP imports via `dream/http` module re-exporting all HTTP utilities
 - Comprehensive MVC architecture documentation
-- Modules ecosystem documentation (dream_postgres, dream_http_client, dream_opensearch, dream_config, dream_helpers, dream_ets)
+- Modules ecosystem documentation (dream_postgres, dream_http_client, dream_opensearch, dream_config, dream_json, dream_ets)
 - Operations pattern guide for complex business logic
 - API stability documentation
 - Enhanced controllers-and-models guide with more examples

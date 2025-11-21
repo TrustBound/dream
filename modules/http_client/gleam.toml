@@ -1,13 +1,20 @@
 name = "dream_http_client"
 version = "0.1.0"
+description = "Type-safe HTTP client for Gleam with streaming support"
+licences = ["MIT"]
+repository = { type = "github", user = "TrustBound", repo = "dream" }
+links = [
+    { title = "Documentation", href = "https://hexdocs.pm/dream_http_client" },
+    { title = "GitHub", href = "https://github.com/TrustBound/dream" },
+]
 
 [dependencies]
-gleam_stdlib = ">= 0.44.0"
-gleam_erlang = ">= 0.30.0"
-gleam_http = ">= 3.6.0"
-gleam_yielder = ">= 1.0.0"
+gleam_stdlib = ">= 0.44.0 and < 2.0.0"
+gleam_erlang = ">= 0.30.0 and < 2.0.0"
+gleam_http = ">= 3.6.0 and < 5.0.0"
+gleam_yielder = ">= 1.0.0 and < 2.0.0"
 
 [dev-dependencies]
-gleeunit = ">= 1.0.0"
+gleeunit = ">= 1.0.0 and < 2.0.0"
 mockth = { git = "https://github.com/bondiano/mockth.git", ref = "master" }
 

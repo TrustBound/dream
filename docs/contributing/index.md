@@ -2,7 +2,9 @@
 
 **Writing docs?** Read the [Tone Guide](tone-guide.md) first.
 
-**Writing code?** See [CONTRIBUTING.md](../../CONTRIBUTING.md)
+**Writing code?** See [contributing.md](contributing.md)
+
+**Publishing modules?** See [Publishing Strategy](publishing.md)
 
 ---
 

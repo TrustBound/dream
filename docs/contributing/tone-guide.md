@@ -635,6 +635,6 @@ A little strategic snark in the right place builds connection with battle-tested
 ## See Also
 
 - [Contributing Index](index.md) - Overview of documentation contributing
-- [CONTRIBUTING.md](../../CONTRIBUTING.md) - Code contribution guidelines
+- [contributing.md](contributing.md) - Code contribution guidelines
 - [Design Principles](../reference/design-principles.md) - Dream's philosophy
 

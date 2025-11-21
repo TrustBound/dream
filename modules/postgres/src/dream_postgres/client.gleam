@@ -46,43 +46,202 @@ pub type Value =
 pub type Returned(a) =
   pog.Returned(a)
 
-/// Create a new default config
-/// Requires a pool name to be provided
+/// Create a new default PostgreSQL configuration
+///
+/// Creates a configuration with sensible defaults. You must provide a pool name
+/// which is used to identify the connection pool in the process registry.
+///
+/// ## Parameters
+///
+/// - `pool_name`: A process name for the connection pool
+///
+/// ## Returns
+///
+/// A new `Config` with default values. Use builder functions to customize it.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_postgres/client as postgres
+/// import gleam/erlang/process
+///
+/// let pool_name = process.new_name("my_db_pool")
+/// let config = postgres.new(pool_name)
+/// ```
 pub fn new(pool_name: process.Name(pog.Message)) -> Config {
   pog.default_config(pool_name: pool_name)
 }
 
 /// Set the database host
+///
+/// Sets the hostname or IP address of the PostgreSQL server.
+///
+/// ## Parameters
+///
+/// - `config`: The configuration to modify
+/// - `value`: The hostname (e.g., "localhost" or "db.example.com")
+///
+/// ## Returns
+///
+/// A new `Config` with the host updated.
+///
+/// ## Example
+///
+/// ```gleam
+/// config
+/// |> postgres.host("localhost")
+/// ```
 pub fn host(config: Config, value: String) -> Config {
   pog.Config(..config, host: value)
 }
 
 /// Set the database port
+///
+/// Sets the port number for the PostgreSQL server. Defaults to 5432.
+///
+/// ## Parameters
+///
+/// - `config`: The configuration to modify
+/// - `value`: The port number
+///
+/// ## Returns
+///
+/// A new `Config` with the port updated.
+///
+/// ## Example
+///
+/// ```gleam
+/// config
+/// |> postgres.port(5432)
+/// ```
 pub fn port(config: Config, value: Int) -> Config {
   pog.Config(..config, port: value)
 }
 
 /// Set the database name
+///
+/// Sets the name of the PostgreSQL database to connect to.
+///
+/// ## Parameters
+///
+/// - `config`: The configuration to modify
+/// - `value`: The database name
+///
+/// ## Returns
+///
+/// A new `Config` with the database name updated.
+///
+/// ## Example
+///
+/// ```gleam
+/// config
+/// |> postgres.database("myapp_prod")
+/// ```
 pub fn database(config: Config, value: String) -> Config {
   pog.Config(..config, database: value)
 }
 
 /// Set the database user
+///
+/// Sets the username for authenticating to PostgreSQL.
+///
+/// ## Parameters
+///
+/// - `config`: The configuration to modify
+/// - `value`: The username
+///
+/// ## Returns
+///
+/// A new `Config` with the user updated.
+///
+/// ## Example
+///
+/// ```gleam
+/// config
+/// |> postgres.user("postgres")
+/// ```
 pub fn user(config: Config, value: String) -> Config {
   pog.Config(..config, user: value)
 }
 
 /// Set the database password
+///
+/// Sets the password for authenticating to PostgreSQL.
+///
+/// ## Parameters
+///
+/// - `config`: The configuration to modify
+/// - `value`: The password
+///
+/// ## Returns
+///
+/// A new `Config` with the password updated.
+///
+/// ## Example
+///
+/// ```gleam
+/// config
+/// |> postgres.password("secret123")
+/// ```
 pub fn password(config: Config, value: String) -> Config {
   pog.Config(..config, password: option.Some(value))
 }
 
 /// Set the connection pool size
+///
+/// Sets the maximum number of connections in the pool. The pool manages
+/// connections automatically, creating and reusing them as needed.
+///
+/// ## Parameters
+///
+/// - `config`: The configuration to modify
+/// - `value`: The maximum number of connections (e.g., 15)
+///
+/// ## Returns
+///
+/// A new `Config` with the pool size updated.
+///
+/// ## Example
+///
+/// ```gleam
+/// config
+/// |> postgres.pool_size(20)  // Allow up to 20 concurrent connections
+/// ```
 pub fn pool_size(config: Config, value: Int) -> Config {
   pog.Config(..config, pool_size: value)
 }
 
 /// Start the connection pool
+///
+/// Creates and starts the PostgreSQL connection pool with the provided
+/// configuration. The pool will be registered with the process name you
+/// provided to `new()`.
+///
+/// ## Parameters
+///
+/// - `config`: The complete configuration
+///
+/// ## Returns
+///
+/// - `Ok(Connection)`: Successfully started the pool
+/// - `Error(StartError)`: Failed to start (e.g., connection refused, invalid config)
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_postgres/client as postgres
+/// import gleam/erlang/process
+///
+/// let pool_name = process.new_name("db_pool")
+/// let assert Ok(db) = postgres.new(pool_name)
+///   |> postgres.host("localhost")
+///   |> postgres.port(5432)
+///   |> postgres.database("myapp")
+///   |> postgres.user("postgres")
+///   |> postgres.password("secret")
+///   |> postgres.pool_size(15)
+///   |> postgres.connect()
+/// ```
 pub fn connect(config: Config) -> Result(Connection, actor.StartError) {
   pog.start(config)
   |> result.map(extract_connection_from_started)
@@ -95,9 +254,41 @@ fn extract_connection_from_started(
   connection
 }
 
-/// Connect from PostgreSQL URL
-/// Format: postgresql://user:password@host:port/database
-/// Note: Simple parser - in production use a proper URL parsing library
+/// Connect from a PostgreSQL connection URL
+///
+/// Parses a PostgreSQL connection URL and creates a connection pool.
+/// This is a convenience function for quick setup, but the builder pattern
+/// is recommended for production code as it's more explicit and type-safe.
+///
+/// **Note**: This uses a simple URL parser. For production applications with
+/// complex connection requirements, use the builder pattern instead.
+///
+/// ## URL Format
+///
+/// ```
+/// postgresql://user:password@host:port/database
+/// ```
+///
+/// Examples:
+/// - `postgresql://postgres:secret@localhost:5432/myapp`
+/// - `postgresql://user@localhost/myapp` (no password)
+/// - `postgresql://localhost/myapp` (defaults: user=postgres, port=5432)
+///
+/// ## Parameters
+///
+/// - `url`: The PostgreSQL connection URL
+///
+/// ## Returns
+///
+/// A `Connection` (panics on parse failure - use builder pattern for error handling).
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_postgres/client as postgres
+///
+/// let db = postgres.from_url("postgresql://postgres:secret@localhost:5432/myapp")
+/// ```
 pub fn from_url(url: String) -> Connection {
   let pool_name = process.new_name("postgres_pool")
 

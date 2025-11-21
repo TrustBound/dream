@@ -1,4 +1,4 @@
-# dream_helpers Module Makefile
+# dream_json Module Makefile
 
 .PHONY: test clean build format docs check
 

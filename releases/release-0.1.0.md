@@ -146,5 +146,5 @@ Thank you to everyone who has provided feedback, reported issues, and contribute
 
 ---
 
-**Full Changelog:** [CHANGELOG.md](CHANGELOG.md)
+**Full Changelog:** [CHANGELOG.md](../CHANGELOG.md)
 

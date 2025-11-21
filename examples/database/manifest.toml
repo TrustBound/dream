@@ -6,7 +6,7 @@ packages = [
   { name = "backoff", version = "1.1.6", build_tools = ["rebar3"], requirements = [], otp_app = "backoff", source = "hex", outer_checksum = "CF0CFFF8995FB20562F822E5CC47D8CCF664C5ECDC26A684CBE85C225F9D7C39" },
   { name = "cigogne", version = "5.0.4", build_tools = ["gleam"], requirements = ["argv", "envoy", "gleam_crypto", "gleam_erlang", "gleam_otp", "gleam_stdlib", "gleam_time", "pog", "simplifile", "splitter", "tom"], otp_app = "cigogne", source = "hex", outer_checksum = "2138362840E0773213C5811DD6FB43B59E44F0DA3DF9FF2882223C789207C201" },
   { name = "dream", version = "0.0.1", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_time", "gleam_yielder", "marceau", "mist", "simplifile"], source = "local", path = "../.." },
-  { name = "dream_helpers", version = "0.1.0", build_tools = ["gleam"], requirements = ["dream", "gleam_json", "gleam_stdlib", "gleam_time"], source = "local", path = "../../modules/helpers" },
+  { name = "dream_json", version = "0.1.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib", "gleam_time"], source = "local", path = "../../modules/json" },
   { name = "dream_postgres", version = "0.1.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_otp", "gleam_stdlib", "pog"], source = "local", path = "../../modules/postgres" },
   { name = "envoy", version = "1.0.2", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "envoy", source = "hex", outer_checksum = "95FD059345AA982E89A0B6E2A3BF1CF43E17A7048DCD85B5B65D3B9E4E39D359" },
   { name = "exception", version = "2.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "exception", source = "hex", outer_checksum = "329D269D5C2A314F7364BD2711372B6F2C58FA6F39981572E5CA68624D291F8C" },
@@ -38,7 +38,7 @@ packages = [
 [requirements]
 cigogne = { version = ">= 5.0.0 and < 6.0.0" }
 dream = { path = "../.." }
-dream_helpers = { path = "../../modules/helpers" }
+dream_json = { path = "../../modules/json" }
 dream_postgres = { path = "../../modules/postgres" }
 gleam_erlang = { version = ">= 1.0.0 and < 2.0.0" }
 gleam_json = { version = ">= 2.2.0 and < 4.0.0" }

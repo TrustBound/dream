@@ -45,7 +45,7 @@ Dream is modular. You use what you need:
 **Utilities:**
 - `dream_http_client` - HTTP client with streaming support
 - `dream_config` - Configuration management (env vars, .env files)
-- `dream_helpers` - Optional JSON encoding utilities
+- `dream_json` - JSON encoding utilities
 - `dream_ets` - ETS (Erlang Term Storage) for in-memory storage
 
 See the [Architecture Reference](reference/architecture.md#modules-ecosystem) for detailed module documentation and usage examples.
@@ -54,6 +54,8 @@ See the [Architecture Reference](reference/architecture.md#modules-ecosystem) fo
 
 ## Contributing
 Want to help? Check out the [Contributing Guide](contributing/).
+
+**Maintainers:** See [Publishing Strategy](contributing/publishing.md) for module publishing.
 
 
 

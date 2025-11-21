@@ -5,7 +5,7 @@ licences = ["MIT"]
 
 [dependencies]
 dream = { path = "../.." }
-dream_helpers = { path = "../../modules/helpers" }
+dream_json = { path = "../../modules/json" }
 dream_postgres = { path = "../../modules/postgres" }
 mist = ">= 5.0.3 and < 6.0.0"
 pog = ">= 4.0.0 and < 5.0.0"

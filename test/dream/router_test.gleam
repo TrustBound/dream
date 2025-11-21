@@ -1,7 +1,7 @@
 import dream/context
 import dream/dream
 
-// Status codes moved to dream_helpers
+// Status codes moved to dream_json
 import dream/http/header.{Header, add_header, get_header}
 import dream/http/request.{
   type Method, type Request, Get, Http, Http1, Post, Request,

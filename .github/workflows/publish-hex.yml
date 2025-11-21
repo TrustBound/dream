@@ -62,6 +62,19 @@ jobs:
       - name: Run tests
         run: gleam test
 
+      - name: Test modules
+        run: |
+          for module in modules/*/; do
+            if [ -f "${module}gleam.toml" ]; then
+              echo "Testing module: $(basename "$module")"
+              cd "$module"
+              gleam deps download
+              gleam build
+              gleam test || exit 1
+              cd - > /dev/null
+            fi
+          done
+
       - name: Publish to Hex
         if: steps.version_check.outputs.should_publish == 'true'
         env:

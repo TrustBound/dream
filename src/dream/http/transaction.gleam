@@ -1,7 +1,7 @@
 //// HTTP requests and responses
 ////
 //// Core HTTP types for Dream applications. For response builders and status codes,
-//// see the dream_helpers module.
+//// see the dream_json module.
 ////
 //// ## Path Parameters
 ////
@@ -154,7 +154,7 @@ pub type PathParam {
 /// HTTP response type
 ///
 /// The status field is an Int (HTTP status code like 200, 404, 500).
-/// For typed status codes and response builders, use dream_helpers.
+/// For JSON encoding utilities, use dream_json.
 pub type Response {
   Response(
     status: Int,
