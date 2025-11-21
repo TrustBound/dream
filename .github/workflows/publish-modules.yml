@@ -108,8 +108,13 @@ jobs:
 
       - name: Install Gleam
         run: |
-          curl -fsSL https://raw.githubusercontent.com/gleam-lang/gleam/main/install.sh | sh
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "x86_64" ]; then
+            ARCH="amd64"
+          fi
+          curl -L "https://github.com/gleam-lang/gleam/releases/latest/download/gleam-linux-${ARCH}.tar.gz" -o gleam.tar.gz
+          tar -xzf gleam.tar.gz
+          sudo mv gleam /usr/local/bin/
           gleam --version
 
       - name: Download dependencies
