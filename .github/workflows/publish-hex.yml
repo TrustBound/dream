@@ -91,7 +91,7 @@ jobs:
             echo "Error: HEX_API_KEY secret is not set"
             exit 1
           fi
-          gleam publish
+          gleam publish --yes
 
       - name: Build documentation
         if: steps.version_check.outputs.should_publish == 'true'
@@ -106,4 +106,6 @@ jobs:
             echo "Error: HEX_API_KEY secret is not set"
             exit 1
           fi
+          echo "Waiting a moment for Hex to process the package..."
+          sleep 5
           gleam docs publish
