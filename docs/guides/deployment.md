@@ -23,6 +23,8 @@ Dream apps should read configuration from environment variables (12-factor app s
 ```gleam
 // config.gleam
 import envoy
+import gleam/int.{parse}
+import gleam/result.{try, replace_error, unwrap}
 
 pub type Config {
   Config(
@@ -33,19 +35,19 @@ pub type Config {
 }
 
 pub fn load() -> Result(Config, String) {
-  use database_url <- result.try(
+  use database_url <- try(
     envoy.get("DATABASE_URL")
-    |> result.replace_error("DATABASE_URL not set"),
+    |> replace_error("DATABASE_URL not set"),
   )
   
   let port =
     envoy.get("PORT")
-    |> result.try(int.parse)
-    |> result.unwrap(3000)
+    |> try(parse)
+    |> unwrap(3000)
   
-  use secret_key <- result.try(
+  use secret_key <- try(
     envoy.get("SECRET_KEY")
-    |> result.replace_error("SECRET_KEY not set"),
+    |> replace_error("SECRET_KEY not set"),
   )
   
   Ok(Config(database_url:, port:, secret_key:))
@@ -55,11 +57,14 @@ pub fn load() -> Result(Config, String) {
 Use in main:
 
 ```gleam
+import dream/servers/mist/server.{bind, listen, new, router, services} as server
+import router.{create_router}
+import services.{initialize_services}
+
 pub fn main() {
   let assert Ok(config) = config.load()
   
-  dream.new()
-  |> context(AppContext(request_id: ""))
+  server.new()
   |> services(initialize_services(config))
   |> router(create_router())
   |> bind("0.0.0.0")  // Listen on all interfaces
@@ -172,18 +177,24 @@ services:
 Log to stdout/stderr. Let your infrastructure handle log aggregation:
 
 ```gleam
-import gleam/io
-import gleam/json
+import gleam/io.{println}
+import gleam/json.{Json, object, string, to_string}
+import gleam/time/timestamp.{now}
 
-pub fn log_info(message: String, metadata: json.Json) {
-  json.object([
-    #("level", json.string("info")),
-    #("message", json.string(message)),
+pub fn log_info(message: String, metadata: Json) {
+  object([
+    #("level", string("info")),
+    #("message", string(message)),
     #("metadata", metadata),
-    #("timestamp", json.string(timestamp.now())),
+    #("timestamp", string(timestamp_to_string(now()))),
   ])
-  |> json.to_string
-  |> io.println
+  |> to_string
+  |> println
+}
+
+fn timestamp_to_string(ts: timestamp.Timestamp) -> String {
+  // Convert timestamp to ISO 8601 string
+  timestamp.to_string(ts)
 }
 ```
 
@@ -194,10 +205,26 @@ Docker/Kubernetes will capture stdout and route it to your log aggregator.
 Add a health endpoint:
 
 ```gleam
-pub fn health_check(_request, _context, services) {
-  case services.database.connection {
-    Ok(_) -> text_response(ok_status(), "OK")
-    Error(_) -> text_response(service_unavailable_status(), "Database unavailable")
+import dream/http.{type Request, type Response, text_response, ok, service_unavailable}
+import dream/context.{AppContext}
+import pog.{query}
+import services.{Services}
+
+pub fn health_check(
+  _request: Request,
+  _context: AppContext,
+  services: Services,
+) -> Response {
+  case check_database(services.db) {
+    Ok(_) -> text_response(ok, "OK")
+    Error(_) -> text_response(service_unavailable, "Database unavailable")
+  }
+}
+
+fn check_database(db: pog.Connection) -> Result(Nil, Nil) {
+  case query("SELECT 1", db, []) {
+    Ok(_) -> Ok(Nil)
+    Error(_) -> Error(Nil)
   }
 }
 ```
@@ -205,6 +232,9 @@ pub fn health_check(_request, _context, services) {
 Add to router:
 
 ```gleam
+import dream/http/request.{Get}
+import dream/router.{route}
+
 router
 |> route(method: Get, path: "/health", controller: health_check, middleware: [])
 ```
@@ -229,11 +259,11 @@ For containerized deployments, your orchestrator (Kubernetes, ECS, etc.) handles
 Pog (PostgreSQL client) includes connection pooling:
 
 ```gleam
+import pog.{default_config, pool_size}
+
 let config =
-  pog.Config(
-    ..pog.default_config(),
-    pool_size: 15,  // Adjust based on load
-  )
+  default_config()
+  |> pool_size(15)  // Adjust based on load
 ```
 
 Start with 15, increase if you see connection exhaustion. The BEAM handles pooling efficiently.
@@ -329,16 +359,21 @@ Never commit secrets to Git. Use secret management:
 Log key metrics:
 
 ```gleam
+import dream/http.{type Request, type Response}
+import gleam/io.{println}
+import gleam/json.{object, string, int, to_string}
+import gleam/http.{method_to_string}
+
 pub fn log_request(request: Request, response: Response, duration_ms: Int) {
-  json.object([
-    #("type", json.string("request")),
-    #("method", json.string(request.method)),
-    #("path", json.string(request.path)),
-    #("status", json.int(response.status)),
-    #("duration_ms", json.int(duration_ms)),
+  object([
+    #("type", string("request")),
+    #("method", string(method_to_string(request.method))),
+    #("path", string(request.path)),
+    #("status", int(response.status)),
+    #("duration_ms", int(duration_ms)),
   ])
-  |> json.to_string
-  |> io.println
+  |> to_string
+  |> println
 }
 ```
 
@@ -422,5 +457,7 @@ The BEAM is production-ready out of the box. You just need to point it at the ri
 
 ---
 
-**[← Back: Testing](testing.md)** | **[Up: Documentation](../../README.md)** | **[Next: Database →](database.md)**
+**See Also:**
+- [Testing](testing.md) - Testing your deployment
+- [REST API](rest-api.md) - Production API patterns
 

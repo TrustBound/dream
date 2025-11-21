@@ -1,6 +1,6 @@
 //// main.gleam
 
-import dream/core/context
+import dream/context
 import dream/servers/mist/server.{bind, context, listen, router, services} as dream
 import router.{create_router}
 import services.{initialize_services}

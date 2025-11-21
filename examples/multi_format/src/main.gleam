@@ -1,10 +1,10 @@
 //// Multi-format example - demonstrating JSON, HTML, HTMX, CSV, and streaming responses
 
-import dream/servers/mist/server.{bind, context, listen, router, services} as dream
 import context.{AppContext}
+import dream/servers/mist/server.{bind, context, listen, router, services} as dream
+import gleam/io
 import router as app_router
 import services as app_services
-import gleam/io
 
 pub fn main() {
   // Initialize services

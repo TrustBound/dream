@@ -1,0 +1,5 @@
+- read all of the full commit messages for this branch
+- create a pull request for develop branch
+- the pull request should have a non-technical title and explanation of the changes
+- The title should be something like "Descriptive title for the changes"
+- Explain WHY, WHAT, HOW the changes were made.

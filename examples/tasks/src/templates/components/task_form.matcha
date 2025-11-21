@@ -1,0 +1,12 @@
+{> with form_action as String
+{> with form_method as String
+{> with form_target as String
+{> with form_swap as String
+{> with form_attrs as String
+{> with form_fields as String
+{> with submit_text as String
+<form hx-{{ form_method }}="{{ form_action }}" hx-target="{{ form_target }}" hx-swap="{{ form_swap }}" {{ form_attrs }}>
+  {{ form_fields }}
+  <button type="submit">{{ submit_text }}</button>
+</form>
+

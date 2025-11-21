@@ -1,8 +1,16 @@
-# Dream
+<div align="center">
+  <img src="ricky_and_lucy.png" alt="Dream Logo" width="200" alt="Ricky Moony and Lucy, a moon shaped mascot for Dream with the star shaped mascot for Gleam, each with cute cartoon eyes and a smile">
 
-**Clean, composable web development for Gleam. No magic. No surprises.**
+  <b>Clean, composable web development for Gleam. No magic.</b>
+</div>
 
 Dream is a web toolkit that gets out of your way. Everything is explicit. Your `main()` function shows exactly what's happening—no framework deciding things for you behind the scenes.
+
+<div align="center">
+  <a href="https://github.com/TrustBound/dream/releases">
+    <img src="https://img.shields.io/github/v/release/TrustBound/dream?label=Release" alt="Latest Release">
+  </a>
+</div>
 
 ## Why Dream?
 
@@ -68,25 +76,26 @@ Example with auth and logging (your middleware, not Dream's):
 
 ```mermaid
 sequenceDiagram
+    autonumber
     participant Client
     participant Router
     participant Logging as Logging Middleware
     participant Auth as Auth Middleware
-    participant Controller
+    participant Controller as Controller Action
     
     Client->>Router: Request
-    Router->>Router: Create Context { request_id: "abc" }
+    Router->>Router: Create Context with request_id
     Router->>Logging: (Request, Context, Services)
     Logging->>Logging: Log incoming request
     Logging->>Auth: (Request, Context, Services)
     Auth->>Auth: Check token, add user to context
-    Auth->>Controller: (Request, Context { request_id, user }, Services)
+    Auth->>Controller: (Request, Context with user, Services)
     Controller->>Controller: Do work
-    Controller->>Auth: Response
-    Auth->>Logging: Response
+    Controller-->>Auth: Response
+    Auth-->>Logging: Response
     Logging->>Logging: Log outgoing response
-    Logging->>Router: Response
-    Router->>Client: Response
+    Logging-->>Router: Response
+    Router-->>Client: Response
 ```
 
 Simple pipeline. No magic.
@@ -180,18 +189,26 @@ But here's the thing: figuring out where code goes, how to separate concerns, an
 
 **Controller** calls model and view:
 ```gleam
+import dream/http.{require_int}
+import dream/http/error
+import utilities/response_helpers
+
 pub fn show(request: Request, _context: Context, services: Services) -> Response {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
+  let result = {
+    use id <- result.try(require_int(request, "id"))
+    let db = services.database.connection
+    use product <- result.try(product_model.get(db, id))
+    Ok(product)
+  }
   
-  case product_model.get(services.db, id) {
-    Ok(product) -> product_view.respond(product, param)
-    Error(_) -> not_found_response()
+  case result {
+    Ok(product) -> product_view.respond(product, request)
+    Error(err) -> response_helpers.handle_error(err)
   }
 }
 ```
 
-Clean. Dream's router guarantees path parameters exist for matched routes—if they don't, that's a bug worth panicking over. Use `assert` for impossible errors. Use `case` for real errors (database failures, not found).
+This pattern uses `require_int` to safely extract and validate the path parameter. If the parameter is missing or invalid, it returns a `BadRequest` error. The `use` syntax keeps the code flat and readable, avoiding nested `case` statements. Errors are handled uniformly through `response_helpers.handle_error`, which maps `dream.Error` types to appropriate HTTP responses.
 
 **Model** handles data:
 ```gleam
@@ -206,9 +223,9 @@ pub fn decoder() -> Decoder(ProductData)
 // product_view.gleam
 pub fn respond(product: Product, param: PathParam) -> Response {
   case param.format {
-    Some("json") -> json_response(ok_status(), to_json(product))
-    Some("csv") -> text_response(ok_status(), to_csv(product))
-    _ -> html_response(ok_status(), to_html(product))
+    Some("json") -> json_response(status.ok, to_json(product))
+    Some("csv") -> text_response(status.ok, to_csv(product))
+    _ -> html_response(status.ok, to_html(product))
   }
 }
 
@@ -222,8 +239,45 @@ Controller orchestrates. Model fetches data. View formats it. All just functions
 ---
 
 Use what you need. Skip what you don't.
-
-## What a Real App Looks Like
+ 
+ ## Core Patterns
+ 
+ Beyond the basics, Dream provides patterns for scaling your application logic.
+ 
+ ### Operations *(Business Logic)*
+ 
+ Controllers should be thin. When logic gets complex (validation, multiple database calls, external services), use an **Operation**.
+ 
+ ```gleam
+ // operations/create_user.gleam
+ pub fn execute(services: Services, params: Params) -> Result(User, Error) {
+   use _ <- result.try(validate(params))
+   use user <- result.try(user_model.create(services.db, params))
+   let _ = mailer.send_welcome(services.mailer, user)
+   Ok(user)
+ }
+ ```
+ 
+ **Why?** Operations are testable without HTTP. They can be reused by API endpoints, background jobs, and CLI tasks.
+ 
+ ### Multi-Format Responses *(JSON + HTML)*
+ 
+ Serve API clients and browsers from the same controller.
+ 
+ ```gleam
+ pub fn show(request: Request, context: Context, services: Services) -> Response {
+   // ... fetch data ...
+   case format {
+     "json" -> json_response(ok, view.to_json(data))
+     "html" -> html_response(ok, view.to_html(data))
+     "htmx" -> html_response(ok, view.card(data)) // Partial for dynamic updates
+   }
+ }
+ ```
+ 
+ **Why?** Don't build two separate backends. One app, multiple views.
+ 
+ ## What a Real App Looks Like
 
 Here's a complete Dream app with models, views, and controllers:
 
@@ -234,45 +288,103 @@ your_app/
 │   ├── router.gleam
 │   ├── services.gleam
 │   ├── context.gleam
+│   ├── config.gleam
 │   │
 │   ├── controllers/
 │   │   ├── users_controller.gleam
-│   │   └── products_controller.gleam
+│   │   └── tasks_controller.gleam
+│   │
+│   ├── middleware/
+│   │   └── logging_middleware.gleam
 │   │
 │   ├── models/
 │   │   ├── user/
 │   │   │   ├── user_model.gleam
-│   │   │   ├── sql.gleam          # Generated
-│   │   │   └── sql/
-│   │   │       ├── list_users.sql
-│   │   │       ├── get_user.sql
-│   │   │       └── create_user.sql
-│   │   │
-│   │   └── product/
-│   │       ├── product_model.gleam
-│   │       ├── sql.gleam          # Generated
-│   │       └── sql/
-│   │           ├── list_products.sql
-│   │           └── get_product.sql
+│   │   │   └── sql.gleam
+│   │   └── task/
+│   │       ├── task_model.gleam
+│   │       └── sql.gleam
 │   │
 │   ├── views/
-│   │   ├── users/
-│   │   │   └── user_view.gleam
-│   │   └── products/
-│   │       ├── product_view.gleam
-│   │       └── templates/
-│   │           ├── index.gleam    # Generated
-│   │           ├── index.matcha
-│   │           ├── show.gleam     # Generated
-│   │           └── show.matcha
+│   │   ├── user_view.gleam
+│   │   └── task_view.gleam
 │   │
-│   └── services/
-│       └── database.gleam
+│   ├── operations/
+│   │   └── reorder_tasks.gleam
+│   │
+│   ├── templates/
+│   │   ├── components/
+│   │   ├── elements/
+│   │   ├── layouts/
+│   │   └── pages/
+│   │
+│   ├── services/
+│   │   └── database.gleam
+│   │
+│   └── types/
+│       └── user.gleam
 │
 └── gleam.toml
 ```
 
 Everything has its place. Nothing is hidden. Scale from "Hello World" to production without restructuring.
+
+### Template Composition for Server-Side Rendering
+
+Many developers choose front-end frameworks like React or Vue, which is perfectly fine. Dream lets you choose whatever you want for a front-end.
+
+For those who wish to have server-side rendering with full type safety through Gleam, we have a suggested layered approach that keeps markup consistent, DRY, and reusable as applications grow.
+
+**The Problem We Solved:**
+
+In real-world applications, we've experienced pain points from:
+- Duplicated markup with slight variations
+- Duplicated CSS styling as a result
+- Embedded inline HTML within Gleam files
+- These issues compound as applications grow
+
+**The Solution:**
+
+A layered approach with four levels:
+
+1. **Elements** (`templates/elements/*.matcha`): Low-level HTML components
+   - Reusable semantic HTML templates (buttons, inputs, cards, badges)
+   - Compiled from Matcha templates
+   - Classless, styled via CSS frameworks like Pico CSS
+
+2. **Components** (`templates/components/*.gleam`): Compose elements into reusable pieces
+   - Gleam functions that combine multiple elements
+   - Examples: `task_card()`, `task_form()`, `project_list()`
+   - Handle business logic for presentation (formatting, conditional rendering)
+
+3. **Pages** (`templates/pages/*.matcha` or `.gleam`): Compose components into full pages
+   - Page-level templates that combine multiple components
+   - Examples: `index_page()`, `show_page()`
+
+4. **Layouts** (`templates/layouts/*.gleam`): Page structure (nav, footer, main wrapper)
+   - Wraps pages with consistent structure
+   - Handles navigation, footer, scripts
+   - Example: `build_page(title, content)` wraps any page content
+
+**Example Flow:**
+
+```gleam
+// View layer (views/task_view.gleam)
+pub fn index_page(tasks: List(Task), tags_by_task: List(#(Int, List(Tag)))) -> String {
+  // Components compose elements
+  let list = task_components.task_list(tasks, tags_by_task)
+  
+  // Pages compose components
+  let content = index.render(task_form: "", task_list: list)
+  
+  // Layouts wrap pages
+  layout_components.build_page("Tasks", content)
+}
+```
+
+This pattern is by no means the only way to do server-side rendering, but we have found that it serves our needs well as our applications grow. It provides full type safety through Gleam, eliminates markup duplication, and keeps styling consistent.
+
+See [examples/tasks](../../examples/tasks/) for a complete working example of this pattern.
 
 ## Yeah, But Gleam? Really?
 
@@ -350,35 +462,34 @@ Your choice: hire 20 engineers to manage microservices hell in the "safe" langua
 
 ## Quick Start
 
-Ready to build your first Dream app? Check out the [Getting Started Guide](docs/getting-started.md).
+Ready to build your first Dream app? Check out the [5-Minute Quickstart](docs/quickstart.md).
+
+Want to see what Dream adds over raw Mist? See the [Dream vs Mist comparison](docs/reference/dream-vs-mist.md).
 
 Want to dive into working examples? See `examples/` for complete applications you can run.
 
 ## Documentation
 
-**Getting Started:**
-- 📘 [Getting Started Guide](docs/getting-started.md) - Your first Dream app
-- 📗 [Tutorial: Basic Routing](docs/tutorials/basic-routing.md) - Routes and path parameters
-- 📙 [Tutorial: Database CRUD](docs/tutorials/database-crud.md) - Full CRUD with PostgreSQL
-- 📕 [Tutorial: Authentication](docs/tutorials/authentication.md) - Custom context and middleware
-- 📓 [Tutorial: HTTP Client](docs/tutorials/http-client.md) - Making HTTP requests
-- 📔 [Tutorial: Multi-Format Responses](docs/tutorials/multi-format-responses.md) - JSON, HTML, HTMX, CSV
+**Learning Path:**
+- 📘 [5-Minute Quickstart](docs/quickstart.md) - Your first Dream app
+- 📗 [Learning Path](docs/learn/) - 2 hours from hello world to production patterns
 
 **Guides:**
-- [Controllers and Models](docs/guides/controllers-and-models.md) - Three-layer architecture in depth
-- [Middleware](docs/guides/middleware.md) - Writing and using middleware
-- [Testing](docs/guides/testing.md) - Unit and integration testing
-- [Database](docs/guides/database.md) - PostgreSQL, migrations, Squirrel
+- [Authentication](docs/guides/authentication.md) - JWT, Sessions, Context
+- [Controllers & Models](docs/guides/controllers-and-models.md) - MVC Patterns
+- [Multiple Formats](docs/guides/multiple-formats.md) - JSON, HTML, HTMX
+- [Operations](docs/guides/operations.md) - Complex Business Logic
+- [Testing](docs/guides/testing.md) - Unit and Integration Testing
 - [Deployment](docs/guides/deployment.md) - Running in production
 
 **Reference:**
 - [API Documentation](https://hexdocs.pm/dream) - Complete API reference on HexDocs
+- [Dream vs Mist](docs/reference/dream-vs-mist.md) - What Dream provides
 - [Architecture](docs/reference/architecture.md) - How it all fits together
 - [Design Principles](docs/reference/design-principles.md) - The "why" behind decisions
-- [Naming Conventions](docs/reference/naming-conventions.md) - For contributors
 
 **Examples:**
-- [Example Projects](docs/examples.md) - Working applications you can run
+- [Working Applications](examples/) - Complete runnable projects
 
 ## Philosophy
 
@@ -402,7 +513,7 @@ Because finding where that database connection came from shouldn't require a tre
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [Contributing Guide](docs/contributing/contributing.md) for guidelines.
 
 ## License
 

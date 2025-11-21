@@ -1,0 +1,23 @@
+--- migration:up
+CREATE TABLE tasks (
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    completed BOOLEAN NOT NULL DEFAULT FALSE,
+    priority INTEGER NOT NULL DEFAULT 3,
+    due_date DATE,
+    position INTEGER NOT NULL DEFAULT 0,
+    project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_tasks_project_id ON tasks(project_id);
+CREATE INDEX idx_tasks_completed ON tasks(completed);
+CREATE INDEX idx_tasks_position ON tasks(position);
+--- migration:down
+DROP INDEX IF EXISTS idx_tasks_position;
+DROP INDEX IF EXISTS idx_tasks_completed;
+DROP INDEX IF EXISTS idx_tasks_project_id;
+DROP TABLE tasks;
+--- migration:end

@@ -1,0 +1,17 @@
+{
+  "name": "tasks-example",
+  "version": "0.1.0",
+  "description": "Tasks example E2E tests",
+  "private": true,
+  "scripts": {
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run --config video=false",
+    "test:e2e": "cypress run --config video=false"
+  },
+  "devDependencies": {
+    "cypress": "^13.16.1",
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.2"
+  }
+}
+

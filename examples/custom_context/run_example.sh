@@ -9,6 +9,12 @@ BASE_URL="http://localhost:$PORT"
 echo "=== Building custom_context example ==="
 cd "$(dirname "$0")"
 make clean > /dev/null 2>&1 || true
+
+# Kill any existing processes on the port
+lsof -ti:$PORT | xargs kill -9 2>/dev/null || true
+pkill -f "dream_example_custom_context" 2>/dev/null || true
+sleep 1
+
 if ! make run > /tmp/custom_context_test.log 2>&1 & then
     echo "Failed to start server"
     exit 1
@@ -22,6 +28,7 @@ echo "Waiting for server to be ready..."
 for i in {1..30}; do
     if curl -s "$BASE_URL/" > /dev/null 2>&1; then
         echo "Server is ready!"
+        sleep 1  # Give server a moment to fully initialize routes
         break
     fi
     if [ $i -eq 30 ]; then

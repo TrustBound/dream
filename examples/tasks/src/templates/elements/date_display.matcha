@@ -1,0 +1,6 @@
+{> with icon_html as String
+{> with date_text as String
+<small>
+  {{ icon_html }} {{ date_text }}
+</small>
+

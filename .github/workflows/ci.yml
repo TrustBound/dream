@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Erlang and Gleam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28"
+          gleam-version: "1.13.0"
+          rebar3-version: "3"
+
+      - name: Download dependencies
+        run: gleam deps download
+
+      - name: Check code format
+        run: gleam format --check
+
+      - name: Build project
+        run: gleam build
+
+      - name: Run tests
+        run: gleam test
+
+      - name: Test modules
+        run: |
+          for module in modules/*/; do
+            if [ -f "${module}gleam.toml" ]; then
+              echo "Testing module: $(basename "$module")"
+              cd "$module"
+              gleam deps download
+              gleam build
+              gleam test || exit 1
+              cd - > /dev/null
+            fi
+          done

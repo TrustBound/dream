@@ -1,0 +1,5 @@
+{> with card_id as String
+{> with card_content as String
+<article id="{{ card_id }}">
+  {{ card_content }}
+</article>

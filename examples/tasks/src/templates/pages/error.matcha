@@ -1,0 +1,12 @@
+{> with error_title as String
+{> with error_message as String
+<section>
+    <header>
+        <h1>{{ error_title }}</h1>
+    </header>
+    <p>{{ error_message }}</p>
+    <footer>
+        <a href="/">Back to Tasks</a>
+    </footer>
+</section>
+

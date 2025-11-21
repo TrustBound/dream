@@ -1,0 +1,10 @@
+<nav>
+  <ul>
+    <li><strong>Task App</strong></li>
+  </ul>
+  <ul>
+    <li><a href="/">Tasks</a></li>
+    <li><a href="/projects">Projects</a></li>
+  </ul>
+</nav>
+

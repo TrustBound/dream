@@ -3,12 +3,14 @@
 //// Controller for streaming example routes.
 //// Follows Rails controller naming conventions.
 
-import dream/core/context.{type AppContext}
-import dream/core/http/transaction.{type Request, type Response}
-import dream/core/router.{type EmptyServices}
-import dream/utilities/http/client
-import dream/utilities/http/client/fetch as fetch_module
-import dream/utilities/http/client/stream as stream_module
+import dream/context.{type AppContext}
+import dream/http/request.{type Request}
+import dream/http/response.{type Response, text_response}
+import dream/http/status
+import dream/router.{type EmptyServices}
+import dream_http_client/client
+import dream_http_client/fetch
+import dream_http_client/stream
 import gleam/bit_array
 import gleam/bytes_tree
 import gleam/http
@@ -24,7 +26,7 @@ pub fn index(
   _context: AppContext,
   _services: EmptyServices,
 ) -> Response {
-  stream_view.respond_index()
+  text_response(status.ok, stream_view.format_index())
 }
 
 /// Show action - demonstrates streaming HTTP requests
@@ -43,7 +45,7 @@ pub fn show(
     |> client.add_header("User-Agent", "Dream-Streaming-Example")
 
   // Stream the response chunks
-  let chunks = stream_module.stream_request(req) |> yielder.to_list
+  let chunks = stream.stream_request(req) |> yielder.to_list
 
   // Convert chunks to strings and concatenate
   let body_string =
@@ -51,7 +53,7 @@ pub fn show(
     |> list.map(chunk_to_string)
     |> string.join("")
 
-  stream_view.respond_stream(body_string)
+  text_response(status.ok, stream_view.format_stream(body_string))
 }
 
 /// New action - demonstrates non-streaming HTTP requests
@@ -69,9 +71,13 @@ pub fn new(
     |> client.path("/get")
     |> client.add_header("User-Agent", "Dream-Fetch-Example")
 
-  case fetch_module.request(req) {
-    Ok(body) -> stream_view.respond_fetch(body)
-    Error(error) -> stream_view.respond_error(error)
+  case fetch.request(req) {
+    Ok(body) -> text_response(status.ok, stream_view.format_fetch(body))
+    Error(error) ->
+      text_response(
+        status.internal_server_error,
+        stream_view.format_error(error),
+      )
   }
 }
 

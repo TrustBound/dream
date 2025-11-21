@@ -1,12 +1,11 @@
 //// Static file serving controllers for the example app
 
+import dream/context.{type AppContext}
 import dream/controllers/static
-import dream/core/context.{type AppContext}
-import dream/core/http/statuses
-import dream/core/http/transaction.{
-  type Request, type Response, get_param, html_response,
-}
-import dream/core/router.{type EmptyServices}
+import dream/http/request.{type Request, get_param}
+import dream/http/response.{type Response, html_response}
+import dream/http/status
+import dream/router.{type EmptyServices}
 import gleam/string
 
 /// Serve files from /public with directory listing
@@ -71,7 +70,7 @@ pub fn health_status(
   _services: EmptyServices,
 ) -> Response {
   html_response(
-    statuses.ok_status(),
+    status.ok,
     "<h1>Health Status OK</h1><p>Anonymous wildcard matched: "
       <> request.path
       <> "</p>",
@@ -155,7 +154,7 @@ pub fn serve_with_custom_404(
     config: static.default_config()
       |> static.with_custom_404(fn(_req, _ctx, _svc) {
         html_response(
-          statuses.not_found_status(),
+          status.not_found,
           "<h1>Custom 404</h1><p>The requested file does not exist.</p>",
         )
       }),

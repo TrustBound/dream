@@ -2,9 +2,16 @@
 ////
 //// This module provides functions to convert Mist HTTP requests
 //// to Dream request format, including method, header, and cookie conversion.
+////
+//// This is an internal module used by the Dream server implementation.
+//// Most applications won't need to use this directly.
 
-import dream/core/dream
-import dream/core/http/transaction
+import dream/dream
+import dream/http/header.{type Header, Header}
+import dream/http/request.{
+  type Method, type Request, Delete, Get, Head, Http, Http1, Https, Options,
+  Patch, Post, Put, Request,
+}
 import gleam/bit_array
 import gleam/erlang/process
 import gleam/http.{
@@ -13,7 +20,7 @@ import gleam/http.{
   Options as HttpOptions, Other as HttpOther, Patch as HttpPatch,
   Post as HttpPost, Put as HttpPut, Trace as HttpTrace,
 }
-import gleam/http/request.{type Request as HttpRequest}
+import gleam/http/request as http_request
 import gleam/int
 import gleam/list
 import gleam/option
@@ -21,7 +28,21 @@ import gleam/result
 import gleam/string
 import mist.{type Connection, type IpAddress, get_client_info}
 
-/// Generate a simple request ID (using process ID)
+/// Generate a simple request ID
+///
+/// Creates a request ID using the current process ID.
+/// This provides a unique identifier for each request that can be used
+/// for logging, tracing, and debugging.
+///
+/// In production applications, you may want to use UUID or a more
+/// sophisticated ID generation strategy.
+///
+/// ## Example
+///
+/// ```gleam
+/// let request_id = generate_request_id()
+/// // Returns something like: "#PID<0.123.0>"
+/// ```
 pub fn generate_request_id() -> String {
   // Simple ID generation - in production you might want to use UUID
   let pid = process.self()
@@ -29,12 +50,48 @@ pub fn generate_request_id() -> String {
   pid_string
 }
 
-/// Convert mist Request to Dream Request (immutable HTTP data only)
-/// Returns the Request and a generated request_id for context creation
+/// Convert Mist request to Dream request format
+///
+/// Converts a Mist HTTP request (with Erlang/BEAM specific types) to
+/// Dream's unified request format. This includes converting:
+///
+/// - HTTP method (from gleam/http to dream/http/request)
+/// - Protocol and version (HTTP/HTTPS, HTTP/1.1)
+/// - Headers and cookies
+/// - Request body (from BitArray to String)
+/// - Client information (IP address, port)
+///
+/// Returns a tuple with the Dream Request and a generated request ID.
+///
+/// ## Parameters
+///
+/// - `mist_req`: The original Mist request with Connection
+/// - `req_with_body`: The same request but with body read as BitArray
+///
+/// ## Returns
+///
+/// A tuple of `#(Dream Request, request_id)` where:
+/// - Dream Request contains all HTTP data in Dream's format
+/// - request_id is a unique identifier for this request
+///
+/// ## Example
+///
+/// ```gleam
+/// // Internal use - normally called by the request handler
+/// let body_result = mist.read_body(mist_req, max_body_limit: 10_000_000)
+///
+/// case body_result {
+///   Ok(req_with_body) -> {
+///     let #(dream_req, request_id) = convert(mist_req, req_with_body)
+///     // Now use dream_req in your router
+///   }
+///   Error(_) -> // Handle error
+/// }
+/// ```
 pub fn convert(
-  mist_req: HttpRequest(Connection),
-  req_with_body: HttpRequest(BitArray),
-) -> #(transaction.Request, String) {
+  mist_req: http_request.Request(Connection),
+  req_with_body: http_request.Request(BitArray),
+) -> #(Request, String) {
   // Generate request_id for context creation
   let request_id = generate_request_id()
 
@@ -43,12 +100,12 @@ pub fn convert(
 
   // Convert protocol
   let protocol = case mist_req.scheme {
-    HttpScheme -> transaction.Http
-    HttpHttps -> transaction.Https
+    HttpScheme -> Http
+    HttpHttps -> Https
   }
 
   // Convert HTTP version (defaulting to HTTP/1.1 for now)
-  let version = transaction.Http1
+  let version = Http1
 
   // Get path and query
   let path = mist_req.path
@@ -87,7 +144,7 @@ pub fn convert(
   }
 
   let request =
-    transaction.Request(
+    Request(
       method: method,
       protocol: protocol,
       version: version,
@@ -108,26 +165,26 @@ pub fn convert(
 }
 
 /// Convert HTTP method from gleam/http format to Dream format
-fn convert_method(http_method: HttpMethod) -> transaction.Method {
+fn convert_method(http_method: HttpMethod) -> Method {
   case http_method {
-    HttpGet -> transaction.Get
-    HttpPost -> transaction.Post
-    HttpPut -> transaction.Put
-    HttpDelete -> transaction.Delete
-    HttpPatch -> transaction.Patch
-    HttpOptions -> transaction.Options
-    HttpHead -> transaction.Head
-    HttpOther(_) -> transaction.Get
+    HttpGet -> Get
+    HttpPost -> Post
+    HttpPut -> Put
+    HttpDelete -> Delete
+    HttpPatch -> Patch
+    HttpOptions -> Options
+    HttpHead -> Head
+    HttpOther(_) -> Get
     // Fallback for unknown methods
-    HttpConnect -> transaction.Get
+    HttpConnect -> Get
     // Fallback
-    HttpTrace -> transaction.Get
+    HttpTrace -> Get
     // Fallback
   }
 }
 
-fn convert_header(header: #(String, String)) -> transaction.Header {
-  transaction.Header(name: header.0, value: header.1)
+fn convert_header(header: #(String, String)) -> Header {
+  Header(name: header.0, value: header.1)
 }
 
 fn format_ip_address_value(ip_address: IpAddress) -> String {

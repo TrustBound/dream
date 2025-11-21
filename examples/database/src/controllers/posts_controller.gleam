@@ -1,13 +1,27 @@
 //// Posts Controller
 ////
 //// Demonstrates CRUD operations for posts with user relationships using type-safe Squirrel queries
+//// Handles HTTP concerns: parsing, error mapping, response building.
 
 import context.{type DatabaseContext}
-import dream/core/http/transaction.{type Request, type Response, get_param}
-import dream/validators/json_validator.{validate_or_respond}
+import dream/http.{type Request, type Response, require_int}
+import dream/http/error.{type Error, BadRequest}
+import dream/http/response.{json_response}
+import dream/http/status
+import dream/http/validation.{validate_json}
+import gleam/result
 import models/post
+import operations/post_operations
 import services.{type Services}
+import utilities/response_helpers
 import views/post_view
+
+fn parse_post_data(body: String) -> Result(#(String, String), Error) {
+  case validate_json(body, post.decoder()) {
+    Ok(d) -> Ok(d)
+    Error(_) -> Error(BadRequest("Invalid post data"))
+  }
+}
 
 /// List all posts for a user
 pub fn index(
@@ -15,12 +29,16 @@ pub fn index(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  let assert Ok(param) = get_param(request, "user_id")
-  let assert Ok(user_id) = param.as_int
+  let result = {
+    use user_id <- result.try(require_int(request, "user_id"))
+    let db = services.database.connection
+    post_operations.list_posts(db, user_id)
+  }
 
-  let db = services.database.connection
-  post.list(db, user_id)
-  |> post_view.respond_list()
+  case result {
+    Ok(posts) -> json_response(status.ok, post_view.list_to_json(posts))
+    Error(err) -> response_helpers.handle_error(err)
+  }
 }
 
 /// Get a single post by ID
@@ -29,12 +47,16 @@ pub fn show(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  let assert Ok(param) = get_param(request, "id")
-  let assert Ok(id) = param.as_int
+  let result = {
+    use id <- result.try(require_int(request, "id"))
+    let db = services.database.connection
+    post_operations.get_post(db, id)
+  }
 
-  let db = services.database.connection
-  post.get(db, id)
-  |> post_view.respond()
+  case result {
+    Ok(post_data) -> json_response(status.ok, post_view.to_json(post_data))
+    Error(err) -> response_helpers.handle_error(err)
+  }
 }
 
 /// Create a new post for a user
@@ -43,16 +65,16 @@ pub fn create(
   _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  let assert Ok(param) = get_param(request, "user_id")
-  let assert Ok(user_id) = param.as_int
+  let result = {
+    use user_id <- result.try(require_int(request, "user_id"))
+    use data <- result.try(parse_post_data(request.body))
+    let #(title, content) = data
+    let db = services.database.connection
+    post_operations.create_post(db, user_id, title, content)
+  }
 
-  let db = services.database.connection
-  case validate_or_respond(request.body, post.decoder()) {
-    Error(response) -> response
-    Ok(data) -> {
-      let #(title, content) = data
-      post.create(db, user_id, title, content)
-      |> post_view.respond_created()
-    }
+  case result {
+    Ok(post_data) -> json_response(status.created, post_view.to_json(post_data))
+    Error(err) -> response_helpers.handle_error(err)
   }
 }

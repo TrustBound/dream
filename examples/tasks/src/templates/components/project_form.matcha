@@ -1,0 +1,6 @@
+{> with form_fields as String
+<form hx-post="/projects" hx-swap="beforebegin">
+  {{ form_fields }}
+  <button type="submit">Create Project</button>
+</form>
+

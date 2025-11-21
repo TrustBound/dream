@@ -1,4 +1,4 @@
-import dream/core/context.{AppContext}
+import dream/context.{AppContext}
 import dream/servers/mist/server.{bind, context, listen, router, services} as dream
 import router.{create_router}
 import services.{initialize_services}

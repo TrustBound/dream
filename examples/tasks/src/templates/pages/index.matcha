@@ -1,0 +1,8 @@
+{> with task_list as String
+<section>
+    <header>
+        <h1>My Tasks</h1>
+        <button id="add-task-btn" onclick="insertNewTask()">+</button>
+    </header>
+    {{ task_list }}
+</section>

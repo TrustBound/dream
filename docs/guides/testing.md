@@ -84,7 +84,7 @@ pub fn test1()             // Meaningless
 Controllers receive `Request`, `Context`, and `Services`. Mock the services:
 
 ```gleam
-import dream/core/http/transaction.{Request, Response}
+import dream/http.{type Request, type Response, text_response, ok}
 import gleam/dynamic/decode
 import gleeunit/should
 import your_app/controllers/users_controller
@@ -108,9 +108,9 @@ pub fn index_returns_list_of_users_test() {
 Create test helpers in `test/your_app/test_helpers.gleam`:
 
 ```gleam
-import dream/services/service.{type DatabaseService, DatabaseService}
-import your_app/context.{type AppContext, AppContext}
-import your_app/services.{type Services, Services}
+import dream/services/service.{DatabaseService}
+import your_app/context.{AppContext}
+import your_app/services.{Services}
 
 pub fn test_context() -> AppContext {
   AppContext(request_id: "test-request-id")
@@ -174,14 +174,28 @@ Test middleware with mock `next` functions:
 import gleeunit/should
 import your_app/middleware/auth_middleware
 
+fn should_not_call_next(
+  _request: Request,
+  _context: Context,
+  _services: Services,
+) -> Response {
+  panic as "Should not call next"
+}
+
+fn success_handler(
+  _request: Request,
+  _context: Context,
+  _services: Services,
+) -> Response {
+  text_response(ok, "Success")
+}
+
 pub fn auth_middleware_without_token_returns_401_test() {
   // Arrange
   let request = test_request()
   let context = test_context()
   let services = test_services()
-  let next = fn(_req, _ctx, _svc) {
-    panic as "Should not call next"
-  }
+  let next = should_not_call_next
   
   // Act
   let response = auth_middleware.auth_middleware(request, context, services, next)
@@ -195,17 +209,12 @@ pub fn auth_middleware_with_valid_token_calls_next_test() {
   let request = test_request_with_header("Authorization", "Bearer valid-token")
   let context = test_context()
   let services = test_services()
-  let mut next_called = False
-  let next = fn(req, ctx, svc) {
-    next_called = True
-    text_response(ok_status(), "Success")
-  }
+  let next = success_handler
   
   // Act
   let response = auth_middleware.auth_middleware(request, context, services, next)
   
   // Assert
-  next_called |> should.equal(True)
   response.status |> should.equal(200)
 }
 ```
@@ -230,15 +239,19 @@ pub fn get_user(db: Database, id: Int) -> Result(User, Error) {
 Create mock implementations:
 
 ```gleam
+fn mock_query(_sql: String, _params: List(Dynamic)) -> Result(List(User), Error) {
+  // Return test data
+  Ok([test_user()])
+}
+
+fn mock_execute(_sql: String, _params: List(Dynamic)) -> Result(Int, Error) {
+  Ok(1)
+}
+
 pub fn mock_database() -> Database {
   Database {
-    query: fn(sql, params) {
-      // Return test data
-      Ok([test_user()])
-    },
-    execute: fn(sql, params) {
-      Ok(1)
-    },
+    query: mock_query,
+    execute: mock_execute,
   }
 }
 ```
@@ -366,7 +379,7 @@ pub fn user_view_respond_formats_correctly_test() {
   // Test the view
   let response = user_view.respond(result)
   
-  response.status |> should.equal(ok_status())
+  response.status |> should.equal(200)
   // Check response body contains expected JSON
 }
 
@@ -492,5 +505,7 @@ Good tests make refactoring safe. Write them.
 
 ---
 
-**[← Back: Middleware](middleware.md)** | **[Up: Documentation](../../README.md)** | **[Next: Deployment →](deployment.md)**
+**See Also:**
+- [Deployment](deployment.md) - Running tests in production
+- [REST API](rest-api.md) - Testing API endpoints
 

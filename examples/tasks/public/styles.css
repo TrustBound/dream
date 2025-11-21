@@ -1,0 +1,627 @@
+/* Things 3 - Properly Implemented */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #ffffff;
+  --bg-secondary: #f5f5f7;
+  --text: #1d1d1f;
+  --text-secondary: #86868b;
+  --text-tertiary: #a1a1a6;
+  --border: #d2d2d7;
+  --accent: #007aff;
+  --accent-hover: #0051d5;
+  --urgent: #ff3b30;
+  --high: #ff9500;
+  --normal: #007aff;
+  --low: #8e8e93;
+  
+  --transition: cubic-bezier(0.4, 0, 0.2, 1);
+  
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  
+  --radius-lg: 12px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Sidebar */
+body > nav {
+  width: 240px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  padding: 24px 16px;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+body > nav strong {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  display: block;
+  margin-bottom: 24px;
+  padding-left: 8px;
+  letter-spacing: -0.3px;
+}
+
+body > nav ul {
+  list-style: none;
+}
+
+body > nav li {
+  margin-bottom: 1px;
+}
+
+body > nav a {
+  display: block;
+  padding: 8px 12px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 500;
+  border-radius: 8px;
+  transition: background 0.2s var(--transition);
+  letter-spacing: -0.1px;
+}
+
+body > nav a:hover {
+  background: rgba(0,0,0,0.04);
+}
+
+/* Main Content */
+main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 48px 64px;
+  max-width: 800px;
+  scroll-behavior: smooth;
+}
+
+main > section > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+main > section > header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.6px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+main > section > header button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  border: none;
+  font-size: 24px;
+  font-weight: 300;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s var(--transition);
+  flex-shrink: 0;
+}
+
+main > section > header button:hover {
+  background: var(--accent-hover);
+  transform: scale(1.05);
+}
+
+main > section > header button:active {
+  transform: scale(0.98);
+}
+
+/* Page Footer */
+body > footer {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: -0.1px;
+}
+
+/* Legacy Forms */
+form {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 36px;
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr 1fr auto;
+  gap: 14px;
+  align-items: end;
+  transition: border-color 0.2s var(--transition), box-shadow 0.2s var(--transition);
+}
+
+form:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,122,255,0.08);
+}
+
+form label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+form label span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  line-height: 1.2;
+}
+
+form input[type="text"],
+form input[type="date"],
+form textarea,
+form select {
+  width: 100%;
+  height: 36px;
+  padding: 0 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--bg);
+  transition: border-color 0.2s var(--transition), box-shadow 0.2s var(--transition);
+  letter-spacing: -0.1px;
+}
+
+form textarea {
+  height: 36px;
+  padding-top: 9px;
+  resize: none;
+  line-height: 1.4;
+}
+
+form input:focus,
+form textarea:focus,
+form select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,122,255,0.08);
+}
+
+form button[type="submit"] {
+  height: 36px;
+  padding: 0 22px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s var(--transition);
+  letter-spacing: -0.1px;
+}
+
+form button[type="submit"]:hover {
+  background: var(--accent-hover);
+}
+
+/* Task List */
+#task-list {
+  list-style: none;
+}
+
+#task-list > li {
+  list-style: none;
+}
+
+/* Task Card - Clean Minimalist Rows */
+article:not(:has(input[name="title"])) {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  align-items: start;
+  transition: background 0.15s var(--transition);
+  cursor: pointer;
+}
+
+article:not(:has(input[name="title"])):last-child {
+  border-bottom: none;
+}
+
+article:not(:has(input[name="title"])):hover {
+  background: rgba(0,0,0,0.015);
+}
+
+/* Checkbox */
+article input[type="checkbox"] {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--text-tertiary);
+  border-radius: 50%;
+  cursor: pointer;
+  margin-top: 2px;
+  transition: all 0.2s var(--transition);
+  flex-shrink: 0;
+  background: transparent;
+}
+
+article input[type="checkbox"]:hover {
+  border-color: var(--text-secondary);
+  transform: scale(1.08);
+}
+
+article input[type="checkbox"]:checked {
+  background: var(--text-tertiary);
+  border-color: var(--text-tertiary);
+}
+
+article input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 3px;
+  width: 7px;
+  height: 4px;
+  border: 2px solid white;
+  border-top: none;
+  border-right: none;
+  transform: rotate(-45deg);
+}
+
+/* Task Content Area */
+article:not(:has(input[name="title"])) > section {
+  min-width: 0;
+}
+
+article:not(:has(input[name="title"])) h3 {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 4px;
+  line-height: 1.4;
+  letter-spacing: -0.1px;
+}
+
+article:not(:has(input[name="title"])) > section > footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+/* Priority Badge */
+article mark {
+  background: none;
+  padding: 0;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--normal);
+}
+
+article mark[data-priority="Urgent"] {
+  color: var(--urgent);
+}
+
+article mark[data-priority="High"] {
+  color: var(--high);
+}
+
+article mark[data-priority="Low"] {
+  color: var(--low);
+}
+
+/* Date */
+article small {
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+article small svg {
+  width: 12px;
+  height: 12px;
+  opacity: 0.6;
+}
+
+/* Action Buttons - Completely Hidden */
+article:not(:has(input[name="title"])) > aside {
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s var(--transition);
+  pointer-events: none;
+}
+
+article:not(:has(input[name="title"])):hover > aside {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+article:not(:has(input[name="title"])) > aside button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: all 0.15s var(--transition);
+}
+
+article:not(:has(input[name="title"])) > aside button:hover {
+  background: rgba(0,0,0,0.06);
+  color: var(--text);
+}
+
+article:not(:has(input[name="title"])) > aside button:last-child:hover {
+  color: var(--urgent);
+  background: rgba(255, 59, 48, 0.1);
+}
+
+/* Completed State */
+article:has(input:checked) h3 {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+article:has(input:checked) > section > footer {
+  opacity: 0.5;
+}
+
+/* Task Editor - Expanded Card */
+article:has(input[name="title"]) {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  margin: var(--space-2) 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  gap: var(--space-3);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  animation: taskExpand 0.2s var(--transition);
+}
+
+article:has(input[name="title"]) > input[type="checkbox"] {
+  grid-row: 1;
+}
+
+article:has(input[name="title"]) > section {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+article:has(input[name="title"]) > footer {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  position: relative;
+}
+
+/* Editor Inputs */
+article:has(input[name="title"]) label {
+  display: contents;
+}
+
+article:has(input[name="title"]) label span {
+  display: none;
+}
+
+article:has(input[name="title"]) input[name="title"] {
+  font-size: 15px;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--text);
+  font-family: inherit;
+  letter-spacing: -0.1px;
+}
+
+article:has(input[name="title"]) textarea[name="description"] {
+  font-size: 14px;
+  color: var(--text-secondary);
+  border: none;
+  background: transparent;
+  padding: 0;
+  resize: none;
+  min-height: 60px;
+  font-family: inherit;
+  line-height: 1.5;
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+article:has(input[name="title"]) textarea[name="description"]::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+article:has(input[name="title"]) input:focus,
+article:has(input[name="title"]) textarea:focus {
+  outline: none;
+}
+
+article:has(input[name="title"]) input::placeholder {
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
+article:has(input[name="title"]) textarea::placeholder {
+  color: var(--text-tertiary);
+  opacity: 0.6;
+}
+
+/* Editor Footer Inputs */
+article:has(input[name="title"]) > footer input[type="date"] {
+  font-size: 13px;
+  color: var(--text-secondary);
+  border: none;
+  background: transparent;
+  padding: 6px 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+article:has(input[name="title"]) > footer input[type="date"]:focus {
+  outline: none;
+  color: var(--text);
+}
+
+article:has(input[name="title"]) > footer input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+article:has(input[name="title"]) > footer input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Editor Footer Buttons */
+article:has(input[name="title"]) > footer button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.15s var(--transition);
+}
+
+article:has(input[name="title"]) > footer button:hover {
+  background: rgba(0,0,0,0.05);
+  color: var(--text);
+}
+
+article:has(input[name="title"]) > footer > aside {
+  position: absolute;
+  top: -50px;
+  right: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  padding: var(--space-2);
+}
+
+article:has(input[name="title"]) > footer > aside:empty {
+  display: none;
+}
+
+/* Selected State */
+article[data-selected] {
+  background: rgba(0,122,255,0.04);
+}
+
+/* Animations */
+@keyframes taskExpand {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Loading */
+.htmx-request {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  body {
+    flex-direction: column;
+    overflow: auto;
+  }
+  
+  body > nav {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 16px;
+  }
+  
+  body > nav ul {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+  }
+  
+  main {
+    padding: 24px 16px;
+  }
+  
+  main > section > header h1 {
+    font-size: 28px;
+    margin-bottom: 24px;
+  }
+  
+  form {
+    grid-template-columns: 1fr;
+  }
+  
+  article:not(:has(input[name="title"])) > aside {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  
+  body > footer {
+    position: static;
+    text-align: center;
+    padding: 16px;
+  }
+}

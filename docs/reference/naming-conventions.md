@@ -648,9 +648,12 @@ pub fn handler(route: Route, handler_function: fn(Request) -> Response) -> Route
 pub fn method(route: Route, method: Method) -> Route
 
 fn process(request: Request, response: Response) -> Response {
-  let user_id = get_param(request, "id")
-  let header = get_header(request.headers, "content-type")
-  let user = authenticate(request)
+  let result = {
+    use user_id <- result.try(require_int(request, "id"))
+    let header = get_header(request.headers, "content-type")
+    use user <- result.try(authenticate(request))
+    Ok(#(user_id, user))
+  }
   // ...
 }
 ```
@@ -660,10 +663,10 @@ fn process(request: Request, response: Response) -> Response {
 pub fn handler(r: Route, h: fn(Request) -> Response) -> Route
 pub fn method(rt: Route, m: Method) -> Route
 
-fn process(req: Request, resp: Response) -> Response {
-  let uid = get_param(req, "id")          // Use user_id
-  let hdr = get_header(req.headers, "ct") // Use header
-  let u = authenticate(req)               // Use user
+fn process(request: Request, response: Response) -> Response {
+  let user_id_result = require_int(request, "id")  // Use user_id (not uid), and use require_int
+  let header = get_header(request.headers, "content-type")  // Use header (not hdr), use full name
+  let user_result = authenticate(request)  // Use user (not u)
   // ...
 }
 ```
@@ -674,7 +677,7 @@ fn process(
   incoming_http_request: Request,
   outgoing_http_response: Response
 ) -> Response {
-  let user_identifier_from_path_params = get_param(request, "id")
+  let user_identifier_from_path_params_result = require_int(request, "id")
   let user_with_verified_email_and_password = authenticate(request)
   // When you get the message, hang up!
   // ...

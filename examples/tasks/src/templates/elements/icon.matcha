@@ -1,0 +1,2 @@
+{> with icon_name as String
+<i data-lucide="{{ icon_name }}"></i>

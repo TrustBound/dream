@@ -13,7 +13,8 @@ erl_crash.dump
 scratch.gleam
 
 # IDE/Editor files
-.cursor/
+.cursor/*
+!.cursor/commands
 .vscode/
 .idea/
 

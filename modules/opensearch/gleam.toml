@@ -1,0 +1,19 @@
+name = "dream_opensearch"
+version = "0.1.0"
+description = "Simple OpenSearch client for Gleam"
+licences = ["MIT"]
+repository = { type = "github", user = "TrustBound", repo = "dream" }
+links = [
+    { title = "Documentation", href = "https://hexdocs.pm/dream_opensearch" },
+    { title = "GitHub", href = "https://github.com/TrustBound/dream" },
+]
+
+[dependencies]
+gleam_stdlib = ">= 0.44.0 and < 2.0.0"
+gleam_json = ">= 2.0.0 and < 4.0.0"
+gleam_http = ">= 4.3.0 and < 5.0.0"
+dream_http_client = { path = "../http_client" }
+
+[dev-dependencies]
+gleeunit = ">= 1.0.0 and < 2.0.0"
+

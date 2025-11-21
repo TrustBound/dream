@@ -24,13 +24,15 @@ trap cleanup EXIT
 echo "=== Setting up database ==="
 cd "$(dirname "$0")"
 
-# Stop any existing containers
-docker-compose down > /dev/null 2>&1 || true
+# Stop any existing containers and clean up
+docker-compose down -v > /dev/null 2>&1 || true
+sleep 1
 
 # Start database
 echo "Starting PostgreSQL..."
 if ! docker-compose up -d postgres > /dev/null 2>&1; then
     echo "Failed to start database"
+    docker-compose down > /dev/null 2>&1 || true
     exit 1
 fi
 
