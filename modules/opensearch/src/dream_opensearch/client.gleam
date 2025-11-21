@@ -25,11 +25,11 @@
 //// - `https://search.example.com:9200`
 //// - `https://user:pass@search.example.com:9200`
 
+import dream_http_client/client
+import dream_http_client/fetch
 import gleam/http
-import gleam/http/request
-import gleam/http/response.{type Response}
-import gleam/httpc
-import gleam/result
+import gleam/int
+import gleam/option.{type Option, None, Some}
 import gleam/string
 
 /// OpenSearch client configuration
@@ -115,23 +115,74 @@ pub fn send_request(
   path: String,
   body: String,
 ) -> Result(String, String) {
+  // Parse the base URL to extract scheme, host, and port
   let url = client.base_url <> path
+  let #(scheme, host, port, path_part) = parse_url(url)
 
-  let assert Ok(req) = request.to(url)
+  let base_request =
+    client.new
+    |> client.method(method)
+    |> client.scheme(scheme)
+    |> client.host(host)
+    |> client.path(path_part)
+    |> client.add_header("content-type", "application/json")
+    |> client.body(body)
 
-  req
-  |> request.set_method(method)
-  |> request.set_body(body)
-  |> request.prepend_header("content-type", "application/json")
-  |> httpc.send()
-  |> result.map_error(error_to_string)
-  |> result.map(extract_body)
+  let request = case port {
+    Some(port_value) -> client.port(base_request, port_value)
+    None -> base_request
+  }
+
+  fetch.request(request)
 }
 
-fn extract_body(response: Response(String)) -> String {
-  response.body
+fn parse_url(url: String) -> #(http.Scheme, String, Option(Int), String) {
+  case string.split(url, on: "://") {
+    [scheme_str, rest] -> {
+      let scheme = parse_scheme(scheme_str)
+      let #(host, port, path) = parse_host_and_path(rest)
+      #(scheme, host, port, path)
+    }
+    _ -> #(http.Http, url, None, "/")
+  }
 }
 
-fn error_to_string(_error: httpc.HttpError) -> String {
-  "HTTP request failed"
+fn parse_scheme(scheme_str: String) -> http.Scheme {
+  case scheme_str {
+    "http" -> http.Http
+    "https" -> http.Https
+    _ -> http.Http
+  }
+}
+
+fn parse_host_and_path(rest: String) -> #(String, Option(Int), String) {
+  case string.split(rest, on: "/") {
+    [host_part, ..path_parts] -> {
+      let path = "/" <> string.join(path_parts, with: "/")
+      let #(host, port) = parse_host_and_port(host_part)
+      #(host, port, path)
+    }
+    _ -> {
+      let #(host, port) = parse_host_and_port(rest)
+      #(host, port, "/")
+    }
+  }
+}
+
+fn parse_host_and_port(host_part: String) -> #(String, Option(Int)) {
+  case string.split(host_part, on: ":") {
+    [host] -> #(host, None)
+    [host, port_str] -> {
+      let port = parse_port(port_str)
+      #(host, port)
+    }
+    _ -> #(host_part, None)
+  }
+}
+
+fn parse_port(port_str: String) -> Option(Int) {
+  case int.parse(port_str) {
+    Ok(port) -> Some(port)
+    Error(_) -> None
+  }
 }

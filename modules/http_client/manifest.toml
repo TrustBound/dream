@@ -12,9 +12,9 @@ packages = [
 ]
 
 [requirements]
-gleam_erlang = { version = ">= 0.30.0" }
-gleam_http = { version = ">= 3.6.0" }
-gleam_stdlib = { version = ">= 0.44.0" }
-gleam_yielder = { version = ">= 1.0.0" }
-gleeunit = { version = ">= 1.0.0" }
+gleam_erlang = { version = ">= 0.30.0 and < 2.0.0" }
+gleam_http = { version = ">= 4.3.0 and < 5.0.0" }
+gleam_stdlib = { version = ">= 0.44.0 and < 2.0.0" }
+gleam_yielder = { version = ">= 1.0.0 and < 2.0.0" }
+gleeunit = { version = ">= 1.0.0 and < 2.0.0" }
 mockth = { git = "https://github.com/bondiano/mockth.git", ref = "master" }
