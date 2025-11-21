@@ -156,16 +156,16 @@ If you were using Dream from a local Git dependency or path:
 
 ## Next Steps
 
-- Read the [5-Minute Quickstart](docs/quickstart.md) to get started
-- Explore the [Learning Path](docs/learn/) for structured tutorials
-- Check out [Working Examples](examples/) for complete applications
-- Review [Architecture Reference](docs/reference/architecture.md) for deep dives
+- Read the [5-Minute Quickstart](https://github.com/TrustBound/dream/blob/main/docs/quickstart.md) to get started
+- Explore the [Learning Path](https://github.com/TrustBound/dream/tree/main/docs/learn) for structured tutorials
+- Check out [Working Examples](https://github.com/TrustBound/dream/tree/main/examples) for complete applications
+- Review [Architecture Reference](https://github.com/TrustBound/dream/blob/main/docs/reference/architecture.md) for deep dives
 
 ## Thank You
 
-Thank you to everyone who has provided feedback, reported issues, and contributed to Dream. This stable release represents a significant milestone in the project's maturity.
+Thank you to everyone who has provided feedback, reported issues, and contributed to Dream. This initial Hex publication represents a significant milestone - making Dream easily accessible to the Gleam community.
 
 ---
 
-**Full Changelog:** [CHANGELOG.md](../CHANGELOG.md)
+**Full Changelog:** [CHANGELOG.md](https://github.com/TrustBound/dream/blob/main/CHANGELOG.md)
 
