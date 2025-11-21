@@ -106,6 +106,7 @@ jobs:
         with:
           otp-version: "26.x"
           gleam-version: "1.12.0"
+          rebar3-version: "3"
 
       - name: Download dependencies
         working-directory: modules/${{ matrix.module }}
