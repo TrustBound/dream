@@ -1,14 +1,16 @@
 <div align="center">
-  <img src="dream.png" alt="Dream Logo" width="200"  style="margin-bottom: 20px;">
-  
-  <a href="https://github.com/TrustBound/dream/releases">
-    <img src="https://img.shields.io/github/v/release/TrustBound/dream?label=Release" alt="Latest Release" style="margin-bottom: 20px;">
-  </a>
+  <img src="dream.png" alt="Dream Logo" width="200">
 
   <b>Clean, composable web development for Gleam. No magic.</b>
 </div>
 
 Dream is a web toolkit that gets out of your way. Everything is explicit. Your `main()` function shows exactly what's happening—no framework deciding things for you behind the scenes.
+
+<div align="center">
+  <a href="https://github.com/TrustBound/dream/releases">
+    <img src="https://img.shields.io/github/v/release/TrustBound/dream?label=Release" alt="Latest Release">
+  </a>
+</div>
 
 ## Why Dream?
 
