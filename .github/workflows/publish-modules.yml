@@ -101,15 +101,17 @@ jobs:
             echo "should_publish=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Install Gleam
-        uses: gleam-lang/setup-gleam@v2
-        with:
-          gleam-version: "latest"
-
       - name: Install Erlang
-        uses: erlang/setup-erlang@v1
+        uses: erlef/setup-beam@v1
         with:
-          otp-version: "26"
+          otp-version: "26.x"
+          elixir-version: "none"
+
+      - name: Install Gleam
+        run: |
+          curl -L https://github.com/gleam-lang/gleam/releases/latest/download/gleam-ubuntu-22.04.tar.gz | tar -xz
+          sudo mv gleam /usr/local/bin/
+          gleam --version
 
       - name: Download dependencies
         working-directory: modules/${{ matrix.module }}
