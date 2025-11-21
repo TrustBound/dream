@@ -17,4 +17,3 @@ pub fn handle_error(err: Error) -> Response {
     error.InternalServerError(_msg) -> errors.internal_error()
   }
 }
-

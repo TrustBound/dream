@@ -2,24 +2,29 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
 pub fn render_tree(task_list task_list: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<section>
+  let tree = string_tree.from_string("")
+  let tree =
+    string_tree.append(
+      tree,
+      "<section>
     <header>
         <h1>My Tasks</h1>
         <button id=\"add-task-btn\" onclick=\"insertNewTask()\">+</button>
     </header>
-    ")
-    let tree = string_tree.append(tree, task_list)
-    let tree = string_tree.append(tree, "
-</section>")
+    ",
+    )
+  let tree = string_tree.append(tree, task_list)
+  let tree =
+    string_tree.append(
+      tree,
+      "
+</section>",
+    )
 
-    tree
+  tree
 }
 
 pub fn render(task_list task_list: String) -> String {
-    string_tree.to_string(render_tree(task_list: task_list))
+  string_tree.to_string(render_tree(task_list: task_list))
 }
-

@@ -5,10 +5,8 @@
 import context.{type AppContext}
 import dream/http.{type Request, type Response}
 import dream/http/error.{type Error, BadRequest}
-import dream/http/request.{get_param, type PathParam}
-import dream/http/response.{
-  html_response, json_response, text_response,
-}
+import dream/http/request.{type PathParam, get_param}
+import dream/http/response.{html_response, json_response, text_response}
 import dream/http/status
 import gleam/option
 import gleam/result
@@ -36,12 +34,13 @@ pub fn show(
   services: Services,
 ) -> Response {
   let result = {
-    use param <- result.try(
-      result.map_error(get_param(request, "id"), map_param_error)
-    )
+    use param <- result.try(result.map_error(
+      get_param(request, "id"),
+      map_param_error,
+    ))
     use id <- result.try(parse_int_param(param))
     let format = param.format
-  let db = services.database.connection
+    let db = services.database.connection
     use product <- result.try(product_operations.get_product(db, id))
     Ok(#(product, format))
   }
@@ -73,7 +72,7 @@ pub fn index(
   services: Services,
 ) -> Response {
   let result = {
-  let db = services.database.connection
+    let db = services.database.connection
     product_operations.list_products(db)
   }
 

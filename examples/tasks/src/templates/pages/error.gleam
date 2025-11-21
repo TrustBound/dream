@@ -2,30 +2,48 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
-pub fn render_tree(error_title error_title: String, error_message error_message: String) -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<section>
+pub fn render_tree(
+  error_title error_title: String,
+  error_message error_message: String,
+) -> StringTree {
+  let tree = string_tree.from_string("")
+  let tree =
+    string_tree.append(
+      tree,
+      "<section>
     <header>
-        <h1>")
-    let tree = string_tree.append(tree, error_title)
-    let tree = string_tree.append(tree, "</h1>
+        <h1>",
+    )
+  let tree = string_tree.append(tree, error_title)
+  let tree =
+    string_tree.append(
+      tree,
+      "</h1>
     </header>
-    <p>")
-    let tree = string_tree.append(tree, error_message)
-    let tree = string_tree.append(tree, "</p>
+    <p>",
+    )
+  let tree = string_tree.append(tree, error_message)
+  let tree =
+    string_tree.append(
+      tree,
+      "</p>
     <footer>
         <a href=\"/\">Back to Tasks</a>
     </footer>
 </section>
 
-")
+",
+    )
 
-    tree
+  tree
 }
 
-pub fn render(error_title error_title: String, error_message error_message: String) -> String {
-    string_tree.to_string(render_tree(error_title: error_title, error_message: error_message))
+pub fn render(
+  error_title error_title: String,
+  error_message error_message: String,
+) -> String {
+  string_tree.to_string(render_tree(
+    error_title: error_title,
+    error_message: error_message,
+  ))
 }
-

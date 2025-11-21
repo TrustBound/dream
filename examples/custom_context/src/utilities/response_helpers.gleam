@@ -10,8 +10,10 @@ import dream/http/status
 /// Handle Dream errors and convert to appropriate HTTP responses
 pub fn handle_error(err: Error) -> Response {
   case err {
-    error.BadRequest(msg) -> text_response(status.bad_request, "Bad Request: " <> msg)
-    error.Unauthorized(_msg) -> text_response(status.unauthorized, "Unauthorized")
+    error.BadRequest(msg) ->
+      text_response(status.bad_request, "Bad Request: " <> msg)
+    error.Unauthorized(_msg) ->
+      text_response(status.unauthorized, "Unauthorized")
     error.Forbidden(_msg) -> text_response(status.forbidden, "Forbidden")
     error.NotFound(msg) -> text_response(status.not_found, "Not Found: " <> msg)
     error.UnprocessableContent(msg) ->
@@ -20,4 +22,3 @@ pub fn handle_error(err: Error) -> Response {
       text_response(status.internal_server_error, "Internal Server Error")
   }
 }
-

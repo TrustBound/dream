@@ -31,7 +31,7 @@ pub fn index(
 ) -> Response {
   let result = {
     use user_id <- result.try(require_int(request, "user_id"))
-  let db = services.database.connection
+    let db = services.database.connection
     post_operations.list_posts(db, user_id)
   }
 
@@ -49,7 +49,7 @@ pub fn show(
 ) -> Response {
   let result = {
     use id <- result.try(require_int(request, "id"))
-  let db = services.database.connection
+    let db = services.database.connection
     post_operations.get_post(db, id)
   }
 
@@ -69,7 +69,7 @@ pub fn create(
     use user_id <- result.try(require_int(request, "user_id"))
     use data <- result.try(parse_post_data(request.body))
     let #(title, content) = data
-  let db = services.database.connection
+    let db = services.database.connection
     post_operations.create_post(db, user_id, title, content)
   }
 

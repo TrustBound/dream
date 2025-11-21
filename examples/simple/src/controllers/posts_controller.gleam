@@ -53,10 +53,7 @@ fn make_request_and_respond(user_id: String, post_id: String) -> Response {
 
   case fetch.request(req) {
     Ok(body) ->
-      text_response(
-        status.ok,
-        post_view.format_show(user_id, post_id, body),
-      )
+      text_response(status.ok, post_view.format_show(user_id, post_id, body))
     Error(error) ->
       text_response(status.internal_server_error, post_view.format_error(error))
   }

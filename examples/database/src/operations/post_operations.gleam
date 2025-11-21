@@ -27,4 +27,3 @@ pub fn create_post(
 ) -> Result(Post, Error) {
   post_model.create(db, user_id, title, content)
 }
-

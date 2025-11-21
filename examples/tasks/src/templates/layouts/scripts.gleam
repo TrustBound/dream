@@ -2,11 +2,12 @@
 
 import gleam/string_tree.{type StringTree}
 
-
-
 pub fn render_tree() -> StringTree {
-    let tree = string_tree.from_string("")
-    let tree = string_tree.append(tree, "<script src=\"https://unpkg.com/htmx.org@2.0.3\"></script>
+  let tree = string_tree.from_string("")
+  let tree =
+    string_tree.append(
+      tree,
+      "<script src=\"https://unpkg.com/htmx.org@2.0.3\"></script>
 <script src=\"https://unpkg.com/lucide@latest\"></script>
 <script>lucide.createIcons();</script>
 <script>
@@ -124,12 +125,12 @@ function closeAllEditorsBeforeEdit(event, element) {
     });
   }
 }
-</script>")
+</script>",
+    )
 
-    tree
+  tree
 }
 
 pub fn render() -> String {
-    string_tree.to_string(render_tree())
+  string_tree.to_string(render_tree())
 }
-

@@ -41,4 +41,3 @@ pub fn update_user(
 pub fn delete_user(db: Connection, id: Int) -> Result(Nil, Error) {
   user_model.delete(db, id)
 }
-

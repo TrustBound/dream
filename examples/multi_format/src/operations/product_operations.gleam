@@ -17,4 +17,3 @@ pub fn get_product(db: Connection, id: Int) -> Result(Product, Error) {
 pub fn list_products(db: Connection) -> Result(List(Product), Error) {
   product_model.list(db)
 }
-

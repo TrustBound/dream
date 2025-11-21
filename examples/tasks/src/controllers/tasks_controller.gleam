@@ -3,7 +3,7 @@
 //// Thin HTTP layer that validates inputs, calls operations, and renders views.
 
 import context.{type TasksContext}
-import dream/http as http
+import dream/http
 import gleam/int
 import gleam/io
 import gleam/list
@@ -96,7 +96,8 @@ pub fn create(
       http.require_field_int(form, "priority")
       |> result.unwrap(3)
     let due_date = http.field_optional(form, "due_date")
-    let project_id = http.field_optional(form, "project_id")
+    let project_id =
+      http.field_optional(form, "project_id")
       |> option.then(fn(id_str) {
         case int.parse(id_str) {
           Ok(id) -> option.Some(id)
@@ -104,16 +105,16 @@ pub fn create(
         }
       })
 
-  let data =
-    TaskData(
-      title: title,
-      description: description,
-      completed: False,
-      priority: priority,
-      due_date: due_date,
-      position: 0,
-      project_id: project_id,
-    )
+    let data =
+      TaskData(
+        title: title,
+        description: description,
+        completed: False,
+        priority: priority,
+        due_date: due_date,
+        position: 0,
+        project_id: project_id,
+      )
 
     use task <- result.try(task_operations.create_task(services.db, data))
     task_operations.get_task_with_tags(services.db, task.id)
@@ -152,16 +153,16 @@ pub fn update(
       |> result.unwrap(existing_task.priority)
     let due_date = http.field_optional(form, "due_date")
 
-      let data =
-        TaskData(
-          title: title,
-          description: description,
-          completed: existing_task.completed,
-          priority: priority,
-          due_date: due_date,
-          position: existing_task.position,
-          project_id: existing_task.project_id,
-        )
+    let data =
+      TaskData(
+        title: title,
+        description: description,
+        completed: existing_task.completed,
+        priority: priority,
+        due_date: due_date,
+        position: existing_task.position,
+        project_id: existing_task.project_id,
+      )
 
     use task <- result.try(task_operations.update_task(
       services.db,
@@ -265,14 +266,14 @@ pub fn new_inline(
 
   let data =
     TaskData(
-    title: "",
-    description: option.None,
-    completed: False,
-    priority: 3,
-    due_date: option.None,
-    position: 0,
-    project_id: project_id,
-  )
+      title: "",
+      description: option.None,
+      completed: False,
+      priority: 3,
+      due_date: option.None,
+      position: 0,
+      project_id: project_id,
+    )
 
   case task_operations.create_task(services.db, data) {
     Ok(task) -> http.html_response(http.ok, task_view.editor(task, []))

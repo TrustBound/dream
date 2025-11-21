@@ -24,8 +24,7 @@ pub fn serve_public(
         filepath: param.raw,
         config: static.default_config(),
       )
-    Error(_) -> response_helpers.handle_error(
-      error.BadRequest("File path required")
-    )
+    Error(_) ->
+      response_helpers.handle_error(error.BadRequest("File path required"))
   }
 }
