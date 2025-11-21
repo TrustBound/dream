@@ -14,21 +14,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Erlang
+      - name: Install Erlang and Gleam
         uses: erlef/setup-beam@v1
         with:
           otp-version: "26.x"
-
-      - name: Install Gleam
-        run: |
-          ARCH=$(uname -m)
-          if [ "$ARCH" = "x86_64" ]; then
-            ARCH="amd64"
-          fi
-          curl -L "https://github.com/gleam-lang/gleam/releases/latest/download/gleam-linux-${ARCH}.tar.gz" -o gleam.tar.gz
-          tar -xzf gleam.tar.gz
-          sudo mv gleam /usr/local/bin/
-          gleam --version
+          gleam-version: "1.12.0"
 
       - name: Download dependencies
         run: gleam deps download
