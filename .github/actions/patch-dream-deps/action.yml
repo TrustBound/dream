@@ -1,0 +1,39 @@
+name: Patch Dream Dependencies
+description: Replace Dream module Hex dependencies with local path dependencies for testing
+
+inputs:
+  module_dir:
+    description: Path to the module directory (e.g., modules/config)
+    required: true
+
+outputs:
+  patched:
+    description: Whether the file was patched
+    value: ${{ steps.patch.outputs.patched }}
+
+runs:
+  using: composite
+  steps:
+    - name: Patch Dream dependencies for testing
+      id: patch
+      shell: bash
+      working-directory: ${{ inputs.module_dir }}
+      run: |
+        # Replace Dream module dependencies with local paths for testing
+        # This allows testing modules that depend on other Dream modules
+        # before those modules are published to Hex
+        if grep -q "^dream_" gleam.toml; then
+          echo "Patching gleam.toml to use local path dependencies for Dream modules"
+          cp gleam.toml gleam.toml.bak
+          sed -i.tmp 's/^\(dream_http_client\) = ".*"/\1 = { path = "..\/..\/modules\/http_client" }/' gleam.toml
+          sed -i.tmp2 's/^\(dream_postgres\) = ".*"/\1 = { path = "..\/..\/modules\/postgres" }/' gleam.toml
+          sed -i.tmp3 's/^\(dream_config\) = ".*"/\1 = { path = "..\/..\/modules\/config" }/' gleam.toml
+          sed -i.tmp4 's/^\(dream_ets\) = ".*"/\1 = { path = "..\/..\/modules\/ets" }/' gleam.toml
+          sed -i.tmp5 's/^\(dream_json\) = ".*"/\1 = { path = "..\/..\/modules\/json" }/' gleam.toml
+          sed -i.tmp6 's/^\(dream_opensearch\) = ".*"/\1 = { path = "..\/..\/modules\/opensearch" }/' gleam.toml
+          rm -f gleam.toml.tmp* 2>/dev/null || true
+          echo "patched=true" >> $GITHUB_OUTPUT
+        else
+          echo "patched=false" >> $GITHUB_OUTPUT
+        fi
+
