@@ -22,18 +22,16 @@
 //// }
 ////
 //// pub fn create(request, context, services) {
-////   case validation.validate_json(request.body, user_decoder) {
-////     Ok(user) -> 
-////       // Valid user data, proceed with business logic
-////       create_user(services.db, user)
-////     
-////     Error(err) -> 
-////       // Validation failed, return error response
-////       response.json_response(
-////         status.bad_request,
-////         error_json(err.message)
-////       )
+////   let validation_result = validation.validate_json(request.body, user_decoder)
+////   
+////   case validation_result {
+////     Ok(user) -> create_user(services.db, user)
+////     Error(err) -> create_validation_error_response(err)
 ////   }
+//// }
+//// 
+//// fn create_validation_error_response(err: ValidationError) -> Response {
+////   response.json_response(status.bad_request, error_json(err.message))
 //// }
 //// ```
 ////
@@ -125,13 +123,10 @@ pub type ValidationError {
 ///     }
 ///     
 ///     Error(err) -> {
-///       // Validation failed - return error response
+///       let field_json = format_field_as_json(err.field)
 ///       let error_json = json.object([
 ///         #("error", json.string(err.message)),
-///         #("field", case err.field {
-///           Some(f) -> json.string(f)
-///           None -> json.null()
-///         })
+///         #("field", field_json)
 ///       ])
 ///       response.json_response(status.bad_request, json.to_string(error_json))
 ///     }

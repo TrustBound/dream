@@ -9,32 +9,29 @@
 //// import dream/http/request.{type Request}
 ////
 //// pub fn show_user(request: Request, context, services) {
-////   // Extract path parameter
-////   case request.get_int_param(request, "id") {
-////     Ok(id) -> {
-////       // Get query parameter
-////       let format = request.get_query_param(request.query, "format")
-////       
-////       // Access request data
-////       let method = request.method  // Get, Post, etc.
-////       let path = request.path      // "/users/123"
-////       let body = request.body      // Request body as string
-////       
-////       // Build response...
-////     }
-////     Error(msg) -> // Handle error
+////   let result = {
+////     use id <- result.try(get_int_param(request, "id"))
+////     let db = services.database.connection
+////     user_operations.get_user(db, id)
+////   }
+////   
+////   case result {
+////     Ok(user) -> json_response(status.ok, user_to_json(user))
+////     Error(err) -> handle_error(err)
 ////   }
 //// }
 //// ```
 
 import dream/http/cookie.{type Cookie}
 import dream/http/header.{type Header}
+import gleam/bit_array
 import gleam/float
 import gleam/int
 import gleam/list
 import gleam/option
 import gleam/string
 import gleam/uri
+import gleam/yielder.{type Yielder}
 
 /// HTTP request methods
 ///
@@ -45,13 +42,13 @@ import gleam/uri
 ///
 /// ```gleam
 /// import dream/http/request.{Get, Post, Put, Delete}
-/// import dream/router
+/// import dream/router.{route, router}
 ///
-/// router.new
-/// |> router.route(Get, "/users", list_users, [])
-/// |> router.route(Post, "/users", create_user, [])
-/// |> router.route(Put, "/users/:id", update_user, [])
-/// |> router.route(Delete, "/users/:id", delete_user, [])
+/// router
+/// |> route(method: Get, path: "/users", controller: list_users, middleware: [])
+/// |> route(method: Post, path: "/users", controller: create_user, middleware: [])
+/// |> route(method: Put, path: "/users/:id", controller: update_user, middleware: [])
+/// |> route(method: Delete, path: "/users/:id", controller: delete_user, middleware: [])
 /// ```
 pub type Method {
   Post
@@ -116,7 +113,8 @@ pub type Version {
 /// - `host`: Host header value (e.g., "example.com")
 /// - `port`: Port number (e.g., 443)
 /// - `remote_address`: Client IP address
-/// - `body`: Request body as string
+/// - `body`: Request body as string (for buffered requests)
+/// - `stream`: Request body as stream (for streaming requests)
 /// - `headers`: List of HTTP headers
 /// - `cookies`: List of cookies
 /// - `content_type`: Content-Type header value
@@ -129,9 +127,11 @@ pub type Version {
 ///   // Access request data
 ///   let method = request.method      // Get
 ///   let path = request.path          // "/users/123"
-///   let body = request.body          // Request body
 ///   let headers = request.headers    // All headers
 ///   let cookies = request.cookies    // All cookies
+///   
+///   // Get body safely
+///   let body = body_as_string(request)
 ///   
 ///   // Extract path parameter
 ///   case get_int_param(request, "id") {
@@ -154,11 +154,36 @@ pub type Request {
     port: option.Option(Int),
     remote_address: option.Option(String),
     body: String,
+    stream: option.Option(Yielder(BitArray)),
     headers: List(Header),
     cookies: List(Cookie),
     content_type: option.Option(String),
     content_length: option.Option(Int),
   )
+}
+
+/// Get the request body as a string
+///
+/// Helper that handles both buffered (String) and streaming (Yielder) bodies.
+/// If the body is streaming, it consumes the stream and converts it to a string.
+///
+/// ## Example
+///
+/// ```gleam
+/// case body_as_string(request) {
+///   Ok(body) -> // Use body string
+///   Error(_) -> // Handle UTF-8 error
+/// }
+/// ```
+pub fn body_as_string(request: Request) -> Result(String, Nil) {
+  case request.stream {
+    option.Some(stream) -> {
+      stream
+      |> yielder.fold(<<>>, bit_array.append)
+      |> bit_array.to_string
+    }
+    option.None -> Ok(request.body)
+  }
 }
 
 /// Path parameter with automatic type conversion and format detection

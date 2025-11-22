@@ -23,3 +23,13 @@ coverage/
 *.coverdata
 *.COVER.out
 
+# Elixir/Mix build artifacts (for integration tests)
+_build/
+deps/
+.mix/
+*.beam.lock
+mix.lock.backup
+
+# Node modules (for examples with frontend)
+node_modules/
+

@@ -10,17 +10,23 @@
 //// import dream/http/transaction.{get_string_param}
 ////
 //// pub fn serve_assets(request, ctx, svc) {
-////   case get_string_param(request, "path") {
-////     Ok(path) -> static.serve(
-////       request: request,
-////       context: ctx,
-////       services: svc,
-////       root: "./public",
-////       filepath: path,
-////       config: static.default_config(),
-////     )
+////   let result = get_string_param(request, "path")
+////   
+////   case result {
+////     Ok(path) -> serve_file(request, ctx, svc, path)
 ////     Error(msg) -> json_response(status.bad_request, error_json(msg))
 ////   }
+//// }
+//// 
+//// fn serve_file(request, ctx, svc, path) {
+////   static.serve(
+////     request: request,
+////     context: ctx,
+////     services: svc,
+////     root: "./public",
+////     filepath: path,
+////     config: static.default_config(),
+////   )
 //// }
 ////
 //// // In your router:

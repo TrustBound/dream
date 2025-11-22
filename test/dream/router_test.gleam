@@ -1,15 +1,13 @@
 import dream/context
 import dream/dream
-
-// Status codes moved to dream_json
 import dream/http/header.{Header, add_header, get_header}
 import dream/http/request.{
-  type Method, type Request, Get, Http, Http1, Post, Request,
+  type Method, type Request, Get, Http, Http1, Patch, Post, Put, Request,
 }
 import dream/http/response.{type Response, Response, Text}
 import dream/router.{
   type EmptyServices, build_controller_chain, controller, find_route, match_path,
-  method, middleware, new as new_route, path, route, router,
+  method, middleware, new as new_route, path, route, router, stream_route,
 }
 import gleam/list
 import gleam/option
@@ -27,6 +25,7 @@ fn create_test_request(method_value: Method, path_value: String) -> Request {
     port: option.None,
     remote_address: option.None,
     body: "",
+    stream: option.None,
     headers: [],
     cookies: [],
     content_type: option.None,
@@ -46,6 +45,144 @@ fn test_handler(
     cookies: [],
     content_type: option.Some("text/plain; charset=utf-8"),
   )
+}
+
+// ===== Streaming Flag Tests =====
+
+pub fn stream_route_sets_streaming_flag_to_true_test() {
+  // Arrange
+  let test_router =
+    router
+    |> stream_route(
+      method: Post,
+      path: "/upload",
+      controller: test_handler,
+      middleware: [],
+    )
+
+  let request = create_test_request(Post, "/upload")
+
+  // Act
+  let result = find_route(test_router, request)
+
+  // Assert
+  case result {
+    option.Some(#(route, _params)) -> {
+      route.streaming |> should.be_true()
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn stream_route_with_put_sets_streaming_flag_to_true_test() {
+  // Arrange
+  let test_router =
+    router
+    |> stream_route(
+      method: Put,
+      path: "/upload",
+      controller: test_handler,
+      middleware: [],
+    )
+
+  let request = create_test_request(Put, "/upload")
+
+  // Act
+  let result = find_route(test_router, request)
+
+  // Assert
+  case result {
+    option.Some(#(route, _params)) -> {
+      route.streaming |> should.be_true()
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn stream_route_with_patch_sets_streaming_flag_to_true_test() {
+  // Arrange
+  let test_router =
+    router
+    |> stream_route(
+      method: Patch,
+      path: "/upload",
+      controller: test_handler,
+      middleware: [],
+    )
+
+  let request = create_test_request(Patch, "/upload")
+
+  // Act
+  let result = find_route(test_router, request)
+
+  // Assert
+  case result {
+    option.Some(#(route, _params)) -> {
+      route.streaming |> should.be_true()
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn route_without_stream_sets_streaming_flag_to_false_test() {
+  // Arrange
+  let test_router =
+    router
+    |> route(
+      method: Post,
+      path: "/upload",
+      controller: test_handler,
+      middleware: [],
+    )
+
+  let request = create_test_request(Post, "/upload")
+
+  // Act
+  let result = find_route(test_router, request)
+
+  // Assert
+  case result {
+    option.Some(#(route, _params)) -> {
+      route.streaming |> should.be_false()
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn route_with_streaming_flag_finds_correct_route_test() {
+  // Arrange
+  let test_router =
+    router
+    |> stream_route(
+      method: Post,
+      path: "/upload",
+      controller: test_handler,
+      middleware: [],
+    )
+    |> route(
+      method: Post,
+      path: "/other",
+      controller: test_handler,
+      middleware: [],
+    )
+
+  let request_stream = create_test_request(Post, "/upload")
+  let request_other = create_test_request(Post, "/other")
+
+  // Act
+  let result_stream = find_route(test_router, request_stream)
+  let result_other = find_route(test_router, request_other)
+
+  // Assert
+  case result_stream {
+    option.Some(#(route, _)) -> route.streaming |> should.be_true()
+    option.None -> should.fail()
+  }
+
+  case result_other {
+    option.Some(#(route, _)) -> route.streaming |> should.be_false()
+    option.None -> should.fail()
+  }
 }
 
 pub fn method_with_post_sets_route_method_to_post_test() {
@@ -109,13 +246,13 @@ pub fn middleware_with_valid_middleware_adds_middleware_to_route_test() {
   // Arrange
   let route = path(new_route, "/test")
   let middleware_fn = fn(
-    req: Request,
-    _ctx: context.AppContext,
-    _svc: EmptyServices,
+    request: Request,
+    _context: context.AppContext,
+    _services: EmptyServices,
     next: fn(Request, context.AppContext, EmptyServices) -> Response,
   ) -> Response {
     let response =
-      next(req, context.AppContext(request_id: ""), router.EmptyServices)
+      next(request, context.AppContext(request_id: ""), router.EmptyServices)
     case response {
       Response(status, body, headers, cookies, content_type) -> {
         Response(
@@ -331,6 +468,7 @@ pub fn find_route_with_matching_route_returns_route_and_params_test() {
       path: "/users/:id",
       controller: test_handler,
       middleware: [],
+      streaming: False,
     )
   let test_router = router.Router(routes: [test_route])
   let request = create_test_request(Get, "/users/123")
@@ -362,6 +500,7 @@ pub fn find_route_with_method_mismatch_returns_none_test() {
       path: "/users/:id",
       controller: test_handler,
       middleware: [],
+      streaming: False,
     )
   let test_router = router.Router(routes: [test_route])
   let request = create_test_request(Get, "/users/123")
@@ -384,6 +523,7 @@ pub fn find_route_with_no_matching_route_returns_none_test() {
       path: "/users/:id",
       controller: test_handler,
       middleware: [],
+      streaming: False,
     )
   let test_router = router.Router(routes: [test_route])
   let request = create_test_request(Get, "/posts/123")
@@ -424,12 +564,12 @@ pub fn build_controller_chain_with_middleware_wraps_controller_test() {
   // Arrange
   let final_controller = test_handler
   let middleware_fn = fn(
-    req: Request,
-    ctx: context.AppContext,
-    svc: EmptyServices,
+    request: Request,
+    context: context.AppContext,
+    services: EmptyServices,
     next: fn(Request, context.AppContext, EmptyServices) -> Response,
   ) -> Response {
-    let response = next(req, ctx, svc)
+    let response = next(request, context, services)
     case response {
       Response(status, body, headers, cookies, content_type) -> {
         let modified_body = case body {
@@ -466,12 +606,12 @@ pub fn build_controller_chain_with_multiple_middleware_executes_in_order_test() 
   let middleware1 =
     router.Middleware(
       fn(
-        req: Request,
-        ctx: context.AppContext,
-        svc: EmptyServices,
+        request: Request,
+        context: context.AppContext,
+        services: EmptyServices,
         next: fn(Request, context.AppContext, EmptyServices) -> Response,
       ) -> Response {
-        let response = next(req, ctx, svc)
+        let response = next(request, context, services)
         case response {
           Response(status, body, headers, cookies, content_type) -> {
             let modified_body = case body {
@@ -486,12 +626,12 @@ pub fn build_controller_chain_with_multiple_middleware_executes_in_order_test() 
   let middleware2 =
     router.Middleware(
       fn(
-        req: Request,
-        ctx: context.AppContext,
-        svc: EmptyServices,
+        request: Request,
+        context: context.AppContext,
+        services: EmptyServices,
         next: fn(Request, context.AppContext, EmptyServices) -> Response,
       ) -> Response {
-        let response = next(req, ctx, svc)
+        let response = next(request, context, services)
         case response {
           Response(status, body, headers, cookies, content_type) -> {
             let modified_body = case body {

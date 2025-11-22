@@ -6,29 +6,59 @@ import dream/router.{type EmptyServices, type Router, route, router}
 pub fn create_router() -> Router(AppContext, EmptyServices) {
   router
   // Multi-segment named wildcard: **filepath
-  |> route(Get, "/public/**filepath", static_controller.serve_public, [])
+  |> route(
+    method: Get,
+    path: "/public/**filepath",
+    controller: static_controller.serve_public,
+    middleware: [],
+  )
   // Multi-segment named wildcard: **filepath (no index)
-  |> route(Get, "/assets/**filepath", static_controller.serve_assets, [])
+  |> route(
+    method: Get,
+    path: "/assets/**filepath",
+    controller: static_controller.serve_assets,
+    middleware: [],
+  )
   // Single-segment named wildcard: *filename
-  |> route(Get, "/files/*filename", static_controller.serve_single_file, [])
+  |> route(
+    method: Get,
+    path: "/files/*filename",
+    controller: static_controller.serve_single_file,
+    middleware: [],
+  )
   // Single-segment anonymous wildcard: *
-  |> route(Get, "/health/*/status", static_controller.health_status, [])
+  |> route(
+    method: Get,
+    path: "/health/*/status",
+    controller: static_controller.health_status,
+    middleware: [],
+  )
   // Extension pattern: *.ext
-  |> route(Get, "/css/*.css", static_controller.serve_css_only, [])
+  |> route(
+    method: Get,
+    path: "/css/*.css",
+    controller: static_controller.serve_css_only,
+    middleware: [],
+  )
   // Brace expansion extension: *.{ext1,ext2}
   |> route(
-    Get,
-    "/images/*.{jpg,png,gif,svg}",
-    static_controller.serve_image_file,
-    [],
+    method: Get,
+    path: "/images/*.{jpg,png,gif,svg}",
+    controller: static_controller.serve_image_file,
+    middleware: [],
   )
   // Multi-wildcard + extension in middle
-  |> route(Get, "/photos/**/*.{jpg,png}", static_controller.serve_photo, [])
+  |> route(
+    method: Get,
+    path: "/photos/**/*.{jpg,png}",
+    controller: static_controller.serve_photo,
+    middleware: [],
+  )
   // Custom 404 example
   |> route(
-    Get,
-    "/custom/**filepath",
-    static_controller.serve_with_custom_404,
-    [],
+    method: Get,
+    path: "/custom/**filepath",
+    controller: static_controller.serve_with_custom_404,
+    middleware: [],
   )
 }

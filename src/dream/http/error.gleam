@@ -19,16 +19,14 @@
 //// import gleam/result
 ////
 //// pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
-////   case query_user(db, id) {
-////     Ok(user) -> Ok(user)
-////     Error(Nil) -> Error(NotFound("User not found"))
-////   }
+////   query_user(db, id)
+////   |> result.replace_error(NotFound("User not found"))
 //// }
 ////
 //// pub fn create_user(db: Connection, name: String) -> Result(User, Error) {
 ////   case validate_name(name) {
-////     False -> Error(BadRequest("Name must not be empty"))
 ////     True -> insert_user(db, name)
+////     False -> Error(BadRequest("Name must not be empty"))
 ////   }
 //// }
 //// ```
@@ -42,14 +40,16 @@
 //// import dream/http/response
 //// import gleam/json
 ////
-//// case get_user(db, id) {
-////   Ok(user) -> 
-////     response.json_response(200, user_to_json(user))
-////   Error(err) -> 
-////     response.json_response(
-////       error.to_status_code(err),
-////       json.object([#("error", json.string(error.message(err)))])
-////     )
+//// let result = get_user(db, id)
+//// 
+//// case result {
+////   Ok(user) -> response.json_response(200, user_to_json(user))
+////   Error(err) -> create_error_response(err)
+//// }
+//// 
+//// fn create_error_response(err: Error) -> Response {
+////   let error_json = json.object([#("error", json.string(error.message(err)))])
+////   response.json_response(error.to_status_code(err), error_json)
 //// }
 //// ```
 

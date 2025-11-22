@@ -44,14 +44,18 @@
 ////
 //// ```gleam
 //// pub fn auth_middleware(request, context, services, next) {
-////   case extract_token(request) {
-////     Ok(token) -> {
-////       let user = verify_token(services.db, token)
-////       let new_context = MyContext(..context, user: Some(user))
-////       next(request, new_context, services)
-////     }
+////   let token_result = extract_token(request)
+////   
+////   case token_result {
+////     Ok(token) -> handle_valid_token(token, request, context, services, next)
 ////     Error(_) -> unauthorized_response()
 ////   }
+//// }
+//// 
+//// fn handle_valid_token(token, request, context, services, next) {
+////   let user = verify_token(services.db, token)
+////   let new_context = MyContext(..context, user: Some(user))
+////   next(request, new_context, services)
 //// }
 //// ```
 ////

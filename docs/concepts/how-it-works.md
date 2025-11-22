@@ -62,14 +62,16 @@ The router looks at the HTTP method (GET, POST, etc.) and path (`/users/123`) to
 ### 4. Middleware Runs
 
 If the route has middleware, each middleware function runs in order:
-- Can modify the request
+- Can modify the request (add headers, transform body)
 - Can enrich the context (e.g., add authenticated user)
+- Can transform streaming request bodies (ingress streaming)
+- Can transform streaming responses (egress streaming)
 - Can call `next()` to continue, or return early to short-circuit
 
 ### 5. Controller Action Executes
 
 The controller action receives:
-- **Request**: HTTP method, path, headers, body
+- **Request**: HTTP method, path, headers, body (or stream for streaming routes)
 - **Context**: Per-request data (request ID, authenticated user, etc.)
 - **Services**: Shared dependencies (database, cache, HTTP clients)
 
@@ -78,6 +80,7 @@ The controller action orchestrates:
 - Calls operations for complex business logic
 - Calls views to format responses
 - Maps domain errors to HTTP status codes
+- Returns buffered or streaming responses
 
 ### 6. Response Returns
 

@@ -9,9 +9,10 @@
 ////
 //// ```gleam
 //// pub fn show_user(request: Request, _ctx, _services) -> Response {
-////   case get_int_param(request, "id") {
-////     Ok(id) -> // id is an Int
-////       json_response(status.ok, user_to_json(id))
+////   let result = get_int_param(request, "id")
+////   
+////   case result {
+////     Ok(id) -> json_response(status.ok, user_to_json(id))
 ////     Error(msg) -> json_response(status.bad_request, error_json(msg))
 ////   }
 //// }
@@ -23,13 +24,16 @@
 ////
 //// ```gleam
 //// // Request to /users/123.json
-//// case get_param(request, "id") {
+//// let result = get_param(request, "id")
+//// 
+//// case result {
 ////   Ok(param) -> {
-////     param.value  // "123"
-////     param.format // Some("json")
-////     param.as_int // Ok(123)
+////     // param.value is "123"
+////     // param.format is Some("json")
+////     // param.as_int is Ok(123)
+////     use_param_data(param)
 ////   }
-////   Error(msg) -> // handle error
+////   Error(msg) -> handle_param_error(msg)
 //// }
 //// ```
 ////

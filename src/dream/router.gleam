@@ -6,14 +6,14 @@
 //// ## Basic Routing
 ////
 //// ```gleam
-//// import dream/router.{router}
-//// import dream/http/transaction.{Get, Post}
+//// import dream/router.{route, router}
+//// import dream/http/request.{Get, Post}
 ////
 //// pub fn create_router() {
 ////   router
-////   |> router.route(Get, "/", controllers.index, [])
-////   |> router.route(Get, "/users/:id", controllers.show_user, [])
-////   |> router.route(Post, "/users", controllers.create_user, [])
+////   |> route(method: Get, path: "/", controller: controllers.index, middleware: [])
+////   |> route(method: Get, path: "/users/:id", controller: controllers.show_user, middleware: [])
+////   |> route(method: Post, path: "/users", controller: controllers.create_user, middleware: [])
 //// }
 //// ```
 ////
@@ -39,11 +39,11 @@
 ////
 //// ```gleam
 //// router
-//// |> router.route(
-////   Get,
-////   "/admin/users",
-////   controllers.admin_users,
-////   [auth_middleware, logging_middleware]
+//// |> route(
+////   method: Get,
+////   path: "/admin/users",
+////   controller: controllers.admin_users,
+////   middleware: [auth_middleware, logging_middleware]
 //// )
 //// ```
 ////
@@ -57,8 +57,8 @@
 ////
 //// ```gleam
 //// router
-//// |> router.route(Get, "/users/new", controllers.new_user, [])  // Specific
-//// |> router.route(Get, "/users/:id", controllers.show_user, []) // General
+//// |> route(method: Get, path: "/users/new", controller: controllers.new_user, middleware: [])  // Specific
+//// |> route(method: Get, path: "/users/:id", controller: controllers.show_user, middleware: []) // General
 //// ```
 
 import dream/context.{type AppContext}
@@ -94,6 +94,7 @@ pub type Route(context, services) {
     path: String,
     controller: fn(Request, context, services) -> Response,
     middleware: List(Middleware(context, services)),
+    streaming: Bool,
   )
 }
 
@@ -128,18 +129,54 @@ fn default_404_controller(
   )
 }
 
-/// Default route constant with AppContext
+/// Default route builder starting point
+///
+/// Creates an empty route that you can configure using the builder pattern.
+/// Most applications use `route()` with labeled arguments instead.
+///
+/// ## Example
+///
+/// ```gleam
+/// route(method: Get, path: "/users/:id", controller: show_user, middleware: [auth])
+/// ```
 pub const new = Route(
   method: Get,
   path: "/",
   controller: default_404_controller,
   middleware: [],
+  streaming: False,
 )
 
-/// Default router constant with AppContext
+/// Empty router with no routes
+///
+/// Starting point for building your application's router. Chain this with
+/// `route()` or `stream_route()` calls to add routes.
+///
+/// ## Example
+///
+/// ```gleam
+/// router
+/// |> route(method: Get, path: "/", controller: home, middleware: [])
+/// |> route(method: Get, path: "/users/:id", controller: show_user, middleware: [auth])
+/// ```
 pub const router = Router(routes: [])
 
-/// Set the HTTP method for the route
+/// Set which HTTP method this route responds to
+///
+/// Part of the route builder pattern. Specify whether this route handles
+/// GET, POST, PUT, DELETE, PATCH, OPTIONS, or HEAD requests.
+///
+/// Most applications use `route()` with labeled arguments instead of this builder.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream/router.{route, router}
+/// import dream/http/request.{Get}
+///
+/// router
+/// |> route(method: Get, path: "/users", controller: list_users, middleware: [])
+/// ```
 pub fn method(
   route: Route(context, services),
   method_value: Method,
@@ -147,7 +184,22 @@ pub fn method(
   Route(..route, method: method_value)
 }
 
-/// Set the path for the route
+/// Set the URL path pattern for this route
+///
+/// Part of the route builder pattern. The path can include parameters (`:id`),
+/// wildcards (`*`, `**`), and extension patterns (`*.jpg`, `*.{jpg,png}`).
+///
+/// Most applications use `route()` with labeled arguments instead of this builder.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream/router.{route, router}
+/// import dream/http/request.{Get}
+///
+/// router
+/// |> route(method: Get, path: "/users/:id", controller: show_user, middleware: [])
+/// ```
 pub fn path(
   route: Route(context, services),
   path_value: String,
@@ -155,7 +207,28 @@ pub fn path(
   Route(..route, path: path_value)
 }
 
-/// Set the controller function for the route
+/// Set which controller handles requests to this route
+///
+/// Part of the route builder pattern. The controller is the function that
+/// processes the request and returns a response.
+///
+/// Controllers receive (Request, context, services) and return Response.
+///
+/// Most applications use `route()` with labeled arguments instead of this builder.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream/router.{route, router}
+/// import dream/http/request.{Get}
+///
+/// router
+/// |> route(method: Get, path: "/users/:id", controller: show_user, middleware: [])
+/// 
+/// fn show_user(request, context, services) {
+///   // ... handle request
+/// }
+/// ```
 pub fn controller(
   route: Route(context, services),
   controller_function: fn(Request, context, services) -> Response,
@@ -163,7 +236,27 @@ pub fn controller(
   Route(..route, controller: controller_function)
 }
 
-/// Add middleware to the route (accepts a list for convenience)
+/// Add middleware to this route
+///
+/// Part of the route builder pattern. Middleware intercept requests before
+/// they reach the controller and responses before they're sent to the client.
+/// They can authenticate users, log requests, transform data, or short-circuit
+/// the request early.
+///
+/// Middleware execute in the order provided: first middleware runs first on
+/// the way in, last on the way out (wrapping pattern).
+///
+/// Most applications use `route()` with labeled arguments instead of this builder.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream/router.{route, router}
+/// import dream/http/request.{Get}
+///
+/// router
+/// |> route(method: Get, path: "/admin/users", controller: list_users, middleware: [auth, logging])
+/// ```
 pub fn middleware(
   route: Route(context, services),
   middleware_list: List(
@@ -191,16 +284,16 @@ fn wrap_middleware(
 ///
 /// ```gleam
 /// // Simple route
-/// router.route(router, Get, "/", home_controller, [])
+/// route(router, method: Get, path: "/", controller: home_controller, middleware: [])
 ///
 /// // Route with path parameter
-/// router.route(router, Get, "/users/:id", show_user, [])
+/// route(router, method: Get, path: "/users/:id", controller: show_user, middleware: [])
 ///
 /// // Route with middleware
-/// router.route(router, Post, "/admin/users", create_user, [auth, logging])
+/// route(router, method: Post, path: "/admin/users", controller: create_user, middleware: [auth, logging])
 ///
 /// // Wildcard route for static files
-/// router.route(router, Get, "/assets/**path", serve_static, [])
+/// route(router, method: Get, path: "/assets/**path", controller: serve_static, middleware: [])
 /// ```
 pub fn route(
   router: Router(context, services),
@@ -219,6 +312,55 @@ pub fn route(
       path: path_value,
       controller: controller_function,
       middleware: middleware_wrappers,
+      streaming: False,
+    )
+  Router(routes: [route, ..router.routes])
+}
+
+/// Add a streaming route to the router
+///
+/// Registers a route that receives the request body as a stream (Yielder(BitArray))
+/// instead of a buffered string. Use this for large file uploads, proxying external
+/// APIs, or any request body > 10MB.
+///
+/// The controller receives `request.stream` as `Some(Yielder(BitArray))` and
+/// `request.body` as an empty string. Process chunks as they arrive without
+/// buffering the entire body in memory.
+///
+/// ## Example
+///
+/// ```gleam
+/// router
+/// |> stream_route(method: Post, path: "/upload", controller: handle_upload, middleware: [auth])
+/// |> stream_route(method: Put, path: "/files/:id", controller: replace_file, middleware: [])
+/// ```
+///
+/// ## When to Use
+///
+/// - File uploads > 10MB
+/// - Proxying external APIs
+/// - Video/audio streaming
+/// - Large form submissions
+///
+/// For regular requests (JSON APIs, forms < 10MB), use `route()` instead.
+pub fn stream_route(
+  router: Router(context, services),
+  method method_value: Method,
+  path path_value: String,
+  controller controller_function: fn(Request, context, services) -> Response,
+  middleware middleware_list: List(
+    fn(Request, context, services, fn(Request, context, services) -> Response) ->
+      Response,
+  ),
+) -> Router(context, services) {
+  let middleware_wrappers = list.map(middleware_list, wrap_middleware)
+  let route =
+    Route(
+      method: method_value,
+      path: path_value,
+      controller: controller_function,
+      middleware: middleware_wrappers,
+      streaming: True,
     )
   Router(routes: [route, ..router.routes])
 }
@@ -271,7 +413,38 @@ fn non_empty_segment(segment: String) -> Bool {
   segment != ""
 }
 
-/// Find matching route and extract params
+/// Find the first route matching the request
+///
+/// Searches the router's routes in order for one that matches the request's
+/// method and path. Returns the matched route and extracted path parameters,
+/// or None if no route matches.
+///
+/// Routes are checked in the order they were added to the router. First match wins.
+///
+/// ## Parameters
+///
+/// - `router`: Router with configured routes
+/// - `request`: HTTP request to match against
+///
+/// ## Returns
+///
+/// - `Some(#(route, params))`: Matched route and extracted path parameters
+/// - `None`: No matching route found
+///
+/// ## Example
+///
+/// ```gleam
+/// let app_router = router
+///   |> route(method: Get, path: "/users/:id", controller: show_user, middleware: [])
+///
+/// case find_route(app_router, request) {
+///   Some(#(route, params)) -> {
+///     // route.controller is show_user
+///     // params is [#("id", "123")] if path was "/users/123"
+///   }
+///   None -> // No route matched
+/// }
+/// ```
 pub fn find_route(
   router: Router(context, services),
   request: Request,

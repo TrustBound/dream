@@ -32,3 +32,15 @@ check:
 	@gleam build
 	@gleam test
 
+# Run integration tests for all examples (requires PostgreSQL on port 5435)
+test-examples:
+	@echo "Running integration tests for all examples..."
+	@for example in simple custom_context static streaming rate_limiter database multi_format; do \
+		echo ""; \
+		echo "=== Testing $$example ==="; \
+		cd examples/$$example && make test-integration || exit 1; \
+		cd ../..; \
+	done
+	@echo ""
+	@echo "✅ All example integration tests passed!"
+
