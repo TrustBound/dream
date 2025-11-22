@@ -1,0 +1,42 @@
+name: Test Module
+description: Build and test a Gleam module
+
+inputs:
+  module_dir:
+    description: Path to the module directory (e.g., modules/config)
+    required: true
+  patch_deps:
+    description: Whether to patch Dream dependencies before testing
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Patch Dream dependencies
+      if: inputs.patch_deps == 'true'
+      uses: ./.github/actions/patch-dream-deps
+      with:
+        module_dir: ${{ inputs.module_dir }}
+
+    - name: Download dependencies
+      shell: bash
+      working-directory: ${{ inputs.module_dir }}
+      run: gleam deps download
+
+    - name: Build project
+      shell: bash
+      working-directory: ${{ inputs.module_dir }}
+      run: gleam build
+
+    - name: Run tests
+      shell: bash
+      working-directory: ${{ inputs.module_dir }}
+      run: gleam test
+
+    - name: Restore Dream dependencies
+      if: inputs.patch_deps == 'true'
+      uses: ./.github/actions/restore-dream-deps
+      with:
+        module_dir: ${{ inputs.module_dir }}
+

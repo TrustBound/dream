@@ -1,0 +1,19 @@
+name: Restore Dream Dependencies
+description: Restore original gleam.toml after patching
+
+inputs:
+  module_dir:
+    description: Path to the module directory (e.g., modules/config)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Restore original gleam.toml
+      shell: bash
+      working-directory: ${{ inputs.module_dir }}
+      run: |
+        if [ -f gleam.toml.bak ]; then
+          mv gleam.toml.bak gleam.toml
+        fi
+

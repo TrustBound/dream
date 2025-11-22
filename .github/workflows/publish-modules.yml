@@ -48,15 +48,16 @@ jobs:
             echo "No modules found"
           fi
 
-  # Round 1: Publish modules with no dream dependencies (parallel)
-  # These modules can be published in any order
-  publish-round-1:
+  # Phase 1: Publish independent modules (no Dream dependencies)
+  # These modules can be published in parallel in any order
+  publish-independent-modules:
+    name: Publish Independent Modules
     needs: detect-changes
     runs-on: ubuntu-latest
     if: needs.detect-changes.outputs.modules != '[]'
     strategy:
       matrix:
-        # Modules with no internal dependencies
+        # Modules with no internal Dream dependencies
         module: ["config", "ets", "http_client", "json", "postgres"]
       fail-fast: false
     steps:
@@ -65,65 +66,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check if version exists on Hex
+      - name: Check if module version exists on Hex
         id: version_check
-        env:
-          FORCE_PUBLISH: ${{ secrets.FORCE_PUBLISH }}
-        run: |
-          MODULE_DIR="modules/${{ matrix.module }}"
-          GLEAM_TOML="$MODULE_DIR/gleam.toml"
-
-          if [ ! -f "$GLEAM_TOML" ]; then
-            echo "Error: $GLEAM_TOML not found"
-            exit 1
-          fi
-
-          # Check if force publish is enabled
-          if [ "$FORCE_PUBLISH" = "true" ]; then
-            echo "FORCE_PUBLISH is enabled, bypassing version check"
-            CURRENT_VERSION=$(grep '^version = ' "$GLEAM_TOML" | sed 's/version = "\(.*\)"/\1/')
-            PACKAGE_NAME=$(grep '^name = ' "$GLEAM_TOML" | sed 's/name = "\(.*\)"/\1/')
-            echo "should_publish=true" >> $GITHUB_OUTPUT
-            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          # Get current version and package name
-          CURRENT_VERSION=$(grep '^version = ' "$GLEAM_TOML" | sed 's/version = "\(.*\)"/\1/')
-          PACKAGE_NAME=$(grep '^name = ' "$GLEAM_TOML" | sed 's/name = "\(.*\)"/\1/')
-
-          if [ -z "$CURRENT_VERSION" ]; then
-            echo "Error: Could not extract version from $GLEAM_TOML"
-            exit 1
-          fi
-
-          if [ -z "$PACKAGE_NAME" ]; then
-            echo "Error: Could not extract package name from $GLEAM_TOML"
-            exit 1
-          fi
-
-          echo "Checking if $PACKAGE_NAME version $CURRENT_VERSION exists on Hex..."
-
-          # Check if version exists on Hex
-          HEX_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "https://hex.pm/api/packages/$PACKAGE_NAME/releases/$CURRENT_VERSION")
-
-          if [ "$HEX_RESPONSE" = "200" ]; then
-            echo "Version $CURRENT_VERSION already exists on Hex, skipping publish"
-            echo "should_publish=false" >> $GITHUB_OUTPUT
-            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-          elif [ "$HEX_RESPONSE" = "404" ]; then
-            echo "Version $CURRENT_VERSION does not exist on Hex, will publish"
-            echo "should_publish=true" >> $GITHUB_OUTPUT
-            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-          else
-            echo "Warning: Unexpected response from Hex API (HTTP $HEX_RESPONSE), will attempt to publish"
-            echo "should_publish=true" >> $GITHUB_OUTPUT
-            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-          fi
+        uses: ./.github/actions/check-hex-version
+        with:
+          module_dir: modules/${{ matrix.module }}
+          force_publish: ${{ secrets.FORCE_PUBLISH }}
 
       - name: Install Erlang and Gleam
         uses: erlef/setup-beam@v1
@@ -132,60 +80,31 @@ jobs:
           gleam-version: "1.13.0"
           rebar3-version: "3"
 
-      - name: Download dependencies
-        working-directory: modules/${{ matrix.module }}
-        run: gleam deps download
+      - name: Build and test module
+        uses: ./.github/actions/test-module
+        with:
+          module_dir: modules/${{ matrix.module }}
+          patch_deps: "false"
 
-      - name: Build project
-        working-directory: modules/${{ matrix.module }}
-        run: gleam build
-
-      - name: Run tests
-        working-directory: modules/${{ matrix.module }}
-        run: gleam test
-
-      - name: Publish to Hex
+      - name: Publish module and documentation to Hex
         if: steps.version_check.outputs.should_publish == 'true'
-        working-directory: modules/${{ matrix.module }}
-        env:
-          HEXPM_API_KEY: ${{ secrets.HEX_API_KEY }}
-        run: |
-          if [ -z "$HEXPM_API_KEY" ]; then
-            echo "Error: HEX_API_KEY secret is not set"
-            exit 1
-          fi
-          echo "Publishing ${{ matrix.module }} version ${{ steps.version_check.outputs.version }}"
-          gleam publish --yes
+        uses: ./.github/actions/publish-module
+        with:
+          module_dir: modules/${{ matrix.module }}
+          module_name: ${{ matrix.module }}
+          version: ${{ steps.version_check.outputs.version }}
+          hex_api_key: ${{ secrets.HEX_API_KEY }}
 
-      - name: Build documentation
-        if: steps.version_check.outputs.should_publish == 'true'
-        working-directory: modules/${{ matrix.module }}
-        run: gleam docs build
-
-      - name: Publish documentation
-        if: steps.version_check.outputs.should_publish == 'true'
-        working-directory: modules/${{ matrix.module }}
-        env:
-          HEXPM_API_KEY: ${{ secrets.HEX_API_KEY }}
-        run: |
-          if [ -z "$HEXPM_API_KEY" ]; then
-            echo "Error: HEX_API_KEY secret is not set"
-            exit 1
-          fi
-          echo "Waiting a moment for Hex to process the package..."
-          sleep 5
-          echo "Publishing documentation for ${{ matrix.module }}"
-          gleam docs publish
-
-  # Round 2: Publish modules that depend on round 1 modules
-  # These must wait for round 1 to complete
-  publish-round-2:
-    needs: [detect-changes, publish-round-1]
+  # Phase 2: Publish dependent modules (depend on Phase 1 modules)
+  # These modules must wait for Phase 1 to complete before publishing
+  publish-dependent-modules:
+    name: Publish Dependent Modules
+    needs: [detect-changes, publish-independent-modules]
     runs-on: ubuntu-latest
     if: needs.detect-changes.outputs.modules != '[]'
     strategy:
       matrix:
-        # Modules that depend on http_client or other round-1 modules
+        # Modules that depend on Phase 1 modules (e.g., http_client)
         module: ["opensearch"]
       fail-fast: false
     steps:
@@ -194,65 +113,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check if version exists on Hex
+      - name: Check if module version exists on Hex
         id: version_check
-        env:
-          FORCE_PUBLISH: ${{ secrets.FORCE_PUBLISH }}
-        run: |
-          MODULE_DIR="modules/${{ matrix.module }}"
-          GLEAM_TOML="$MODULE_DIR/gleam.toml"
-
-          if [ ! -f "$GLEAM_TOML" ]; then
-            echo "Error: $GLEAM_TOML not found"
-            exit 1
-          fi
-
-          # Check if force publish is enabled
-          if [ "$FORCE_PUBLISH" = "true" ]; then
-            echo "FORCE_PUBLISH is enabled, bypassing version check"
-            CURRENT_VERSION=$(grep '^version = ' "$GLEAM_TOML" | sed 's/version = "\(.*\)"/\1/')
-            PACKAGE_NAME=$(grep '^name = ' "$GLEAM_TOML" | sed 's/name = "\(.*\)"/\1/')
-            echo "should_publish=true" >> $GITHUB_OUTPUT
-            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          # Get current version and package name
-          CURRENT_VERSION=$(grep '^version = ' "$GLEAM_TOML" | sed 's/version = "\(.*\)"/\1/')
-          PACKAGE_NAME=$(grep '^name = ' "$GLEAM_TOML" | sed 's/name = "\(.*\)"/\1/')
-
-          if [ -z "$CURRENT_VERSION" ]; then
-            echo "Error: Could not extract version from $GLEAM_TOML"
-            exit 1
-          fi
-
-          if [ -z "$PACKAGE_NAME" ]; then
-            echo "Error: Could not extract package name from $GLEAM_TOML"
-            exit 1
-          fi
-
-          echo "Checking if $PACKAGE_NAME version $CURRENT_VERSION exists on Hex..."
-
-          # Check if version exists on Hex
-          HEX_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "https://hex.pm/api/packages/$PACKAGE_NAME/releases/$CURRENT_VERSION")
-
-          if [ "$HEX_RESPONSE" = "200" ]; then
-            echo "Version $CURRENT_VERSION already exists on Hex, skipping publish"
-            echo "should_publish=false" >> $GITHUB_OUTPUT
-            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-          elif [ "$HEX_RESPONSE" = "404" ]; then
-            echo "Version $CURRENT_VERSION does not exist on Hex, will publish"
-            echo "should_publish=true" >> $GITHUB_OUTPUT
-            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-          else
-            echo "Warning: Unexpected response from Hex API (HTTP $HEX_RESPONSE), will attempt to publish"
-            echo "should_publish=true" >> $GITHUB_OUTPUT
-            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-          fi
+        uses: ./.github/actions/check-hex-version
+        with:
+          module_dir: modules/${{ matrix.module }}
+          force_publish: ${{ secrets.FORCE_PUBLISH }}
 
       - name: Install Erlang and Gleam
         uses: erlef/setup-beam@v1
@@ -261,47 +127,17 @@ jobs:
           gleam-version: "1.13.0"
           rebar3-version: "3"
 
-      - name: Download dependencies
-        working-directory: modules/${{ matrix.module }}
-        run: gleam deps download
+      - name: Build and test module (with local Dream dependencies)
+        uses: ./.github/actions/test-module
+        with:
+          module_dir: modules/${{ matrix.module }}
+          patch_deps: "true"
 
-      - name: Build project
-        working-directory: modules/${{ matrix.module }}
-        run: gleam build
-
-      - name: Run tests
-        working-directory: modules/${{ matrix.module }}
-        run: gleam test
-
-      - name: Publish to Hex
+      - name: Publish module and documentation to Hex
         if: steps.version_check.outputs.should_publish == 'true'
-        working-directory: modules/${{ matrix.module }}
-        env:
-          HEXPM_API_KEY: ${{ secrets.HEX_API_KEY }}
-        run: |
-          if [ -z "$HEXPM_API_KEY" ]; then
-            echo "Error: HEX_API_KEY secret is not set"
-            exit 1
-          fi
-          echo "Publishing ${{ matrix.module }} version ${{ steps.version_check.outputs.version }}"
-          gleam publish --yes
-
-      - name: Build documentation
-        if: steps.version_check.outputs.should_publish == 'true'
-        working-directory: modules/${{ matrix.module }}
-        run: gleam docs build
-
-      - name: Publish documentation
-        if: steps.version_check.outputs.should_publish == 'true'
-        working-directory: modules/${{ matrix.module }}
-        env:
-          HEXPM_API_KEY: ${{ secrets.HEX_API_KEY }}
-        run: |
-          if [ -z "$HEXPM_API_KEY" ]; then
-            echo "Error: HEX_API_KEY secret is not set"
-            exit 1
-          fi
-          echo "Waiting a moment for Hex to process the package..."
-          sleep 5
-          echo "Publishing documentation for ${{ matrix.module }}"
-          gleam docs publish
+        uses: ./.github/actions/publish-module
+        with:
+          module_dir: modules/${{ matrix.module }}
+          module_name: ${{ matrix.module }}
+          version: ${{ steps.version_check.outputs.version }}
+          hex_api_key: ${{ secrets.HEX_API_KEY }}

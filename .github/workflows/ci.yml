@@ -37,11 +37,9 @@ jobs:
         run: |
           for module in modules/*/; do
             if [ -f "${module}gleam.toml" ]; then
-              echo "Testing module: $(basename "$module")"
-              cd "$module"
-              gleam deps download
-              gleam build
-              gleam test || exit 1
-              cd - > /dev/null
+              MODULE_NAME=$(basename "$module")
+              MODULE_DIR="${module%/}"
+              echo "Testing module: $MODULE_NAME"
+              "$GITHUB_WORKSPACE/.github/scripts/test-module.sh" "$MODULE_DIR" "true" || exit 1
             fi
           done
