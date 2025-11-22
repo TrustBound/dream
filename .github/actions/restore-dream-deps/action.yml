@@ -15,5 +15,7 @@ runs:
       run: |
         if [ -f gleam.toml.bak ]; then
           mv gleam.toml.bak gleam.toml
+          # Clean build cache to avoid conflicts with restored dependencies
+          gleam clean
         fi
 
