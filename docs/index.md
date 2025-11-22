@@ -26,10 +26,18 @@ Dream is a web toolkit that gets out of your way. It provides type-safe routing,
 - [Operations](guides/operations.md) - Complex Business Logic
 - [Testing](guides/testing.md) - Unit and Integration Testing
 
+### 📖 [Concepts](concepts.md)
+**Core concepts explained.** Understanding how Dream works.
+- [How It Works](concepts/how-it-works.md) - Request flow from arrival to response
+- [Project Structure](concepts/project-structure.md) - Organizing a real application
+- [Core Patterns](concepts/patterns.md) - Operations and multi-format responses
+- [All Concepts](concepts.md) - Complete overview of controllers, routers, middleware, models, views
+
 ### 📚 [Reference](reference/)
 **Need details?** Deep dives into the architecture and API.
 - [Architecture](reference/architecture.md) - How it all fits together
 - [Design Principles](reference/design-principles.md) - The "Why" behind Dream
+- [Why the BEAM?](reference/why-beam.md) - Understanding the runtime
 - [Naming Conventions](reference/naming-conventions.md) - Code Style
 
 ### 📦 Ecosystem

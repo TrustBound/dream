@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2025-11-21
+
+### Changed
+- Completely refactored README for better accessibility and clarity
+  - Reduced from 520 lines to ~130 lines for better scannability
+  - Added zero-knowledge friendly introduction explaining what Dream, Gleam, and BEAM are
+  - Included complete working example with line-by-line explanations
+  - Moved detailed technical content to standalone documentation files
+- Added new documentation files:
+  - `docs/concepts/how-it-works.md` - Request flow explanation
+  - `docs/concepts/project-structure.md` - Project organization guide
+  - `docs/concepts/patterns.md` - Operations and multi-format patterns
+  - `docs/reference/why-beam.md` - BEAM runtime explanation
+- Updated documentation index to include new concept documentation
+- Fixed terminology: clarified distinction between "controller" (module) and "controller action" (function)
+- Added HexDocs documentation badges to all module README files (dream_config, dream_ets, dream_http_client, dream_json, dream_opensearch, dream_postgres)
+
 ## [1.0.1] - 2025-11-22
 
 ### Fixed
@@ -72,7 +89,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All code examples now include proper imports
 - Improved documentation tone and consistency
 
-[Unreleased]: https://github.com/TrustBound/dream/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/TrustBound/dream/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/TrustBound/dream/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/TrustBound/dream/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/TrustBound/dream/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/TrustBound/dream/compare/v0.0.1...v0.1.0

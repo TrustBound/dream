@@ -1,5 +1,5 @@
 name = "dream_json"
-version = "1.0.1"
+version = "1.0.2"
 description = "JSON encoding utilities for Gleam applications"
 licences = ["MIT"]
 repository = { type = "github", user = "TrustBound", repo = "dream" }

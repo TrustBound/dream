@@ -1,0 +1,53 @@
+name: Publish Module to Hex
+description: Publish a Gleam module and its documentation to Hex
+
+inputs:
+  module_dir:
+    description: Path to the module directory (e.g., modules/config)
+    required: true
+  module_name:
+    description: Name of the module (for display)
+    required: true
+  version:
+    description: Version being published
+    required: true
+  hex_api_key:
+    description: Hex API key
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Publish to Hex
+      shell: bash
+      working-directory: ${{ inputs.module_dir }}
+      env:
+        HEXPM_API_KEY: ${{ inputs.hex_api_key }}
+      run: |
+        if [ -z "$HEXPM_API_KEY" ]; then
+          echo "Error: HEX_API_KEY secret is not set"
+          exit 1
+        fi
+        echo "Publishing ${{ inputs.module_name }} version ${{ inputs.version }}"
+        gleam publish --yes
+
+    - name: Build documentation
+      shell: bash
+      working-directory: ${{ inputs.module_dir }}
+      run: gleam docs build
+
+    - name: Publish documentation
+      shell: bash
+      working-directory: ${{ inputs.module_dir }}
+      env:
+        HEXPM_API_KEY: ${{ inputs.hex_api_key }}
+      run: |
+        if [ -z "$HEXPM_API_KEY" ]; then
+          echo "Error: HEX_API_KEY secret is not set"
+          exit 1
+        fi
+        echo "Waiting a moment for Hex to process the package..."
+        sleep 5
+        echo "Publishing documentation for ${{ inputs.module_name }}"
+        gleam docs publish
+

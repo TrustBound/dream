@@ -1,5 +1,5 @@
 name = "dream_postgres"
-version = "1.0.1"
+version = "1.0.2"
 description = "PostgreSQL utilities for Gleam with type-safe query helpers"
 licences = ["MIT"]
 repository = { type = "github", user = "TrustBound", repo = "dream" }
