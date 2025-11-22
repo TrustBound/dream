@@ -1,5 +1,5 @@
 name = "dream_ets"
-version = "1.0.0"
+version = "1.0.1"
 description = "Type-safe ETS (Erlang Term Storage) for Gleam"
 licences = ["MIT"]
 repository = { type = "github", user = "TrustBound", repo = "dream" }

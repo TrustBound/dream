@@ -1,0 +1,6 @@
+- Bump the version in `gleam.toml` 
+- Bump the version in all applicable `modules/<module_name>/gleam.toml` files if there are any changes to the module
+- Update the `CHANGELOG.md`
+- Update the `README.md`
+- Create a new release in `releases/release-<version>.md`
+- Update any other references to latest versions in the documentation and codebase

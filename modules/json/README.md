@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="https://raw.githubusercontent.com/TrustBound/dream/main/ricky_and_lucy.png" alt="Dream Logo" width="200">
+</div>
+
 # dream_json
 
 **JSON encoding utilities for Gleam applications.**
