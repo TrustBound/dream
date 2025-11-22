@@ -5,9 +5,9 @@ on:
     branches:
       - main
     paths:
-      - 'modules/**/gleam.toml'
-      - 'modules/**/*.gleam'
-      - '.github/workflows/publish-modules.yml'
+      - "modules/**/gleam.toml"
+      - "modules/**/*.gleam"
+      - ".github/workflows/publish-modules.yml"
 
 jobs:
   detect-changes:
@@ -36,7 +36,7 @@ jobs:
               fi
             fi
           done
-          
+
           # Output as JSON array
           if [ -n "$MODULES" ]; then
             echo "modules=[$MODULES]" >> $GITHUB_OUTPUT
@@ -46,13 +46,16 @@ jobs:
             echo "No modules found"
           fi
 
-  publish-module:
+  # Round 1: Publish modules with no dream dependencies (parallel)
+  # These modules can be published in any order
+  publish-round-1:
     needs: detect-changes
     runs-on: ubuntu-latest
     if: needs.detect-changes.outputs.modules != '[]'
     strategy:
       matrix:
-        module: ${{ fromJson(needs.detect-changes.outputs.modules) }}
+        # Modules with no internal dependencies
+        module: ["config", "ets", "http_client", "json", "postgres"]
       fail-fast: false
     steps:
       - name: Checkout code
@@ -67,12 +70,12 @@ jobs:
         run: |
           MODULE_DIR="modules/${{ matrix.module }}"
           GLEAM_TOML="$MODULE_DIR/gleam.toml"
-          
+
           if [ ! -f "$GLEAM_TOML" ]; then
             echo "Error: $GLEAM_TOML not found"
             exit 1
           fi
-          
+
           # Check if force publish is enabled
           if [ "$FORCE_PUBLISH" = "true" ]; then
             echo "FORCE_PUBLISH is enabled, bypassing version check"
@@ -81,15 +84,15 @@ jobs:
             echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
+
           # Get current version
           CURRENT_VERSION=$(grep '^version = ' "$GLEAM_TOML" | sed 's/version = "\(.*\)"/\1/')
-          
+
           if [ -z "$CURRENT_VERSION" ]; then
             echo "Error: Could not extract version from $GLEAM_TOML"
             exit 1
           fi
-          
+
           # Get previous version from the commit on main before this push
           if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
             if git show "${{ github.event.before }}:$GLEAM_TOML" > /dev/null 2>&1; then
@@ -102,7 +105,7 @@ jobs:
             # First push or no previous commit, treat as version change
             PREVIOUS_VERSION=""
           fi
-          
+
           if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
             echo "Version changed from '$PREVIOUS_VERSION' to '$CURRENT_VERSION'"
             echo "should_publish=true" >> $GITHUB_OUTPUT
@@ -164,3 +167,123 @@ jobs:
           echo "Publishing documentation for ${{ matrix.module }}"
           gleam docs publish
 
+  # Round 2: Publish modules that depend on round 1 modules
+  # These must wait for round 1 to complete
+  publish-round-2:
+    needs: [detect-changes, publish-round-1]
+    runs-on: ubuntu-latest
+    if: needs.detect-changes.outputs.modules != '[]'
+    strategy:
+      matrix:
+        # Modules that depend on http_client or other round-1 modules
+        module: ["opensearch"]
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if version changed
+        id: version_check
+        env:
+          FORCE_PUBLISH: ${{ secrets.FORCE_PUBLISH }}
+        run: |
+          MODULE_DIR="modules/${{ matrix.module }}"
+          GLEAM_TOML="$MODULE_DIR/gleam.toml"
+
+          if [ ! -f "$GLEAM_TOML" ]; then
+            echo "Error: $GLEAM_TOML not found"
+            exit 1
+          fi
+
+          # Check if force publish is enabled
+          if [ "$FORCE_PUBLISH" = "true" ]; then
+            echo "FORCE_PUBLISH is enabled, bypassing version check"
+            CURRENT_VERSION=$(grep '^version = ' "$GLEAM_TOML" | sed 's/version = "\(.*\)"/\1/')
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Get current version
+          CURRENT_VERSION=$(grep '^version = ' "$GLEAM_TOML" | sed 's/version = "\(.*\)"/\1/')
+
+          if [ -z "$CURRENT_VERSION" ]; then
+            echo "Error: Could not extract version from $GLEAM_TOML"
+            exit 1
+          fi
+
+          # Get previous version from the commit on main before this push
+          if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            if git show "${{ github.event.before }}:$GLEAM_TOML" > /dev/null 2>&1; then
+              PREVIOUS_VERSION=$(git show "${{ github.event.before }}:$GLEAM_TOML" | grep '^version = ' | sed 's/version = "\(.*\)"/\1/')
+            else
+              # gleam.toml didn't exist in previous commit, treat as version change
+              PREVIOUS_VERSION=""
+            fi
+          else
+            # First push or no previous commit, treat as version change
+            PREVIOUS_VERSION=""
+          fi
+
+          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
+            echo "Version changed from '$PREVIOUS_VERSION' to '$CURRENT_VERSION'"
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "Version unchanged ($CURRENT_VERSION), skipping publish"
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install Erlang and Gleam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28"
+          gleam-version: "1.13.0"
+          rebar3-version: "3"
+
+      - name: Download dependencies
+        working-directory: modules/${{ matrix.module }}
+        run: gleam deps download
+
+      - name: Build project
+        working-directory: modules/${{ matrix.module }}
+        run: gleam build
+
+      - name: Run tests
+        working-directory: modules/${{ matrix.module }}
+        run: gleam test
+
+      - name: Publish to Hex
+        if: steps.version_check.outputs.should_publish == 'true'
+        working-directory: modules/${{ matrix.module }}
+        env:
+          HEXPM_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run: |
+          if [ -z "$HEXPM_API_KEY" ]; then
+            echo "Error: HEX_API_KEY secret is not set"
+            exit 1
+          fi
+          echo "Publishing ${{ matrix.module }} version ${{ steps.version_check.outputs.version }}"
+          gleam publish --yes
+
+      - name: Build documentation
+        if: steps.version_check.outputs.should_publish == 'true'
+        working-directory: modules/${{ matrix.module }}
+        run: gleam docs build
+
+      - name: Publish documentation
+        if: steps.version_check.outputs.should_publish == 'true'
+        working-directory: modules/${{ matrix.module }}
+        env:
+          HEXPM_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run: |
+          if [ -z "$HEXPM_API_KEY" ]; then
+            echo "Error: HEX_API_KEY secret is not set"
+            exit 1
+          fi
+          echo "Waiting a moment for Hex to process the package..."
+          sleep 5
+          echo "Publishing documentation for ${{ matrix.module }}"
+          gleam docs publish
