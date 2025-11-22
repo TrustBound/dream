@@ -8,6 +8,8 @@ on:
       - "modules/**/gleam.toml"
       - "modules/**/*.gleam"
       - ".github/workflows/publish-modules.yml"
+  workflow_dispatch:
+    # Allows manual triggering for testing
 
 jobs:
   detect-changes:
@@ -63,7 +65,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check if version changed
+      - name: Check if version exists on Hex
         id: version_check
         env:
           FORCE_PUBLISH: ${{ secrets.FORCE_PUBLISH }}
@@ -80,39 +82,47 @@ jobs:
           if [ "$FORCE_PUBLISH" = "true" ]; then
             echo "FORCE_PUBLISH is enabled, bypassing version check"
             CURRENT_VERSION=$(grep '^version = ' "$GLEAM_TOML" | sed 's/version = "\(.*\)"/\1/')
+            PACKAGE_NAME=$(grep '^name = ' "$GLEAM_TOML" | sed 's/name = "\(.*\)"/\1/')
             echo "should_publish=true" >> $GITHUB_OUTPUT
             echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # Get current version
+          # Get current version and package name
           CURRENT_VERSION=$(grep '^version = ' "$GLEAM_TOML" | sed 's/version = "\(.*\)"/\1/')
+          PACKAGE_NAME=$(grep '^name = ' "$GLEAM_TOML" | sed 's/name = "\(.*\)"/\1/')
 
           if [ -z "$CURRENT_VERSION" ]; then
             echo "Error: Could not extract version from $GLEAM_TOML"
             exit 1
           fi
 
-          # Get previous version from the commit on main before this push
-          if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
-            if git show "${{ github.event.before }}:$GLEAM_TOML" > /dev/null 2>&1; then
-              PREVIOUS_VERSION=$(git show "${{ github.event.before }}:$GLEAM_TOML" | grep '^version = ' | sed 's/version = "\(.*\)"/\1/')
-            else
-              # gleam.toml didn't exist in previous commit, treat as version change
-              PREVIOUS_VERSION=""
-            fi
-          else
-            # First push or no previous commit, treat as version change
-            PREVIOUS_VERSION=""
+          if [ -z "$PACKAGE_NAME" ]; then
+            echo "Error: Could not extract package name from $GLEAM_TOML"
+            exit 1
           fi
 
-          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
-            echo "Version changed from '$PREVIOUS_VERSION' to '$CURRENT_VERSION'"
+          echo "Checking if $PACKAGE_NAME version $CURRENT_VERSION exists on Hex..."
+
+          # Check if version exists on Hex
+          HEX_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "https://hex.pm/api/packages/$PACKAGE_NAME/releases/$CURRENT_VERSION")
+
+          if [ "$HEX_RESPONSE" = "200" ]; then
+            echo "Version $CURRENT_VERSION already exists on Hex, skipping publish"
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+          elif [ "$HEX_RESPONSE" = "404" ]; then
+            echo "Version $CURRENT_VERSION does not exist on Hex, will publish"
             echo "should_publish=true" >> $GITHUB_OUTPUT
             echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
           else
-            echo "Version unchanged ($CURRENT_VERSION), skipping publish"
-            echo "should_publish=false" >> $GITHUB_OUTPUT
+            echo "Warning: Unexpected response from Hex API (HTTP $HEX_RESPONSE), will attempt to publish"
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
           fi
 
       - name: Install Erlang and Gleam
@@ -184,7 +194,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check if version changed
+      - name: Check if version exists on Hex
         id: version_check
         env:
           FORCE_PUBLISH: ${{ secrets.FORCE_PUBLISH }}
@@ -201,39 +211,47 @@ jobs:
           if [ "$FORCE_PUBLISH" = "true" ]; then
             echo "FORCE_PUBLISH is enabled, bypassing version check"
             CURRENT_VERSION=$(grep '^version = ' "$GLEAM_TOML" | sed 's/version = "\(.*\)"/\1/')
+            PACKAGE_NAME=$(grep '^name = ' "$GLEAM_TOML" | sed 's/name = "\(.*\)"/\1/')
             echo "should_publish=true" >> $GITHUB_OUTPUT
             echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # Get current version
+          # Get current version and package name
           CURRENT_VERSION=$(grep '^version = ' "$GLEAM_TOML" | sed 's/version = "\(.*\)"/\1/')
+          PACKAGE_NAME=$(grep '^name = ' "$GLEAM_TOML" | sed 's/name = "\(.*\)"/\1/')
 
           if [ -z "$CURRENT_VERSION" ]; then
             echo "Error: Could not extract version from $GLEAM_TOML"
             exit 1
           fi
 
-          # Get previous version from the commit on main before this push
-          if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
-            if git show "${{ github.event.before }}:$GLEAM_TOML" > /dev/null 2>&1; then
-              PREVIOUS_VERSION=$(git show "${{ github.event.before }}:$GLEAM_TOML" | grep '^version = ' | sed 's/version = "\(.*\)"/\1/')
-            else
-              # gleam.toml didn't exist in previous commit, treat as version change
-              PREVIOUS_VERSION=""
-            fi
-          else
-            # First push or no previous commit, treat as version change
-            PREVIOUS_VERSION=""
+          if [ -z "$PACKAGE_NAME" ]; then
+            echo "Error: Could not extract package name from $GLEAM_TOML"
+            exit 1
           fi
 
-          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
-            echo "Version changed from '$PREVIOUS_VERSION' to '$CURRENT_VERSION'"
+          echo "Checking if $PACKAGE_NAME version $CURRENT_VERSION exists on Hex..."
+
+          # Check if version exists on Hex
+          HEX_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "https://hex.pm/api/packages/$PACKAGE_NAME/releases/$CURRENT_VERSION")
+
+          if [ "$HEX_RESPONSE" = "200" ]; then
+            echo "Version $CURRENT_VERSION already exists on Hex, skipping publish"
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+          elif [ "$HEX_RESPONSE" = "404" ]; then
+            echo "Version $CURRENT_VERSION does not exist on Hex, will publish"
             echo "should_publish=true" >> $GITHUB_OUTPUT
             echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
           else
-            echo "Version unchanged ($CURRENT_VERSION), skipping publish"
-            echo "should_publish=false" >> $GITHUB_OUTPUT
+            echo "Warning: Unexpected response from Hex API (HTTP $HEX_RESPONSE), will attempt to publish"
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "package_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
           fi
 
       - name: Install Erlang and Gleam
