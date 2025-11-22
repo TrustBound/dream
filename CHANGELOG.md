@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2025-11-22
+
+### Fixed
+- Fixed logo display on hex.pm by using full GitHub URLs instead of relative paths in README files
+- Added Dream logo to all module README files (dream_config, dream_ets, dream_http_client, dream_json, dream_opensearch, dream_postgres)
+
 ## [1.0.0] - 2025-11-21
 
 ### Added
@@ -66,7 +72,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All code examples now include proper imports
 - Improved documentation tone and consistency
 
-[Unreleased]: https://github.com/TrustBound/dream/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/TrustBound/dream/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/TrustBound/dream/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/TrustBound/dream/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/TrustBound/dream/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/TrustBound/dream/releases/tag/v0.0.1
