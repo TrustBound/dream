@@ -11,7 +11,7 @@ import dream/http/cookie.{type Cookie, simple_cookie}
 import dream/http/header.{type Header, Header, header_name, header_value}
 import dream/http/request.{type Request, set_params}
 import dream/http/response.{type Response, Response, Text}
-import dream/router.{type Router, build_controller_chain, find_route}
+import dream/router.{type Route, type Router, build_controller_chain, find_route}
 import gleam/list
 import gleam/option
 import gleam/string
@@ -122,16 +122,8 @@ pub fn route_request(
   services: services,
 ) -> Response {
   case find_route(router_instance, request) {
-    option.Some(#(route, params)) -> {
-      let request_with_params = set_params(request, params)
-
-      // Build the controller chain from middleware + controller
-      let controller_chain =
-        build_controller_chain(route.middleware, route.controller)
-
-      // Execute the chain (which will run all middleware then the controller)
-      controller_chain(request_with_params, context, services)
-    }
+    option.Some(#(route, params)) ->
+      execute_route(route, request, params, context, services)
     option.None ->
       Response(
         status: 404,
@@ -143,6 +135,41 @@ pub fn route_request(
         content_type: option.Some("text/plain; charset=utf-8"),
       )
   }
+}
+
+/// Execute a route with its params, middleware, and controller
+///
+/// Helper function to execute a route that's already been matched.
+/// Used by route_request and can be called directly when route is already known
+/// (e.g., in server handlers that need to find the route first to determine
+/// if it's streaming).
+///
+/// ## Parameters
+///
+/// - `route`: The matched route to execute
+/// - `request`: HTTP request (may have body/stream already attached)
+/// - `params`: Path parameters extracted from the route pattern
+/// - `context`: Application context
+/// - `services`: Application services
+///
+/// ## Returns
+///
+/// HTTP response from the controller
+pub fn execute_route(
+  route: Route(context, services),
+  request: Request,
+  params: List(#(String, String)),
+  context: context,
+  services: services,
+) -> Response {
+  let request_with_params = set_params(request, params)
+
+  // Build the controller chain from middleware + controller
+  let controller_chain =
+    build_controller_chain(route.middleware, route.controller)
+
+  // Execute the chain (which will run all middleware then the controller)
+  controller_chain(request_with_params, context, services)
 }
 
 /// Parse cookies from HTTP headers

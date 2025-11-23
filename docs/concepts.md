@@ -22,11 +22,11 @@ import dream/http.{type Request, type Response, text_response, ok}
 import dream/context.{type AppContext}
 import dream/router.{type EmptyServices}
 
-pub fn hello_world(_request: Request, _context: AppContext, _services: EmptyServices) -> Response {
+pub fn hello_world(_request: Request, _context: EmptyContext, _services: EmptyServices) -> Response {
   text_response(status.ok, "Hello, World!")
 }
 
-pub fn hello_name(request: Request, _context: AppContext, _services: EmptyServices) -> Response {
+pub fn hello_name(request: Request, _context: EmptyContext, _services: EmptyServices) -> Response {
   let result = {
     use name <- result.try(require_string(request, "name"))
     Ok(name)
@@ -53,7 +53,7 @@ The router matches incoming requests to your controller actions based on HTTP me
 
 ```gleam
 pub fn create_router() -> Router(AppContext, Services) {
-  router
+  router()
   |> route(method: Get, path: "/users", controller: users_controller.index, middleware: [])
   |> route(method: Get, path: "/users/:id", controller: users_controller.show, middleware: [])
   |> route(method: Post, path: "/users", controller: users_controller.create, middleware: [])
@@ -62,7 +62,11 @@ pub fn create_router() -> Router(AppContext, Services) {
 
 Path parameters like `:id` get extracted automatically. So `/users/:id` matches `/users/123` and makes `id` available via `require_int(request, "id")` or `require_string(request, "id")`. These functions safely extract and validate parameters, returning `Result` types for error handling. You can have multiple parameters too—`/posts/:post_id/comments/:id` extracts both.
 
-The router is generic over your Context and Services types. This means the compiler verifies every controller action has the right signature. Change your Context or Services type? The compiler will tell you exactly which actions need updating. It's type-safe routing.
+The router is generic over your Context and Services types. This means the compiler verifies every controller action has the right signature. Change your Context or Services type? The compiler will tell you exactly which actions need updating.
+
+**Important Note on Parameter Type Safety:** Dream's router validates path parameters at runtime, not compile-time. If you change `/users/:id` to `/users/:user_id` in your route, but forget to update your controller code from `get_param(request, "id")` to `get_param(request, "user_id")`, the compiler won't catch this—you'll get a runtime error. This design prioritizes API ergonomics and flexibility over compile-time guarantees. We're exploring more type-safe alternatives in [Discussion #15](https://github.com/TrustBound/dream/discussions/15).
+
+**Router Performance:** Dream uses a radix trie for O(path depth) route matching. Benchmarks show consistent ~1.3-1.5μs lookup times whether you have 100 or 1000 routes. The router is fast enough that it won't be your bottleneck.
 
 **See:** [examples/simple/src/router.gleam](../examples/simple/src/router.gleam)
 
@@ -112,7 +116,15 @@ Yes, Services is a "god object" that holds multiple dependencies. We're okay wit
 
 Context holds per-request data that changes for each request. Request A's authenticated user is different from Request B's authenticated user. That's what Context is for.
 
-Dream provides a default `AppContext` with just a request ID:
+Dream provides `EmptyContext` for simple apps that don't need per-request data:
+
+```gleam
+pub type EmptyContext {
+  EmptyContext
+}
+```
+
+This is the default when you call `server.new()`. For apps that need request tracking, Dream also provides `AppContext`:
 
 ```gleam
 pub type AppContext {
@@ -120,7 +132,7 @@ pub type AppContext {
 }
 ```
 
-That's enough for simple apps. But you'll probably want to add authentication:
+But you'll probably want to add authentication with your own custom type:
 
 ```gleam
 pub type AuthContext {

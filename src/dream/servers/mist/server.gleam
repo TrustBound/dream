@@ -6,41 +6,43 @@
 //// ## Quick Start
 ////
 //// ```gleam
-//// import dream/servers/mist/server as dream
+//// import dream/servers/mist/server.{listen, router}
 //// 
 //// pub fn main() {
-////   dream.new()
-////   |> dream.services(initialize_services())
-////   |> dream.router(create_router())
-////   |> dream.listen(3000)
+////   server.new()
+////   |> router(create_router())
+////   |> listen(3000)
 //// }
 //// ```
 ////
 //// The builder pattern lets you configure your server step by step. Start with `new()`,
-//// add your services and router, optionally set a custom context, then `listen()` to start.
+//// add your router, and optionally set custom context and services before calling `listen()`.
 ////
-//// ## Custom Context
+//// ## Custom Context and Services
 ////
-//// By default, Dream uses `AppContext` with just a `request_id` field. For most apps,
-//// you'll want to define your own context type to hold user auth, session data, etc:
+//// By default, Dream uses `EmptyContext` (no per-request data) and `EmptyServices` (no shared
+//// dependencies). For most production apps, you'll want to define your own types:
 ////
 //// ```gleam
+//// import dream/servers/mist/server.{context, listen, router, services}
+//// import gleam/option.{None}
+//// 
 //// pub type MyContext {
-////   MyContext(request_id: String, user: Option(User), session: Session)
+////   MyContext(request_id: String, user: option.Option(User), session: Session)
 //// }
 ////
-//// dream.new()
-//// |> dream.context(MyContext(request_id: "", user: None, session: empty_session()))
-//// |> dream.services(initialize_services())
-//// |> dream.router(create_router())
-//// |> dream.listen(3000)
+//// server.new()
+//// |> context(MyContext(request_id: "", user: None, session: empty_session()))
+//// |> services(initialize_services())
+//// |> router(create_router())
+//// |> listen(3000)
 //// ```
 ////
 //// The type system ensures your controllers receive the correct context type.
 
-import dream/context.{type AppContext}
+import dream/context.{type EmptyContext, EmptyContext}
 import dream/dream
-import dream/router.{type EmptyServices, type Router}
+import dream/router.{type EmptyServices, type Router, EmptyServices}
 import dream/servers/mist/handler
 import gleam/bytes_tree
 import gleam/erlang/process
@@ -50,21 +52,36 @@ import mist.{type Connection, type ResponseData, Bytes, start}
 
 /// Create a new Dream server with defaults
 ///
-/// Returns a server configured with `AppContext` (just a `request_id` field) and
-/// `EmptyServices` (no dependencies). You'll typically chain this with `context()`,
-/// `services()`, and `router()` before calling `listen()`.
+/// Returns a server configured with `EmptyContext` (no per-request data) and
+/// `EmptyServices` (no dependencies). For simple applications, you only need to add
+/// a router. For more complex apps, use `context()` and `services()` to provide your
+/// own types before calling `listen()`.
 ///
-/// ## Example
+/// ## Simple Example (no context or services)
 ///
 /// ```gleam
-/// dream.new()
-/// |> dream.services(my_services)
-/// |> dream.router(my_router)
-/// |> dream.listen(3000)
+/// import dream/servers/mist/server.{listen, router}
+/// 
+/// server.new()
+/// |> router(my_router)
+/// |> listen(3000)
+/// ```
+///
+/// ## With Custom Context and Services
+///
+/// ```gleam
+/// import dream/servers/mist/server.{context, listen, router, services}
+/// import gleam/option.{None}
+/// 
+/// server.new()
+/// |> context(MyContext(request_id: "", user: None))
+/// |> services(my_services)
+/// |> router(my_router)
+/// |> listen(3000)
 /// ```
 pub fn new() -> dream.Dream(
   mist.Builder(Connection, ResponseData),
-  AppContext,
+  EmptyContext,
   EmptyServices,
 ) {
   dream.Dream(
@@ -73,8 +90,8 @@ pub fn new() -> dream.Dream(
       |> http_response.set_body(Bytes(bytes_tree.new()))
     }),
     router: option.None,
-    context: context.AppContext(request_id: ""),
-    services: option.None,
+    context: EmptyContext,
+    services: option.Some(EmptyServices),
     max_body_size: 9_223_372_036_854_775_807,
     // Maximum 64-bit signed integer - effectively infinite for practical purposes
   )

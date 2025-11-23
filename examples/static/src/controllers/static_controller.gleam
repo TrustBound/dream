@@ -1,6 +1,6 @@
 //// Static file serving controllers for the example app
 
-import dream/context.{type AppContext}
+import dream/context.{type EmptyContext}
 import dream/controllers/static
 import dream/http/request.{type Request, get_param}
 import dream/http/response.{type Response, html_response}
@@ -11,7 +11,7 @@ import gleam/string
 /// Serve files from /public with directory listing
 pub fn serve_public(
   request: Request,
-  context: AppContext,
+  context: EmptyContext,
   services: EmptyServices,
 ) -> Response {
   let assert Ok(param) = get_param(request, "filepath")
@@ -29,7 +29,7 @@ pub fn serve_public(
 /// Serve files from /assets without index serving
 pub fn serve_assets(
   request: Request,
-  context: AppContext,
+  context: EmptyContext,
   services: EmptyServices,
 ) -> Response {
   let assert Ok(param) = get_param(request, "filepath")
@@ -47,7 +47,7 @@ pub fn serve_assets(
 /// Single-segment named wildcard: /files/*filename
 pub fn serve_single_file(
   request: Request,
-  context: AppContext,
+  context: EmptyContext,
   services: EmptyServices,
 ) -> Response {
   let assert Ok(param) = get_param(request, "filename")
@@ -66,7 +66,7 @@ pub fn serve_single_file(
 /// No parameters captured, extract from path
 pub fn health_status(
   request: Request,
-  _context: AppContext,
+  _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
   html_response(
@@ -81,7 +81,7 @@ pub fn health_status(
 /// Anonymous extension pattern, extract from path
 pub fn serve_css_only(
   request: Request,
-  context: AppContext,
+  context: EmptyContext,
   services: EmptyServices,
 ) -> Response {
   // Extract filename from /css/filename.css
@@ -101,7 +101,7 @@ pub fn serve_css_only(
 /// Anonymous extension pattern, extract from path
 pub fn serve_image_file(
   request: Request,
-  context: AppContext,
+  context: EmptyContext,
   services: EmptyServices,
 ) -> Response {
   // Extract filename from /images/filename.ext
@@ -121,7 +121,7 @@ pub fn serve_image_file(
 /// Anonymous patterns, extract from path
 pub fn serve_photo(
   request: Request,
-  context: AppContext,
+  context: EmptyContext,
   services: EmptyServices,
 ) -> Response {
   // Extract path from /photos/path/to/file.ext
@@ -140,7 +140,7 @@ pub fn serve_photo(
 /// Serve with custom 404
 pub fn serve_with_custom_404(
   request: Request,
-  context: AppContext,
+  context: EmptyContext,
   services: EmptyServices,
 ) -> Response {
   let assert Ok(param) = get_param(request, "filepath")

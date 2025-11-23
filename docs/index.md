@@ -23,8 +23,11 @@ Dream is a web toolkit that gets out of your way. It provides type-safe routing,
 - [Authentication](guides/authentication.md) - JWT, Sessions, Context
 - [Controllers & Models](guides/controllers-and-models.md) - MVC Patterns
 - [Multiple Formats](guides/multiple-formats.md) - JSON, HTML, HTMX
+- [Streaming](guides/streaming.md) - File uploads, SSE, large responses
 - [Operations](guides/operations.md) - Complex Business Logic
 - [Testing](guides/testing.md) - Unit and Integration Testing
+- [REST API](guides/rest-api.md) - Production API patterns
+- [Deployment](guides/deployment.md) - Production deployment
 
 ### 📖 [Concepts](concepts.md)
 **Core concepts explained.** Understanding how Dream works.

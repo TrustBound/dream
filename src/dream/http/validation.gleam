@@ -22,18 +22,16 @@
 //// }
 ////
 //// pub fn create(request, context, services) {
-////   case validation.validate_json(request.body, user_decoder) {
-////     Ok(user) -> 
-////       // Valid user data, proceed with business logic
-////       create_user(services.db, user)
-////     
-////     Error(err) -> 
-////       // Validation failed, return error response
-////       response.json_response(
-////         status.bad_request,
-////         error_json(err.message)
-////       )
+////   let validation_result = validation.validate_json(request.body, user_decoder)
+////   
+////   case validation_result {
+////     Ok(user) -> create_user(services.db, user)
+////     Error(err) -> create_validation_error_response(err)
 ////   }
+//// }
+//// 
+//// fn create_validation_error_response(err: ValidationError) -> Response {
+////   response.json_response(status.bad_request, error_json(err.message))
 //// }
 //// ```
 ////
@@ -99,9 +97,9 @@ pub type ValidationError {
 /// ## Example
 ///
 /// ```gleam
-/// import dream/http/validation
-/// import dream/http/response
-/// import dream/http/status
+/// import dream/http/response.{json_response}
+/// import dream/http/status.{bad_request, created}
+/// import dream/http/validation.{validate_json}
 /// import gleam/dynamic/decode
 /// import gleam/json
 ///
@@ -117,23 +115,20 @@ pub type ValidationError {
 /// }
 ///
 /// pub fn create_post(request, context, services) {
-///   case validation.validate_json(request.body, post_decoder) {
+///   case validate_json(request.body, post_decoder) {
 ///     Ok(post) -> {
 ///       // Valid post data - proceed with business logic
 ///       let created = insert_post(services.db, post)
-///       response.json_response(status.created, post_to_json(created))
+///       json_response(created, post_to_json(created))
 ///     }
 ///     
 ///     Error(err) -> {
-///       // Validation failed - return error response
+///       let field_json = format_field_as_json(err.field)
 ///       let error_json = json.object([
 ///         #("error", json.string(err.message)),
-///         #("field", case err.field {
-///           Some(f) -> json.string(f)
-///           None -> json.null()
-///         })
+///         #("field", field_json)
 ///       ])
-///       response.json_response(status.bad_request, json.to_string(error_json))
+///       json_response(bad_request, json.to_string(error_json))
 ///     }
 ///   }
 /// }

@@ -6,11 +6,11 @@
 //// ## Example
 ////
 //// ```gleam
-//// import dream/http/status
-//// import dream/http/response
+//// import dream/http/response.{text_response}
+//// import dream/http/status.{ok}
 ////
 //// pub fn index(request, context, services) {
-////   response.text_response(status.ok, "Hello, World!")
+////   text_response(ok, "Hello, World!")
 //// }
 //// ```
 

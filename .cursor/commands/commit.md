@@ -7,6 +7,8 @@
 
 The format of the conventional commit message should be:
 
+Read https://www.conventionalcommits.org/en/v1.0.0/#specification carefully before creating the commit message.
+
 ```
 {scope}: {descriptive name of change}
 

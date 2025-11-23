@@ -27,12 +27,11 @@ fn index(
 
 pub fn main() {
   let app_router =
-    router
+    router()
     |> route(method: Get, path: "/", controller: index, middleware: [])
 
   server.new()
-  |> services(EmptyServices)
-  |> set_router(app_router)
+  |> router(app_router)
   |> bind("localhost")
   |> listen(3000)
 }
@@ -70,7 +69,7 @@ The underscores (`_request`, `_context`, `_services`) mean we're not using those
 
 ```gleam
 let app_router =
-  router
+  router()
   |> route(method: Get, path: "/", controller: index, middleware: [])
 ```
 
@@ -84,19 +83,17 @@ The router matches incoming requests to controllers:
 
 ```gleam
 server.new()
-|> services(EmptyServices)
-|> set_router(app_router)
+|> router(app_router)
 |> bind("localhost")
 |> listen(3000)
 ```
 
 This configures and starts the server:
-- `services()` - No services yet (no database, no HTTP client)
-- `set_router()` - Use our router
+- `router()` - Use our router
 - `bind()` - Listen on localhost only
 - `listen()` - Start on port 3000
 
-**Note:** When using Dream's default `AppContext`, you don't need to call `context()` - it's automatic. We'll see custom context in Lesson 3.
+**Note:** Dream defaults to `EmptyContext` and `EmptyServices`. For simple apps, you only need to provide a router! We'll see custom context and services in later lessons.
 
 ## What You Learned
 

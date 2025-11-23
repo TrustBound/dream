@@ -19,14 +19,12 @@
 ////   # Make multiple requests to trigger rate limiting
 ////   for i in {1..15}; do curl http://localhost:3000/api; echo ""; done
 
-import dream/context
-import dream/servers/mist/server.{bind, context, listen, router, services} as dream
+import dream/servers/mist/server.{bind, listen, router, services} as dream
 import router.{create_router}
 import services.{initialize_services}
 
 pub fn main() {
   dream.new()
-  |> context(context.AppContext(request_id: ""))
   |> services(initialize_services())
   |> router(create_router())
   |> bind("localhost")

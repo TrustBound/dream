@@ -27,6 +27,7 @@ fn create_request(params: List(#(String, String)), body: String) -> Request {
     port: option.None,
     remote_address: option.None,
     body: body,
+    stream: option.None,
     headers: [],
     cookies: [],
     content_type: option.None,

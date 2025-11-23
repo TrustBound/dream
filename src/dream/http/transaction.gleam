@@ -8,11 +8,12 @@
 //// Extract and convert path parameters from routes:
 ////
 //// ```gleam
-//// pub fn show_user(request: Request, _ctx, _services) -> Response {
-////   case get_int_param(request, "id") {
-////     Ok(id) -> // id is an Int
-////       json_response(status.ok, user_to_json(id))
-////     Error(msg) -> json_response(status.bad_request, error_json(msg))
+//// pub fn show_user(request: Request, _context, _services) -> Response {
+////   let result = get_int_param(request, "id")
+////   
+////   case result {
+////     Ok(id) -> json_response(ok, user_to_json(id))
+////     Error(msg) -> json_response(bad_request, error_json(msg))
 ////   }
 //// }
 //// ```
@@ -23,13 +24,16 @@
 ////
 //// ```gleam
 //// // Request to /users/123.json
-//// case get_param(request, "id") {
+//// let result = get_param(request, "id")
+//// 
+//// case result {
 ////   Ok(param) -> {
-////     param.value  // "123"
-////     param.format // Some("json")
-////     param.as_int // Ok(123)
+////     // param.value is "123"
+////     // param.format is Some("json")
+////     // param.as_int is Ok(123)
+////     use_param_data(param)
 ////   }
-////   Error(msg) -> // handle error
+////   Error(msg) -> handle_param_error(msg)
 //// }
 //// ```
 ////
@@ -235,13 +239,24 @@ pub fn header_value(header: Header) -> String {
 /// Get the value of a header by name (case-insensitive)
 pub fn get_header(headers: List(Header), name: String) -> option.Option(String) {
   let normalized_name = string.lowercase(name)
+  get_header_recursive(headers, normalized_name)
+}
+
+/// Recursively search for a header by normalized name
+fn get_header_recursive(
+  headers: List(Header),
+  normalized_name: String,
+) -> option.Option(String) {
   case headers {
     [] -> option.None
-    [Header(header_name, value), ..rest] ->
-      case string.lowercase(header_name) == normalized_name {
+    [Header(header_name, value), ..rest] -> {
+      let header_normalized = string.lowercase(header_name)
+      let matches = header_normalized == normalized_name
+      case matches {
         True -> option.Some(value)
-        False -> get_header(rest, name)
+        False -> get_header_recursive(rest, normalized_name)
       }
+    }
   }
 }
 
@@ -263,11 +278,13 @@ pub fn set_header(
   value: String,
 ) -> List(Header) {
   let normalized_name = string.lowercase(name)
-  let filtered =
-    list.filter(headers, fn(header) {
-      string.lowercase(header_name(header)) != normalized_name
-    })
+  let filtered = list.filter(headers, header_name_mismatch(normalized_name))
   [Header(name, value), ..filtered]
+}
+
+/// Check if a header's name doesn't match the normalized name
+fn header_name_mismatch(normalized_name: String) -> fn(Header) -> Bool {
+  fn(header) { string.lowercase(header_name(header)) != normalized_name }
 }
 
 /// Add a header without removing existing ones with the same name
@@ -282,9 +299,7 @@ pub fn add_header(
 /// Remove a header by name (case-insensitive)
 pub fn remove_header(headers: List(Header), name: String) -> List(Header) {
   let normalized_name = string.lowercase(name)
-  list.filter(headers, fn(header) {
-    string.lowercase(header_name(header)) != normalized_name
-  })
+  list.filter(headers, header_name_mismatch(normalized_name))
 }
 
 // Cookie utilities
@@ -292,13 +307,24 @@ pub fn remove_header(headers: List(Header), name: String) -> List(Header) {
 /// Get a cookie by name (case-insensitive)
 pub fn get_cookie(cookies: List(Cookie), name: String) -> option.Option(Cookie) {
   let normalized_name = string.lowercase(name)
+  get_cookie_recursive(cookies, normalized_name)
+}
+
+/// Recursively search for a cookie by normalized name
+fn get_cookie_recursive(
+  cookies: List(Cookie),
+  normalized_name: String,
+) -> option.Option(Cookie) {
   case cookies {
     [] -> option.None
-    [cookie, ..rest] ->
-      case string.lowercase(cookie_name(cookie)) == normalized_name {
+    [cookie, ..rest] -> {
+      let cookie_normalized = string.lowercase(cookie_name(cookie))
+      let matches = cookie_normalized == normalized_name
+      case matches {
         True -> option.Some(cookie)
-        False -> get_cookie(rest, name)
+        False -> get_cookie_recursive(rest, normalized_name)
       }
+    }
   }
 }
 
@@ -316,19 +342,25 @@ pub fn get_cookie_value(
 /// Set or replace a cookie
 pub fn set_cookie(cookies: List(Cookie), cookie: Cookie) -> List(Cookie) {
   let normalized_name = string.lowercase(cookie_name(cookie))
-  let filtered =
-    list.filter(cookies, fn(existing_cookie) {
-      string.lowercase(cookie_name(existing_cookie)) != normalized_name
-    })
+  let filtered = list.filter(cookies, cookie_name_mismatch(normalized_name))
   [cookie, ..filtered]
 }
 
 /// Remove a cookie by name
 pub fn remove_cookie(cookies: List(Cookie), name: String) -> List(Cookie) {
   let normalized_name = string.lowercase(name)
-  list.filter(cookies, fn(cookie) {
-    string.lowercase(cookie_name(cookie)) != normalized_name
-  })
+  list.filter(cookies, cookie_name_mismatch(normalized_name))
+}
+
+/// Check if a cookie's name doesn't match the normalized name
+/// Returns a function that can be used with list.filter
+fn cookie_name_mismatch(normalized_name: String) -> fn(Cookie) -> Bool {
+  check_cookie_name_mismatch(normalized_name)
+}
+
+/// Check if a cookie's name doesn't match the normalized name
+fn check_cookie_name_mismatch(normalized_name: String) -> fn(Cookie) -> Bool {
+  fn(cookie) { string.lowercase(cookie_name(cookie)) != normalized_name }
 }
 
 // Method conversion utilities

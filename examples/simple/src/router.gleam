@@ -1,10 +1,10 @@
 import controllers/posts_controller
-import dream/context.{type AppContext}
+import dream/context.{type EmptyContext}
 import dream/http/request.{Get}
 import dream/router.{type EmptyServices, type Router, route, router}
 
-pub fn create_router() -> Router(AppContext, EmptyServices) {
-  router
+pub fn create_router() -> Router(EmptyContext, EmptyServices) {
+  router()
   |> route(
     method: Get,
     path: "/",

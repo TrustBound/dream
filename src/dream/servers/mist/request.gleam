@@ -12,7 +12,6 @@ import dream/http/request.{
   type Method, type Request, Delete, Get, Head, Http, Http1, Https, Options,
   Patch, Post, Put, Request,
 }
-import gleam/bit_array
 import gleam/erlang/process
 import gleam/http.{
   type Method as HttpMethod, Connect as HttpConnect, Delete as HttpDelete,
@@ -45,52 +44,28 @@ import mist.{type Connection, type IpAddress, get_client_info}
 /// ```
 pub fn generate_request_id() -> String {
   // Simple ID generation - in production you might want to use UUID
-  let pid = process.self()
-  let pid_string = string.inspect(pid)
-  pid_string
+  let process_id = process.self()
+  let process_id_string = string.inspect(process_id)
+  process_id_string
 }
 
-/// Convert Mist request to Dream request format
+/// Convert Mist request metadata to Dream request format
 ///
-/// Converts a Mist HTTP request (with Erlang/BEAM specific types) to
-/// Dream's unified request format. This includes converting:
-///
-/// - HTTP method (from gleam/http to dream/http/request)
-/// - Protocol and version (HTTP/HTTPS, HTTP/1.1)
-/// - Headers and cookies
-/// - Request body (from BitArray to String)
-/// - Client information (IP address, port)
-///
-/// Returns a tuple with the Dream Request and a generated request ID.
+/// Converts a Mist HTTP request (headers, method, path, etc.) to Dream's
+/// unified request format, but leaves the body empty. The body handling
+/// is deferred until after route matching to support streaming.
 ///
 /// ## Parameters
 ///
 /// - `mist_req`: The original Mist request with Connection
-/// - `req_with_body`: The same request but with body read as BitArray
 ///
 /// ## Returns
 ///
 /// A tuple of `#(Dream Request, request_id)` where:
-/// - Dream Request contains all HTTP data in Dream's format
+/// - Dream Request contains all HTTP metadata (empty body)
 /// - request_id is a unique identifier for this request
-///
-/// ## Example
-///
-/// ```gleam
-/// // Internal use - normally called by the request handler
-/// let body_result = mist.read_body(mist_req, max_body_limit: 10_000_000)
-///
-/// case body_result {
-///   Ok(req_with_body) -> {
-///     let #(dream_req, request_id) = convert(mist_req, req_with_body)
-///     // Now use dream_req in your router
-///   }
-///   Error(_) -> // Handle error
-/// }
-/// ```
-pub fn convert(
+pub fn convert_metadata(
   mist_req: http_request.Request(Connection),
-  req_with_body: http_request.Request(BitArray),
 ) -> #(Request, String) {
   // Generate request_id for context creation
   let request_id = generate_request_id()
@@ -128,11 +103,6 @@ pub fn convert(
     |> result.try(int.parse)
     |> option.from_result
 
-  // Convert body to string
-  let body_string =
-    bit_array.to_string(req_with_body.body)
-    |> result.unwrap("")
-
   // Get client info
   let client_info = get_client_info(mist_req.body)
   let remote_address = case client_info {
@@ -154,7 +124,8 @@ pub fn convert(
       host: option.Some(mist_req.host),
       port: mist_req.port,
       remote_address: remote_address,
-      body: body_string,
+      body: "",
+      stream: option.None,
       headers: headers,
       cookies: cookies,
       content_type: content_type,

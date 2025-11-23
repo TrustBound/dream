@@ -30,7 +30,7 @@ pub type Route(context, services) {
 **Builder pattern:**
 
 ```gleam
-router
+router()
 |> route(method: Get, path: "/", controller: index, middleware: [])
 |> route(method: Post, path: "/users", controller: create, middleware: [auth])
 ```
@@ -38,6 +38,10 @@ router
 **Path parameters:**
 
 Paths like `/users/:id/posts/:post_id` are parsed into patterns. Parameters are extracted and validated via `require_int(request, "id")` or `require_string(request, "id")`, which return `Result` types for safe error handling.
+
+**Parameter Validation:** Path parameters like `:id` are extracted and validated at runtime using functions like `require_int(request, "id")` which return `Result` types. The compiler does not verify that parameter names in your routes match those in your controllers—this is an intentional design decision favoring ergonomic APIs over compile-time guarantees. See [Discussion #15](https://github.com/TrustBound/dream/discussions/15) for exploration of type-safe alternatives.
+
+**Performance:** The router uses a radix trie internally for O(path depth) lookup, making route matching extremely fast regardless of the number of routes. Benchmark results show ~1.3-1.5μs per lookup whether you have 100 or 1000 routes.
 
 ### 2. Server
 
@@ -60,8 +64,15 @@ pub type Dream(server, context, services) {
 **Builder pattern:**
 
 ```gleam
+// Simple apps (no custom context or services needed)
 dream.new()
-|> context(AppContext(request_id: ""))
+|> router(create_router())
+|> bind("localhost")
+|> listen(3000)
+
+// With custom context and services
+dream.new()
+|> context(MyContext(request_id: "", user: None))
 |> services(initialize_services())
 |> router(create_router())
 |> bind("localhost")
@@ -194,7 +205,7 @@ Every configurable component uses the builder pattern:
 dream.new() |> router(...) |> bind(...) |> listen(3000)
 
 // Router
-router |> route(...) |> route(...)
+router() |> route(...) |> route(...)
 
 // HTTP Client
 client.new |> method(...) |> host(...) |> path(...)

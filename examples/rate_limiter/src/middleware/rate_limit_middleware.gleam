@@ -3,7 +3,7 @@
 //// Middleware that enforces rate limits using dream_ets.
 //// Demonstrates practical use of services and middleware together.
 
-import dream/context.{type AppContext}
+import dream/context.{type EmptyContext}
 import dream/http/header.{add_header, get_header}
 import dream/http/request.{type Request}
 import dream/http/response.{type Response, Response, text_response}
@@ -18,9 +18,9 @@ import services/rate_limiter_service
 /// Checks request rate for the client IP and enforces limits
 pub fn rate_limit_middleware(
   request: Request,
-  context: AppContext,
+  context: EmptyContext,
   services: Services,
-  next: fn(Request, AppContext, Services) -> Response,
+  next: fn(Request, EmptyContext, Services) -> Response,
 ) -> Response {
   let ip = get_client_ip(request)
 
@@ -34,9 +34,9 @@ pub fn rate_limit_middleware(
 fn handle_rate_limit_result(
   status: rate_limiter_service.RateLimitStatus,
   request: Request,
-  context: AppContext,
+  context: EmptyContext,
   services: Services,
-  next: fn(Request, AppContext, Services) -> Response,
+  next: fn(Request, EmptyContext, Services) -> Response,
 ) -> Response {
   let rate_limiter_service.RateLimitStatus(allowed, remaining, limit) = status
 
@@ -56,9 +56,9 @@ fn handle_rate_limit_result(
 
 fn allow_request_with_headers(
   request: Request,
-  context: AppContext,
+  context: EmptyContext,
   services: Services,
-  next: fn(Request, AppContext, Services) -> Response,
+  next: fn(Request, EmptyContext, Services) -> Response,
   remaining: Int,
   limit: Int,
 ) -> Response {
@@ -100,9 +100,9 @@ fn add_retry_after_header(response: Response) -> Response {
 
 fn handle_service_error(
   request: Request,
-  context: AppContext,
+  context: EmptyContext,
   services: Services,
-  next: fn(Request, AppContext, Services) -> Response,
+  next: fn(Request, EmptyContext, Services) -> Response,
 ) -> Response {
   // Service error - fail open (allow request)
   // In production, you might want to fail closed instead

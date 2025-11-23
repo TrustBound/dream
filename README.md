@@ -21,49 +21,116 @@ Dream is a web toolkit for building servers. It's not a framework—you control 
 
 ## A Complete Example
 
-Here's a working web server. Every line explained:
+Here's a working web server with middleware:
 
 ```gleam
-import dream/context
+// Import Dream's empty context type (no per-request data needed)
+import dream/context.{type EmptyContext}
+
+// Import parameter validation helper and error handling
+import dream/http.{require_string}
+import dream/http/error
+
+// Import request types
 import dream/http/request.{type Request, Get}
+
+// Import response types and builders
 import dream/http/response.{type Response, text_response}
-import dream/http/status
-import dream/router.{type EmptyServices, route, router}
-import dream/servers/mist/server.{
-  bind, context, listen, router as set_router, services,
-}
 
-// This is a controller action: a function that handles HTTP requests
-// It takes: the request, context (per-request data), and services (shared dependencies)
-// It returns: an HTTP response
-fn index(
-  _request: Request,           // The HTTP request (we don't use it here)
-  _context: context.AppContext, // Per-request data (request ID, user, etc.)
-  _services: EmptyServices,     // Shared dependencies (database, cache, etc.)
+// Import HTTP status codes
+import dream/http/status.{bad_request, ok}
+
+// Import routing helpers
+import dream/router.{type EmptyServices, route, router as create_router}
+
+// Import server setup functions
+import dream/servers/mist/server.{bind, listen, router}
+
+// Import Gleam standard library
+import gleam/int
+import gleam/io
+import gleam/result
+
+// Middleware: Functions that wrap controllers
+// Signature: (Request, Context, Services, NextFunction) -> Response
+// This logging middleware demonstrates how middleware wraps controllers:
+// 1. Code runs BEFORE the controller (request flows in)
+// 2. Call `next()` to invoke the controller
+// 3. Code runs AFTER the controller (response flows out)
+fn logging_middleware(
+  request: Request,
+  context: EmptyContext,
+  services: EmptyServices,
+  next: fn(Request, EmptyContext, EmptyServices) -> Response,
 ) -> Response {
-  // Return a plain text response with status 200
-  text_response(status.ok, "Hello, World!")
+  // Code here runs BEFORE the controller
+  io.println("Incoming request: " <> request.path)
+
+  // Call the next middleware or controller
+  let response = next(request, context, services)
+
+  // Code here runs AFTER the controller
+  io.println("Completed with status: " <> int.to_string(response.status))
+
+  // Return the response (we can modify it here if needed)
+  response
 }
 
-// This is your main function - it sets up and starts the server
-pub fn main() {
-  // Create a router and define one route
-  // When someone visits "/", call the index function
-  let app_router =
-    router
-    |> route(method: Get, path: "/", controller: index, middleware: [])
+// Controller: A function that handles HTTP requests
+// Signature: (Request, Context, Services) -> Response
+// Controllers extract parameters, do work, and return responses
+fn handle_echo(
+  request: Request,
+  _context: EmptyContext,
+  // Underscore prefix means "unused"
+  _services: EmptyServices,
+) -> Response {
+  // Use a result block to chain operations that return Result types
+  let result = {
+    // Extract and validate the "message" parameter from the URL
+    // require_string returns Result(String, Error)
+    use message <- result.try(require_string(request, "message"))
+    Ok(message)
+  }
 
-  // Build the server configuration
+  // Pattern match on the result to build the appropriate response
+  case result {
+    Ok(message) -> text_response(ok, "Hello, " <> message <> "!")
+    Error(error) -> text_response(bad_request, error.message)
+  }
+}
+
+// Main entry point: Set up and start the web server
+pub fn main() {
+  // Create a router with one route
+  // The route has a path parameter `:message` that gets extracted automatically
+  let app_router =
+    create_router()
+    |> route(
+      method: Get,
+      // Only match GET requests
+      path: "/echo/:message",
+      // :message is a path parameter
+      controller: handle_echo,
+      // Function to call when route matches
+      middleware: [logging_middleware],
+      // Middleware wraps the controller
+    )
+
+  // Configure and start the server using the builder pattern
   server.new()
-    |> context(context.AppContext(request_id: ""))  // Default context (just a request ID)
-    |> services(router.EmptyServices)                // No shared services yet
-    |> set_router(app_router)                        // Use the router we created
-    |> bind("localhost")                             // Listen on localhost
-    |> listen(3000)                                  // Port 3000
+  // Defaults to EmptyContext and EmptyServices - perfect for simple apps!
+  |> router(app_router)
+  // Use the router we created above
+  |> bind("localhost")
+  // Listen on localhost only
+  |> listen(3000)
+  // Start listening on port 3000
 }
 ```
 
-**Run this:** `gleam run` → Visit `http://localhost:3000` → See "Hello, World!"
+**Run this:** `gleam run` → Visit `http://localhost:3000/echo/World` → See `Hello, World!`  
+**Middleware logs:** Request path before, response status after. No configuration needed!
 
 ## Why This Approach?
 
@@ -71,7 +138,7 @@ pub fn main() {
 
 **Controller actions are just functions.** No base classes, no decorators, no inheritance. Extract parameters, do work, return a response.
 
-**Type-safe routing.** The compiler verifies your routes match your controllers. Change a function signature? The compiler shows you every route that needs updating.
+**Type-safe controllers.** The compiler verifies your context and services types match across all controllers. However, path parameters are validated at runtime, not compile-time—this trade-off favors API ergonomics over compile-time safety. See [Discussion #15](https://github.com/TrustBound/dream/discussions/15) for details.
 
 **Composable, not opinionated.** Use Dream's patterns, or build your own. It's just functions and data.
 

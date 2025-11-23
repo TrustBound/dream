@@ -6,7 +6,7 @@ import dream/router.{type Router, route, router}
 import services.{type Services}
 
 pub fn create_router() -> Router(DatabaseContext, Services) {
-  router
+  router()
   |> route(
     method: Get,
     path: "/users",

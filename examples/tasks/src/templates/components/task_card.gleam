@@ -14,25 +14,14 @@ pub fn render_tree(
   delete_button delete_button: String,
 ) -> StringTree {
   let tree = string_tree.from_string("")
-  let tree =
-    string_tree.append(
-      tree,
-      "<article 
-  id=\"task-",
-    )
+  let tree = string_tree.append(tree, "<article id=\"task-")
   let tree = string_tree.append(tree, task_id)
-  let tree =
-    string_tree.append(
-      tree,
-      "\" 
-  ",
-    )
+  let tree = string_tree.append(tree, "\" ")
   let tree = string_tree.append(tree, attributes)
   let tree =
     string_tree.append(
       tree,
-      "
-  onclick=\"closeAllEditorsBeforeEdit(event, this)\">
+      " onclick=\"closeAllEditorsBeforeEdit(event, this)\">
   ",
     )
   let tree = string_tree.append(tree, checkbox_html)
@@ -88,9 +77,7 @@ pub fn render_tree(
       tree,
       "
   </aside>
-</article>
-
-",
+</article>",
     )
 
   tree

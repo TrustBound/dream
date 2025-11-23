@@ -108,12 +108,17 @@ pub fn index_returns_list_of_users_test() {
 Create test helpers in `test/your_app/test_helpers.gleam`:
 
 ```gleam
+import dream/context.{type EmptyContext, EmptyContext}
 import dream/services/service.{DatabaseService}
-import your_app/context.{AppContext}
+import your_app/context.{MyContext}
 import your_app/services.{Services}
 
-pub fn test_context() -> AppContext {
-  AppContext(request_id: "test-request-id")
+pub fn test_empty_context() -> EmptyContext {
+  EmptyContext
+}
+
+pub fn test_context() -> MyContext {
+  MyContext(request_id: "test-request-id", user: None)
 }
 
 pub fn test_request() -> Request {

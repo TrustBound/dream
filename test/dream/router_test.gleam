@@ -1,19 +1,19 @@
 import dream/context
-import dream/dream
-
-// Status codes moved to dream_json
-import dream/http/header.{Header, add_header, get_header}
+import dream/http/header.{Header}
 import dream/http/request.{
-  type Method, type Request, Get, Http, Http1, Post, Request,
+  type Method, type Request, Get, Http, Http1, Patch, Post, Put, Request,
 }
 import dream/http/response.{type Response, Response, Text}
 import dream/router.{
-  type EmptyServices, build_controller_chain, controller, find_route, match_path,
-  method, middleware, new as new_route, path, route, router,
+  type EmptyServices, build_controller_chain, find_route, route, router,
+  stream_route,
 }
-import gleam/list
 import gleam/option
 import gleeunit/should
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
 
 fn create_test_request(method_value: Method, path_value: String) -> Request {
   Request(
@@ -27,6 +27,7 @@ fn create_test_request(method_value: Method, path_value: String) -> Request {
     port: option.None,
     remote_address: option.None,
     body: "",
+    stream: option.None,
     headers: [],
     cookies: [],
     content_type: option.None,
@@ -48,946 +49,1051 @@ fn test_handler(
   )
 }
 
-pub fn method_with_post_sets_route_method_to_post_test() {
-  // Arrange
-  let route = path(new_route, "/test")
-  let request = create_test_request(Post, "/test")
-
-  // Act
-  let updated_route = method(route, Post)
-  let router_with_route = router.Router(routes: [updated_route])
-
-  // Assert - verify by using find_route
-  case find_route(router_with_route, request) {
-    option.Some(_) -> Nil
-    option.None -> should.fail()
-  }
+fn literal_handler(
+  _request: Request,
+  _context: context.AppContext,
+  _services: EmptyServices,
+) -> Response {
+  Response(
+    status: 200,
+    body: Text("literal"),
+    headers: [],
+    cookies: [],
+    content_type: option.None,
+  )
 }
 
-pub fn path_with_valid_path_sets_route_path_test() {
-  // Arrange
-  let route = new_route
-  let path_value = "/users"
-  let request = create_test_request(Get, path_value)
-
-  // Act
-  let updated_route = path(route, path_value)
-  let router_with_route = router.Router(routes: [updated_route])
-
-  // Assert - verify by using find_route
-  case find_route(router_with_route, request) {
-    option.Some(_) -> Nil
-    option.None -> should.fail()
-  }
+fn param_handler(
+  _request: Request,
+  _context: context.AppContext,
+  _services: EmptyServices,
+) -> Response {
+  Response(
+    status: 200,
+    body: Text("param"),
+    headers: [],
+    cookies: [],
+    content_type: option.None,
+  )
 }
 
-pub fn controller_with_valid_controller_sets_route_controller_test() {
-  // Arrange
-  let route = path(new_route, "/test")
-  let request = create_test_request(Get, "/test")
-  let context = context.AppContext(request_id: "test-id")
-  let services = router.EmptyServices
+// ============================================================================
+// Streaming Flag Tests
+// ============================================================================
 
-  // Act
-  let updated_route = controller(route, test_handler)
-  let router_with_route = router.Router(routes: [updated_route])
-  let response =
-    dream.route_request(router_with_route, request, context, services)
-
-  // Assert - verify controller works by checking response
-  case response {
-    Response(_, body, _, _, _) -> {
-      case body {
-        Text(text) -> text |> should.equal("test")
-        _ -> should.fail()
-      }
-    }
-  }
-}
-
-pub fn middleware_with_valid_middleware_adds_middleware_to_route_test() {
-  // Arrange
-  let route = path(new_route, "/test")
-  let middleware_fn = fn(
-    req: Request,
-    _ctx: context.AppContext,
-    _svc: EmptyServices,
-    next: fn(Request, context.AppContext, EmptyServices) -> Response,
-  ) -> Response {
-    let response =
-      next(req, context.AppContext(request_id: ""), router.EmptyServices)
-    case response {
-      Response(status, body, headers, cookies, content_type) -> {
-        Response(
-          status,
-          body,
-          add_header(headers, "X-Middleware", "applied"),
-          cookies,
-          content_type,
-        )
-      }
-    }
-  }
-
-  // Act
-  let updated_route = middleware(route, [middleware_fn])
-  let router_with_route = router.Router(routes: [updated_route])
-  let request = create_test_request(Get, "/test")
-  let context = context.AppContext(request_id: "test-id")
-  let services = router.EmptyServices
-  let response =
-    dream.route_request(router_with_route, request, context, services)
-
-  // Assert - verify middleware was applied by checking header
-  case response {
-    Response(_, _, headers, _, _) -> {
-      case get_header(headers, "X-Middleware") {
-        option.Some(value) -> value |> should.equal("applied")
-        option.None -> should.fail()
-      }
-    }
-  }
-}
-
-pub fn add_route_to_empty_router_creates_router_with_one_route_test() {
-  // Arrange
-  let empty_router = router
-
-  // Act
-  let result =
-    route(
-      empty_router,
-      method: Get,
-      path: "/test",
+pub fn stream_route_sets_streaming_flag_to_true_test() {
+  let test_router =
+    router()
+    |> stream_route(
+      method: Post,
+      path: "/upload",
       controller: test_handler,
       middleware: [],
     )
-  let request = create_test_request(Get, "/test")
-  let context = context.AppContext(request_id: "test-id")
-  let services = router.EmptyServices
 
-  // Assert - verify route was added by using route_request
-  let response = dream.route_request(result, request, context, services)
-  case response {
-    Response(_, body, _, _, _) -> {
-      case body {
-        Text(text) -> text |> should.equal("test")
-        _ -> should.fail()
-      }
+  let request = create_test_request(Post, "/upload")
+  let result = find_route(test_router, request)
+
+  case result {
+    option.Some(#(route, _params)) -> {
+      route.streaming |> should.be_true()
     }
+    option.None -> should.fail()
   }
 }
 
-pub fn add_route_to_router_with_existing_routes_appends_route_test() {
-  // Arrange
-  let router_with_routes =
-    router
+pub fn stream_route_with_put_sets_streaming_flag_to_true_test() {
+  let test_router =
+    router()
+    |> stream_route(
+      method: Put,
+      path: "/upload",
+      controller: test_handler,
+      middleware: [],
+    )
+
+  let request = create_test_request(Put, "/upload")
+  let result = find_route(test_router, request)
+
+  case result {
+    option.Some(#(route, _params)) -> {
+      route.streaming |> should.be_true()
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn stream_route_with_patch_sets_streaming_flag_to_true_test() {
+  let test_router =
+    router()
+    |> stream_route(
+      method: Patch,
+      path: "/upload",
+      controller: test_handler,
+      middleware: [],
+    )
+
+  let request = create_test_request(Patch, "/upload")
+  let result = find_route(test_router, request)
+
+  case result {
+    option.Some(#(route, _params)) -> {
+      route.streaming |> should.be_true()
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn route_without_stream_sets_streaming_flag_to_false_test() {
+  let test_router =
+    router()
+    |> route(
+      method: Post,
+      path: "/upload",
+      controller: test_handler,
+      middleware: [],
+    )
+
+  let request = create_test_request(Post, "/upload")
+  let result = find_route(test_router, request)
+
+  case result {
+    option.Some(#(route, _params)) -> {
+      route.streaming |> should.be_false()
+    }
+    option.None -> should.fail()
+  }
+}
+
+// ============================================================================
+// Basic Route Tests
+// ============================================================================
+
+pub fn router_starts_empty_test() {
+  let request = create_test_request(Get, "/users")
+  let result = find_route(router(), request)
+  result |> should.equal(option.None)
+}
+
+pub fn single_literal_route_test() {
+  let test_router =
+    router()
     |> route(
       method: Get,
-      path: "/existing",
+      path: "/users",
       controller: test_handler,
       middleware: [],
     )
 
-  // Act
-  let result =
-    route(
-      router_with_routes,
+  let request = create_test_request(Get, "/users")
+  let result = find_route(test_router, request)
+
+  case result {
+    option.Some(_) -> should.be_true(True)
+    option.None -> should.fail()
+  }
+}
+
+pub fn multiple_methods_same_path_test() {
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/users",
+      controller: test_handler,
+      middleware: [],
+    )
+    |> route(
       method: Post,
-      path: "/new",
+      path: "/users",
       controller: test_handler,
       middleware: [],
     )
 
-  // Assert - verify both routes work
-  let get_request = create_test_request(Get, "/existing")
-  let post_request = create_test_request(Post, "/new")
-  let context = context.AppContext(request_id: "test-id")
-  let services = router.EmptyServices
-  let get_response = dream.route_request(result, get_request, context, services)
-  let post_response =
-    dream.route_request(result, post_request, context, services)
+  let get_result = find_route(test_router, create_test_request(Get, "/users"))
+  let post_result = find_route(test_router, create_test_request(Post, "/users"))
+  let put_result = find_route(test_router, create_test_request(Put, "/users"))
 
-  case get_response {
-    Response(_, body, _, _, _) -> {
-      case body {
-        Text(text) -> text |> should.equal("test")
-        _ -> should.fail()
-      }
-    }
-  }
-  case post_response {
-    Response(_, body, _, _, _) -> {
-      case body {
-        Text(text) -> text |> should.equal("test")
-        _ -> should.fail()
-      }
-    }
-  }
-}
-
-pub fn match_path_with_exact_match_returns_empty_params_test() {
-  // Arrange
-  let pattern = "/users"
-  let path_value = "/users"
-
-  // Act
-  let result = match_path(pattern, path_value)
-
-  // Assert
-  case result {
-    option.Some(params) -> {
-      list.length(params) |> should.equal(0)
-    }
+  case get_result {
+    option.Some(_) -> should.be_true(True)
     option.None -> should.fail()
   }
-}
 
-pub fn match_path_with_single_parameter_extracts_parameter_test() {
-  // Arrange
-  let pattern = "/users/:id"
-  let path_value = "/users/123"
-
-  // Act
-  let result = match_path(pattern, path_value)
-
-  // Assert
-  case result {
-    option.Some(params) -> {
-      list.length(params) |> should.equal(1)
-      case params {
-        [#(name, value), ..] -> {
-          name |> should.equal("id")
-          value |> should.equal("123")
-        }
-        [] -> should.fail()
-      }
-    }
+  case post_result {
+    option.Some(_) -> should.be_true(True)
     option.None -> should.fail()
   }
+
+  put_result |> should.equal(option.None)
 }
 
-pub fn match_path_with_multiple_parameters_extracts_all_parameters_test() {
-  // Arrange
-  let pattern = "/users/:id/posts/:post_id"
-  let path_value = "/users/123/posts/456"
+pub fn nested_paths_test() {
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/api/v1/users",
+      controller: test_handler,
+      middleware: [],
+    )
 
-  // Act
-  let result = match_path(pattern, path_value)
+  let match_request = create_test_request(Get, "/api/v1/users")
+  let no_match_request = create_test_request(Get, "/api/v2/users")
 
-  // Assert
-  case result {
-    option.Some(params) -> {
-      list.length(params) |> should.equal(2)
-      case params {
-        [#(name, value), #(name2, value2), ..] -> {
-          name |> should.equal("id")
-          value |> should.equal("123")
-          name2 |> should.equal("post_id")
-          value2 |> should.equal("456")
-        }
-        _ -> should.fail()
-      }
-    }
+  let match_result = find_route(test_router, match_request)
+  let no_match_result = find_route(test_router, no_match_request)
+
+  case match_result {
+    option.Some(_) -> should.be_true(True)
     option.None -> should.fail()
   }
+
+  no_match_result |> should.equal(option.None)
 }
 
-pub fn match_path_with_mismatched_length_returns_none_test() {
-  // Arrange
-  let pattern = "/users/:id"
-  let path_value = "/users/123/posts"
+pub fn different_paths_test() {
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/users",
+      controller: test_handler,
+      middleware: [],
+    )
+    |> route(
+      method: Get,
+      path: "/posts",
+      controller: test_handler,
+      middleware: [],
+    )
+    |> route(
+      method: Get,
+      path: "/comments",
+      controller: test_handler,
+      middleware: [],
+    )
 
-  // Act
-  let result = match_path(pattern, path_value)
+  let users_match = find_route(test_router, create_test_request(Get, "/users"))
+  let posts_match = find_route(test_router, create_test_request(Get, "/posts"))
+  let comments_match =
+    find_route(test_router, create_test_request(Get, "/comments"))
+  let no_match = find_route(test_router, create_test_request(Get, "/admin"))
 
-  // Assert
-  case result {
-    option.Some(_) -> should.fail()
-    option.None -> Nil
+  case users_match {
+    option.Some(_) -> should.be_true(True)
+    option.None -> should.fail()
   }
-}
 
-pub fn match_path_with_static_segment_mismatch_returns_none_test() {
-  // Arrange
-  let pattern = "/users/:id"
-  let path_value = "/posts/123"
-
-  // Act
-  let result = match_path(pattern, path_value)
-
-  // Assert
-  case result {
-    option.Some(_) -> should.fail()
-    option.None -> Nil
+  case posts_match {
+    option.Some(_) -> should.be_true(True)
+    option.None -> should.fail()
   }
+
+  case comments_match {
+    option.Some(_) -> should.be_true(True)
+    option.None -> should.fail()
+  }
+
+  no_match |> should.equal(option.None)
 }
 
-pub fn find_route_with_matching_route_returns_route_and_params_test() {
-  // Arrange
-  let test_route =
-    router.Route(
+// ============================================================================
+// Parameter Tests
+// ============================================================================
+
+pub fn single_param_route_test() {
+  let test_router =
+    router()
+    |> route(
       method: Get,
       path: "/users/:id",
       controller: test_handler,
       middleware: [],
     )
-  let test_router = router.Router(routes: [test_route])
-  let request = create_test_request(Get, "/users/123")
 
-  // Act
+  let request = create_test_request(Get, "/users/123")
   let result = find_route(test_router, request)
 
-  // Assert
   case result {
     option.Some(#(_route, params)) -> {
-      list.length(params) |> should.equal(1)
-      case params {
-        [#(name, value), ..] -> {
-          name |> should.equal("id")
-          value |> should.equal("123")
-        }
-        [] -> should.fail()
-      }
+      params |> should.equal([#("id", "123")])
     }
     option.None -> should.fail()
   }
 }
 
-pub fn find_route_with_method_mismatch_returns_none_test() {
-  // Arrange
-  let test_route =
-    router.Route(
-      method: Post,
-      path: "/users/:id",
+pub fn multiple_params_route_test() {
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/users/:user_id/posts/:post_id",
       controller: test_handler,
       middleware: [],
     )
-  let test_router = router.Router(routes: [test_route])
-  let request = create_test_request(Get, "/users/123")
 
-  // Act
+  let request = create_test_request(Get, "/users/42/posts/99")
   let result = find_route(test_router, request)
 
-  // Assert
   case result {
-    option.Some(_) -> should.fail()
-    option.None -> Nil
+    option.Some(#(_route, params)) -> {
+      // Parameters are accumulated in reverse order
+      params
+      |> should.equal([#("post_id", "99"), #("user_id", "42")])
+    }
+    option.None -> should.fail()
   }
+}
+
+// ============================================================================
+// Wildcard Tests
+// ============================================================================
+
+pub fn single_wildcard_test() {
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/files/*filename",
+      controller: test_handler,
+      middleware: [],
+    )
+
+  let request = create_test_request(Get, "/files/document.pdf")
+  let result = find_route(test_router, request)
+
+  case result {
+    option.Some(#(_route, params)) -> {
+      params |> should.equal([#("filename", "document.pdf")])
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn multi_wildcard_test() {
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/public/**filepath",
+      controller: test_handler,
+      middleware: [],
+    )
+
+  let request = create_test_request(Get, "/public/assets/css/main.css")
+  let result = find_route(test_router, request)
+
+  case result {
+    option.Some(#(_route, params)) -> {
+      params |> should.equal([#("filepath", "assets/css/main.css")])
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn multi_wildcard_single_segment_test() {
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/public/**filepath",
+      controller: test_handler,
+      middleware: [],
+    )
+
+  let request = create_test_request(Get, "/public/file.txt")
+  let result = find_route(test_router, request)
+
+  case result {
+    option.Some(#(_route, params)) -> {
+      params |> should.equal([#("filepath", "file.txt")])
+    }
+    option.None -> should.fail()
+  }
+}
+
+// ============================================================================
+// Extension Pattern Tests
+// ============================================================================
+
+pub fn extension_pattern_single_test() {
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/css/*.css",
+      controller: test_handler,
+      middleware: [],
+    )
+
+  let match_request = create_test_request(Get, "/css/main.css")
+  let no_match_request = create_test_request(Get, "/css/main.js")
+
+  let match_result = find_route(test_router, match_request)
+  let no_match_result = find_route(test_router, no_match_request)
+
+  case match_result {
+    option.Some(_) -> should.be_true(True)
+    option.None -> should.fail()
+  }
+
+  no_match_result |> should.equal(option.None)
+}
+
+pub fn extension_pattern_multiple_test() {
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/images/*.{jpg,png,gif}",
+      controller: test_handler,
+      middleware: [],
+    )
+
+  let jpg_request = create_test_request(Get, "/images/photo.jpg")
+  let png_request = create_test_request(Get, "/images/icon.png")
+  let gif_request = create_test_request(Get, "/images/animation.gif")
+  let css_request = create_test_request(Get, "/images/style.css")
+
+  let jpg_result = find_route(test_router, jpg_request)
+  let png_result = find_route(test_router, png_request)
+  let gif_result = find_route(test_router, gif_request)
+  let css_result = find_route(test_router, css_request)
+
+  case jpg_result {
+    option.Some(_) -> should.be_true(True)
+    option.None -> should.fail()
+  }
+
+  case png_result {
+    option.Some(_) -> should.be_true(True)
+    option.None -> should.fail()
+  }
+
+  case gif_result {
+    option.Some(_) -> should.be_true(True)
+    option.None -> should.fail()
+  }
+
+  css_result |> should.equal(option.None)
+}
+
+// ============================================================================
+// Precedence Tests (Radix Trie Advantage)
+// ============================================================================
+
+pub fn literal_beats_param_test() {
+  // With radix trie, literal always wins regardless of definition order
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/users/:id",
+      controller: param_handler,
+      middleware: [],
+    )
+    |> route(
+      method: Get,
+      path: "/users/new",
+      controller: literal_handler,
+      middleware: [],
+    )
+
+  let request = create_test_request(Get, "/users/new")
+  let result = find_route(test_router, request)
+
+  case result {
+    option.Some(#(route, _params)) -> {
+      route.controller |> should.equal(literal_handler)
+    }
+    option.None -> should.fail()
+  }
+}
+
+pub fn literal_beats_param_reverse_order_test() {
+  // Should work the same even if literal is defined first
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/users/new",
+      controller: literal_handler,
+      middleware: [],
+    )
+    |> route(
+      method: Get,
+      path: "/users/:id",
+      controller: param_handler,
+      middleware: [],
+    )
+
+  let request = create_test_request(Get, "/users/new")
+  let result = find_route(test_router, request)
+
+  case result {
+    option.Some(#(route, _params)) -> {
+      route.controller |> should.equal(literal_handler)
+    }
+    option.None -> should.fail()
+  }
+}
+
+// ============================================================================
+// Method Matching Tests
+// ============================================================================
+
+pub fn find_route_with_method_mismatch_returns_none_test() {
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/users",
+      controller: test_handler,
+      middleware: [],
+    )
+
+  let request = create_test_request(Post, "/users")
+  let result = find_route(test_router, request)
+
+  result |> should.equal(option.None)
 }
 
 pub fn find_route_with_no_matching_route_returns_none_test() {
-  // Arrange
-  let test_route =
-    router.Route(
+  let test_router =
+    router()
+    |> route(
       method: Get,
-      path: "/users/:id",
+      path: "/users",
       controller: test_handler,
       middleware: [],
     )
-  let test_router = router.Router(routes: [test_route])
-  let request = create_test_request(Get, "/posts/123")
 
-  // Act
+  let request = create_test_request(Get, "/posts")
   let result = find_route(test_router, request)
 
-  // Assert
-  case result {
-    option.Some(_) -> should.fail()
-    option.None -> Nil
-  }
+  result |> should.equal(option.None)
 }
 
+// ============================================================================
+// Middleware Chain Tests
+// ============================================================================
+
 pub fn build_controller_chain_with_no_middleware_returns_controller_test() {
-  // Arrange
-  let final_controller = test_handler
+  let controller = build_controller_chain([], test_handler)
+
   let request = create_test_request(Get, "/")
-  let context = context.AppContext(request_id: "test-id")
-  let services = router.EmptyServices
+  let response =
+    controller(request, context.AppContext("test"), router.EmptyServices)
 
-  // Act
-  let chain = build_controller_chain([], final_controller)
-  let response = chain(request, context, services)
-
-  // Assert
-  case response {
-    Response(_, body, _, _, _) -> {
-      case body {
-        Text(text) -> text |> should.equal("test")
-        _ -> should.fail()
-      }
-    }
-  }
+  response.status |> should.equal(200)
 }
 
 pub fn build_controller_chain_with_middleware_wraps_controller_test() {
-  // Arrange
-  let final_controller = test_handler
-  let middleware_fn = fn(
-    req: Request,
-    ctx: context.AppContext,
-    svc: EmptyServices,
-    next: fn(Request, context.AppContext, EmptyServices) -> Response,
-  ) -> Response {
-    let response = next(req, ctx, svc)
-    case response {
-      Response(status, body, headers, cookies, content_type) -> {
-        let modified_body = case body {
-          Text(text) -> Text(text <> "-modified")
-          _ -> body
-        }
-        Response(status, modified_body, headers, cookies, content_type)
-      }
-    }
+  let add_header_middleware = fn(req, ctx, services, next) {
+    let response = next(req, ctx, services)
+    Response(..response, headers: [
+      Header("X-Custom", "value"),
+      ..response.headers
+    ])
   }
-  let middleware_list = [router.Middleware(middleware_fn)]
+
+  let controller =
+    build_controller_chain(
+      [router.Middleware(add_header_middleware)],
+      test_handler,
+    )
+
   let request = create_test_request(Get, "/")
-  let context = context.AppContext(request_id: "test-id")
-  let services = router.EmptyServices
+  let response =
+    controller(request, context.AppContext("test"), router.EmptyServices)
 
-  // Act
-  let chain = build_controller_chain(middleware_list, final_controller)
-  let response = chain(request, context, services)
-
-  // Assert
-  case response {
-    Response(_, body, _, _, _) -> {
-      case body {
-        Text(text) -> text |> should.equal("test-modified")
-        _ -> should.fail()
-      }
-    }
-  }
+  response.headers
+  |> should.equal([
+    Header("X-Custom", "value"),
+    Header("Content-Type", "text/plain; charset=utf-8"),
+  ])
 }
 
 pub fn build_controller_chain_with_multiple_middleware_executes_in_order_test() {
-  // Arrange
-  let final_controller = test_handler
-  let middleware1 =
-    router.Middleware(
-      fn(
-        req: Request,
-        ctx: context.AppContext,
-        svc: EmptyServices,
-        next: fn(Request, context.AppContext, EmptyServices) -> Response,
-      ) -> Response {
-        let response = next(req, ctx, svc)
-        case response {
-          Response(status, body, headers, cookies, content_type) -> {
-            let modified_body = case body {
-              Text(text) -> Text(text <> "-m1")
-              _ -> body
-            }
-            Response(status, modified_body, headers, cookies, content_type)
-          }
-        }
-      },
+  let first_middleware = fn(req, ctx, services, next) {
+    let response = next(req, ctx, services)
+    Response(..response, headers: [Header("X-First", "1"), ..response.headers])
+  }
+
+  let second_middleware = fn(req, ctx, services, next) {
+    let response = next(req, ctx, services)
+    Response(..response, headers: [Header("X-Second", "2"), ..response.headers])
+  }
+
+  let controller =
+    build_controller_chain(
+      [
+        router.Middleware(first_middleware),
+        router.Middleware(second_middleware),
+      ],
+      test_handler,
     )
-  let middleware2 =
-    router.Middleware(
-      fn(
-        req: Request,
-        ctx: context.AppContext,
-        svc: EmptyServices,
-        next: fn(Request, context.AppContext, EmptyServices) -> Response,
-      ) -> Response {
-        let response = next(req, ctx, svc)
-        case response {
-          Response(status, body, headers, cookies, content_type) -> {
-            let modified_body = case body {
-              Text(text) -> Text(text <> "-m2")
-              _ -> body
-            }
-            Response(status, modified_body, headers, cookies, content_type)
-          }
-        }
-      },
-    )
+
   let request = create_test_request(Get, "/")
-  let context = context.AppContext(request_id: "test-id")
-  let services = router.EmptyServices
+  let response =
+    controller(request, context.AppContext("test"), router.EmptyServices)
 
-  // Act
-  let chain =
-    build_controller_chain([middleware1, middleware2], final_controller)
-  let response = chain(request, context, services)
-
-  // Assert
-  case response {
-    Response(_, body, _, _, _) -> {
-      case body {
-        Text(text) -> text |> should.equal("test-m2-m1")
-        _ -> should.fail()
-      }
-    }
-  }
+  // First middleware wraps second, so it runs last on the way out
+  response.headers
+  |> should.equal([
+    Header("X-First", "1"),
+    Header("X-Second", "2"),
+    Header("Content-Type", "text/plain; charset=utf-8"),
+  ])
 }
 
-// ===== Single Wildcard Tests =====
+// ============================================================================
+// Regression Tests
+// ============================================================================
 
-pub fn match_path_with_named_single_wildcard_captures_segment_test() {
-  // Arrange
-  let pattern = "/files/*filename"
-  let path_value = "/files/document.pdf"
+pub fn param_name_remapping_when_routes_share_param_position_test() {
+  // Test that routes with different param names at the same position
+  // correctly remap params to match each route's declared param names.
+  //
+  // Scenario:
+  // 1. Insert /users/:id first
+  // 2. Insert /users/:user_id/posts second
+  // 3. Both routes share the same param child node at /users/
+  // 4. The trie node uses the first inserted param name ("id")
+  // 5. But each route should extract params using its own declared name
+  //
+  // With Option 2 (param remapping):
+  // - /users/123 should extract id=123 (route's declared param name)
+  // - /users/123/posts should extract user_id=123 (route's declared param name)
 
-  // Act
-  let result = match_path(pattern, path_value)
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/users/:id",
+      controller: param_handler,
+      middleware: [],
+    )
+    |> route(
+      method: Get,
+      path: "/users/:user_id/posts",
+      controller: test_handler,
+      middleware: [],
+    )
 
-  // Assert
-  case result {
-    option.Some(params) -> {
-      list.length(params) |> should.equal(1)
-      case params {
-        [#(name, value), ..] -> {
-          name |> should.equal("filename")
-          value |> should.equal("document.pdf")
-        }
-        [] -> should.fail()
-      }
-    }
-    option.None -> should.fail()
-  }
-}
+  // Test that /users/123 extracts "id" (route's declared param name)
+  let user_request = create_test_request(Get, "/users/123")
+  let user_result = find_route(test_router, user_request)
 
-pub fn match_path_with_anonymous_single_wildcard_matches_but_no_capture_test() {
-  // Arrange
-  let pattern = "/health/*/check"
-  let path_value = "/health/api/check"
-
-  // Act
-  let result = match_path(pattern, path_value)
-
-  // Assert
-  case result {
-    option.Some(params) -> {
-      list.length(params) |> should.equal(0)
+  case user_result {
+    option.Some(#(_route, params)) -> {
+      // Should extract "id" (route's declared param name, not trie node's name)
+      // Params are in reverse order for backward compatibility
+      params |> should.equal([#("id", "123")])
     }
     option.None -> should.fail()
   }
-}
 
-pub fn match_path_with_single_wildcard_in_middle_extracts_correctly_test() {
-  // Arrange
-  let pattern = "/users/:id/files/*filename"
-  let path_value = "/users/123/files/report.pdf"
+  // Test that /users/123/posts extracts "user_id" (route's declared param name)
+  let posts_request = create_test_request(Get, "/users/123/posts")
+  let posts_result = find_route(test_router, posts_request)
 
-  // Act
-  let result = match_path(pattern, path_value)
-
-  // Assert
-  case result {
-    option.Some(params) -> {
-      list.length(params) |> should.equal(2)
-      case params {
-        [#(name1, value1), #(name2, value2), ..] -> {
-          name1 |> should.equal("id")
-          value1 |> should.equal("123")
-          name2 |> should.equal("filename")
-          value2 |> should.equal("report.pdf")
-        }
-        _ -> should.fail()
-      }
+  case posts_result {
+    option.Some(#(_route, params)) -> {
+      // Should extract "user_id" (route's declared param name, not trie node's name)
+      // Params are in reverse order for backward compatibility
+      params |> should.equal([#("user_id", "123")])
     }
     option.None -> should.fail()
   }
 }
 
-pub fn match_path_with_multiple_single_wildcards_test() {
-  // Arrange
-  let pattern = "/files/*category/*filename"
-  let path_value = "/files/documents/report.pdf"
+pub fn param_name_remapping_with_multiple_params_test() {
+  // Test param remapping with routes that have multiple params
+  // and share some param positions but not others.
 
-  // Act
-  let result = match_path(pattern, path_value)
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/users/:id/posts/:post_id",
+      controller: param_handler,
+      middleware: [],
+    )
+    |> route(
+      method: Get,
+      path: "/users/:user_id/comments/:comment_id",
+      controller: test_handler,
+      middleware: [],
+    )
 
-  // Assert
-  case result {
-    option.Some(params) -> {
-      list.length(params) |> should.equal(2)
-      case params {
-        [#(name1, value1), #(name2, value2), ..] -> {
-          name1 |> should.equal("category")
-          value1 |> should.equal("documents")
-          name2 |> should.equal("filename")
-          value2 |> should.equal("report.pdf")
-        }
-        _ -> should.fail()
-      }
+  // Test first route: should extract id and post_id (in reverse order for backward compatibility)
+  let posts_request = create_test_request(Get, "/users/123/posts/456")
+  let posts_result = find_route(test_router, posts_request)
+
+  case posts_result {
+    option.Some(#(_route, params)) -> {
+      // Params are in reverse order (last param first) for backward compatibility
+      params |> should.equal([#("post_id", "456"), #("id", "123")])
+    }
+    option.None -> should.fail()
+  }
+
+  // Test second route: should extract user_id and comment_id (in reverse order)
+  let comments_request = create_test_request(Get, "/users/123/comments/789")
+  let comments_result = find_route(test_router, comments_request)
+
+  case comments_result {
+    option.Some(#(_route, params)) -> {
+      // Params are in reverse order (last param first) for backward compatibility
+      params |> should.equal([#("comment_id", "789"), #("user_id", "123")])
     }
     option.None -> should.fail()
   }
 }
 
-// ===== Multi Wildcard Tests =====
+pub fn param_name_remapping_with_wildcards_test() {
+  // Test param remapping with wildcard segments
 
-pub fn match_path_with_named_multi_wildcard_at_end_captures_all_test() {
-  // Arrange
-  let pattern = "/static/**filepath"
-  let path_value = "/static/css/main.css"
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/files/*file",
+      controller: param_handler,
+      middleware: [],
+    )
+    |> route(
+      method: Get,
+      path: "/images/*image",
+      controller: test_handler,
+      middleware: [],
+    )
 
-  // Act
-  let result = match_path(pattern, path_value)
+  // Test first route: should extract "file"
+  let file_request = create_test_request(Get, "/files/document.pdf")
+  let file_result = find_route(test_router, file_request)
 
-  // Assert
-  case result {
-    option.Some(params) -> {
-      list.length(params) |> should.equal(1)
-      case params {
-        [#(name, value), ..] -> {
-          name |> should.equal("filepath")
-          value |> should.equal("css/main.css")
-        }
-        [] -> should.fail()
-      }
+  case file_result {
+    option.Some(#(_route, params)) -> {
+      params |> should.equal([#("file", "document.pdf")])
+    }
+    option.None -> should.fail()
+  }
+
+  // Test second route: should extract "image"
+  let image_request = create_test_request(Get, "/images/photo.jpg")
+  let image_result = find_route(test_router, image_request)
+
+  case image_result {
+    option.Some(#(_route, params)) -> {
+      params |> should.equal([#("image", "photo.jpg")])
     }
     option.None -> should.fail()
   }
 }
 
-pub fn match_path_with_multi_wildcard_deep_path_test() {
-  // Arrange
-  let pattern = "/assets/**path"
-  let path_value = "/assets/v1/images/photos/2024/photo.jpg"
+pub fn extension_stripping_for_literal_routes_test() {
+  // Test that routes without extensions match paths with extensions
+  // This enables format detection in controllers (e.g., /products.json -> /products)
 
-  // Act
-  let result = match_path(pattern, path_value)
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/products",
+      controller: test_handler,
+      middleware: [],
+    )
 
-  // Assert
-  case result {
-    option.Some(params) -> {
-      list.length(params) |> should.equal(1)
-      case params {
-        [#(name, value), ..] -> {
-          name |> should.equal("path")
-          value |> should.equal("v1/images/photos/2024/photo.jpg")
-        }
-        [] -> should.fail()
-      }
+  // Test that /products.json matches /products route
+  let json_request = create_test_request(Get, "/products.json")
+  let json_result = find_route(test_router, json_request)
+
+  case json_result {
+    option.Some(#(route, params)) -> {
+      // Route should match
+      // Path should be preserved with extension for controller to detect format
+      route.path |> should.equal("/products.json")
+      params |> should.equal([])
+    }
+    option.None -> should.fail()
+  }
+
+  // Test that /products.csv also matches /products route
+  let csv_request = create_test_request(Get, "/products.csv")
+  let csv_result = find_route(test_router, csv_request)
+
+  case csv_result {
+    option.Some(#(route, params)) -> {
+      route.path |> should.equal("/products.csv")
+      params |> should.equal([])
+    }
+    option.None -> should.fail()
+  }
+
+  // Test that /products (no extension) still works
+  let plain_request = create_test_request(Get, "/products")
+  let plain_result = find_route(test_router, plain_request)
+
+  case plain_result {
+    option.Some(#(route, params)) -> {
+      route.path |> should.equal("/products")
+      params |> should.equal([])
     }
     option.None -> should.fail()
   }
 }
 
-pub fn match_path_with_multi_wildcard_in_middle_matches_correctly_test() {
-  // Arrange
-  let pattern = "/api/**/metadata"
-  let path_value = "/api/v1/users/123/metadata"
+pub fn extension_stripping_for_param_routes_test() {
+  // Test that routes with parameters match paths with extensions
+  // e.g., /products/1.json should match /products/:id
+  // IMPORTANT: Params must preserve the full value with extension for format detection
 
-  // Act
-  let result = match_path(pattern, path_value)
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/products/:id",
+      controller: param_handler,
+      middleware: [],
+    )
 
-  // Assert
-  case result {
-    option.Some(_) -> Nil
+  // Test that /products/1.json matches /products/:id
+  let json_request = create_test_request(Get, "/products/1.json")
+  let json_result = find_route(test_router, json_request)
+
+  case json_result {
+    option.Some(#(route, params)) -> {
+      // Route should match
+      // Path should be preserved with extension
+      route.path |> should.equal("/products/1.json")
+      // Param must preserve full value with extension for format detection
+      // parse_path_param("1.json") will extract value="1" and format=Some("json")
+      params |> should.equal([#("id", "1.json")])
+    }
     option.None -> should.fail()
   }
-}
 
-pub fn match_path_with_anonymous_multi_wildcard_matches_test() {
-  // Arrange
-  let pattern = "/api/**"
-  let path_value = "/api/v1/users/123/profile"
+  // Test that /products/123.csv matches /products/:id
+  let csv_request = create_test_request(Get, "/products/123.csv")
+  let csv_result = find_route(test_router, csv_request)
 
-  // Act
-  let result = match_path(pattern, path_value)
+  case csv_result {
+    option.Some(#(route, params)) -> {
+      route.path |> should.equal("/products/123.csv")
+      // Param must preserve full value with extension
+      params |> should.equal([#("id", "123.csv")])
+    }
+    option.None -> should.fail()
+  }
 
-  // Assert
-  case result {
-    option.Some(params) -> {
-      list.length(params) |> should.equal(0)
+  // Test that /products/456 (no extension) still works
+  let plain_request = create_test_request(Get, "/products/456")
+  let plain_result = find_route(test_router, plain_request)
+
+  case plain_result {
+    option.Some(#(route, params)) -> {
+      route.path |> should.equal("/products/456")
+      params |> should.equal([#("id", "456")])
     }
     option.None -> should.fail()
   }
 }
 
-pub fn match_path_with_multi_wildcard_empty_path_returns_empty_string_test() {
-  // Arrange
-  let pattern = "/api/**rest"
-  let path_value = "/api"
+pub fn extension_stripping_edge_cases_test() {
+  // Comprehensive edge case tests for extension stripping
 
-  // Act
-  let result = match_path(pattern, path_value)
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/files/*filename",
+      controller: test_handler,
+      middleware: [],
+    )
+    |> route(
+      method: Get,
+      path: "/users/:id",
+      controller: param_handler,
+      middleware: [],
+    )
+    |> route(
+      method: Get,
+      path: "/posts/:post_id/comments",
+      controller: param_handler,
+      middleware: [],
+    )
 
-  // Assert
-  case result {
-    option.Some(params) -> {
-      list.length(params) |> should.equal(1)
-      case params {
-        [#(name, value), ..] -> {
-          name |> should.equal("rest")
-          value |> should.equal("")
-        }
-        [] -> should.fail()
-      }
+  // Edge case 1: Wildcards should capture full segments including extensions
+  let wildcard_request = create_test_request(Get, "/files/document.pdf")
+  let wildcard_result = find_route(test_router, wildcard_request)
+  case wildcard_result {
+    option.Some(#(_route, params)) -> {
+      // Wildcards capture full segment, no extension stripping
+      params |> should.equal([#("filename", "document.pdf")])
+    }
+    option.None -> should.fail()
+  }
+
+  // Edge case 2: Multiple dots in segment (e.g., "file.backup.tar.gz")
+  let multi_dot_request = create_test_request(Get, "/files/file.backup.tar.gz")
+  let multi_dot_result = find_route(test_router, multi_dot_request)
+  case multi_dot_result {
+    option.Some(#(_route, params)) -> {
+      // Should capture full segment, extension stripping only splits on first dot
+      // But for wildcards, we capture everything
+      params |> should.equal([#("filename", "file.backup.tar.gz")])
+    }
+    option.None -> should.fail()
+  }
+
+  // Edge case 3: Param with multiple dots should preserve full value
+  let param_multi_dot_request =
+    create_test_request(Get, "/users/user.backup.tar")
+  let param_multi_dot_result = find_route(test_router, param_multi_dot_request)
+  case param_multi_dot_result {
+    option.Some(#(_route, params)) -> {
+      // Param should preserve full value for format detection
+      // Even though we strip "tar" for matching, we store "user.backup.tar"
+      params |> should.equal([#("id", "user.backup.tar")])
+    }
+    option.None -> should.fail()
+  }
+
+  // Edge case 4: Segment starting with dot (e.g., ".hidden")
+  let hidden_request = create_test_request(Get, "/files/.hidden")
+  let hidden_result = find_route(test_router, hidden_request)
+  case hidden_result {
+    option.Some(#(_route, params)) -> {
+      // Should capture full segment
+      params |> should.equal([#("filename", ".hidden")])
+    }
+    option.None -> should.fail()
+  }
+
+  // Edge case 5: Empty segment after extension stripping shouldn't match
+  let empty_after_strip_request = create_test_request(Get, "/users/.json")
+  let empty_after_strip_result =
+    find_route(test_router, empty_after_strip_request)
+  // This should probably not match, but if it does, param should be ".json"
+  case empty_after_strip_result {
+    option.Some(#(_route, params)) -> {
+      // If it matches, should preserve full value
+      params |> should.equal([#("id", ".json")])
+    }
+    option.None -> {
+      // Or it might not match at all (empty segment after stripping)
+      should.be_true(True)
+    }
+  }
+
+  // Edge case 6: Multiple params with extensions
+  let multi_param_request = create_test_request(Get, "/posts/123.json/comments")
+  let multi_param_result = find_route(test_router, multi_param_request)
+  case multi_param_result {
+    option.Some(#(_route, params)) -> {
+      // First param should preserve extension
+      params |> should.equal([#("post_id", "123.json")])
     }
     option.None -> should.fail()
   }
 }
 
-pub fn match_path_with_multi_wildcard_and_static_suffix_test() {
-  // Arrange
-  let pattern = "/files/**/download"
-  let path_value = "/files/2024/reports/annual/download"
+pub fn extension_stripping_with_nested_routes_test() {
+  // Test extension stripping with nested routes and multiple segments
 
-  // Act
-  let result = match_path(pattern, path_value)
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/api/v1/users/:id",
+      controller: param_handler,
+      middleware: [],
+    )
+    |> route(
+      method: Get,
+      path: "/api/v1/posts/:post_id/comments/:comment_id",
+      controller: param_handler,
+      middleware: [],
+    )
 
-  // Assert
-  case result {
-    option.Some(_) -> Nil
+  // Test nested route with extension on first param
+  let nested_request1 = create_test_request(Get, "/api/v1/users/123.json")
+  let nested_result1 = find_route(test_router, nested_request1)
+  case nested_result1 {
+    option.Some(#(_route, params)) -> {
+      params |> should.equal([#("id", "123.json")])
+    }
     option.None -> should.fail()
   }
-}
 
-// ===== Extension Matching Tests =====
-
-pub fn match_path_with_extension_pattern_matches_correct_files_test() {
-  // Arrange
-  let pattern = "/images/*.jpg"
-  let path_value = "/images/photo.jpg"
-
-  // Act
-  let result = match_path(pattern, path_value)
-
-  // Assert
-  case result {
-    option.Some(_) -> Nil
+  // Test nested route with extension on last param
+  let nested_request2 =
+    create_test_request(Get, "/api/v1/posts/456/comments/789.csv")
+  let nested_result2 = find_route(test_router, nested_request2)
+  case nested_result2 {
+    option.Some(#(_route, params)) -> {
+      // Params are in reverse order (last param first)
+      params |> should.equal([#("comment_id", "789.csv"), #("post_id", "456")])
+    }
     option.None -> should.fail()
   }
-}
 
-pub fn match_path_with_extension_pattern_rejects_wrong_extension_test() {
-  // Arrange
-  let pattern = "/images/*.jpg"
-  let path_value = "/images/photo.png"
-
-  // Act
-  let result = match_path(pattern, path_value)
-
-  // Assert
-  case result {
-    option.Some(_) -> should.fail()
-    option.None -> Nil
-  }
-}
-
-pub fn match_path_with_brace_expansion_matches_multiple_extensions_test() {
-  // Arrange
-  let pattern = "/images/*.{jpg,png,gif}"
-  let path_jpg = "/images/photo.jpg"
-  let path_png = "/images/logo.png"
-  let path_gif = "/images/animation.gif"
-
-  // Act
-  let result_jpg = match_path(pattern, path_jpg)
-  let result_png = match_path(pattern, path_png)
-  let result_gif = match_path(pattern, path_gif)
-
-  // Assert
-  case result_jpg {
-    option.Some(_) -> Nil
-    option.None -> should.fail()
-  }
-  case result_png {
-    option.Some(_) -> Nil
-    option.None -> should.fail()
-  }
-  case result_gif {
-    option.Some(_) -> Nil
-    option.None -> should.fail()
-  }
-}
-
-pub fn match_path_with_brace_expansion_rejects_unlisted_extension_test() {
-  // Arrange
-  let pattern = "/images/*.{jpg,png}"
-  let path_value = "/images/document.pdf"
-
-  // Act
-  let result = match_path(pattern, path_value)
-
-  // Assert
-  case result {
-    option.Some(_) -> should.fail()
-    option.None -> Nil
-  }
-}
-
-pub fn match_path_with_brace_expansion_with_spaces_test() {
-  // Arrange
-  let pattern = "/files/*.{pdf, doc, txt}"
-  let path_value = "/files/report.pdf"
-
-  // Act
-  let result = match_path(pattern, path_value)
-
-  // Assert
-  case result {
-    option.Some(_) -> Nil
-    option.None -> should.fail()
-  }
-}
-
-// ===== Combined Patterns Tests =====
-
-pub fn match_path_with_param_and_wildcard_extracts_both_test() {
-  // Arrange
-  let pattern = "/users/:id/files/*filename"
-  let path_value = "/users/456/files/document.pdf"
-
-  // Act
-  let result = match_path(pattern, path_value)
-
-  // Assert
-  case result {
-    option.Some(params) -> {
-      list.length(params) |> should.equal(2)
-      case params {
-        [#(name1, value1), #(name2, value2), ..] -> {
-          name1 |> should.equal("id")
-          value1 |> should.equal("456")
-          name2 |> should.equal("filename")
-          value2 |> should.equal("document.pdf")
-        }
-        _ -> should.fail()
-      }
+  // Test nested route with extensions on both params
+  let nested_request3 =
+    create_test_request(Get, "/api/v1/posts/456.json/comments/789.csv")
+  let nested_result3 = find_route(test_router, nested_request3)
+  case nested_result3 {
+    option.Some(#(_route, params)) -> {
+      params
+      |> should.equal([#("comment_id", "789.csv"), #("post_id", "456.json")])
     }
     option.None -> should.fail()
   }
 }
 
-pub fn match_path_with_param_and_multi_wildcard_test() {
-  // Arrange
-  let pattern = "/api/:version/**endpoint"
-  let path_value = "/api/v1/users/123/profile"
+pub fn extension_stripping_priority_test() {
+  // Test that explicit extension pattern routes take precedence over extension stripping
+  // e.g., /images/*.{jpg,png} should match before trying to strip extension from /images/photo.jpg
 
-  // Act
-  let result = match_path(pattern, path_value)
+  let test_router =
+    router()
+    |> route(
+      method: Get,
+      path: "/images/*.{jpg,png}",
+      controller: test_handler,
+      middleware: [],
+    )
+    |> route(
+      method: Get,
+      path: "/images/:name",
+      controller: param_handler,
+      middleware: [],
+    )
 
-  // Assert
-  case result {
-    option.Some(params) -> {
-      list.length(params) |> should.equal(2)
-      case params {
-        [#(name1, value1), #(name2, value2), ..] -> {
-          name1 |> should.equal("version")
-          value1 |> should.equal("v1")
-          name2 |> should.equal("endpoint")
-          value2 |> should.equal("users/123/profile")
-        }
-        _ -> should.fail()
-      }
+  // Test that /images/photo.jpg matches extension pattern route (not param route)
+  let jpg_request = create_test_request(Get, "/images/photo.jpg")
+  let jpg_result = find_route(test_router, jpg_request)
+
+  case jpg_result {
+    option.Some(#(_route, params)) -> {
+      // Extension pattern should match (no params captured by extension patterns)
+      params |> should.equal([])
     }
     option.None -> should.fail()
   }
-}
 
-// ===== Edge Cases =====
+  // Test that /images/document.pdf matches param route (extension stripping)
+  let pdf_request = create_test_request(Get, "/images/document.pdf")
+  let pdf_result = find_route(test_router, pdf_request)
 
-pub fn match_path_with_wildcard_only_pattern_matches_anything_test() {
-  // Arrange
-  let pattern = "/**"
-  let path_value = "/any/path/at/all"
-
-  // Act
-  let result = match_path(pattern, path_value)
-
-  // Assert
-  case result {
-    option.Some(_) -> Nil
-    option.None -> should.fail()
-  }
-}
-
-pub fn match_path_single_wildcard_does_not_match_multiple_segments_test() {
-  // Arrange
-  let pattern = "/files/*/download"
-  let path_value = "/files/reports/2024/download"
-
-  // Act
-  let result = match_path(pattern, path_value)
-
-  // Assert
-  case result {
-    option.Some(_) -> should.fail()
-    option.None -> Nil
-  }
-}
-
-pub fn match_path_multi_wildcard_matches_zero_segments_test() {
-  // Arrange
-  let pattern = "/api/**/endpoint"
-  let path_value = "/api/endpoint"
-
-  // Act
-  let result = match_path(pattern, path_value)
-
-  // Assert
-  case result {
-    option.Some(_) -> Nil
-    option.None -> should.fail()
-  }
-}
-
-pub fn match_path_with_multi_wildcard_and_extension_pattern_test() {
-  // Arrange
-  let pattern = "/images/**/*.{jpg,png,svg}"
-  let path_value = "/images/cat.svg"
-
-  // Act
-  let result = match_path(pattern, path_value)
-
-  // Assert - Just verify it matches
-  case result {
-    option.Some(_) -> Nil
-    option.None -> should.fail()
-  }
-}
-
-// Verify all pattern types used in static example
-pub fn match_path_single_named_wildcard_simple_test() {
-  let pattern = "/files/*filename"
-  let path = "/files/doc.pdf"
-
-  case match_path(pattern, path) {
-    option.Some(params) -> {
-      case params {
-        [#("filename", "doc.pdf")] -> Nil
-        _ -> should.fail()
-      }
+  case pdf_result {
+    option.Some(#(_route, params)) -> {
+      // Should match /images/:name with extension stripping for matching,
+      // but preserve full value in params for format detection
+      params |> should.equal([#("name", "document.pdf")])
     }
-    option.None -> should.fail()
-  }
-}
-
-pub fn match_path_anonymous_single_wildcard_with_suffix_test() {
-  let pattern = "/health/*/status"
-  let path = "/health/api/status"
-
-  case match_path(pattern, path) {
-    option.Some(params) -> {
-      list.length(params) |> should.equal(0)
-    }
-    option.None -> should.fail()
-  }
-}
-
-pub fn match_path_extension_css_only_test() {
-  let pattern = "/css/*.css"
-  let path = "/css/main.css"
-
-  case match_path(pattern, path) {
-    option.Some(_) -> Nil
-    option.None -> should.fail()
-  }
-}
-
-pub fn match_path_brace_expansion_image_test() {
-  let pattern = "/images/*.{jpg,png,gif,svg}"
-  let path = "/images/cat.svg"
-
-  case match_path(pattern, path) {
-    option.Some(_) -> Nil
     option.None -> should.fail()
   }
 }

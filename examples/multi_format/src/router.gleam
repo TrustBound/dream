@@ -7,7 +7,7 @@ import dream/router.{type Router, route, router}
 import services.{type Services}
 
 pub fn create_router() -> Router(AppContext, Services) {
-  router
+  router()
   |> route(Get, "/products/:id", products_controller.show, [])
   |> route(Get, "/products", products_controller.index, [])
 }

@@ -106,11 +106,11 @@ pub type Response {
 /// ## Example
 ///
 /// ```gleam
-/// import dream/http/response
-/// import dream/http/status
+/// import dream/http/response.{text_response}
+/// import dream/http/status.{ok}
 ///
 /// pub fn healthcheck(request, context, services) {
-///   response.text_response(status.ok, "OK")
+///   text_response(ok, "OK")
 /// }
 /// ```
 pub fn text_response(status: Int, body: String) -> Response {
@@ -132,8 +132,8 @@ pub fn text_response(status: Int, body: String) -> Response {
 /// ## Example
 ///
 /// ```gleam
-/// import dream/http/response
-/// import dream/http/status
+/// import dream/http/response.{json_response}
+/// import dream/http/status.{ok}
 /// import gleam/json
 ///
 /// pub fn show_user(request, context, services) {
@@ -142,7 +142,7 @@ pub fn text_response(status: Int, body: String) -> Response {
 ///     #("name", json.string("Alice")),
 ///   ])
 ///   
-///   response.json_response(status.ok, json.to_string(user_json))
+///   json_response(ok, json.to_string(user_json))
 /// }
 /// ```
 pub fn json_response(status: Int, body: String) -> Response {

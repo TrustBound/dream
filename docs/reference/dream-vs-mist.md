@@ -58,7 +58,7 @@ fn index(_req: Request, _ctx, _svc) -> Response {
 }
 
 pub fn main() {
-  let app_router = router |> route(Get, "/", index, [])
+  let app_router = router() |> route(Get, "/", index, [])
   
   server.new()
   |> server.router(app_router)
@@ -142,7 +142,7 @@ fn show_user(request: Request, context: AppContext, services: Services) -> Respo
 }
 
 pub fn main() {
-  let app_router = router |> route(Get, "/users/:id", show_user, [])
+  let app_router = router() |> route(Get, "/users/:id", show_user, [])
   
   server.new()
   |> server.services(initialize_services())
@@ -219,7 +219,7 @@ fn auth_middleware(
 
 pub fn main() {
   let app_router =
-    router
+    router()
     |> route(Get, "/", home, [])                      // Public
     |> route(Post, "/posts", create_post, [auth_middleware])  // Protected
   

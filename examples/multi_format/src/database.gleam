@@ -17,7 +17,7 @@ pub fn init_database() -> Result(DatabaseService, String) {
   let config =
     pog.default_config(pool_name: pool_name)
     |> pog.host("localhost")
-    |> pog.port(5436)
+    |> pog.port(5435)
     |> pog.database("dream_example_multi_format_db")
     |> pog.user("postgres")
     |> pog.password(option.Some("postgres"))

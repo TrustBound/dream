@@ -4,15 +4,15 @@
 //// Demonstrates middleware application on specific routes.
 
 import controllers/api_controller
-import dream/context.{type AppContext}
+import dream/context.{type EmptyContext}
 import dream/http/request.{Get}
 import dream/router.{type Router, route, router}
 import middleware/rate_limit_middleware
 import services.{type Services}
 
 /// Create router with rate-limited and public routes
-pub fn create_router() -> Router(AppContext, Services) {
-  router
+pub fn create_router() -> Router(EmptyContext, Services) {
+  router()
   // Public route - no rate limiting
   |> route(
     method: Get,

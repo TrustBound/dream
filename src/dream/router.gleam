@@ -1,19 +1,21 @@
 //// Route configuration and request matching
 ////
 //// The router matches incoming requests to controllers based on HTTP method and path patterns.
-//// It supports path parameters, wildcards, middleware chains, and custom context/services types.
+//// It uses a radix trie for O(path depth) lookup performance, making it efficient even with
+//// hundreds of routes. The router supports path parameters, wildcards, middleware chains,
+//// and custom context/services types.
 ////
 //// ## Basic Routing
 ////
 //// ```gleam
-//// import dream/router.{router}
-//// import dream/http/transaction.{Get, Post}
+//// import dream/router.{route, router}
+//// import dream/http/request.{Get, Post}
 ////
 //// pub fn create_router() {
-////   router
-////   |> router.route(Get, "/", controllers.index, [])
-////   |> router.route(Get, "/users/:id", controllers.show_user, [])
-////   |> router.route(Post, "/users", controllers.create_user, [])
+////   router()
+////   |> route(method: Get, path: "/", controller: controllers.index, middleware: [])
+////   |> route(method: Get, path: "/users/:id", controller: controllers.show_user, middleware: [])
+////   |> route(method: Post, path: "/users", controller: controllers.create_user, middleware: [])
 //// }
 //// ```
 ////
@@ -23,7 +25,24 @@
 //// - `/users/:id` matches `/users/123` and extracts `id = "123"`
 //// - `/posts/:post_id/comments/:id` extracts both parameters
 ////
-//// Access parameters in your controller with `get_param(request, "id")`.
+//// Access parameters in your controller with `request.get_param(request, "id")`.
+////
+//// ### Parameter Name Remapping
+////
+//// Routes with different parameter names at the same position are supported.
+//// Each route extracts parameters using its own declared parameter names:
+////
+//// ```gleam
+//// router()
+//// |> route(method: Get, path: "/users/:id", controller: show_user, middleware: [])
+//// |> route(method: Get, path: "/users/:user_id/posts", controller: show_posts, middleware: [])
+//// ```
+////
+//// - `/users/123` extracts `id = "123"` (first route's param name)
+//// - `/users/123/posts` extracts `user_id = "123"` (second route's param name)
+////
+//// The router automatically remaps parameters to match each route's declared names,
+//// even when routes share parameter positions in the trie structure.
 ////
 //// ## Wildcards
 ////
@@ -38,39 +57,71 @@
 //// Middleware run before (and optionally after) your controller:
 ////
 //// ```gleam
-//// router
-//// |> router.route(
-////   Get,
-////   "/admin/users",
-////   controllers.admin_users,
-////   [auth_middleware, logging_middleware]
+//// router()
+//// |> route(
+////   method: Get,
+////   path: "/admin/users",
+////   controller: controllers.admin_users,
+////   middleware: [auth_middleware, logging_middleware]
 //// )
 //// ```
 ////
 //// Middleware are executed in order: `auth` → `logging` → controller → `logging` → `auth`.
 //// Each middleware can modify the request on the way in or the response on the way out.
 ////
-//// ## Route Matching
+//// ## Route Matching Priority
 ////
-//// Routes are matched in the order they're defined. First match wins.
-//// More specific routes should come before general ones:
+//// When multiple routes could match, the most specific wins:
+//// 1. Literal segments (exact match) - highest priority
+//// 2. Parameters (`:id`)
+//// 3. Single wildcards (`*`)
+//// 4. Extension patterns (`*.jpg`)
+//// 5. Multi-segment wildcards (`**`) - lowest priority
+////
+//// This means `/users/new` will match before `/users/:id` even if defined in reverse order.
+////
+//// ## Important: Parameter Validation Trade-off
+////
+//// Dream validates path parameters at runtime, not compile-time. This means:
+////
+//// - ✅ Ergonomic API: Simple, clean route definitions
+//// - ✅ Flexible: Easy to add/change routes dynamically
+//// - ❌ No compile-time safety: Typos in parameter names cause runtime errors
+////
+//// Example of what the compiler WON'T catch:
 ////
 //// ```gleam
-//// router
-//// |> router.route(Get, "/users/new", controllers.new_user, [])  // Specific
-//// |> router.route(Get, "/users/:id", controllers.show_user, []) // General
+//// // Route definition
+//// router()
+//// |> route(method: Get, path: "/users/:user_id", controller: show_user, middleware: [])
+////
+//// // Controller (WRONG - will fail at runtime)
+//// fn show_user(request: Request, context: Context, services: Services) -> Response {
+////   case get_param(request, "id") {  // Should be "user_id"
+////     Ok(param) -> // This will never execute
+////     Error(_) -> // Always hits this branch
+////   }
+//// }
 //// ```
+////
+//// This is an intentional design decision favoring ergonomics over compile-time guarantees.
+//// We're exploring more type-safe alternatives that maintain clean APIs in
+//// [GitHub Discussion #15](https://github.com/TrustBound/dream/discussions/15).
+////
+//// **Mitigation:** Write integration tests that exercise your routes. The runtime
+//// validators (`get_param`, `get_int_param`, etc.) will catch mismatches immediately.
 
-import dream/context.{type AppContext}
-
-// No statuses import needed - using raw Int status codes
-import dream/http/header.{Header}
-import dream/http/request.{type Method, type Request, Get}
-import dream/http/response.{type Response, Response, Text}
-import dream/router/pattern
+import dream/http/request.{type Method, type Request}
+import dream/http/response.{type Response}
+import dream/router/parser
+import dream/router/trie.{type Segment} as trie_module
 import gleam/list
 import gleam/option
 import gleam/string
+
+// ============================================================================
+// Public Types
+// ============================================================================
 
 /// Middleware function wrapper
 ///
@@ -87,22 +138,39 @@ pub type Middleware(context, services) {
 /// A single route definition
 ///
 /// Combines an HTTP method, path pattern, controller function, and optional middleware.
-/// Routes are matched in the order they're added to the router.
+/// This type is public for compatibility but most applications won't use it directly.
 pub type Route(context, services) {
   Route(
     method: Method,
     path: String,
     controller: fn(Request, context, services) -> Response,
     middleware: List(Middleware(context, services)),
+    streaming: Bool,
   )
 }
 
 /// Router holding your application's routes
 ///
-/// The router maintains a list of routes and provides them to the server for request matching.
-/// It's generic over context and services types so the type system can verify your whole app.
-pub type Router(context, services) {
-  Router(routes: List(Route(context, services)))
+/// The router uses a radix trie for efficient O(path depth) route matching,
+/// making it performant even with hundreds of routes. It's generic over context
+/// and services types so the type system can verify your whole app.
+pub opaque type Router(context, services) {
+  Router(trie: trie_module.RadixTrie(RouteHandler(context, services)))
+}
+
+/// Internal route handler stored in the trie
+///
+/// Wraps the controller and metadata needed to execute a matched route.
+/// Stores param names in path order to allow remapping params after lookup.
+type RouteHandler(context, services) {
+  RouteHandler(
+    controller: fn(Request, context, services) -> Response,
+    middleware: List(Middleware(context, services)),
+    streaming: Bool,
+    /// Param names in path order (e.g., ["id", "post_id"] for /users/:id/posts/:post_id)
+    /// Used to remap params extracted during trie traversal to match route's param names
+    param_names: List(String),
+  )
 }
 
 /// Placeholder for when you haven't defined services yet
@@ -113,208 +181,267 @@ pub type EmptyServices {
   EmptyServices
 }
 
-/// Default 404 controller for AppContext
-fn default_404_controller(
-  _request: Request,
-  _context: AppContext,
-  _services: EmptyServices,
-) -> Response {
-  Response(
-    status: 404,
-    body: Text("Not Found"),
-    headers: [Header("Content-Type", "text/plain; charset=utf-8")],
-    cookies: [],
-    content_type: option.Some("text/plain; charset=utf-8"),
-  )
-}
+// ============================================================================
+// Router Construction
+// ============================================================================
 
-/// Default route constant with AppContext
-pub const new = Route(
-  method: Get,
-  path: "/",
-  controller: default_404_controller,
-  middleware: [],
-)
-
-/// Default router constant with AppContext
-pub const router = Router(routes: [])
-
-/// Set the HTTP method for the route
-pub fn method(
-  route: Route(context, services),
-  method_value: Method,
-) -> Route(context, services) {
-  Route(..route, method: method_value)
-}
-
-/// Set the path for the route
-pub fn path(
-  route: Route(context, services),
-  path_value: String,
-) -> Route(context, services) {
-  Route(..route, path: path_value)
-}
-
-/// Set the controller function for the route
-pub fn controller(
-  route: Route(context, services),
-  controller_function: fn(Request, context, services) -> Response,
-) -> Route(context, services) {
-  Route(..route, controller: controller_function)
-}
-
-/// Add middleware to the route (accepts a list for convenience)
-pub fn middleware(
-  route: Route(context, services),
-  middleware_list: List(
-    fn(Request, context, services, fn(Request, context, services) -> Response) ->
-      Response,
-  ),
-) -> Route(context, services) {
-  let middleware_wrappers = list.map(middleware_list, wrap_middleware)
-  Route(..route, middleware: list.append(middleware_wrappers, route.middleware))
-}
-
-fn wrap_middleware(
-  mw: fn(Request, context, services, fn(Request, context, services) -> Response) ->
-    Response,
-) -> Middleware(context, services) {
-  Middleware(mw)
+/// Empty router with no routes
+///
+/// Starting point for building your application's router. Chain this with
+/// `route()` or `stream_route()` calls to add routes.
+///
+/// ## Example
+///
+/// ```gleam
+/// router()
+/// |> route(method: Get, path: "/", controller: home, middleware: [])
+/// |> route(method: Get, path: "/users/:id", controller: show_user, middleware: [])
+/// ```
+pub fn router() -> Router(context, services) {
+  Router(trie: trie_module.new())
 }
 
 /// Add a route to the router
 ///
-/// Routes are matched in the order they're added, so put more specific routes first.
+/// Registers a route with the given method, path pattern, controller, and middleware.
 /// The path supports parameters (`:id`), wildcards (`*`, `**`), and extensions (`*.jpg`).
+///
+/// Routes are stored in a radix trie, so they don't need to be defined in any particular
+/// order - the most specific route will always match first.
 ///
 /// ## Examples
 ///
 /// ```gleam
 /// // Simple route
-/// router.route(router, Get, "/", home_controller, [])
+/// route(router, method: Get, path: "/", controller: home_controller, middleware: [])
 ///
 /// // Route with path parameter
-/// router.route(router, Get, "/users/:id", show_user, [])
+/// route(router, method: Get, path: "/users/:id", controller: show_user, middleware: [])
 ///
 /// // Route with middleware
-/// router.route(router, Post, "/admin/users", create_user, [auth, logging])
+/// route(router, method: Post, path: "/admin/users", controller: create_user, middleware: [auth, logging])
 ///
 /// // Wildcard route for static files
-/// router.route(router, Get, "/assets/**path", serve_static, [])
+/// route(router, method: Get, path: "/assets/**path", controller: serve_static, middleware: [])
 /// ```
 pub fn route(
-  router: Router(context, services),
+  router_value: Router(context, services),
   method method_value: Method,
-  path path_value: String,
-  controller controller_function: fn(Request, context, services) -> Response,
+  path path_pattern: String,
+  controller controller_fn: fn(Request, context, services) -> Response,
   middleware middleware_list: List(
     fn(Request, context, services, fn(Request, context, services) -> Response) ->
       Response,
   ),
 ) -> Router(context, services) {
+  let segments = parser.parse_pattern(path_pattern)
+  let method_string = method_to_string(method_value)
   let middleware_wrappers = list.map(middleware_list, wrap_middleware)
-  let route =
-    Route(
-      method: method_value,
-      path: path_value,
-      controller: controller_function,
+  let param_names = extract_param_names_from_segments(segments)
+
+  let handler =
+    RouteHandler(
+      controller: controller_fn,
       middleware: middleware_wrappers,
+      streaming: False,
+      param_names: param_names,
     )
-  Router(routes: [route, ..router.routes])
+
+  let updated_trie =
+    trie_module.insert(router_value.trie, method_string, segments, handler)
+
+  Router(trie: updated_trie)
 }
 
-/// Match a path against a pattern and extract parameters
+/// Add a streaming route to the router
 ///
-/// Returns the extracted parameters if the path matches the pattern, or `None` if it doesn't.
+/// Registers a route that receives the request body as a stream (Yielder(BitArray))
+/// instead of a buffered string. Use this for large file uploads, proxying external
+/// APIs, or any request body > 10MB.
 ///
-/// ## Path Parameters
+/// The controller receives `request.stream` as `Some(Yielder(BitArray))` and
+/// `request.body` as an empty string. Process chunks as they arrive without
+/// buffering the entire body in memory.
+///
+/// ## Example
 ///
 /// ```gleam
-/// match_path("/users/:id", "/users/123")
-/// // -> Some([#("id", "123")])
-///
-/// match_path("/users/:user_id/posts/:id", "/users/123/posts/456")
-/// // -> Some([#("user_id", "123"), #("id", "456")])
+/// router
+/// |> stream_route(method: Post, path: "/upload", controller: handle_upload, middleware: [auth])
+/// |> stream_route(method: Put, path: "/files/:id", controller: replace_file, middleware: [])
 /// ```
 ///
-/// ## Wildcards
+/// ## When to Use
+///
+/// - File uploads > 10MB
+/// - Proxying external APIs
+/// - Video/audio streaming
+/// - Large form submissions
+///
+/// For regular requests (JSON APIs, forms < 10MB), use `route()` instead.
+pub fn stream_route(
+  router_value: Router(context, services),
+  method method_value: Method,
+  path path_pattern: String,
+  controller controller_fn: fn(Request, context, services) -> Response,
+  middleware middleware_list: List(
+    fn(Request, context, services, fn(Request, context, services) -> Response) ->
+      Response,
+  ),
+) -> Router(context, services) {
+  let segments = parser.parse_pattern(path_pattern)
+  let method_string = method_to_string(method_value)
+  let middleware_wrappers = list.map(middleware_list, wrap_middleware)
+  let param_names = extract_param_names_from_segments(segments)
+
+  let handler =
+    RouteHandler(
+      controller: controller_fn,
+      middleware: middleware_wrappers,
+      streaming: True,
+      param_names: param_names,
+    )
+
+  let updated_trie =
+    trie_module.insert(router_value.trie, method_string, segments, handler)
+
+  Router(trie: updated_trie)
+}
+
+// ============================================================================
+// Route Matching
+// ============================================================================
+
+/// Find the route matching the request
+///
+/// Searches the router's trie for a route that matches the request's method and path.
+/// Returns the matched route and extracted path parameters, or None if no route matches.
+///
+/// Uses radix trie lookup for O(path depth) performance, independent of total routes.
+///
+/// ## Parameters
+///
+/// - `router_value`: Router with configured routes
+/// - `request`: HTTP request to match against
+///
+/// ## Returns
+///
+/// - `Some(#(route, params))`: Matched route and extracted path parameters
+/// - `None`: No matching route found
+///
+/// ## Example
 ///
 /// ```gleam
-/// // Single-segment wildcard
-/// match_path("/assets/*file", "/assets/logo.png")
-/// // -> Some([#("file", "logo.png")])
+/// let app_router = router
+///   |> route(method: Get, path: "/users/:id", controller: show_user, middleware: [])
 ///
-/// // Multi-segment wildcard
-/// match_path("/files/**path", "/files/docs/guide.pdf")
-/// // -> Some([#("path", "docs/guide.pdf")])
-///
-/// // Extension matching
-/// match_path("/images/*.jpg", "/images/photo.jpg")
-/// // -> Some([])
-///
-/// // Multiple extensions
-/// match_path("/images/*.{jpg,png}", "/images/photo.jpg")
-/// // -> Some([])
+/// case find_route(app_router, request) {
+///   Some(#(route, params)) -> {
+///     // route.controller is show_user
+///     // params is [#("id", "123")] if path was "/users/123"
+///   }
+///   None -> // No route matched
+/// }
 /// ```
-pub fn match_path(
-  pattern_string: String,
-  path: String,
-) -> option.Option(List(#(String, String))) {
-  let pattern_segments =
-    string.split(pattern_string, "/") |> list.filter(non_empty_segment)
-  let path_segments = string.split(path, "/") |> list.filter(non_empty_segment)
-
-  pattern.match_segments(pattern_segments, path_segments)
-}
-
-fn non_empty_segment(segment: String) -> Bool {
-  segment != ""
-}
-
-/// Find matching route and extract params
 pub fn find_route(
-  router: Router(context, services),
+  router_value: Router(context, services),
   request: Request,
 ) -> option.Option(#(Route(context, services), List(#(String, String)))) {
-  find_route_recursive(router.routes, request)
+  let method_string = method_to_string(request.method)
+  let path_segments = split_path(request.path)
+
+  case trie_module.lookup(router_value.trie, method_string, path_segments) {
+    option.Some(trie_module.Match(handler, params)) -> {
+      // Remap params using the route's param_names
+      // Params are accumulated in reverse order during traversal, so reverse them first
+      // to get path order, remap, then reverse back to maintain backward compatibility
+      let reversed_params = list.reverse(params)
+      let remapped_params =
+        remap_params_to_route_names(reversed_params, handler.param_names)
+      // Reverse back to maintain backward compatibility (last param first)
+      let final_params = list.reverse(remapped_params)
+
+      let route =
+        Route(
+          method: request.method,
+          path: request.path,
+          controller: handler.controller,
+          middleware: handler.middleware,
+          streaming: handler.streaming,
+        )
+      option.Some(#(route, final_params))
+    }
+    option.None -> option.None
+  }
 }
 
-fn find_route_recursive(
-  routes: List(Route(context, services)),
-  request: Request,
-) -> option.Option(#(Route(context, services), List(#(String, String)))) {
-  case routes {
-    [] -> option.None
-    [route, ..rest] -> {
-      case check_route_match(request, route) {
-        Ok(result) -> option.Some(result)
-        Error(_) -> find_route_recursive(rest, request)
+/// Split a path into segments for trie lookup
+fn split_path(path: String) -> List(String) {
+  path
+  |> string.split("/")
+  |> list.filter(is_non_empty_segment)
+}
+
+/// Check if a segment is non-empty
+fn is_non_empty_segment(seg: String) -> Bool {
+  seg != ""
+}
+
+/// Extract param names from segments in path order
+///
+/// Extracts names from Param, SingleWildcard, and MultiWildcard segments.
+/// Used to store param names with the route handler for remapping after lookup.
+fn extract_param_names_from_segments(segments: List(Segment)) -> List(String) {
+  case segments {
+    [] -> []
+    [segment, ..rest] -> {
+      let rest_names = extract_param_names_from_segments(rest)
+      let name = extract_param_name_from_segment(segment)
+      case name {
+        option.Some(n) -> [n, ..rest_names]
+        option.None -> rest_names
       }
     }
   }
 }
 
-fn check_route_match(
-  request: Request,
-  route: Route(context, services),
-) -> Result(#(Route(context, services), List(#(String, String))), Nil) {
-  let method_matches = route.method == request.method
-
-  case method_matches {
-    False -> Error(Nil)
-    True -> check_path_match(route, request.path)
+/// Extract param name from a single segment
+fn extract_param_name_from_segment(segment: Segment) -> option.Option(String) {
+  case segment {
+    trie_module.Param(name) -> option.Some(name)
+    trie_module.SingleWildcard(option.Some(name)) -> option.Some(name)
+    trie_module.MultiWildcard(option.Some(name)) -> option.Some(name)
+    trie_module.SingleWildcard(option.None) -> option.Some("wildcard")
+    trie_module.MultiWildcard(option.None) -> option.Some("path")
+    trie_module.ExtensionPattern(_) -> option.None
+    trie_module.Literal(_) -> option.None
   }
 }
 
-fn check_path_match(
-  route: Route(context, services),
-  path: String,
-) -> Result(#(Route(context, services), List(#(String, String))), Nil) {
-  case match_path(route.path, path) {
-    option.Some(params) -> Ok(#(route, params))
-    option.None -> Error(Nil)
+/// Remap params extracted during trie traversal to match route's param names
+///
+/// Params are extracted using the trie node's param names (which may differ
+/// from the route's param names when routes share param positions). This function
+/// remaps them to the correct names based on the matched route's param_names.
+///
+/// Both lists should be in path order (first param first).
+fn remap_params_to_route_names(
+  extracted_params: List(#(String, String)),
+  route_param_names: List(String),
+) -> List(#(String, String)) {
+  case extracted_params, route_param_names {
+    [], _ -> []
+    _, [] -> extracted_params
+    [#(_old_name, value), ..rest_params], [new_name, ..rest_names] -> {
+      let remapped_rest = remap_params_to_route_names(rest_params, rest_names)
+      [#(new_name, value), ..remapped_rest]
+    }
   }
 }
+
+// ============================================================================
+// Middleware Chain Building
+// ============================================================================
 
 /// Build a controller chain from middleware and final controller
 ///
@@ -323,6 +450,15 @@ fn check_path_match(
 ///
 /// For middleware `[auth, logging]` with controller `handle`:
 /// Request → auth → logging → handle → logging → auth → Response
+///
+/// ## Parameters
+///
+/// - `middleware`: List of middleware to apply
+/// - `final_controller`: The controller that handles the request
+///
+/// ## Returns
+///
+/// A composed function that applies all middleware and the controller
 pub fn build_controller_chain(
   middleware: List(Middleware(context, services)),
   final_controller: fn(Request, context, services) -> Response,
@@ -332,6 +468,7 @@ pub fn build_controller_chain(
   build_chain_recursive(reversed, final_controller)
 }
 
+/// Recursively build the middleware chain
 fn build_chain_recursive(
   middleware: List(Middleware(context, services)),
   controller: fn(Request, context, services) -> Response,
@@ -350,7 +487,38 @@ fn build_chain_recursive(
   }
 }
 
+/// Wrap a controller with a middleware function
 fn create_wrapped_controller(
+  middleware_fn: fn(
+    Request,
+    context,
+    services,
+    fn(Request, context, services) -> Response,
+  ) ->
+    Response,
+  controller: fn(Request, context, services) -> Response,
+) -> fn(Request, context, services) -> Response {
+  wrap_controller_with_middleware(middleware_fn, controller)
+}
+
+/// Create a wrapped controller that applies middleware
+///
+/// This is a named function to avoid anonymous functions in production code.
+fn wrap_controller_with_middleware(
+  middleware_fn: fn(
+    Request,
+    context,
+    services,
+    fn(Request, context, services) -> Response,
+  ) ->
+    Response,
+  controller: fn(Request, context, services) -> Response,
+) -> fn(Request, context, services) -> Response {
+  apply_middleware_to_controller(middleware_fn, controller)
+}
+
+/// Apply middleware to a controller, creating a wrapped controller function
+fn apply_middleware_to_controller(
   middleware_fn: fn(
     Request,
     context,
@@ -363,4 +531,21 @@ fn create_wrapped_controller(
   fn(request, context, services) {
     middleware_fn(request, context, services, controller)
   }
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/// Wrap a middleware function in the Middleware type
+fn wrap_middleware(
+  mw: fn(Request, context, services, fn(Request, context, services) -> Response) ->
+    Response,
+) -> Middleware(context, services) {
+  Middleware(mw)
+}
+
+/// Convert an HTTP method to its string representation
+fn method_to_string(method: Method) -> String {
+  request.method_to_string(method)
 }

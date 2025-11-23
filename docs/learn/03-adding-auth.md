@@ -142,7 +142,7 @@ import middleware/auth_middleware.{auth_middleware}
 import services.{type Services}
 
 pub fn create_router() -> Router(AuthContext, Services) {
-  router
+  router()
   // Public route - no auth needed
   |> route(method: Get, path: "/users", controller: index, middleware: [])
   

@@ -494,7 +494,7 @@ import controllers/users_controller.{index, show, create}
 import services.{type Services}
 
 pub fn create_router() -> Router(AppContext, Services) {
-  router
+  router()
   |> route(method: Get, path: "/users", controller: index, middleware: [])
   |> route(method: Get, path: "/users/:id", controller: show, middleware: [])
   |> route(method: Post, path: "/users", controller: create, middleware: [])

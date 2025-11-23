@@ -6,25 +6,29 @@
 //// ## Quick Setup
 ////
 //// ```gleam
-//// import dream/controllers/static
-//// import dream/http/transaction.{get_string_param}
+//// import dream/controllers/static.{default_config, serve}
+//// import dream/http/request.{type Request, Get, get_string_param}
+//// import dream/http/response.{type Response, json_response}
+//// import dream/http/status.{bad_request}
+//// import dream/router.{route}
 ////
-//// pub fn serve_assets(request, ctx, svc) {
+//// pub fn serve_assets(request: Request, context, services) -> Response {
 ////   case get_string_param(request, "path") {
-////     Ok(path) -> static.serve(
-////       request: request,
-////       context: ctx,
-////       services: svc,
-////       root: "./public",
-////       filepath: path,
-////       config: static.default_config(),
-////     )
-////     Error(msg) -> json_response(status.bad_request, error_json(msg))
+////     Ok(path) -> 
+////       serve(
+////         request: request,
+////         context: context,
+////         services: services,
+////         root: "./public",
+////         filepath: path,
+////         config: default_config(),
+////       )
+////     Error(msg) -> json_response(bad_request, error_json(msg))
 ////   }
 //// }
 ////
 //// // In your router:
-//// router.route(Get, "/assets/**path", serve_assets, [])
+//// route(method: Get, path: "/assets/**path", controller: serve_assets, middleware: [])
 //// ```
 ////
 //// ## Security
@@ -115,17 +119,23 @@ pub fn without_index(
 ///
 /// Usage:
 /// ```gleam
-/// pub fn serve_public(request: Request, ctx, svc) -> Response {
+/// import dream/controllers/static.{default_config, serve}
+/// import dream/http/request.{type Request, get_string_param}
+/// import dream/http/response.{type Response, json_response}
+/// import dream/http/status.{bad_request}
+/// 
+/// pub fn serve_public(request: Request, context, services) -> Response {
 ///   case get_string_param(request, "filepath") {
-///     Ok(filepath) -> static.serve(
-///       request: request,
-///       context: ctx,
-///       services: svc,
-///       root: "./public",
-///       filepath: filepath,
-///       config: static.default_config(),
-///     )
-///     Error(msg) -> json_response(status.bad_request, error_json(msg))
+///     Ok(filepath) -> 
+///       serve(
+///         request: request,
+///         context: context,
+///         services: services,
+///         root: "./public",
+///         filepath: filepath,
+///         config: default_config(),
+///       )
+///     Error(msg) -> json_response(bad_request, error_json(msg))
 ///   }
 /// }
 /// ```

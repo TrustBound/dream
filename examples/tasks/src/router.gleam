@@ -11,7 +11,7 @@ import middleware/logging_middleware
 import services.{type Services}
 
 pub fn create_router() -> Router(TasksContext, Services) {
-  router
+  router()
   // Static files
   |> route(
     method: Get,

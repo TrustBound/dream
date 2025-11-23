@@ -180,7 +180,7 @@ fn error_json(message: String) -> String {
 
 ```gleam
 // router.gleam
-router
+router()
 |> route(Get, "/v1/products", v1.products_controller.index, [])
 |> route(Get, "/v2/products", v2.products_controller.index, [])
 ```

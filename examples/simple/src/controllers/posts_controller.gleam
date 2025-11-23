@@ -3,7 +3,7 @@
 //// Controller for simple example routes.
 //// Follows Rails controller naming conventions.
 
-import dream/context.{type AppContext}
+import dream/context.{type EmptyContext}
 import dream/http.{type Request, type Response}
 import dream/http/response.{text_response}
 import dream/http/status
@@ -18,7 +18,7 @@ import views/post_view
 /// Index action - displays hello world
 pub fn index(
   _request: Request,
-  _context: AppContext,
+  _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
   text_response(status.ok, post_view.format_index())
@@ -27,7 +27,7 @@ pub fn index(
 /// Show action - demonstrates path parameters and makes HTTPS request
 pub fn show(
   request: Request,
-  _context: AppContext,
+  _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
   let result = {

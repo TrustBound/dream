@@ -19,7 +19,7 @@ pub fn new_creates_dream_instance_with_defaults_test() {
 pub fn router_sets_router_on_dream_instance_test() {
   // Arrange
   let dream_instance = server.new()
-  let test_router = router
+  let test_router = router()
 
   // Act
   let updated_dream = server.router(dream_instance, test_router)
@@ -36,7 +36,7 @@ pub fn router_sets_router_on_dream_instance_test() {
 pub fn bind_sets_bind_address_test() {
   // Arrange
   let dream_instance = server.new()
-  let test_router = router
+  let test_router = router()
   let dream_with_router = server.router(dream_instance, test_router)
 
   // Act
@@ -52,7 +52,7 @@ pub fn bind_sets_bind_address_test() {
 pub fn max_body_size_sets_max_body_size_test() {
   // Arrange
   let dream_instance = server.new()
-  let test_router = router
+  let test_router = router()
   let dream_with_router = server.router(dream_instance, test_router)
 
   // Act

@@ -16,7 +16,7 @@ The absolute minimum Dream app. Everything inline, no organization. Start here.
 - Router setup
 - Server configuration
 
-**Run:** `cd examples/simplest && ./run_example.sh`
+**Run:** `cd examples/simplest && make run`
 
 ---
 
@@ -30,7 +30,8 @@ Multiple routes, path parameters, HTTP client usage.
 - Multiple controllers
 - HTTP client (non-streaming)
 
-**Run:** `cd examples/simple && ./run_example.sh`
+**Run:** `cd examples/simple && make run`
+**Test:** 4 integration tests
 
 ---
 
@@ -48,6 +49,7 @@ Complete REST API with type-safe SQL, migrations, and validation.
 - Makefile automation
 
 **Run:** `cd examples/database && make db-up && make migrate && make run`
+**Test:** 15 integration tests with database isolation
 
 ---
 
@@ -62,7 +64,8 @@ Custom context types and middleware for auth.
 - Context enrichment
 - Protecting routes
 
-**Run:** `cd examples/custom_context && ./run_example.sh`
+**Run:** `cd examples/custom_context && make run`
+**Test:** 8 integration tests covering authentication
 
 ---
 
@@ -79,6 +82,7 @@ Complete task management application with HTMX, semantic classless HTML, and com
 - No raw HTML in Gleam code
 
 **Run:** `cd examples/tasks && make db-up && make migrate && make squirrel && make matcha && make run`
+**Test:** Comprehensive Cucumber integration tests
 
 ---
 
@@ -96,20 +100,40 @@ Same data in multiple formats with content negotiation.
 - HTMX partials
 
 **Run:** `cd examples/multi_format && make db-up && make migrate && make run`
+**Test:** 12 integration tests covering all formats
 
 ---
 
 ### [streaming/](../examples/streaming/)
 **HTTP client with streaming.**
 
-Both streaming and non-streaming HTTP requests.
+Both streaming and non-streaming HTTP requests to external APIs.
 
 **Demonstrates:**
 - HTTP client streaming
 - Chunk processing
 - Memory-efficient requests
+- External API calls
 
-**Run:** `cd examples/streaming && ./run_example.sh`
+**Run:** `cd examples/streaming && make run`
+**Test:** 6 integration tests
+
+---
+
+### [streaming_capabilities/](../examples/streaming_capabilities/)
+**🔥 Advanced streaming patterns.**
+
+Complete streaming showcase: ingress, egress, bi-directional, middleware, proxying.
+
+**Demonstrates:**
+- **Ingress streaming**: Upload large files without buffering
+- **Egress streaming**: Download data generated on-the-fly
+- **Bi-directional streaming**: Transform data both ways
+- **Streaming middleware**: Uppercase input, transform output
+- **Proxy streaming**: Stream from external sources
+
+**Run:** `cd examples/streaming_capabilities && make run`
+**Test:** Integration tests with all streaming patterns
 
 ---
 
@@ -123,7 +147,8 @@ Rate limiting across all requests using singleton pattern.
 - ETS tables
 - Rate limiting middleware
 
-**Run:** `cd examples/rate_limiter && ./run_example.sh`
+**Run:** `cd examples/rate_limiter && make run`
+**Test:** 8 integration tests with unique IP isolation
 
 ---
 
@@ -138,7 +163,8 @@ File serving with security, directory listing, MIME types.
 - Custom MIME types
 - Directory listings
 
-**Run:** `cd examples/static && ./run_example.sh`
+**Run:** `cd examples/static && make run`
+**Test:** 10 integration tests with security validation
 
 ---
 
@@ -147,15 +173,39 @@ File serving with security, directory listing, MIME types.
 1. **Read the README** - Explains what it demonstrates
 2. **Read the code** - Commented to explain patterns
 3. **Run it** - See it working
-4. **Modify it** - Break things and learn
+4. **Run the tests** - See comprehensive test coverage
+5. **Modify it** - Break things and learn
 
 Each example is self-contained with its own database (if needed), dependencies, and setup.
+
+## Testing Examples
+
+All examples include comprehensive integration tests using Cucumber (BDD framework):
+
+```bash
+# Run all example tests
+make test-examples
+
+# Run specific example tests
+cd examples/database && make test-integration
+```
+
+**Total: 63 integration tests** covering:
+- Error handling (400, 404, 500)
+- Content validation (JSON, CSV, HTML)
+- Security (auth, path traversal, rate limiting)
+- Streaming (request/response, chunked transfer)
+- Database (CRUD, persistence, isolation)
+
+See [Testing Guide](../TESTING.md) for details.
 
 ---
 
 ## Next Steps
 
 - [Concepts](concepts.md) - Understand Dream's core ideas
+- [Guides](guides/) - Build something specific  
+- [Testing Guide](../TESTING.md) - Learn about the test suite
 - [Reference](reference/) - Deep dives on architecture
 
 

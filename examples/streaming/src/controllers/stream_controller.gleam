@@ -3,7 +3,7 @@
 //// Controller for streaming example routes.
 //// Follows Rails controller naming conventions.
 
-import dream/context.{type AppContext}
+import dream/context.{type EmptyContext}
 import dream/http/request.{type Request}
 import dream/http/response.{type Response, text_response}
 import dream/http/status
@@ -23,7 +23,7 @@ import views/stream_view
 /// Index action - displays available routes
 pub fn index(
   _request: Request,
-  _context: AppContext,
+  _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
   text_response(status.ok, stream_view.format_index())
@@ -32,7 +32,7 @@ pub fn index(
 /// Show action - demonstrates streaming HTTP requests
 pub fn show(
   _request: Request,
-  _context: AppContext,
+  _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
   // Make a streaming request to httpbin.org
@@ -59,7 +59,7 @@ pub fn show(
 /// New action - demonstrates non-streaming HTTP requests
 pub fn new(
   _request: Request,
-  _context: AppContext,
+  _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
   // Make a non-streaming request to httpbin.org

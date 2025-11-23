@@ -37,12 +37,11 @@ fn index(
 
 pub fn main() {
   let app_router =
-    router
+    router()
     |> route(method: Get, path: "/", controller: index, middleware: [])
 
   server.new()
-  |> services(EmptyServices)
-  |> set_router(app_router)
+  |> router(app_router)
   |> bind("localhost")
   |> listen(3000)
 }
@@ -66,11 +65,28 @@ This code does three things:
 
 **Note:** When using Dream's default `AppContext`, you don't need to call `context()` - it's automatic.
 
-## Next Steps
+**Performance:** Dream uses a radix trie for routing, giving O(path depth) lookup performance. This means 1000 routes perform nearly as fast as 10 routes (~1.3μs per lookup regardless of route count). The router is fast enough that it won't be your bottleneck.
 
-- [Learning Path](learn/) - Learn Dream concepts in 2 hours
-- [Guides](guides/) - Build something specific
-- [Examples](../examples/) - See working applications
+## What's Next?
+
+### Learn Core Concepts
+
+- [Learning Path](learn/) - 2-hour structured course
+- [How It Works](concepts/how-it-works.md) - Request flow explained
+
+### Build Something Specific
+
+- [Authentication](guides/authentication.md) - Add JWT or session auth
+- [Database](guides/controllers-and-models.md) - Connect to PostgreSQL
+- [Streaming](guides/streaming.md) - Handle large files and real-time data
+- [Multiple Formats](guides/multiple-formats.md) - Serve JSON, HTML, CSV
+
+### Explore Examples
+
+- [`examples/database`](../examples/database/) - Full CRUD API with PostgreSQL
+- [`examples/streaming_capabilities`](../examples/streaming_capabilities/) - Advanced streaming
+- [`examples/multi_format`](../examples/multi_format/) - JSON/HTML/CSV/HTMX
+- [All Examples](../examples/) - 7 working applications with 63 tests
 
 **Want to understand this code?** Start with [Hello World](learn/01-hello-world.md) in the learning path.
 

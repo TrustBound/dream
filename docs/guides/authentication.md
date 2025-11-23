@@ -89,7 +89,7 @@ import dream/http/request.{Get, Post}
 import middleware/auth_middleware.{auth_middleware}
 
 pub fn create_router() -> Router(AuthContext, Services) {
-  router
+  router()
   // Public route
   |> route(method: Get, path: "/", controller: public_index, middleware: [])
   

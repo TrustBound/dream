@@ -1,97 +1,187 @@
 # Dream Examples
 
-This directory contains standalone example projects demonstrating various Dream features. Each example is its own Gleam project that depends on Dream as a local path dependency.
+This directory contains comprehensive examples demonstrating Dream's features and best practices.
+
+## Examples Overview
+
+| Example | Description | Database | Tests | Port |
+|---------|-------------|----------|-------|------|
+| [simplest](./simplest) | Minimal "Hello World" | No | Manual | 3000 |
+| [simple](./simple) | Basic routing and path parameters | No | 4 ✅ | 3000 |
+| [custom_context](./custom_context) | Authentication and authorization | No | 8 ✅ | 3000 |
+| [static](./static) | Static file serving | No | 10 ✅ | 3000 |
+| [streaming](./streaming) | Streaming responses | No | 6 ✅ | 3003 |
+| [rate_limiter](./rate_limiter) | Rate limiting middleware | No | 8 ✅ | 3000 |
+| [database](./database) | PostgreSQL with Squirrel | Yes | 15 ✅ | 3002 |
+| [multi_format](./multi_format) | JSON/CSV/HTML/HTMX formats | Yes | 12 ✅ | 3000 |
+| [streaming_capabilities](./streaming_capabilities) | Advanced streaming patterns | No | TBD | 3001 |
+| [tasks](./tasks) | Full-featured task manager | Yes | Cucumber | 3000 |
+
+**Total: 63 automated integration tests**
 
 ## Running Examples
 
-Each example has its own `run_example.sh` script that:
-- Sets up any required services (databases, etc.)
-- Builds and starts the server
-- Tests all endpoints
-- Cleans up automatically (even on failure)
+### Quick Start (No Database)
 
 ```bash
 cd examples/simple
-./run_example.sh
+make run
 ```
 
-## Available Examples
-
-### 1. Simplest (`simplest/`)
-**Port:** 3000  
-**Features:** Absolute minimum Dream application
-
-The simplest possible Dream app - one file, one route, returning "Hello, World!". Perfect starting point to understand Dream's core concepts with zero complexity.
-
-### 2. Simple (`simple/`)
-**Port:** 3000  
-**Features:** Basic routing with path parameters
-
-Demonstrates a simple Dream app with two routes and an HTTP client.
-
-### 3. Singleton (`singleton/`)
-**Port:** 3000  
-**Features:** Global state management, rate limiting
-
-Shows how to use Dream's singleton pattern for managing global state (rate limiter service).
-
-### 4. Streaming (`streaming/`)
-**Port:** 3000  
-**Features:** HTTP client (streaming and non-streaming)
-
-Demonstrates Dream's HTTP client for making external requests.
-
-### 5. Custom Context (`custom_context/`)
-**Port:** 3001  
-**Features:** Authentication, authorization, middleware chaining
-
-Shows how to extend Dream's context with custom types for auth and use middleware.
-
-### 6. Static (`static/`)
-**Port:** 3000  
-**Features:** Static file serving, wildcard routing, directory listing
-
-Comprehensive example of all wildcard pattern types and secure static file serving.
-
-### 7. Database (`database/`)
-**Port:** 3002  
-**Database:** PostgreSQL on port 5435  
-**Features:** Full CRUD, type-safe SQL with Squirrel, database migrations
-
-Complete REST API with PostgreSQL integration.
-
-### 8. Multi-Format (`multi_format/`)
-**Port:** 3000  
-**Database:** PostgreSQL on port 5436  
-**Features:** JSON, HTML, HTMX, CSV responses, streaming, Matcha templates
-
-Demonstrates serving the same data in multiple formats using format extensions.
-
-## Isolation
-
-Each example runs in complete isolation:
-- Unique ports prevent conflicts
-- Database examples have their own Docker containers
-- Each has its own dependencies and build artifacts
-- Integration tests (`run_example.sh`) clean up automatically
-
-### 9. Tasks (`tasks/`)
-**Port:** 3000  
-**Database:** PostgreSQL on port 5437  
-**Features:** HTMX, semantic HTML, classless CSS, composable templates, drag-and-drop
-
-Full-featured task management app with projects and tags, demonstrating HTMX patterns and composable matcha architecture.
-
-## Testing All Examples
-
-To run all examples sequentially:
+### Database Examples
 
 ```bash
-cd examples
-for dir in simplest simple singleton streaming custom_context static database multi_format tasks; do
-  cd $dir && ./run_example.sh && cd ..
-done
+cd examples/database
+
+# Start PostgreSQL
+docker-compose up -d
+
+# Run migrations
+make migrate
+
+# Start server
+make run
 ```
 
-All examples reset their state before testing, so they can be run multiple times.
+## Testing
 
+### Run All Integration Tests
+
+```bash
+# From repository root (requires PostgreSQL on port 5435)
+make test-examples
+```
+
+### Run Individual Example Tests
+
+```bash
+cd examples/simple
+make test-integration
+```
+
+## Integration Test Framework
+
+All examples use **Cucumber** (BDD framework) with **HTTPoison** for HTTP testing:
+
+- **Feature files**: Gherkin scenarios in `test/integration/features/*.feature`
+- **Step definitions**: Elixir implementations in `test/integration/features/step_definitions/*.exs`
+- **Test isolation**: Database cleanup between scenarios
+- **CI-ready**: All tests run in GitHub Actions
+
+### Example Test Structure
+
+```
+examples/simple/
+├── test/
+│   └── integration/
+│       ├── features/
+│       │   ├── simple.feature           # Gherkin scenarios
+│       │   └── step_definitions/
+│       │       └── http_steps.exs       # Step implementations
+│       ├── cucumber_test.exs            # ExUnit entry point
+│       └── test_helper.exs              # Cucumber configuration
+├── mix.exs                               # Elixir test dependencies
+└── Makefile                              # test-integration target
+```
+
+## CI Integration
+
+Integration tests run automatically on all pull requests:
+
+```yaml
+# .github/workflows/ci.yml includes:
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:  # For database examples
+```
+
+See [Integration Tests CI Documentation](../.github/workflows/integration-tests.md) for details.
+
+## Test Coverage
+
+### Error Handling
+✅ 400 Bad Request (invalid JSON, missing fields)
+✅ 404 Not Found (non-existent resources)
+✅ 500 Internal Server Error (database errors)
+
+### Content Validation
+✅ JSON structure and field verification
+✅ CSV format validation
+✅ HTML content verification
+✅ Content-Type headers
+
+### Security
+✅ Path traversal protection
+✅ Authentication/authorization
+✅ Rate limiting
+
+### Streaming
+✅ Request streaming (file uploads)
+✅ Response streaming (large files, real-time data)
+✅ Chunked transfer encoding
+
+### Database
+✅ CRUD operations
+✅ Data persistence
+✅ Transaction handling
+✅ Test isolation (cleanup between scenarios)
+
+## Best Practices Demonstrated
+
+1. **Flat controller pattern**: No nested cases, all named helper functions
+2. **Type-safe SQL**: Using Squirrel for compile-time query validation
+3. **Separation of concerns**: Models, Controllers, Views, Operations
+4. **Middleware composition**: Logging, authentication, rate limiting
+5. **Error handling**: Unified error type with proper status codes
+6. **Test isolation**: Database cleanup and unique test data
+7. **BDD testing**: Readable Gherkin scenarios with reusable steps
+
+## Adding a New Example
+
+1. Create directory: `examples/your_example/`
+2. Add `gleam.toml`, `Makefile`, `src/main.gleam`
+3. Create Cucumber tests:
+   - `test/integration/features/your_example.feature`
+   - `test/integration/features/step_definitions/http_steps.exs`
+   - `test/integration/cucumber_test.exs`
+   - `test/integration/test_helper.exs`
+4. Add `mix.exs` with test dependencies
+5. Add `test-integration` target to Makefile
+6. Update `.github/workflows/ci.yml` to include your example
+7. Update this README
+
+## Troubleshooting
+
+### Tests Hanging
+
+Check for port conflicts:
+```bash
+lsof -i:3000  # Check if port is in use
+pkill -f "gleam run"  # Kill all Gleam processes
+```
+
+### Database Connection Errors
+
+Verify PostgreSQL is running:
+```bash
+docker-compose ps
+docker-compose logs postgres
+```
+
+### Compilation Errors
+
+Clean and rebuild:
+```bash
+make clean
+gleam deps download
+gleam build
+```
+
+## Resources
+
+- [Dream Documentation](../docs)
+- [Quickstart Guide](../docs/quickstart.md)
+- [Testing Guide](../docs/guides/testing.md)
+- [CI Documentation](../.github/workflows/integration-tests.md)

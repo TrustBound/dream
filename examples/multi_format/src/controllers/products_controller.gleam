@@ -6,10 +6,13 @@ import context.{type AppContext}
 import dream/http.{type Request, type Response}
 import dream/http/error.{type Error, BadRequest}
 import dream/http/request.{type PathParam, get_param}
-import dream/http/response.{html_response, json_response, text_response}
+import dream/http/response.{
+  html_response, json_response, stream_response, text_response,
+}
 import dream/http/status
 import gleam/option
 import gleam/result
+import gleam/string
 import operations/product_operations
 import services.{type Services}
 import types/product.{type Product}
@@ -67,7 +70,7 @@ fn respond_with_format(
 
 /// List products - demonstrates streaming for CSV
 pub fn index(
-  _request: Request,
+  request: Request,
   _context: AppContext,
   services: Services,
 ) -> Response {
@@ -77,8 +80,29 @@ pub fn index(
   }
 
   case result {
-    Ok(products) ->
-      html_response(status.ok, product_view.list_to_html(products))
+    Ok(products) -> respond_with_format_from_path(products, request.path)
     Error(err) -> response_helpers.handle_error(err)
+  }
+}
+
+fn respond_with_format_from_path(
+  products: List(Product),
+  path: String,
+) -> Response {
+  case string.ends_with(path, ".json") {
+    True -> json_response(status.ok, product_view.list_to_json(products))
+    False -> respond_html_or_csv(products, path)
+  }
+}
+
+fn respond_html_or_csv(products: List(Product), path: String) -> Response {
+  case string.ends_with(path, ".csv") {
+    True ->
+      stream_response(
+        status.ok,
+        product_view.list_to_csv_stream(products),
+        "text/csv",
+      )
+    False -> html_response(status.ok, product_view.list_to_html(products))
   }
 }

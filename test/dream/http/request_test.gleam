@@ -1,9 +1,145 @@
 import dream/http/request.{
-  Get, Http, Http1, Request, get_int_param, get_param, get_query_param,
-  get_string_param,
+  Get, Http, Http1, Request, body_as_string, get_int_param, get_param,
+  get_query_param, get_string_param,
 }
+import gleam/bit_array
 import gleam/option
+import gleam/yielder
 import gleeunit/should
+
+pub fn body_as_string_with_text_body_returns_string_test() {
+  // Arrange
+  let request =
+    Request(
+      method: Get,
+      protocol: Http,
+      version: Http1,
+      path: "/test",
+      query: "",
+      params: [],
+      host: option.None,
+      port: option.None,
+      remote_address: option.None,
+      body: "test body",
+      stream: option.None,
+      headers: [],
+      cookies: [],
+      content_type: option.None,
+      content_length: option.None,
+    )
+
+  // Act
+  let result = body_as_string(request)
+
+  // Assert
+  case result {
+    Ok(body) -> body |> should.equal("test body")
+    Error(_) -> should.fail()
+  }
+}
+
+pub fn body_as_string_with_stream_body_collects_to_string_test() {
+  // Arrange
+  let chunk1 = bit_array.from_string("Hello ")
+  let chunk2 = bit_array.from_string("World")
+  let stream = yielder.from_list([chunk1, chunk2])
+
+  let request =
+    Request(
+      method: Get,
+      protocol: Http,
+      version: Http1,
+      path: "/test",
+      query: "",
+      params: [],
+      host: option.None,
+      port: option.None,
+      remote_address: option.None,
+      body: "",
+      stream: option.Some(stream),
+      headers: [],
+      cookies: [],
+      content_type: option.None,
+      content_length: option.None,
+    )
+
+  // Act
+  let result = body_as_string(request)
+
+  // Assert
+  case result {
+    Ok(body) -> body |> should.equal("Hello World")
+    Error(_) -> should.fail()
+  }
+}
+
+pub fn body_as_string_with_empty_stream_returns_empty_string_test() {
+  // Arrange
+  let stream = yielder.empty()
+
+  let request =
+    Request(
+      method: Get,
+      protocol: Http,
+      version: Http1,
+      path: "/test",
+      query: "",
+      params: [],
+      host: option.None,
+      port: option.None,
+      remote_address: option.None,
+      body: "",
+      stream: option.Some(stream),
+      headers: [],
+      cookies: [],
+      content_type: option.None,
+      content_length: option.None,
+    )
+
+  // Act
+  let result = body_as_string(request)
+
+  // Assert
+  case result {
+    Ok(body) -> body |> should.equal("")
+    Error(_) -> should.fail()
+  }
+}
+
+pub fn body_as_string_with_invalid_utf8_in_stream_handles_gracefully_test() {
+  // Arrange
+  // Create invalid UTF-8 sequence
+  let invalid_chunk = <<0xFF, 0xFF>>
+  let stream = yielder.from_list([invalid_chunk])
+
+  let request =
+    Request(
+      method: Get,
+      protocol: Http,
+      version: Http1,
+      path: "/test",
+      query: "",
+      params: [],
+      host: option.None,
+      port: option.None,
+      remote_address: option.None,
+      body: "",
+      stream: option.Some(stream),
+      headers: [],
+      cookies: [],
+      content_type: option.None,
+      content_length: option.None,
+    )
+
+  // Act
+  let result = body_as_string(request)
+
+  // Assert
+  case result {
+    Ok(_) -> should.fail()
+    Error(_) -> Nil
+  }
+}
 
 pub fn get_param_with_format_extension_extracts_format_test() {
   let request =
@@ -18,6 +154,7 @@ pub fn get_param_with_format_extension_extracts_format_test() {
       port: option.None,
       remote_address: option.None,
       body: "",
+      stream: option.None,
       headers: [],
       cookies: [],
       content_type: option.None,
@@ -50,6 +187,7 @@ pub fn get_int_param_with_valid_integer_returns_ok_test() {
       port: option.None,
       remote_address: option.None,
       body: "",
+      stream: option.None,
       headers: [],
       cookies: [],
       content_type: option.None,
@@ -75,6 +213,7 @@ pub fn get_int_param_with_missing_parameter_returns_error_test() {
       port: option.None,
       remote_address: option.None,
       body: "",
+      stream: option.None,
       headers: [],
       cookies: [],
       content_type: option.None,
@@ -100,6 +239,7 @@ pub fn get_int_param_with_non_integer_returns_error_test() {
       port: option.None,
       remote_address: option.None,
       body: "",
+      stream: option.None,
       headers: [],
       cookies: [],
       content_type: option.None,
@@ -125,6 +265,7 @@ pub fn get_string_param_with_valid_parameter_returns_ok_test() {
       port: option.None,
       remote_address: option.None,
       body: "",
+      stream: option.None,
       headers: [],
       cookies: [],
       content_type: option.None,
@@ -150,6 +291,7 @@ pub fn get_string_param_with_missing_parameter_returns_error_test() {
       port: option.None,
       remote_address: option.None,
       body: "",
+      stream: option.None,
       headers: [],
       cookies: [],
       content_type: option.None,

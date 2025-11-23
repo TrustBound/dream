@@ -7,7 +7,7 @@ import middleware/auth_middleware.{auth_middleware}
 import services.{type Services}
 
 pub fn create_router() -> Router(AuthContext, Services) {
-  router
+  router()
   |> route(
     method: Get,
     path: "/",
