@@ -7,6 +7,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2025-11-24
+
+### Added
+
+**New Module: dream_mock_server 1.0.0**
+- General-purpose HTTP mock server for testing HTTP clients
+- Provides both streaming and non-streaming endpoints
+- Programmatic control with `start(port)` and `stop(handle)` functions
+- Non-streaming endpoints:
+  - `GET /` - Info page with endpoint documentation
+  - `GET /get` - Simple GET endpoint echoing query parameters
+  - `POST /post` - POST endpoint echoing request body
+  - `GET /status/:code` - Returns specified HTTP status code
+  - `GET /json` - Returns sample JSON response
+  - `GET /text` - Returns plain text response
+  - `GET /uuid` - Generates and returns UUID
+  - `GET /large` - Returns large response (1MB) for testing memory handling
+  - `GET /empty` - Returns empty response body
+  - `GET /slow` - Delayed response (2 seconds) for timeout testing
+- Streaming endpoints:
+  - `GET /stream/fast` - 10 chunks at 100ms intervals
+  - `GET /stream/slow` - 5 chunks at 2s intervals
+  - `GET /stream/burst` - Random burst pattern (5-10 chunks, 100-500ms delays)
+  - `GET /stream/huge` - 100 chunks for memory/performance testing
+- Comprehensive integration tests using Cucumber
+- Full HexDocs documentation
+
+**dream_http_client 2.0.0 - Message-Based Streaming**
+- Added message-based streaming API with `stream_messages()` for OTP actors
+- Added `StreamMessage` type with `StreamStart`, `Chunk`, `StreamEnd`, `StreamError`, and `DecodeError` variants
+- Added `RequestId` opaque type for stream identification
+- Added `select_stream_messages()` for OTP selector integration
+- Added `cancel_stream()` for canceling active streams
+- Added configurable request timeout via `client.timeout(request, milliseconds)` builder
+- Added unit tests for malformed header handling
+- Added unit test for `timeout()` builder function
+- Configurable test port via `MOCK_SERVER_PORT` environment variable
+- All tests now use `dream_mock_server` instead of external dependencies
+- Consolidated `fetch` and `stream` modules into unified `client` module
+- Improved error handling with detailed error messages throughout
+- All errors now include underlying decode errors instead of being discarded
+- Removed all `panic` calls in favor of graceful error returns
+
+**Documentation**
+- Added `CONTRIBUTING.md` with quick start guide and links to detailed docs
+- Added `CODE_OF_CONDUCT.md` based on Contributor Covenant 2.1
+- Added `SECURITY.md` clarifying Dream's security responsibilities as a library
+- Added GitHub issue templates for bug reports and feature requests
+- Added GitHub pull request template
+- Moved `TESTING.md` to `docs/contributing/testing.md`
+- Updated architecture documentation with correct `dream_http_client` API details
+- Added "About Dream" section in CONTRIBUTING.md explaining TrustBound's role
+
+### Changed
+
+**dream_http_client 2.0.0 - BREAKING CHANGES**
+- **BREAKING**: Consolidated modules - `fetch.request()` → `client.send()`, `stream.stream_request()` → `client.stream_yielder()`
+  - **Migration**: Change `import dream_http_client/fetch` to `import dream_http_client/client` and use `client.send()`
+  - **Migration**: Change `import dream_http_client/stream` to `import dream_http_client/client` and use `client.stream_yielder()`
+- **BREAKING**: `stream_yielder()` now returns `yielder.Yielder(Result(BytesTree, String))` instead of `yielder.Yielder(BytesTree)`
+  - **Migration**: Wrap your chunk processing in a `case` expression to handle `Ok(chunk)` and `Error(reason)`
+- **BREAKING**: Added `DecodeError` variant to `StreamMessage` type
+  - **Migration**: Update pattern matches on `StreamMessage` to handle `DecodeError` or use a catch-all pattern
+- Refactored FFI boundary: Erlang now handles all raw `httpc` message parsing and normalization
+- Gleam client receives clean, simplified data structures from FFI
+- Flattened nested `case` expressions throughout codebase for better readability
+- Improved error messages to be more actionable and user-friendly
+- All timeout values now configurable (default 600 seconds if not specified)
+
+### Fixed
+
+**dream_http_client 2.0.0**
+- Fixed `send()` to use synchronous `httpc` mode for non-streaming requests
+- Previously used streaming mode which couldn't handle `Content-Length` responses
+- Fixed `stream_yielder()` and `stream_messages()` to correctly include port in URLs
+- Fixed message routing in streaming mode to send to correct process
+- Fixed `decode_headers()` error handling to propagate failures instead of hiding them
+- Removed all instances of error discarding (no more `Error(_)` or `let _ = error`)
+- Fixed `RequestId` handling during FFI corruption (now returns `DecodeError` variant)
+
+### Acknowledgements
+
+Special thanks to **Louis Pilfold** for bringing to our attention that the HTTP client did not support message-based streaming for OTP actors, which led to the comprehensive overhaul in this release.
+
 ## [2.0.0] - 2025-11-23
 
 ### 🚨 Breaking Changes

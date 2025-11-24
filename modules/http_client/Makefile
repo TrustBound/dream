@@ -4,6 +4,11 @@
 
 # Run the test suite
 test:
+	@if [ -z "$$CI" ]; then \
+		pkill -9 -f "dream_mock_server" 2>/dev/null || true; \
+		lsof -ti:9876 | xargs kill -9 2>/dev/null || true; \
+		sleep 1; \
+	fi
 	@gleam test
 
 # Clean build artifacts

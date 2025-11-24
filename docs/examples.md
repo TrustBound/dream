@@ -197,7 +197,7 @@ cd examples/database && make test-integration
 - Streaming (request/response, chunked transfer)
 - Database (CRUD, persistence, isolation)
 
-See [Testing Guide](../TESTING.md) for details.
+See [Testing Guide](contributing/testing.md) for details.
 
 ---
 
@@ -205,7 +205,7 @@ See [Testing Guide](../TESTING.md) for details.
 
 - [Concepts](concepts.md) - Understand Dream's core ideas
 - [Guides](guides/) - Build something specific  
-- [Testing Guide](../TESTING.md) - Learn about the test suite
+- [Testing Guide](contributing/testing.md) - Learn about the test suite
 - [Reference](reference/) - Deep dives on architecture
 
 

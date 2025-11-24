@@ -6,6 +6,7 @@
 //// ## Quick Start
 ////
 //// ```gleam
+//// import dream/servers/mist/server
 //// import dream/servers/mist/server.{listen, router}
 //// 
 //// pub fn main() {
@@ -24,6 +25,7 @@
 //// dependencies). For most production apps, you'll want to define your own types:
 ////
 //// ```gleam
+//// import dream/servers/mist/server
 //// import dream/servers/mist/server.{context, listen, router, services}
 //// import gleam/option.{None}
 //// 
@@ -48,7 +50,15 @@ import gleam/bytes_tree
 import gleam/erlang/process
 import gleam/http/response as http_response
 import gleam/option
+import gleam/otp/actor
 import mist.{type Connection, type ResponseData, Bytes, start}
+
+/// Handle to a running server process
+///
+/// Returned by `listen_with_handle()` and used by `stop()` to stop the server.
+pub opaque type ServerHandle {
+  ServerHandle(process_pid: process.Pid)
+}
 
 /// Create a new Dream server with defaults
 ///
@@ -60,6 +70,7 @@ import mist.{type Connection, type ResponseData, Bytes, start}
 /// ## Simple Example (no context or services)
 ///
 /// ```gleam
+/// import dream/servers/mist/server
 /// import dream/servers/mist/server.{listen, router}
 /// 
 /// server.new()
@@ -70,6 +81,7 @@ import mist.{type Connection, type ResponseData, Bytes, start}
 /// ## With Custom Context and Services
 ///
 /// ```gleam
+/// import dream/servers/mist/server
 /// import dream/servers/mist/server.{context, listen, router, services}
 /// import gleam/option.{None}
 /// 
@@ -106,15 +118,18 @@ pub fn new() -> dream.Dream(
 /// ## Example
 ///
 /// ```gleam
+/// import dream/servers/mist/server
+/// import dream/servers/mist/server.{context, listen, router, services}
+/// 
 /// pub type MyContext {
 ///   MyContext(request_id: String, user: Option(User))
 /// }
 ///
-/// dream.new()
-/// |> dream.context(MyContext(request_id: "", user: None))
-/// |> dream.services(my_services)
-/// |> dream.router(my_router)
-/// |> dream.listen(3000)
+/// server.new()
+/// |> context(MyContext(request_id: "", user: None))
+/// |> services(my_services)
+/// |> router(my_router)
+/// |> listen(3000)
 /// ```
 pub fn context(
   dream_instance: dream.Dream(
@@ -141,6 +156,9 @@ pub fn context(
 /// ## Example
 ///
 /// ```gleam
+/// import dream/servers/mist/server
+/// import dream/servers/mist/server.{listen, router, services}
+/// 
 /// pub type Services {
 ///   Services(db: Connection, cache: Cache)
 /// }
@@ -151,10 +169,10 @@ pub fn context(
 ///   Services(db: db, cache: cache)
 /// }
 ///
-/// dream.new()
-/// |> dream.services(initialize_services())
-/// |> dream.router(my_router)
-/// |> dream.listen(3000)
+/// server.new()
+/// |> services(initialize_services())
+/// |> router(my_router)
+/// |> listen(3000)
 /// ```
 pub fn services(
   dream_instance: dream.Dream(
@@ -181,16 +199,19 @@ pub fn services(
 /// ## Example
 ///
 /// ```gleam
+/// import dream/servers/mist/server
+/// import dream/servers/mist/server.{listen, router, services}
+/// 
 /// pub fn create_router() -> Router(MyContext, Services) {
 ///   router.new
 ///   |> router.get("/", controllers.index)
 ///   |> router.get("/users/:id", controllers.show_user)
 /// }
 ///
-/// dream.new()
-/// |> dream.services(initialize_services())
-/// |> dream.router(create_router())
-/// |> dream.listen(3000)
+/// server.new()
+/// |> services(initialize_services())
+/// |> router(create_router())
+/// |> listen(3000)
 /// ```
 pub fn router(
   dream_instance: dream.Dream(
@@ -217,12 +238,15 @@ pub fn router(
 /// ## Example
 ///
 /// ```gleam
+/// import dream/servers/mist/server
+/// import dream/servers/mist/server.{bind, listen, router, services}
+/// 
 /// // Only accept local connections
-/// dream.new()
-/// |> dream.services(my_services)
-/// |> dream.router(my_router)
-/// |> dream.bind("localhost")
-/// |> dream.listen(3000)
+/// server.new()
+/// |> services(my_services)
+/// |> router(my_router)
+/// |> bind("localhost")
+/// |> listen(3000)
 /// ```
 pub fn bind(
   dream_instance: dream.Dream(
@@ -246,12 +270,15 @@ pub fn bind(
 /// ## Example
 ///
 /// ```gleam
+/// import dream/servers/mist/server
+/// import dream/servers/mist/server.{listen, max_body_size, router, services}
+/// 
 /// // Limit request bodies to 10MB
-/// dream.new()
-/// |> dream.services(my_services)
-/// |> dream.router(my_router)
-/// |> dream.max_body_size(10_000_000)
-/// |> dream.listen(3000)
+/// server.new()
+/// |> services(my_services)
+/// |> router(my_router)
+/// |> max_body_size(10_000_000)
+/// |> listen(3000)
 /// ```
 pub fn max_body_size(
   dream_instance: dream.Dream(
@@ -285,11 +312,14 @@ fn update_context_with_request_id(ctx: context, _request_id: String) -> context 
 /// ## Example
 ///
 /// ```gleam
+/// import dream/servers/mist/server
+/// import dream/servers/mist/server.{listen, router, services}
+/// 
 /// pub fn main() {
-///   dream.new()
-///   |> dream.services(initialize_services())
-///   |> dream.router(create_router())
-///   |> dream.listen(3000)
+///   server.new()
+///   |> services(initialize_services())
+///   |> router(create_router())
+///   |> listen(3000)
 /// }
 /// ```
 pub fn listen(
@@ -300,11 +330,12 @@ pub fn listen(
   ),
   port: Int,
 ) -> Nil {
-  listen_internal(dream_instance, port, True)
+  let _ = listen_internal(dream_instance, port, True)
+  Nil
 }
 
 /// Internal function to start the server with configurable blocking behavior
-/// Used by listen (blocks forever) and listen_without_blocking (for testing)
+/// Returns Result with Started info on success, or Error with StartError on failure
 fn listen_internal(
   dream_instance: dream.Dream(
     mist.Builder(Connection, ResponseData),
@@ -313,7 +344,7 @@ fn listen_internal(
   ),
   port: Int,
   block_forever: Bool,
-) -> Nil {
+) -> Result(actor.Started(_), actor.StartError) {
   // Extract router and services - panic if not set
   let assert option.Some(router_instance) = dream_instance.router
   let assert option.Some(services_instance) = dream_instance.services
@@ -336,43 +367,88 @@ fn listen_internal(
   let server_with_port = mist.port(server_with_handler, port)
 
   case start(server_with_port) {
-    Ok(_) -> {
+    Ok(started) -> {
       case block_forever {
         True -> process.sleep_forever()
         False -> Nil
       }
+      Ok(started)
     }
-    Error(_) -> Nil
+    Error(err) -> Error(err)
   }
 }
 
-/// Start the server without blocking
+/// Start the server and return a handle for stopping it
 ///
-/// Like `listen()`, but returns immediately instead of blocking forever. Useful for
-/// tests where you need the server running in the background so you can make requests to it.
+/// Like `listen()`, but returns immediately with a `ServerHandle` that can be used
+/// to stop the server programmatically. Useful for tests and programmatic server control.
 ///
 /// ## Example
 ///
 /// ```gleam
+/// import dream/servers/mist/server
+/// import dream/servers/mist/server.{listen_with_handle, router, stop}
+///
 /// pub fn test_server() {
-///   // Start server in background
-///   dream.new()
-///   |> dream.services(test_services())
-///   |> dream.router(test_router())
-///   |> dream.listen_without_blocking(8080)
+///   // Start server and get handle
+///   let assert Ok(handle) =
+///     server.new()
+///     |> router(test_router())
+///     |> listen_with_handle(8080)
 ///   
 ///   // Make test requests
 ///   let response = http_client.get("http://localhost:8080/test")
 ///   // ... assertions ...
+///   
+///   // Stop the server
+///   stop(handle)
 /// }
 /// ```
-pub fn listen_without_blocking(
+pub fn listen_with_handle(
   dream_instance: dream.Dream(
     mist.Builder(Connection, ResponseData),
     context,
     services,
   ),
   port: Int,
-) -> Nil {
-  listen_internal(dream_instance, port, False)
+) -> Result(ServerHandle, actor.StartError) {
+  case listen_internal(dream_instance, port, False) {
+    Ok(started) -> Ok(ServerHandle(process_pid: started.pid))
+    Error(err) -> Error(err)
+  }
+}
+
+/// Stop a server that was started with `listen_with_handle()`
+///
+/// Stops the server process. This sends a shutdown signal to the supervisor.
+/// Note: In tests, you typically don't need to call this - the server will
+/// be cleaned up automatically when the test process exits.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream/servers/mist/server
+/// import dream/servers/mist/server.{listen_with_handle, router, stop}
+///
+/// pub fn test_server() {
+///   let assert Ok(handle) =
+///     server.new()
+///     |> router(test_router())
+///     |> listen_with_handle(8080)
+///   
+///   // ... use server ...
+///   
+///   // Optional - server will be cleaned up automatically when test exits
+///   stop(handle)
+/// }
+/// ```
+pub fn stop(handle: ServerHandle) -> Nil {
+  case handle {
+    ServerHandle(process_pid) -> {
+      // Send a normal exit signal instead of killing brutally
+      // This allows the supervisor to clean up gracefully
+      process.send_exit(process_pid)
+      Nil
+    }
+  }
 }

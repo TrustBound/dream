@@ -1,42 +1,140 @@
-//// HTTP client for making requests
+//// Type-safe HTTP client with streaming support
 ////
-//// Gleam doesn't have a built-in HTTPS client, so Dream wraps Erlang's battle-hardened
-//// `httpc`. Use this for calling external APIs, downloading files, or streaming AI responses.
+//// Gleam doesn't have a built-in HTTPS client, so this module wraps Erlang's battle-hardened
+//// `httpc`. Use this for calling external APIs, downloading files, streaming AI responses,
+//// or building OTP-compatible services with concurrent HTTP streams.
 ////
-//// ## Quick Example
+//// ## Quick Example - Blocking Request
 ////
 //// ```gleam
-//// import dream_http_client/client
-//// import dream_http_client/fetch
-//// import gleam/http
+//// import dream_http_client/client.{host, path, add_header, send}
 ////
 //// pub fn call_api() {
-////   client.new
-////   |> client.host("api.example.com")
-////   |> client.path("/users/123")
-////   |> client.header("Authorization", "Bearer " <> token)
-////   |> fetch.send()
+////   let result = client.new
+////     |> host("api.example.com")
+////     |> path("/users/123")
+////     |> add_header("Authorization", "Bearer " <> token)
+////     |> send()
+////
+////   case result {
+////     Ok(body) -> decode_json(body)
+////     Error(msg) -> handle_error(msg)
+////   }
 //// }
 //// ```
 ////
-//// ## Streaming vs Fetch
+//// ## Execution Modes
 ////
-//// - `fetch`: Get the whole response at once. Good for API calls, JSON responses.
-//// - `stream`: Get a yielder that streams chunks. Good for large files, AI responses.
+//// This module provides three ways to execute HTTP requests:
+////
+//// ### 1. Blocking - `client.send()`
+////
+//// Get the complete response at once. Perfect for:
+//// - JSON API calls
+//// - Small files or documents
+//// - Any case where you need the full response before processing
+////
+//// ### 2. Yielder Streaming - `client.stream_yielder()`
+////
+//// Get a `yielder.Yielder` that produces chunks sequentially. Perfect for:
+//// - AI/LLM inference endpoints (streaming tokens)
+//// - Simple file downloads
+//// - Scripts or one-off operations
+////
+//// **Note:** This is a pull-based synchronous API. It blocks the calling process
+//// while waiting for chunks, making it unsuitable for OTP actors that need to
+//// handle multiple concurrent operations.
 ////
 //// ```gleam
-//// import dream_http_client/stream
+//// import dream_http_client/client.{host, path, stream_yielder}
+//// import gleam/yielder.{each}
+//// import gleam/bytes_tree.{to_string}
+//// import gleam/io.{print, println_error}
 ////
-//// // Stream large file
 //// client.new
-//// |> client.host("cdn.example.com")
-//// |> client.path("/large-file.zip")
-//// |> stream.send()
-//// |> yielder.each(process_chunk)
+//// |> host("api.openai.com")
+//// |> path("/v1/chat/completions")
+//// |> stream_yielder()
+//// |> each(fn(result) {
+////   case result {
+////     Ok(chunk) -> print(to_string(chunk))
+////     Error(reason) -> println_error("Stream error: " <> reason)
+////   }
+//// })
+//// ```
+////
+//// ### 3. Message-Based Streaming - `client.stream_messages()`
+////
+//// Get messages sent to your process mailbox. Perfect for:
+//// - OTP actors handling multiple concurrent streams
+//// - Long-lived connections that need cancellation
+//// - Integration with OTP supervisors and selectors
+////
+//// This is a push-based asynchronous API fully compatible with OTP patterns.
+////
+//// ```gleam
+//// import dream_http_client/client.{
+////   type StreamMessage, Chunk, StreamEnd, StreamError, StreamStart,
+////   select_stream_messages
+//// }
+//// import gleam/otp/actor.{continue}
+//// import gleam/erlang/process.{new_selector}
+////
+//// pub type Message {
+////   HttpStream(StreamMessage)
+//// }
+////
+//// fn init_selector() {
+////   new_selector()
+////   |> select_stream_messages(HttpStream)
+//// }
+////
+//// fn handle_message(msg: Message, state: State) {
+////   case msg {
+////     HttpStream(Chunk(req_id, data)) -> process_chunk(data, state)
+////     HttpStream(StreamEnd(req_id, _)) -> cleanup(req_id, state)
+////     HttpStream(StreamError(req_id, reason)) -> handle_error(req_id, reason, state)
+////     HttpStream(StreamStart(_, _)) -> continue(state)
+////     HttpStream(DecodeError(reason)) -> {
+////       // FFI corruption - report as bug
+////       log_critical_error("DecodeError: " <> reason)
+////       continue(state)
+////     }
+////   }
+//// }
+//// ```
+////
+//// ## Configuration
+////
+//// All execution modes support the same builder pattern for configuration:
+//// - **Timeouts**: Use `timeout()` to set request timeout (default: 30 seconds)
+//// - **Headers**: Use `add_header()` for incremental or `headers()` for batch
+//// - **Method/Path/Query**: Standard HTTP request components
+////
+//// Example with timeout:
+////
+//// ```gleam
+//// import dream_http_client/client.{host, timeout, send}
+////
+//// client.new
+//// |> host("slow-api.example.com")
+//// |> timeout(60_000)  // 60 second timeout
+//// |> send()
 //// ```
 
+import dream_http_client/internal
+import gleam/bit_array
+import gleam/bytes_tree
+import gleam/dynamic/decode as d
+import gleam/erlang/atom
+import gleam/erlang/process
 import gleam/http
-import gleam/option.{type Option, None}
+import gleam/http/request
+import gleam/int
+import gleam/option.{type Option, None, Some}
+import gleam/result
+import gleam/string
+import gleam/yielder
 
 /// HTTP client request configuration
 ///
@@ -54,6 +152,7 @@ import gleam/option.{type Option, None}
 /// - `query`: Optional query string (e.g., "?page=1&limit=10")
 /// - `headers`: List of header name-value pairs
 /// - `body`: The request body as a string
+/// - `timeout`: Optional timeout in milliseconds (defaults to 30000ms)
 pub type ClientRequest {
   ClientRequest(
     method: http.Method,
@@ -64,6 +163,7 @@ pub type ClientRequest {
     query: Option(String),
     headers: List(#(String, String)),
     body: String,
+    timeout: Option(Int),
   )
 }
 
@@ -78,18 +178,20 @@ pub type ClientRequest {
 /// - Query: None
 /// - Headers: [] (empty)
 /// - Body: "" (empty)
+/// - Timeout: None (uses default 30000ms)
 ///
 /// Use this as the starting point for building requests with the builder pattern.
 ///
 /// ## Example
 ///
 /// ```gleam
-/// import dream_http_client/client
+/// import dream_http_client/client.{host, path, method}
+/// import gleam/http.{Get}
 ///
 /// client.new
-/// |> client.host("api.example.com")
-/// |> client.path("/users/123")
-/// |> client.method(http.Get)
+/// |> host("api.example.com")
+/// |> path("/users/123")
+/// |> method(Get)
 /// ```
 pub const new = ClientRequest(
   method: http.Get,
@@ -100,6 +202,7 @@ pub const new = ClientRequest(
   query: None,
   headers: [],
   body: "",
+  timeout: None,
 )
 
 /// Set the HTTP method for the request
@@ -331,6 +434,28 @@ pub fn body(client_request: ClientRequest, body_value: String) -> ClientRequest 
   ClientRequest(..client_request, body: body_value)
 }
 
+/// Set the timeout for the request in milliseconds
+///
+/// Sets how long to wait for a response before timing out. If not set,
+/// defaults to 30000ms (30 seconds).
+///
+/// ## Parameters
+///
+/// - `timeout_ms`: Timeout duration in milliseconds
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client.{host, timeout}
+///
+/// client.new
+/// |> host("slow-api.example.com")
+/// |> timeout(60_000)  // 60 second timeout
+/// ```
+pub fn timeout(client_request: ClientRequest, timeout_ms: Int) -> ClientRequest {
+  ClientRequest(..client_request, timeout: option.Some(timeout_ms))
+}
+
 /// Add a header to the request
 ///
 /// Adds a single header to the existing headers list without replacing them.
@@ -365,4 +490,743 @@ pub fn add_header(
     #(name, value),
     ..client_request.headers
   ])
+}
+
+// ============================================================================
+// Message-Based Streaming Types
+// ============================================================================
+
+/// Opaque request identifier for message-based streaming
+///
+/// Returned by `stream_messages()` and used to identify which stream a message
+/// belongs to when handling multiple concurrent streams.
+pub opaque type RequestId {
+  RequestId(internal_id: d.Dynamic)
+}
+
+/// Stream message types sent to your process mailbox
+///
+/// When using `stream_messages()`, httpc sends these messages directly to your
+/// process. Use `select_stream_messages()` to integrate with OTP selectors.
+///
+/// ## Message Flow
+///
+/// 1. `StreamStart` - Headers received, body chunks coming
+/// 2. `Chunk` - Zero or more data chunks
+/// 3. `StreamEnd` or `StreamError` - Stream completed normally
+/// 4. `DecodeError` - FFI layer corruption (rare, should be reported as a bug)
+///
+/// ## DecodeError
+///
+/// `DecodeError` indicates the Erlang→Gleam FFI boundary received a malformed
+/// message from `httpc`. This is **not a normal HTTP error** - it means either:
+///
+/// - Erlang/OTP version incompatibility with this library
+/// - Memory corruption or other serious runtime issue
+/// - A bug in this library's FFI code
+///
+/// **What to do:** If you see a `DecodeError`, please report it as a bug at
+/// https://github.com/maxdeviant/dream/issues with the full error message.
+/// The error message includes debug information to help diagnose the issue.
+///
+/// Unlike `StreamError` which has a `RequestId`, `DecodeError` does not because
+/// the request ID itself could not be decoded from the corrupted message.
+pub type StreamMessage {
+  /// Stream started, headers received
+  StreamStart(request_id: RequestId, headers: List(#(String, String)))
+  /// Data chunk received
+  Chunk(request_id: RequestId, data: BitArray)
+  /// Stream completed successfully
+  StreamEnd(request_id: RequestId, headers: List(#(String, String)))
+  /// Stream failed with error (connection drop, timeout, HTTP error, etc.)
+  StreamError(request_id: RequestId, reason: String)
+  /// Failed to decode stream message from Erlang FFI (indicates library bug)
+  DecodeError(reason: String)
+}
+
+// ============================================================================
+// Request Execution
+// ============================================================================
+
+/// Make a blocking HTTP request and get the complete response
+///
+/// Sends an HTTP request and collects all response chunks, returning the
+/// complete response body as a string. This is ideal for:
+///
+/// - JSON API responses
+/// - Small files or documents
+/// - Any case where you need the full response before processing
+///
+/// For large responses or when you need OTP compatibility, use
+/// `stream_yielder()` or `stream_messages()` instead.
+///
+/// ## Parameters
+///
+/// - `client_request`: The configured HTTP request
+///
+/// ## Returns
+///
+/// - `Ok(String)`: The complete response body as a string
+/// - `Error(String)`: An error message if the request failed
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client.{host, path, add_header, send}
+/// import gleam/json.{decode}
+///
+/// let result = client.new
+///   |> host("api.example.com")
+///   |> path("/users/123")
+///   |> add_header("Authorization", "Bearer " <> token)
+///   |> send()
+///
+/// case result {
+///   Ok(body) -> {
+///     case decode(body, user_decoder) {
+///       Ok(user) -> Ok(user)
+///       Error(_) -> Error("Invalid JSON response")
+///     }
+///   }
+///   Error(msg) -> Error("Request failed: " <> msg)
+/// }
+/// ```
+pub fn send(client_request: ClientRequest) -> Result(String, String) {
+  let http_req = to_http_request(client_request)
+  let url = build_url(http_req)
+  let method_atom = internal.atomize_method(http_req.method)
+  let method_dynamic = atom.to_dynamic(method_atom)
+  let body = <<http_req.body:utf8>>
+  let timeout_value = get_timeout(client_request)
+
+  case send_sync(method_dynamic, url, http_req.headers, body, timeout_value) {
+    Ok(response_body) -> {
+      response_body
+      |> bit_array.to_string
+      |> result.map_error(convert_string_error)
+    }
+    Error(error_msg) -> Error(error_msg)
+  }
+}
+
+fn convert_string_error(_error: Nil) -> String {
+  "Failed to convert response to string"
+}
+
+fn get_timeout(client_request: ClientRequest) -> Int {
+  case client_request.timeout {
+    Some(timeout_value) -> timeout_value
+    None -> 30_000
+  }
+}
+
+@external(erlang, "dream_httpc_shim", "request_sync")
+fn send_sync(
+  method: d.Dynamic,
+  url: String,
+  headers: List(#(String, String)),
+  body: BitArray,
+  timeout_ms: Int,
+) -> Result(BitArray, String)
+
+/// Stream HTTP response chunks using a yielder
+///
+/// Sends an HTTP request and returns a yielder that produces chunks of the
+/// response body as they arrive from the server. This allows you to process
+/// large responses incrementally without loading the entire response into memory.
+///
+/// **Use this for simple sequential streaming:**
+/// - AI/LLM inference endpoints (stream tokens)
+/// - Simple file downloads
+/// - Scripts or one-off operations
+///
+/// **For OTP actors with concurrency, use `stream_messages()` instead.**
+///
+/// ## Error Semantics
+///
+/// The yielder produces `Result(BytesTree, String)` for each chunk:
+/// - `Ok(chunk)` - Successful chunk, more may follow
+/// - `Error(reason)` - **Terminal error**, stream is done
+///
+/// After an `Error`, the yielder immediately returns `Done` on the next call.
+/// This design reflects that HTTP stream errors (timeouts, connection drops,
+/// etc.) are **not recoverable** - you cannot continue reading from a broken stream.
+///
+/// **Normal stream completion**: When the stream finishes successfully, the yielder
+/// returns `Done` (no more items). The stream does NOT yield an error for normal completion.
+///
+/// Possible error reasons (actual errors only):
+/// - `"timeout"` - Request timed out
+/// - Connection errors from `httpc`
+///
+/// ## Parameters
+///
+/// - `req`: The configured HTTP request
+///
+/// ## Returns
+///
+/// A `Yielder` that produces `Result(BytesTree, String)`. Always check each
+/// result - errors are terminal and mean the stream has ended.
+///
+/// ## Examples
+///
+/// **Streaming and processing chunks as they arrive:**
+///
+/// ```gleam
+/// import dream_http_client/client.{host, path, stream_yielder}
+/// import gleam/yielder.{each}
+/// import gleam/bytes_tree.{to_string}
+/// import gleam/io.{print}
+///
+/// client.new
+///   |> host("api.openai.com")
+///   |> path("/v1/chat/completions")
+///   |> stream_yielder()
+///   |> each(fn(result) {
+///     case result {
+///       Ok(chunk) -> print(to_string(chunk))
+///       Error(reason) -> {
+///         io.println_error("Stream error: " <> reason)
+///         // Stream is now done, no more chunks will arrive
+///       }
+///     }
+///   })
+/// ```
+///
+/// **Collecting all chunks into a list:**
+///
+/// ```gleam
+/// import dream_http_client/client.{host, path, stream_yielder}
+/// import gleam/yielder
+/// import gleam/list
+/// import gleam/bytes_tree
+/// import gleam/string
+///
+/// // The stream automatically completes when done - no need to use take()!
+/// let chunks = 
+///   client.new
+///   |> host("example.com")
+///   |> path("/data")
+///   |> stream_yielder()
+///   |> yielder.to_list()
+///
+/// // Handle results
+/// case list.try_map(chunks, fn(r) { r }) {
+///   Ok(chunk_list) -> {
+///     // Concatenate all chunks
+///     let body = 
+///       chunk_list
+///       |> list.map(bytes_tree.to_string)
+///       |> list.map(fn(r) { result.unwrap(r, "") })
+///       |> string.join("")
+///     Ok(body)
+///   }
+///   Error(reason) -> Error("Stream failed: " <> reason)
+/// }
+/// ```
+pub fn stream_yielder(
+  req: ClientRequest,
+) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
+  let http_req = to_http_request(req)
+  let timeout_value = get_timeout(req)
+  // Pass dependencies explicitly in state instead of hiding in closure
+  let initial_state =
+    YielderState(owner: None, http_req: http_req, timeout_ms: timeout_value)
+  yielder.unfold(initial_state, handle_yielder_unfold_with_deps)
+}
+
+type YielderState {
+  YielderState(
+    owner: Option(d.Dynamic),
+    http_req: request.Request(String),
+    timeout_ms: Int,
+  )
+}
+
+fn handle_yielder_unfold_with_deps(
+  state: YielderState,
+) -> yielder.Step(Result(bytes_tree.BytesTree, String), YielderState) {
+  case state.owner {
+    None -> handle_yielder_start_with_state(state)
+    Some(owner) -> handle_yielder_next_with_state(owner, state)
+  }
+}
+
+fn to_http_request(client_request: ClientRequest) -> request.Request(String) {
+  request.Request(
+    method: client_request.method,
+    headers: client_request.headers,
+    body: client_request.body,
+    scheme: client_request.scheme,
+    host: client_request.host,
+    port: client_request.port,
+    path: client_request.path,
+    query: client_request.query,
+  )
+}
+
+fn handle_yielder_start_with_state(
+  state: YielderState,
+) -> yielder.Step(Result(bytes_tree.BytesTree, String), YielderState) {
+  let request_result =
+    internal.start_httpc_stream(state.http_req, state.timeout_ms)
+  let owner = internal.extract_owner_pid(request_result)
+  case internal.receive_next(owner, state.timeout_ms) {
+    Ok(option.Some(bin)) ->
+      yielder.Next(
+        Ok(bytes_tree.from_bit_array(bin)),
+        YielderState(..state, owner: Some(owner)),
+      )
+    Ok(option.None) -> yielder.Done
+    Error(error_reason) -> yielder.Next(Error(error_reason), state)
+  }
+}
+
+fn handle_yielder_next_with_state(
+  owner: d.Dynamic,
+  state: YielderState,
+) -> yielder.Step(Result(bytes_tree.BytesTree, String), YielderState) {
+  case internal.receive_next(owner, state.timeout_ms) {
+    Ok(option.Some(bin)) ->
+      yielder.Next(Ok(bytes_tree.from_bit_array(bin)), state)
+    Ok(option.None) -> yielder.Done
+    Error(error_reason) -> yielder.Next(Error(error_reason), state)
+  }
+}
+
+/// Start a message-based streaming HTTP request (OTP compatible)
+///
+/// Sends an HTTP request and returns a request ID immediately. httpc sends
+/// stream messages directly to your process mailbox. Use this for:
+///
+/// - **OTP actors handling multiple concurrent streams**
+/// - **Long-lived connections that need cancellation**
+/// - **Integration with OTP supervisors and selectors**
+///
+/// For simple sequential streaming, use `stream_yielder()` instead.
+///
+/// ## Message Flow
+///
+/// Messages are sent to your process mailbox automatically:
+/// 1. `StreamStart(request_id, headers)` - Headers received
+/// 2. `Chunk(request_id, data)` - Zero or more data chunks
+/// 3. `StreamEnd(request_id, headers)` or `StreamError(request_id, reason)` - Done
+///
+/// ## Parameters
+///
+/// - `req`: The configured HTTP request
+///
+/// ## Returns
+///
+/// - `Ok(RequestId)`: Stream started, messages will arrive in your mailbox
+/// - `Error(String)`: Failed to start the stream
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client.{
+///   type StreamMessage, Chunk, StreamEnd, StreamError, StreamStart,
+///   select_stream_messages
+/// }
+/// import gleam/otp/actor.{continue}
+/// import gleam/erlang/process.{new_selector}
+///
+/// pub type Message {
+///   HttpStream(StreamMessage)
+/// }
+///
+/// fn handle_message(msg: Message, state: State) {
+///   case msg {
+///     HttpStream(stream_msg) -> {
+///       case stream_msg {
+///         Chunk(req_id, data) -> process_chunk(data, state)
+///         StreamEnd(req_id, _) -> cleanup(req_id, state)
+///         StreamError(req_id, reason) -> handle_error(req_id, reason, state)
+///         StreamStart(_, _) -> continue(state)
+///       }
+///     }
+///   }
+/// }
+///
+/// fn init_selector() {
+///   new_selector()
+///   |> select_stream_messages(HttpStream)
+/// }
+/// ```
+pub fn stream_messages(req: ClientRequest) -> Result(RequestId, String) {
+  let http_req = to_http_request(req)
+  let url = build_url(http_req)
+  let method_atom = internal.atomize_method(http_req.method)
+  let body = <<http_req.body:utf8>>
+  let me = process.self()
+  let timeout_value = get_timeout(req)
+
+  let result =
+    internal.start_stream_messages(
+      method_atom,
+      url,
+      http_req.headers,
+      body,
+      me,
+      timeout_value,
+    )
+
+  parse_stream_start_result(result)
+}
+
+fn build_url(req: request.Request(String)) -> String {
+  let port_string = case req.port {
+    option.Some(p) -> ":" <> int.to_string(p)
+    option.None -> ""
+  }
+  http.scheme_to_string(req.scheme)
+  <> "://"
+  <> req.host
+  <> port_string
+  <> req.path
+}
+
+fn parse_stream_start_result(result: d.Dynamic) -> Result(RequestId, String) {
+  let tag_result = d.run(result, d.at([0], d.dynamic))
+  case tag_result {
+    Ok(tag_dyn) -> parse_stream_start_tag(tag_dyn, result)
+    Error(decode_errors) ->
+      Error("Failed to parse httpc response: " <> string.inspect(decode_errors))
+  }
+}
+
+fn parse_stream_start_tag(
+  tag_dyn: d.Dynamic,
+  result: d.Dynamic,
+) -> Result(RequestId, String) {
+  let tag = atom.cast_from_dynamic(tag_dyn) |> atom.to_string
+  case tag {
+    "ok" -> extract_request_id(result)
+    "error" -> extract_error_reason(result)
+    _ -> Error("Unknown response from httpc")
+  }
+}
+
+fn extract_request_id(result: d.Dynamic) -> Result(RequestId, String) {
+  let id_result = d.run(result, d.at([1], d.dynamic))
+  case id_result {
+    Ok(id_dyn) -> Ok(RequestId(internal_id: id_dyn))
+    Error(decode_errors) ->
+      Error("Failed to extract request ID: " <> string.inspect(decode_errors))
+  }
+}
+
+fn extract_error_reason(result: d.Dynamic) -> Result(RequestId, String) {
+  let reason_result = d.run(result, d.at([1], d.dynamic))
+  case reason_result {
+    Ok(reason_dyn) -> {
+      let reason = string.inspect(reason_dyn)
+      Error("Failed to start stream: " <> reason)
+    }
+    Error(decode_error) -> {
+      Error(
+        "Failed to start stream (decode error: "
+        <> string.inspect(decode_error)
+        <> ")",
+      )
+    }
+  }
+}
+
+/// Add stream message handling to an OTP selector
+///
+/// Integrates HTTP stream messages into your OTP actor's selector. This allows
+/// you to handle HTTP streams alongside other messages in your actor.
+///
+/// The mapper function converts `StreamMessage` to your actor's message type.
+///
+/// ## Parameters
+///
+/// - `selector`: Your existing selector
+/// - `mapper`: Function to wrap `StreamMessage` in your message type
+///
+/// ## Returns
+///
+/// Updated selector that handles stream messages
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client.{type StreamMessage, select_stream_messages}
+/// import gleam/erlang/process.{type Selector, new_selector, selecting}
+///
+/// pub type Message {
+///   HttpStream(StreamMessage)
+///   OtherMessage(String)
+/// }
+///
+/// fn build_selector() -> Selector(Message) {
+///   new_selector()
+///   |> select_stream_messages(HttpStream)
+///   |> selecting(some_subject, OtherMessage)
+/// }
+/// ```
+pub fn select_stream_messages(
+  selector: process.Selector(msg),
+  mapper: fn(StreamMessage) -> msg,
+) -> process.Selector(msg) {
+  selector
+  |> process.select_record(
+    tag: atom.create("http"),
+    fields: 1,
+    mapping: create_selector_mapper(mapper),
+  )
+}
+
+fn create_selector_mapper(
+  mapper: fn(StreamMessage) -> msg,
+) -> fn(d.Dynamic) -> msg {
+  apply_mapper_to_dynamic(_, mapper)
+}
+
+fn apply_mapper_to_dynamic(
+  dyn: d.Dynamic,
+  mapper: fn(StreamMessage) -> msg,
+) -> msg {
+  // Erlang does the heavy lifting: converts raw httpc messages to clean format
+  // We just decode the simple {Tag, RequestId, Data} tuple
+  let simplified = internal.decode_stream_message_for_selector(dyn)
+  let stream_msg = decode_simplified_message(simplified)
+  mapper(stream_msg)
+}
+
+fn decode_simplified_message(dyn: d.Dynamic) -> StreamMessage {
+  // Decode the clean {Tag, RequestId, Data} tuple from Erlang
+  let tag_result = d.run(dyn, d.at([0], d.dynamic))
+  let req_id_result = d.run(dyn, d.at([1], d.dynamic))
+  let data_result = d.run(dyn, d.at([2], d.dynamic))
+
+  case tag_result {
+    Ok(tag_dyn) -> decode_with_tag(tag_dyn, req_id_result, data_result)
+    Error(decode_error) -> handle_tag_decode_error(decode_error, req_id_result)
+  }
+}
+
+fn handle_tag_decode_error(
+  decode_error: List(d.DecodeError),
+  req_id_result: Result(d.Dynamic, List(d.DecodeError)),
+) -> StreamMessage {
+  let error_msg =
+    "Internal error: Failed to decode stream message tag: "
+    <> string.inspect(decode_error)
+  case req_id_result {
+    Ok(req_id_dyn) -> {
+      let req_id = RequestId(internal_id: req_id_dyn)
+      StreamError(req_id, error_msg)
+    }
+    Error(req_id_error) -> {
+      let full_error_msg =
+        error_msg
+        <> " (also failed to decode request ID: "
+        <> string.inspect(req_id_error)
+        <> ")"
+      DecodeError(full_error_msg)
+    }
+  }
+}
+
+fn decode_with_tag(
+  tag_dyn: d.Dynamic,
+  req_id_result: Result(d.Dynamic, List(d.DecodeError)),
+  data_result: Result(d.Dynamic, List(d.DecodeError)),
+) -> StreamMessage {
+  let tag = atom.cast_from_dynamic(tag_dyn) |> atom.to_string
+  case req_id_result {
+    Ok(req_id_dyn) -> {
+      let req_id = RequestId(internal_id: req_id_dyn)
+      decode_by_tag(tag, req_id, data_result)
+    }
+    Error(decode_error) -> {
+      // Can't decode request ID - return DecodeError
+      let error_msg =
+        "Internal error: Failed to decode request ID from stream message: "
+        <> string.inspect(decode_error)
+      DecodeError(error_msg)
+    }
+  }
+}
+
+fn decode_by_tag(
+  tag: String,
+  req_id: RequestId,
+  data_result: Result(d.Dynamic, List(d.DecodeError)),
+) -> StreamMessage {
+  case tag {
+    "stream_start" -> decode_stream_start(req_id, data_result)
+    "chunk" -> decode_chunk(req_id, data_result)
+    "stream_end" -> decode_stream_end(req_id, data_result)
+    "stream_error" -> decode_stream_error(req_id, data_result)
+    _ ->
+      StreamError(req_id, "Internal error: Unknown stream message tag: " <> tag)
+  }
+}
+
+fn decode_stream_start(
+  req_id: RequestId,
+  data_result: Result(d.Dynamic, List(d.DecodeError)),
+) -> StreamMessage {
+  case data_result {
+    Ok(headers_dyn) -> decode_stream_start_headers(req_id, headers_dyn)
+    Error(decode_error) -> {
+      let error_msg =
+        "Failed to get headers data in StreamStart: "
+        <> string.inspect(decode_error)
+      StreamError(req_id, error_msg)
+    }
+  }
+}
+
+fn decode_stream_start_headers(
+  req_id: RequestId,
+  headers_dyn: d.Dynamic,
+) -> StreamMessage {
+  case decode_headers(headers_dyn) {
+    Ok(headers) -> StreamStart(req_id, headers)
+    Error(header_decode_error) -> {
+      let error_msg =
+        "Failed to decode headers in StreamStart: "
+        <> string.inspect(header_decode_error)
+      StreamError(req_id, error_msg)
+    }
+  }
+}
+
+fn decode_chunk(
+  req_id: RequestId,
+  data_result: Result(d.Dynamic, List(d.DecodeError)),
+) -> StreamMessage {
+  case data_result {
+    Ok(data_dyn) -> decode_chunk_data(req_id, data_dyn)
+    Error(decode_error) -> {
+      let error_msg =
+        "Internal error: Failed to get chunk data: "
+        <> string.inspect(decode_error)
+      StreamError(req_id, error_msg)
+    }
+  }
+}
+
+fn decode_chunk_data(req_id: RequestId, data_dyn: d.Dynamic) -> StreamMessage {
+  case d.run(data_dyn, d.bit_array) {
+    Ok(data) -> Chunk(req_id, data)
+    Error(decode_error) -> {
+      let error_msg =
+        "Internal error: Failed to decode chunk data: "
+        <> string.inspect(decode_error)
+      StreamError(req_id, error_msg)
+    }
+  }
+}
+
+fn decode_stream_end(
+  req_id: RequestId,
+  data_result: Result(d.Dynamic, List(d.DecodeError)),
+) -> StreamMessage {
+  case data_result {
+    Ok(headers_dyn) -> decode_stream_end_headers(req_id, headers_dyn)
+    Error(decode_error) -> {
+      let error_msg =
+        "Failed to get trailing headers data in StreamEnd: "
+        <> string.inspect(decode_error)
+      StreamError(req_id, error_msg)
+    }
+  }
+}
+
+fn decode_stream_end_headers(
+  req_id: RequestId,
+  headers_dyn: d.Dynamic,
+) -> StreamMessage {
+  case decode_headers(headers_dyn) {
+    Ok(headers) -> StreamEnd(req_id, headers)
+    Error(header_decode_error) -> {
+      let error_msg =
+        "Failed to decode trailing headers in StreamEnd: "
+        <> string.inspect(header_decode_error)
+      StreamError(req_id, error_msg)
+    }
+  }
+}
+
+fn decode_stream_error(
+  req_id: RequestId,
+  data_result: Result(d.Dynamic, List(d.DecodeError)),
+) -> StreamMessage {
+  case data_result {
+    Ok(reason_dyn) -> decode_error_reason(req_id, reason_dyn)
+    Error(decode_error) -> {
+      let error_msg =
+        "Stream error (failed to decode error reason: "
+        <> string.inspect(decode_error)
+        <> ")"
+      StreamError(req_id, error_msg)
+    }
+  }
+}
+
+fn decode_error_reason(
+  req_id: RequestId,
+  reason_dyn: d.Dynamic,
+) -> StreamMessage {
+  case d.run(reason_dyn, d.string) {
+    Ok(reason) -> StreamError(req_id, reason)
+    Error(decode_error) -> {
+      let error_msg =
+        "Stream error (failed to decode error string: "
+        <> string.inspect(decode_error)
+        <> ")"
+      StreamError(req_id, error_msg)
+    }
+  }
+}
+
+fn decode_headers(
+  dyn: d.Dynamic,
+) -> Result(List(#(String, String)), List(d.DecodeError)) {
+  // Headers are normalized to string tuples by the Erlang shim
+  let header_decoder =
+    d.at([0], d.string)
+    |> d.then(decode_header_value)
+
+  d.run(dyn, d.list(header_decoder))
+}
+
+fn decode_header_value(name: String) -> d.Decoder(#(String, String)) {
+  d.at([1], d.string)
+  |> d.map(pair_with_name(_, name))
+}
+
+fn pair_with_name(value: String, name: String) -> #(String, String) {
+  #(name, value)
+}
+
+/// Cancel an active streaming request
+///
+/// Cancels an HTTP stream that was started with `stream_messages()`.
+/// After cancellation, no more messages will be sent to your process.
+///
+/// ## Parameters
+///
+/// - `request_id`: The request ID returned from `stream_messages()`
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client.{host, stream_messages, cancel_stream}
+///
+/// let assert Ok(req_id) = client.new
+///   |> host("api.example.com")
+///   |> stream_messages()
+///
+/// // Later, cancel the stream
+/// cancel_stream(req_id)
+/// ```
+pub fn cancel_stream(request_id: RequestId) -> Nil {
+  let RequestId(internal_id) = request_id
+  internal.cancel_stream_internal(internal_id)
 }

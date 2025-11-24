@@ -6,4 +6,6 @@ gleam_stdlib = ">= 0.34.0"
 gleam_http = ">= 3.6.0"
 gleam_yielder = ">= 0.3.0"
 dream = { path = "../../" }
+dream_http_client = { path = "../../modules/http_client" }
+dream_mock_server = { path = "../../modules/mock_server" }
 

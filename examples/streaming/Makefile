@@ -13,6 +13,7 @@ test-integration:
 		pkill -9 -f "gleam run.*main" 2>/dev/null || true; \
 		pkill -9 -f "dream_example_streaming" 2>/dev/null || true; \
 		lsof -ti:3003 | xargs kill -9 2>/dev/null || true; \
+		lsof -ti:9876 | xargs kill -9 2>/dev/null || true; \
 		sleep 2; \
 	fi
 	@echo "Building Gleam application..."
@@ -44,6 +45,7 @@ test-integration:
 	sleep 2; \
 	kill -9 $$SERVER_PID 2>/dev/null || true; \
 	lsof -ti:3003 2>/dev/null | xargs -r kill -9 2>/dev/null || true; \
+	lsof -ti:9876 2>/dev/null | xargs -r kill -9 2>/dev/null || true; \
 	if [ -z "$$CI" ]; then \
 		pkill -9 -f "dream_example_streaming" 2>/dev/null || true; \
 		sleep 1; \

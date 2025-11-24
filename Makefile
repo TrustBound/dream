@@ -1,11 +1,30 @@
 # Dream Library Development Makefile
 # For example-specific commands, see individual example directories
 
-.PHONY: test clean build format docs check
+.PHONY: test test-dream test-unit test-integration clean build format docs check
 
-# Run the test suite
+# Run all tests (unit + integration)
 test:
+	@make test-unit
+	@echo ""
+	@make test-integration
+
+# Run Dream core tests only
+test-dream:
 	@gleam test
+
+# Run all unit tests (core + modules)
+test-unit:
+	@echo "=== Testing Dream Core ==="
+	@gleam test
+	@echo ""
+	@echo "=== Testing dream_http_client ==="
+	@cd modules/http_client && make test
+	@echo ""
+	@echo "=== Testing dream_mock_server ==="
+	@cd modules/mock_server && make test
+	@echo ""
+	@echo "✅ All unit tests passed!"
 
 # Clean build artifacts
 clean:
@@ -32,15 +51,20 @@ check:
 	@gleam build
 	@gleam test
 
-# Run integration tests for all examples (requires PostgreSQL on port 5435)
-test-examples:
-	@echo "Running integration tests for all examples..."
-	@for example in simple custom_context static streaming rate_limiter database multi_format; do \
+# Run all integration tests (modules + examples, requires PostgreSQL on port 5435)
+test-integration:
+	@echo "=== Running Module Integration Tests ==="
+	@echo ""
+	@echo "=== Testing dream_mock_server ==="
+	@cd modules/mock_server && make test-integration || exit 1
+	@echo ""
+	@echo "=== Running Example Integration Tests ==="
+	@for example in simple custom_context static streaming rate_limiter database multi_format streaming_capabilities; do \
 		echo ""; \
 		echo "=== Testing $$example ==="; \
 		cd examples/$$example && make test-integration || exit 1; \
 		cd ../..; \
 	done
 	@echo ""
-	@echo "✅ All example integration tests passed!"
+	@echo "✅ All integration tests passed!"
 

@@ -510,22 +510,27 @@ document.index(opensearch, "logs", "doc-id-123", json_string)
 
 ### Utility Modules
 
-**`dream_http_client`** - HTTP client
-- Streaming and non-streaming modes
-- HTTPS support
-- Builder pattern for requests
-- Built on Erlang's httpc
+**`dream_http_client`** - HTTP client with three execution modes
+- **Blocking** (`send`) - Complete response at once (JSON APIs)
+- **Yielder streaming** (`stream_yielder`) - Sequential chunks (AI responses, file downloads)
+- **Message-based streaming** (`stream_messages`) - OTP-compatible concurrent streams
+- HTTPS support, configurable timeouts, builder pattern
+- Built on Erlang's battle-tested `httpc`
 
 ```gleam
 import dream_http_client/client
-import gleam_http as http
+import gleam/http
 
-let response = client.new()
+// Blocking request
+let response = client.new
   |> client.method(http.Get)
   |> client.scheme(http.Https)
   |> client.host("api.example.com")
   |> client.path("/users")
-  |> client.fetch()
+  |> client.timeout(5000)  // 5 second timeout
+  |> client.send()
+
+// Streaming request (see module docs for stream_yielder and stream_messages)
 ```
 
 **`dream_config`** - Configuration management

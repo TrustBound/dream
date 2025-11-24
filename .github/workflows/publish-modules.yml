@@ -48,11 +48,133 @@ jobs:
             echo "No modules found"
           fi
 
+  # Phase 0: Publish core Dream package first
+  # All modules that depend on Dream must wait for this to complete
+  publish-dream:
+    name: Publish Core Dream Package
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.version_check.outputs.should_publish }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if Dream version changed
+        id: version_check
+        env:
+          FORCE_PUBLISH: ${{ secrets.FORCE_PUBLISH }}
+        run: |
+          # Check if force publish is enabled
+          if [ "$FORCE_PUBLISH" = "true" ]; then
+            echo "FORCE_PUBLISH is enabled, bypassing version check"
+            CURRENT_VERSION=$(grep '^version = ' gleam.toml | sed 's/version = "\(.*\)"/\1/')
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Get current version
+          CURRENT_VERSION=$(grep '^version = ' gleam.toml | sed 's/version = "\(.*\)"/\1/')
+
+          # Get previous version from the commit on main before this push
+          if [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            if git show ${{ github.event.before }}:gleam.toml > /dev/null 2>&1; then
+              PREVIOUS_VERSION=$(git show ${{ github.event.before }}:gleam.toml | grep '^version = ' | sed 's/version = "\(.*\)"/\1/')
+            else
+              PREVIOUS_VERSION=""
+            fi
+          else
+            PREVIOUS_VERSION=""
+          fi
+
+          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
+            echo "Dream version changed from '$PREVIOUS_VERSION' to '$CURRENT_VERSION'"
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+          else
+            echo "Dream version unchanged ($CURRENT_VERSION), skipping publish"
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install Erlang and Gleam
+        if: steps.version_check.outputs.should_publish == 'true'
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "28"
+          gleam-version: "1.13.0"
+          rebar3-version: "3"
+
+      - name: Download dependencies
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: gleam deps download
+
+      - name: Build project
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: gleam build
+
+      - name: Run tests
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: gleam test
+
+      - name: Publish Dream to Hex
+        id: publish_hex
+        if: steps.version_check.outputs.should_publish == 'true'
+        env:
+          HEXPM_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run: |
+          if [ -z "$HEXPM_API_KEY" ]; then
+            echo "Error: HEX_API_KEY secret is not set"
+            exit 1
+          fi
+          gleam publish --yes
+
+      - name: Create and push git tag
+        if: steps.version_check.outputs.should_publish == 'true' && steps.publish_hex.outcome == 'success'
+        run: |
+          # Extract version from gleam.toml
+          VERSION=$(grep '^version = ' gleam.toml | sed 's/version = "\(.*\)"/\1/')
+          TAG="v${VERSION}"
+          
+          # Check if tag already exists
+          if git rev-parse "${TAG}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists, skipping tag creation"
+            exit 0
+          fi
+          
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Create and push tag
+          echo "Creating git tag: ${TAG}"
+          git tag -a "${TAG}" -m "Release Dream ${VERSION}"
+          git push origin "${TAG}"
+          echo "Successfully created and pushed tag: ${TAG}"
+
+      - name: Build documentation
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: gleam docs build
+
+      - name: Publish documentation
+        if: steps.version_check.outputs.should_publish == 'true'
+        env:
+          HEXPM_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run: |
+          if [ -z "$HEXPM_API_KEY" ]; then
+            echo "Error: HEX_API_KEY secret is not set"
+            exit 1
+          fi
+          echo "Waiting for Hex to process the package..."
+          sleep 10
+          gleam docs publish
+
   # Phase 1: Publish independent modules (no Dream dependencies)
   # These modules can be published in parallel in any order
   publish-independent-modules:
     name: Publish Independent Modules
-    needs: detect-changes
+    needs: [detect-changes, publish-dream]
     runs-on: ubuntu-latest
     if: needs.detect-changes.outputs.modules != '[]'
     strategy:
@@ -95,17 +217,17 @@ jobs:
           version: ${{ steps.version_check.outputs.version }}
           hex_api_key: ${{ secrets.HEX_API_KEY }}
 
-  # Phase 2: Publish dependent modules (depend on Phase 1 modules)
+  # Phase 2: Publish dependent modules (depend on Phase 1 modules or core Dream)
   # These modules must wait for Phase 1 to complete before publishing
   publish-dependent-modules:
     name: Publish Dependent Modules
-    needs: [detect-changes, publish-independent-modules]
+    needs: [detect-changes, publish-dream, publish-independent-modules]
     runs-on: ubuntu-latest
     if: needs.detect-changes.outputs.modules != '[]'
     strategy:
       matrix:
-        # Modules that depend on Phase 1 modules (e.g., http_client)
-        module: ["opensearch"]
+        # Modules that depend on Phase 1 modules (e.g., http_client) or core Dream
+        module: ["opensearch", "mock_server"]
       fail-fast: false
     steps:
       - name: Checkout code

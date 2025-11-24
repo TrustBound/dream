@@ -10,9 +10,9 @@ pub fn format_index() -> String {
   <> "  GET /fetch - Fetch and return a response from httpbin.org\n"
 }
 
-/// Format streamed response
+/// Format streaming response
 pub fn format_stream(body: String) -> String {
-  "Streamed response:\n\n" <> body
+  "Streaming response:\n\n" <> body
 }
 
 /// Format fetched response

@@ -324,7 +324,7 @@ pub fn upload_image(request, context, services) -> Response {
 
 - **[Streaming Guide](../../docs/guides/streaming.md)** - Complete streaming documentation
 - **[How It Works](../../docs/concepts/how-it-works.md)** - Request flow and streaming
-- **[Testing Guide](../../TESTING.md)** - Test streaming endpoints
+- **[Testing Guide](../../docs/contributing/testing.md)** - Test streaming endpoints
 
 ## Related Examples
 

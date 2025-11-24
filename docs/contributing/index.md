@@ -1,8 +1,10 @@
-# Contributing to Documentation
+# Contributing to Dream
 
 **Writing docs?** Read the [Tone Guide](tone-guide.md) first.
 
-**Writing code?** See [contributing.md](contributing.md)
+**Writing code?** See [Contributing Guide](contributing.md)
+
+**Running tests?** See [Testing Guide](testing.md)
 
 **Publishing modules?** See [Publishing Strategy](publishing.md)
 

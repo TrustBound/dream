@@ -30,19 +30,10 @@ jobs:
       - name: Build project
         run: gleam build
 
-      - name: Run tests
-        run: gleam test
-
-      - name: Test modules
-        run: |
-          for module in modules/*/; do
-            if [ -f "${module}gleam.toml" ]; then
-              MODULE_NAME=$(basename "$module")
-              MODULE_DIR="${module%/}"
-              echo "Testing module: $MODULE_NAME"
-              "$GITHUB_WORKSPACE/.github/scripts/test-module.sh" "$MODULE_DIR" "true" || exit 1
-            fi
-          done
+      - name: Run all unit tests
+        env:
+          CI: "true"
+        run: make test-unit
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -80,88 +71,23 @@ jobs:
       - name: Build project
         run: gleam build
 
-      - name: Test simple example
-        working-directory: examples/simple
-        run: |
-          mix deps.get
-          make test-integration
-
-      - name: Test custom_context example
-        working-directory: examples/custom_context
-        run: |
-          mix deps.get
-          make test-integration
-
-      - name: Test static example
-        working-directory: examples/static
-        run: |
-          mix deps.get
-          make test-integration
-
-      - name: Test streaming example
-        working-directory: examples/streaming
-        run: |
-          mix deps.get
-          make test-integration
-
-      - name: Test rate_limiter example
-        working-directory: examples/rate_limiter
-        run: |
-          mix deps.get
-          make test-integration
-
-      - name: Test database example
+      - name: Setup database examples
         env:
+          PGPASSWORD: postgres
           DATABASE_URL: postgres://postgres:postgres@localhost:5435/dream_example_database_db
-          POSTGRES_PORT: "5435"
         run: |
+          psql -h localhost -p 5435 -U postgres -c "CREATE DATABASE dream_example_multi_format_db;" || true
           cd examples/database
           gleam deps download
           gleam run -m cigogne all
-          mix deps.get
-          gleam build
-          gleam run -m main > /tmp/database_test.log 2>&1 &
-          SERVER_PID=$!
-          for i in $(seq 1 30); do
-            if curl -s http://localhost:3002/users > /dev/null 2>&1; then
-              break
-            fi
-            sleep 1
-          done
-          MIX_ENV=test mix test
-          TEST_EXIT=$?
-          kill $SERVER_PID 2>/dev/null || true
-          sleep 1
-          kill -9 $SERVER_PID 2>/dev/null || true
-          exit $TEST_EXIT
-
-      - name: Setup multi_format database
-        env:
-          PGPASSWORD: postgres
-        run: |
-          psql -h localhost -p 5435 -U postgres -c "CREATE DATABASE dream_example_multi_format_db;" || true
-
-      - name: Test multi_format example
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5435/dream_example_multi_format_db
-          POSTGRES_PORT: "5435"
-        run: |
-          cd examples/multi_format
+          cd ../multi_format
           gleam deps download
+          export DATABASE_URL=postgres://postgres:postgres@localhost:5435/dream_example_multi_format_db
           gleam run -m cigogne all
-          mix deps.get
-          gleam build
-          gleam run -m main > /tmp/multi_format_test.log 2>&1 &
-          SERVER_PID=$!
-          for i in $(seq 1 30); do
-            if curl -s http://localhost:3000/products > /dev/null 2>&1; then
-              break
-            fi
-            sleep 1
-          done
-          MIX_ENV=test mix test
-          TEST_EXIT=$?
-          kill $SERVER_PID 2>/dev/null || true
-          sleep 1
-          kill -9 $SERVER_PID 2>/dev/null || true
-          exit $TEST_EXIT
+
+      - name: Run all integration tests
+        env:
+          CI: "true"
+          DATABASE_URL: postgres://postgres:postgres@localhost:5435/dream_example_database_db
+          POSTGRES_PORT: "5435"
+        run: make test-integration

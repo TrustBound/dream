@@ -6,6 +6,7 @@ licences = ["MIT"]
 [dependencies]
 dream = { path = "../.." }
 dream_http_client = { path = "../../modules/http_client" }
+dream_mock_server = { path = "../../modules/mock_server" }
 gleam_http = ">= 4.0.0 and < 5.0.0"
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"
 gleam_yielder = ">= 1.1.0 and < 2.0.0"

@@ -9,7 +9,6 @@ import dream/http.{type Request, type Response}
 import dream/http/response.{text_response}
 import dream/http/status
 import dream_http_client/client
-import dream_http_client/fetch
 import gleam/http as http_lib
 import gleam/result
 import services.{type Services}
@@ -52,7 +51,7 @@ fn make_request_and_respond(user_id: String, post_id: String) -> Response {
     |> client.path("/posts")
     |> client.add_header("User-Agent", "Dream-Custom-Context-Example")
 
-  case fetch.request(req) {
+  case client.send(req) {
     Ok(body) ->
       text_response(status.ok, post_view.format_show(user_id, post_id, body))
     Error(error) ->

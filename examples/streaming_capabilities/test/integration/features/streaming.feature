@@ -60,13 +60,13 @@ Feature: Streaming Capabilities API
         And the response should be "TEST_123_!@#"
 
     # Proxy Streaming
-    Scenario: Proxy endpoint returns streamed data
+    Scenario: Proxy endpoint returns streamed data from mock server
         When I send a GET request to "/proxy"
         Then the response status should be 200
         And the response header "Content-Type" should be "text/plain"
-        And the response should contain "Proxying data"
-        And the response should contain "From upstream"
-        And the response should contain "To client"
+        And the response should contain "Chunk 1"
+        And the response should contain "Chunk 5"
+        And the response should contain "Chunk 10"
 
     # Error Cases
     Scenario: Upload without body accepts empty stream

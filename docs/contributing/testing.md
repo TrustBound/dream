@@ -6,47 +6,57 @@ This document describes the testing infrastructure for the Dream web framework.
 
 ### Unit Tests (Gleam)
 
-Located in `test/dream/`, these test the core framework functionality:
+Located in `test/dream/` (core) and `modules/*/test/` (modules), these test framework functionality:
 
 ```bash
-# Run all unit tests
+# Run all tests (unit + integration)
 make test
 
-# Or directly
-gleam test
+# Run all unit tests (core + modules)
+make test-unit
+
+# Run only Dream core tests
+make test-dream
+
+# Or run specific tests directly
+gleam test                              # Core only
+cd modules/http_client && make test     # Module only
+cd modules/mock_server && make test     # Module only
 ```
 
-**Coverage:**
-- HTTP request/response handling
-- Router matching and path parameters
-- Error type conversions
-- Parameter validation
-- Context management
-- Server integration
+**Unit Test Coverage:**
+- **Dream Core**: HTTP, routing, validation, context, server
+- **dream_http_client**: HTTP client, streaming, error handling  
+- **dream_mock_server**: Mock server configuration, lifecycle
 
 ### Integration Tests (Cucumber/BDD)
 
-Located in `examples/*/test/integration/`, these test end-to-end functionality:
+Located in `modules/*/test/integration/` and `examples/*/test/integration/`, these test end-to-end functionality:
 
 ```bash
-# Run all integration tests (requires PostgreSQL on port 5435)
-make test-examples
+# Run all integration tests (modules + examples, requires PostgreSQL on port 5435)
+make test-integration
 
 # Run specific example
 cd examples/database && make test-integration
+
+# Run specific module
+cd modules/mock_server && make test-integration
 ```
 
-**Total: 63 integration tests across 7 examples**
+**Integration Test Coverage:**
 
-| Example | Tests | What It Tests |
-|---------|-------|---------------|
-| **simple** | 4 | Basic routing, path parameters, 404 handling |
-| **custom_context** | 8 | Auth, authorization, token validation |
-| **static** | 10 | Static files, content types, security |
-| **streaming** | 6 | Request/response streaming, chunked transfer |
-| **rate_limiter** | 8 | Rate limiting, window behavior, headers |
-| **database** | 15 | CRUD, validation, persistence, isolation |
-| **multi_format** | 12 | JSON/CSV/HTML/HTMX, streaming CSV |
+| Module/Example | What It Tests |
+|----------------|---------------|
+| **mock_server** (module) | Mock server endpoints, streaming, error handling |
+| **simple** | Basic routing, path parameters, 404 handling |
+| **custom_context** | Auth, authorization, token validation |
+| **static** | Static files, content types, security |
+| **streaming** | Request/response streaming, chunked transfer |
+| **streaming_capabilities** | Advanced streaming, SSE, proxying |
+| **rate_limiter** | Rate limiting, window behavior, headers |
+| **database** | CRUD, validation, persistence, isolation |
+| **multi_format** | JSON/CSV/HTML/HTMX, streaming CSV |
 
 ## Integration Test Framework
 
@@ -117,11 +127,17 @@ docker-compose up -d  # from examples/database or examples/multi_format
 ### Run All Tests
 
 ```bash
-# Unit tests
+# Everything (unit + integration)
 make test
 
-# Integration tests (all examples)
-make test-examples
+# Only unit tests (core + modules)
+make test-unit
+
+# Only integration tests (modules + examples)
+make test-integration
+
+# Only Dream core tests
+make test-dream
 ```
 
 ### Run Specific Example
@@ -150,8 +166,8 @@ lsof -i:3000
 
 The CI runs two jobs on every PR:
 
-1. **test**: Unit tests, format check, module tests
-2. **integration-tests**: All 63 example integration tests
+1. **unit-tests**: Format check, build, all unit tests (core + modules)
+2. **integration-tests**: All integration tests (modules + examples)
 
 See `.github/workflows/ci.yml` for configuration.
 
@@ -317,38 +333,29 @@ See `examples/database` for reference implementation.
 
 ### Jobs
 
-1. **test**: Unit tests + module tests (~2-3 minutes)
-2. **integration-tests**: All example tests (~3-5 minutes)
+1. **unit-tests**: Core + module unit tests
+2. **integration-tests**: Module + example integration tests
 
 ### On Every PR
 
 - ✅ Code formatting check
 - ✅ Gleam compilation
-- ✅ Unit test suite
-- ✅ Module test suite
-- ✅ 63 integration tests
+- ✅ Unit tests (core + modules)
+- ✅ Integration tests (modules + examples)
 
 ### Debugging CI Failures
 
 1. **Check workflow logs**: GitHub Actions > CI > Failed job
-2. **Reproduce locally**: `make test-examples`
-3. **Check specific example**: `cd examples/database && make test-integration`
-4. **Verify PostgreSQL**: Ensure service started correctly
+2. **Reproduce locally**: 
+   - Unit tests: `make test-unit`
+   - Integration tests: `make test-integration`
+3. **Check specific module/example**: `cd modules/mock_server && make test-integration`
+4. **Verify PostgreSQL**: Ensure service started correctly (for database examples)
 5. **Check timeouts**: Server startup should complete in < 30s
 
-## Performance Benchmarks
+## Performance
 
-Integration test execution times (local M2 Mac):
-
-- **simple**: 0.2s (4 tests)
-- **custom_context**: 0.2s (8 tests)
-- **static**: 0.03s (10 tests)
-- **streaming**: 6.1s (6 tests - includes deliberate delays)
-- **rate_limiter**: 0.04s (8 tests)
-- **database**: 0.3s (15 tests)
-- **multi_format**: 0.2s (12 tests)
-
-**Total runtime**: ~7 seconds for 63 tests
+Integration tests run quickly - typically completing in seconds. The `streaming` example takes longer due to deliberate delays to test timing behavior. Database examples include setup/teardown time.
 
 ## Future Improvements
 
@@ -369,4 +376,7 @@ Potential enhancements for reaching 11/10:
 - [HTTPoison Documentation](https://hexdocs.pm/httpoison/)
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - [Example Integration Tests](./examples/)
+
+
+
 

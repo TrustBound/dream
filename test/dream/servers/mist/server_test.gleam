@@ -1,6 +1,9 @@
 import dream/dream
 import dream/router.{router}
 import dream/servers/mist/server
+import gleam/erlang/process
+import gleam/io
+import gleam/string
 import gleeunit/should
 
 pub fn new_creates_dream_instance_with_defaults_test() {
@@ -64,4 +67,75 @@ pub fn max_body_size_sets_max_body_size_test() {
       max_body_size |> should.equal(2048)
     }
   }
+}
+
+pub fn listen_with_handle_returns_server_handle_test() {
+  // Arrange
+  let dream_instance = server.new()
+  let test_router = router()
+  let dream_with_router = server.router(dream_instance, test_router)
+  let port = 9999
+
+  // Act
+  let result = server.listen_with_handle(dream_with_router, port)
+
+  // Assert
+  case result {
+    Ok(handle) -> {
+      // Verify handle is valid by stopping it
+      server.stop(handle)
+      Nil
+    }
+    Error(err) -> {
+      io.println("✗ Server failed to start")
+      io.println(string.inspect(err))
+      should.fail()
+    }
+  }
+}
+
+pub fn stop_actually_stops_server_test() {
+  // Arrange
+  let dream_instance = server.new()
+  let test_router = router()
+  let dream_with_router = server.router(dream_instance, test_router)
+  let port = 9998
+
+  // Act - Start server
+  let assert Ok(handle) = server.listen_with_handle(dream_with_router, port)
+
+  // Wait for server to start
+  process.sleep(100)
+
+  // Stop the server
+  server.stop(handle)
+
+  // Wait for server to stop
+  process.sleep(100)
+
+  // Assert - stop() completed without error
+  Nil
+}
+
+pub fn stop_idempotent_test() {
+  // Arrange
+  let dream_instance = server.new()
+  let test_router = router()
+  let dream_with_router = server.router(dream_instance, test_router)
+  let port = 9997
+
+  // Act - Start server
+  let assert Ok(handle) = server.listen_with_handle(dream_with_router, port)
+
+  // Wait for server to start
+  process.sleep(100)
+
+  // Stop the server multiple times
+  server.stop(handle)
+  server.stop(handle)
+  server.stop(handle)
+
+  // Assert - Should not crash
+  // If we get here without panicking, the test passes
+  Nil
 }

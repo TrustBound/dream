@@ -17,6 +17,7 @@ scratch.gleam
 !.cursor/commands
 .vscode/
 .idea/
+.DS_Store
 
 # Coverage reports
 coverage/

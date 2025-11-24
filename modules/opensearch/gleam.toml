@@ -1,5 +1,5 @@
 name = "dream_opensearch"
-version = "1.0.2"
+version = "2.0.0"
 description = "Simple OpenSearch client for Gleam"
 licences = ["MIT"]
 repository = { type = "github", user = "TrustBound", repo = "dream" }
@@ -12,7 +12,7 @@ links = [
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"
 gleam_json = ">= 2.0.0 and < 4.0.0"
 gleam_http = ">= 4.3.0 and < 5.0.0"
-dream_http_client = ">= 1.0.2 and < 2.0.0"
+dream_http_client = ">= 2.0.0 and < 3.0.0"
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"

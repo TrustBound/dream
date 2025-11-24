@@ -9,8 +9,6 @@ import dream/http/response.{type Response, text_response}
 import dream/http/status
 import dream/router.{type EmptyServices}
 import dream_http_client/client
-import dream_http_client/fetch
-import dream_http_client/stream
 import gleam/bit_array
 import gleam/bytes_tree
 import gleam/http
@@ -35,25 +33,34 @@ pub fn show(
   _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
-  // Make a streaming request to httpbin.org
+  // Make a streaming request to mock server
   let req =
     client.new
     |> client.method(http.Get)
-    |> client.scheme(http.Https)
-    |> client.host("httpbin.org")
-    |> client.path("/get")
+    |> client.scheme(http.Http)
+    |> client.host("localhost")
+    |> client.port(9876)
+    |> client.path("/stream/fast")
     |> client.add_header("User-Agent", "Dream-Streaming-Example")
+    |> client.timeout(15_000)
 
   // Stream the response chunks
-  let chunks = stream.stream_request(req) |> yielder.to_list
+  let chunks = client.stream_yielder(req) |> yielder.to_list
 
   // Convert chunks to strings and concatenate
-  let body_string =
-    chunks
-    |> list.map(chunk_to_string)
-    |> string.join("")
+  let body_result = chunks |> list.try_map(convert_chunk_result)
 
-  text_response(status.ok, stream_view.format_stream(body_string))
+  case body_result {
+    Ok(strings) -> {
+      let body_string = string.join(strings, "")
+      text_response(status.ok, stream_view.format_stream(body_string))
+    }
+    Error(error) ->
+      text_response(
+        status.internal_server_error,
+        stream_view.format_error(error),
+      )
+  }
 }
 
 /// New action - demonstrates non-streaming HTTP requests
@@ -62,22 +69,33 @@ pub fn new(
   _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
-  // Make a non-streaming request to httpbin.org
+  // Make a non-streaming request to mock server
   let req =
     client.new
     |> client.method(http.Get)
-    |> client.scheme(http.Https)
-    |> client.host("httpbin.org")
-    |> client.path("/get")
+    |> client.scheme(http.Http)
+    |> client.host("localhost")
+    |> client.port(9876)
+    |> client.path("/json")
     |> client.add_header("User-Agent", "Dream-Fetch-Example")
+    |> client.timeout(5000)
 
-  case fetch.request(req) {
+  case client.send(req) {
     Ok(body) -> text_response(status.ok, stream_view.format_fetch(body))
     Error(error) ->
       text_response(
         status.internal_server_error,
         stream_view.format_error(error),
       )
+  }
+}
+
+fn convert_chunk_result(
+  result: Result(bytes_tree.BytesTree, String),
+) -> Result(String, String) {
+  case result {
+    Ok(chunk) -> Ok(chunk_to_string(chunk))
+    Error(err) -> Error(err)
   }
 }
 
