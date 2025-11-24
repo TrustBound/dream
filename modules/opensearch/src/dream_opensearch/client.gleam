@@ -25,8 +25,7 @@
 //// - `https://search.example.com:9200`
 //// - `https://user:pass@search.example.com:9200`
 
-import dream_http_client/client
-import dream_http_client/fetch
+import dream_http_client/client as http_client
 import gleam/http
 import gleam/int
 import gleam/option.{type Option, None, Some}
@@ -120,20 +119,20 @@ pub fn send_request(
   let #(scheme, host, port, path_part) = parse_url(url)
 
   let base_request =
-    client.new
-    |> client.method(method)
-    |> client.scheme(scheme)
-    |> client.host(host)
-    |> client.path(path_part)
-    |> client.add_header("content-type", "application/json")
-    |> client.body(body)
+    http_client.new
+    |> http_client.method(method)
+    |> http_client.scheme(scheme)
+    |> http_client.host(host)
+    |> http_client.path(path_part)
+    |> http_client.add_header("content-type", "application/json")
+    |> http_client.body(body)
 
   let request = case port {
-    Some(port_value) -> client.port(base_request, port_value)
+    Some(port_value) -> http_client.port(base_request, port_value)
     None -> base_request
   }
 
-  fetch.request(request)
+  http_client.send(request)
 }
 
 fn parse_url(url: String) -> #(http.Scheme, String, Option(Int), String) {
