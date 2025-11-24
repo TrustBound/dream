@@ -75,21 +75,53 @@ jobs:
             echo "should_publish=true" >> $GITHUB_OUTPUT
             exit 0
           fi
-
+          
           # Get current version
           CURRENT_VERSION=$(grep '^version = ' gleam.toml | sed 's/version = "\(.*\)"/\1/')
           echo "Current Dream version: $CURRENT_VERSION"
 
           # Check if this version already exists on Hex
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://hex.pm/api/packages/dream/releases/$CURRENT_VERSION")
-
-          if [ "$HTTP_STATUS" = "200" ]; then
-            echo "Version $CURRENT_VERSION already published to Hex, skipping publish"
-            echo "should_publish=false" >> $GITHUB_OUTPUT
-          else
-            echo "Version $CURRENT_VERSION not found on Hex (HTTP $HTTP_STATUS), will publish"
-            echo "should_publish=true" >> $GITHUB_OUTPUT
+          # Use --max-time to prevent hanging, --retry for transient failures
+          HTTP_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 10 \
+            --retry 3 \
+            --retry-delay 2 \
+            "https://hex.pm/api/packages/dream/releases/$CURRENT_VERSION")
+          CURL_EXIT=$?
+          
+          # Check if curl itself failed (network issues, timeout, etc)
+          if [ $CURL_EXIT -ne 0 ]; then
+            echo "Error: Failed to check Hex API (curl exit code: $CURL_EXIT)"
+            echo "This could be a network issue or Hex API timeout"
+            exit 1
           fi
+          
+          # Handle HTTP status codes
+          case "$HTTP_RESPONSE" in
+            200)
+              echo "✓ Version $CURRENT_VERSION already exists on Hex, skipping publish"
+              echo "should_publish=false" >> $GITHUB_OUTPUT
+              ;;
+            404)
+              echo "✓ Version $CURRENT_VERSION not found on Hex, will publish"
+              echo "should_publish=true" >> $GITHUB_OUTPUT
+              ;;
+            429)
+              echo "Error: Hex API rate limit exceeded (HTTP 429)"
+              echo "Please wait a few minutes and try again"
+              exit 1
+              ;;
+            5*)
+              echo "Error: Hex API server error (HTTP $HTTP_RESPONSE)"
+              echo "This is likely a temporary Hex issue, please try again later"
+              exit 1
+              ;;
+            *)
+              echo "Error: Unexpected HTTP status from Hex API: $HTTP_RESPONSE"
+              echo "Cannot determine if version exists, failing safely"
+              exit 1
+              ;;
+          esac
 
       - name: Install Erlang and Gleam
         if: steps.version_check.outputs.should_publish == 'true'
