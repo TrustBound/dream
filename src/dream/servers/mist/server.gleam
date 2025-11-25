@@ -96,7 +96,7 @@ pub fn new() -> dream.Dream(
   EmptyContext,
   EmptyServices,
 ) {
-  dream.Dream(
+  dream.create(
     server: mist.new(fn(_req) {
       http_response.new(404)
       |> http_response.set_body(Bytes(bytes_tree.new()))
@@ -106,6 +106,7 @@ pub fn new() -> dream.Dream(
     services: option.Some(EmptyServices),
     max_body_size: 9_223_372_036_854_775_807,
     // Maximum 64-bit signed integer - effectively infinite for practical purposes
+    bind_interface: option.None,
   )
 }
 
@@ -139,12 +140,13 @@ pub fn context(
   ),
   new_context: context,
 ) -> dream.Dream(mist.Builder(Connection, ResponseData), context, old_services) {
-  dream.Dream(
-    server: dream_instance.server,
+  dream.create(
+    server: dream.get_server(dream_instance),
     router: option.None,
     context: new_context,
-    services: dream_instance.services,
-    max_body_size: dream_instance.max_body_size,
+    services: dream.get_services(dream_instance),
+    max_body_size: dream.get_max_body_size(dream_instance),
+    bind_interface: dream.get_bind_interface(dream_instance),
   )
 }
 
@@ -182,12 +184,13 @@ pub fn services(
   ),
   services_instance: services,
 ) -> dream.Dream(mist.Builder(Connection, ResponseData), old_context, services) {
-  dream.Dream(
-    server: dream_instance.server,
+  dream.create(
+    server: dream.get_server(dream_instance),
     router: option.None,
-    context: dream_instance.context,
+    context: dream.get_context(dream_instance),
     services: option.Some(services_instance),
-    max_body_size: dream_instance.max_body_size,
+    max_body_size: dream.get_max_body_size(dream_instance),
+    bind_interface: dream.get_bind_interface(dream_instance),
   )
 }
 
@@ -221,12 +224,13 @@ pub fn router(
   ),
   router_instance: Router(context, services),
 ) -> dream.Dream(mist.Builder(Connection, ResponseData), context, services) {
-  dream.Dream(
-    server: dream_instance.server,
+  dream.create(
+    server: dream.get_server(dream_instance),
     router: option.Some(router_instance),
-    context: dream_instance.context,
-    services: dream_instance.services,
-    max_body_size: dream_instance.max_body_size,
+    context: dream.get_context(dream_instance),
+    services: dream.get_services(dream_instance),
+    max_body_size: dream.get_max_body_size(dream_instance),
+    bind_interface: dream.get_bind_interface(dream_instance),
   )
 }
 
@@ -256,9 +260,13 @@ pub fn bind(
   ),
   interface: String,
 ) -> dream.Dream(mist.Builder(Connection, ResponseData), context, services) {
-  dream.Dream(
-    ..dream_instance,
-    server: mist.bind(dream_instance.server, interface),
+  dream.create(
+    server: mist.bind(dream.get_server(dream_instance), interface),
+    router: dream.get_router(dream_instance),
+    context: dream.get_context(dream_instance),
+    services: dream.get_services(dream_instance),
+    max_body_size: dream.get_max_body_size(dream_instance),
+    bind_interface: option.Some(interface),
   )
 }
 
@@ -288,7 +296,14 @@ pub fn max_body_size(
   ),
   size: Int,
 ) -> dream.Dream(mist.Builder(Connection, ResponseData), context, services) {
-  dream.Dream(..dream_instance, max_body_size: size)
+  dream.create(
+    server: dream.get_server(dream_instance),
+    router: dream.get_router(dream_instance),
+    context: dream.get_context(dream_instance),
+    services: dream.get_services(dream_instance),
+    max_body_size: size,
+    bind_interface: dream.get_bind_interface(dream_instance),
+  )
 }
 
 /// Helper function to update context with request_id
@@ -346,15 +361,15 @@ fn listen_internal(
   block_forever: Bool,
 ) -> Result(actor.Started(_), actor.StartError) {
   // Extract router and services - panic if not set
-  let assert option.Some(router_instance) = dream_instance.router
-  let assert option.Some(services_instance) = dream_instance.services
+  let assert option.Some(router_instance) = dream.get_router(dream_instance)
+  let assert option.Some(services_instance) = dream.get_services(dream_instance)
 
   // Create the handler with the router, context, and services
   let handler_fn =
     handler.create(
       router_instance,
-      dream_instance.max_body_size,
-      dream_instance.context,
+      dream.get_max_body_size(dream_instance),
+      dream.get_context(dream_instance),
       services_instance,
       update_context_with_request_id,
     )
@@ -362,9 +377,14 @@ fn listen_internal(
   // Create mist server with the handler
   let server_with_handler = mist.new(handler_fn)
 
-  // Bind to the same interface as the original server (if set)
-  // Note: In practice, you'd want to track the interface in Dream
-  let server_with_port = mist.port(server_with_handler, port)
+  // Apply bind interface if configured
+  let server_with_interface = case dream.get_bind_interface(dream_instance) {
+    option.Some(interface) -> mist.bind(server_with_handler, interface)
+    option.None -> server_with_handler
+  }
+
+  // Set the port
+  let server_with_port = mist.port(server_with_interface, port)
 
   case start(server_with_port) {
     Ok(started) -> {

@@ -68,14 +68,72 @@ import gleam/string
 ///   |> dream.services(Services(db: my_db, cache: my_cache))
 ///   |> dream.router(my_router)
 /// ```
-pub type Dream(server, context, services) {
+pub opaque type Dream(server, context, services) {
   Dream(
     server: server,
     router: option.Option(Router(context, services)),
     context: context,
     services: option.Option(services),
     max_body_size: Int,
+    bind_interface: option.Option(String),
   )
+}
+
+// Accessor functions for internal use by server modules
+
+/// Create a new Dream instance (internal use only)
+pub fn create(
+  server server: server,
+  router router: option.Option(Router(context, services)),
+  context context: context,
+  services services: option.Option(services),
+  max_body_size max_body_size: Int,
+  bind_interface bind_interface: option.Option(String),
+) -> Dream(server, context, services) {
+  Dream(
+    server: server,
+    router: router,
+    context: context,
+    services: services,
+    max_body_size: max_body_size,
+    bind_interface: bind_interface,
+  )
+}
+
+/// Get the server from a Dream instance (internal use only)
+pub fn get_server(dream: Dream(server, context, services)) -> server {
+  dream.server
+}
+
+/// Get the router from a Dream instance (internal use only)
+pub fn get_router(
+  dream: Dream(server, context, services),
+) -> option.Option(Router(context, services)) {
+  dream.router
+}
+
+/// Get the context from a Dream instance (internal use only)
+pub fn get_context(dream: Dream(server, context, services)) -> context {
+  dream.context
+}
+
+/// Get the services from a Dream instance (internal use only)
+pub fn get_services(
+  dream: Dream(server, context, services),
+) -> option.Option(services) {
+  dream.services
+}
+
+/// Get the max body size from a Dream instance (internal use only)
+pub fn get_max_body_size(dream: Dream(server, context, services)) -> Int {
+  dream.max_body_size
+}
+
+/// Get the bind interface from a Dream instance (internal use only)
+pub fn get_bind_interface(
+  dream: Dream(server, context, services),
+) -> option.Option(String) {
+  dream.bind_interface
 }
 
 /// Route a request through the router

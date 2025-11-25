@@ -9,6 +9,7 @@ defmodule WebsocketChatExample.MixProject do
       start_permanent: Mix.env() == :prod,
       test_paths: ["test/integration"],
       test_pattern: "*_test.exs",
+      test_ignore_pattern: "step_definitions",
       deps: deps()
     ]
   end
@@ -21,9 +22,10 @@ defmodule WebsocketChatExample.MixProject do
 
   defp deps do
     [
-      {:mint, "~> 1.5", only: [:test]},
-      {:mint_web_socket, "~> 1.0", only: [:test]},
-      {:castore, "~> 1.0", only: [:test]}
+      {:cucumber, "~> 0.4.1", only: [:test]},
+      {:httpoison, "~> 2.0", only: [:test]},
+      {:websockex, "~> 0.4", only: [:test]},
+      {:jason, "~> 1.4", only: [:test]}
     ]
   end
 end
