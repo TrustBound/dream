@@ -1,16 +1,17 @@
-//// Singleton Rate Limiter Example
+//// Rate Limiter Example
 ////
-//// Demonstrates using dream/singleton for global state management
+//// Demonstrates using dream_ets and ETS tables for global state management
 //// with a practical rate limiting middleware implementation.
 ////
 //// This example shows:
-//// - Starting a singleton service at application startup
-//// - Accessing the singleton from middleware
+//// - Initializing an ETS-backed rate limiter service at application startup
+//// - Accessing shared state from middleware
 //// - Fixed window rate limiting (10 requests per 60 seconds)
 //// - Rate limit headers in responses
 ////
 //// To run:
-////   gleam run -m examples/singleton
+////   cd examples/rate_limiter
+////   make run
 ////
 //// To test:
 ////   # Make a single request

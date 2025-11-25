@@ -1,3 +1,4 @@
+import dream/dream
 import dream/router.{router}
 import dream/servers/mist/server
 import gleam/erlang/process
@@ -9,10 +10,9 @@ pub fn new_creates_dream_instance_with_defaults_test() {
   // Arrange & Act
   let dream_instance = server.new()
 
-  // Assert
-  // Verify Dream instance was created (opaque type, so just verify it exists)
-  let _ = dream_instance
-  Nil
+  // Assert - Verify default 10MB max body size
+  dream.get_max_body_size(dream_instance)
+  |> should.equal(10_000_000)
 }
 
 pub fn router_sets_router_on_dream_instance_test() {

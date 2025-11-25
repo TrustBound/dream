@@ -104,8 +104,8 @@ pub fn new() -> dream.Dream(
     router: option.None,
     context: EmptyContext,
     services: option.Some(EmptyServices),
-    max_body_size: 9_223_372_036_854_775_807,
-    // Maximum 64-bit signed integer - effectively infinite for practical purposes
+    // Sensible default for buffered bodies: 10MB
+    max_body_size: 10_000_000,
     bind_interface: option.None,
   )
 }
@@ -206,9 +206,9 @@ pub fn services(
 /// import dream/servers/mist/server.{listen, router, services}
 /// 
 /// pub fn create_router() -> Router(MyContext, Services) {
-///   router.new
-///   |> router.get("/", controllers.index)
-///   |> router.get("/users/:id", controllers.show_user)
+///   router()
+///   |> route(method: Get, path: "/", controller: controllers.index, middleware: [])
+///   |> route(method: Get, path: "/users/:id", controller: controllers.show_user, middleware: [])
 /// }
 ///
 /// server.new()
@@ -272,8 +272,9 @@ pub fn bind(
 
 /// Set maximum request body size in bytes
 ///
-/// Requests with bodies larger than this will be rejected. Default is effectively
-/// unlimited (max 64-bit int). Set a reasonable limit to protect against memory exhaustion.
+/// Requests with bodies larger than this will be rejected. The default is
+/// 10_000_000 bytes (10MB), which is a safe limit for typical JSON and form
+/// payloads. Streaming routes are not affected by this limit.
 ///
 /// ## Example
 ///

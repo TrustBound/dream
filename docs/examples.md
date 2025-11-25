@@ -138,12 +138,11 @@ Complete streaming showcase: ingress, egress, bi-directional, middleware, proxyi
 ---
 
 ### [rate_limiter/](../examples/rate_limiter/)
-**Global rate limiting with singletons.**
+**Global rate limiting with shared state.**
 
-Rate limiting across all requests using singleton pattern.
+Rate limiting across all requests using shared ETS-backed state.
 
 **Demonstrates:**
-- Singleton pattern (shared state)
 - ETS tables
 - Rate limiting middleware
 
@@ -183,14 +182,14 @@ Each example is self-contained with its own database (if needed), dependencies, 
 All examples include comprehensive integration tests using Cucumber (BDD framework):
 
 ```bash
-# Run all example tests
-make test-examples
+# Run all example integration tests from the repo root
+make test-integration
 
 # Run specific example tests
 cd examples/database && make test-integration
 ```
 
-**Total: 63 integration tests** covering:
+**Comprehensive integration tests** covering:
 - Error handling (400, 404, 500)
 - Content validation (JSON, CSV, HTML)
 - Security (auth, path traversal, rate limiting)

@@ -166,23 +166,20 @@ dream.new()
 |> listen(3000)
 ```
 
-#### Singleton Services
+#### Singleton / Global Services
 
-Services that maintain global state across requests should use the singleton pattern. Common use cases:
+Services that maintain global state across requests should use a single shared
+instance per application. Common use cases:
 - Rate limiters
 - In-memory caches
 - Connection pools
 - Global counters/metrics
 
-**Pattern:**
+A practical pattern is to use `dream_ets` or a supervised process started at
+application boot and referenced from `Services`. See `examples/rate_limiter`
+for a complete rate limiting implementation using ETS tables and the Services
+pattern.
 
-```gleam
-import dream/singleton
-
-pub type Services {
-  Services(
-    rate_limiter_name: process.Name(
-      singleton.SingletonMessage(RateLimiterMessage, RateLimiterReply)
 Middleware enriches the context before it reaches the controller.
 
 ## Type Safety
