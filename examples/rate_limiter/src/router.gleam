@@ -1,6 +1,6 @@
 //// Router
 ////
-//// Route definitions for the singleton example.
+//// Route definitions for the rate limiter example using ETS-backed state.
 //// Demonstrates middleware application on specific routes.
 
 import controllers/api_controller

@@ -7,17 +7,17 @@ This directory contains comprehensive examples demonstrating Dream's features an
 | Example | Description | Database | Tests | Port |
 |---------|-------------|----------|-------|------|
 | [simplest](./simplest) | Minimal "Hello World" | No | Manual | 3000 |
-| [simple](./simple) | Basic routing and path parameters | No | 4 ✅ | 3000 |
-| [custom_context](./custom_context) | Authentication and authorization | No | 8 ✅ | 3000 |
-| [static](./static) | Static file serving | No | 10 ✅ | 3000 |
-| [streaming](./streaming) | Streaming responses | No | 6 ✅ | 3003 |
-| [rate_limiter](./rate_limiter) | Rate limiting middleware | No | 8 ✅ | 3000 |
-| [database](./database) | PostgreSQL with Squirrel | Yes | 15 ✅ | 3002 |
-| [multi_format](./multi_format) | JSON/CSV/HTML/HTMX formats | Yes | 12 ✅ | 3000 |
-| [streaming_capabilities](./streaming_capabilities) | Advanced streaming patterns | No | TBD | 3001 |
-| [tasks](./tasks) | Full-featured task manager | Yes | Cucumber | 3000 |
+| [simple](./simple) | Basic routing and path parameters | No | Integration | 3000 |
+| [custom_context](./custom_context) | Authentication and authorization | No | Integration | 3000 |
+| [static](./static) | Static file serving | No | Integration | 3000 |
+| [streaming](./streaming) | Streaming responses | No | Integration | 3003 |
+| [rate_limiter](./rate_limiter) | Rate limiting middleware | No | Integration | 3000 |
+| [database](./database) | PostgreSQL with Squirrel | Yes | Integration | 3002 |
+| [multi_format](./multi_format) | JSON/CSV/HTML/HTMX formats | Yes | Integration | 3000 |
+| [streaming_capabilities](./streaming_capabilities) | Advanced streaming patterns | No | Integration | 3001 |
+| [tasks](./tasks) | Full-featured task manager | Yes | Integration + Cypress | 3000 |
 
-**Total: 63 automated integration tests**
+**All examples except `simplest` include automated integration tests.**
 
 ## Running Examples
 
@@ -49,7 +49,7 @@ make run
 
 ```bash
 # From repository root (requires PostgreSQL on port 5435)
-make test-examples
+make test-integration
 ```
 
 ### Run Individual Example Tests

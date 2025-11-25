@@ -11,10 +11,10 @@ pub fn new_creates_dream_instance_with_defaults_test() {
   let dream_instance = server.new()
 
   // Assert
-  // Verify Dream instance was created
+  // Verify Dream instance was created with the default 10MB max body size
   case dream_instance {
     dream.Dream(_server, _router_instance, _context, _services, max_body_size) -> {
-      max_body_size |> should.equal(9_223_372_036_854_775_807)
+      max_body_size |> should.equal(10_000_000)
     }
   }
 }
