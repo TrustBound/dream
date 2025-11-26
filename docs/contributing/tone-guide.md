@@ -73,7 +73,7 @@ If you're still using JavaScript, you're doing it wrong.
 ### Quickstart & Getting Started
 
 **Audience:** New users trying Dream for first time  
-**Goal:** Working code in 5 minutes  
+**Goal:** Working code in a few minutes  
 **Tone:** Direct, encouraging, minimal explanation
 
 ✅ **Do:**

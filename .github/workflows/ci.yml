@@ -30,10 +30,32 @@ jobs:
       - name: Build project
         run: gleam build
 
+      - name: Patch http_client dependencies
+        uses: ./.github/actions/patch-dream-deps
+        with:
+          module_dir: modules/http_client
+
+      - name: Patch mock_server dependencies
+        uses: ./.github/actions/patch-dream-deps
+        with:
+          module_dir: modules/mock_server
+
       - name: Run all unit tests
         env:
           CI: "true"
         run: make test-unit
+
+      - name: Restore http_client dependencies
+        if: always()
+        uses: ./.github/actions/restore-dream-deps
+        with:
+          module_dir: modules/http_client
+
+      - name: Restore mock_server dependencies
+        if: always()
+        uses: ./.github/actions/restore-dream-deps
+        with:
+          module_dir: modules/mock_server
 
   integration-tests:
     runs-on: ubuntu-latest

@@ -1,0 +1,9 @@
+{> with message_input as String
+{> with send_button as String
+<div class="input-area">
+    <div class="input-group">
+        {{ message_input }}
+        {{ send_button }}
+    </div>
+</div>
+

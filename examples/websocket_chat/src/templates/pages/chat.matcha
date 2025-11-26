@@ -1,0 +1,11 @@
+{> with welcome_screen as String
+{> with header as String
+{> with messages as String
+{> with input_area as String
+{{ welcome_screen }}
+<div id="chatScreen" class="container">
+    {{ header }}
+    {{ messages }}
+    {{ input_area }}
+</div>
+

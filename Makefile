@@ -59,7 +59,7 @@ test-integration:
 	@cd modules/mock_server && make test-integration || exit 1
 	@echo ""
 	@echo "=== Running Example Integration Tests ==="
-	@for example in simple custom_context static streaming rate_limiter database multi_format streaming_capabilities; do \
+	@for example in simple custom_context static streaming rate_limiter database multi_format streaming_capabilities websocket_chat; do \
 		echo ""; \
 		echo "=== Testing $$example ==="; \
 		cd examples/$$example && make test-integration || exit 1; \

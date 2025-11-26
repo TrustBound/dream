@@ -1,6 +1,5 @@
 # Lesson 3: Adding Auth
 
-**Time:** 30 minutes  
 **Goal:** Learn custom context and middleware for authentication
 
 You'll add authentication to protect your API routes.

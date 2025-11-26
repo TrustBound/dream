@@ -166,23 +166,20 @@ dream.new()
 |> listen(3000)
 ```
 
-#### Singleton Services
+#### Singleton / Global Services
 
-Services that maintain global state across requests should use the singleton pattern. Common use cases:
+Services that maintain global state across requests should use a single shared
+instance per application. Common use cases:
 - Rate limiters
 - In-memory caches
 - Connection pools
 - Global counters/metrics
 
-**Pattern:**
+A practical pattern is to use `dream_ets` or a supervised process started at
+application boot and referenced from `Services`. See `examples/rate_limiter`
+for a complete rate limiting implementation using ETS tables and the Services
+pattern.
 
-```gleam
-import dream/singleton
-
-pub type Services {
-  Services(
-    rate_limiter_name: process.Name(
-      singleton.SingletonMessage(RateLimiterMessage, RateLimiterReply)
 Middleware enriches the context before it reaches the controller.
 
 ## Type Safety
@@ -444,6 +441,12 @@ pub fn handler(request: Request, services: Services) -> Response {
   use_database(db)
 }
 ```
+
+The same rule applies to WebSocket handlers: instead of capturing services in
+closures, bundle them into a `Dependencies` type and pass that into
+`upgrade_websocket` so each handler receives what it needs explicitly.
+
+See the [WebSockets guide](../guides/websockets.md) for concrete patterns.
 
 ### Why Builder Pattern?
 

@@ -1,0 +1,13 @@
+{> with name_input as String
+{> with join_button as String
+<div id="welcomeScreen" class="welcome-screen">
+    <div>
+        <h1>💬 Dream WebSocket Chat</h1>
+        <p>Enter your name to join the chat</p>
+    </div>
+    <div class="welcome-form">
+        {{ name_input }}
+        {{ join_button }}
+    </div>
+</div>
+

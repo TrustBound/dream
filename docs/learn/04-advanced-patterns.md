@@ -1,6 +1,5 @@
 # Lesson 4: Advanced Patterns
 
-**Time:** 45 minutes  
 **Goal:** Learn when and how to use operations for complex business logic
 
 You'll learn the operations pattern for coordinating multiple services.

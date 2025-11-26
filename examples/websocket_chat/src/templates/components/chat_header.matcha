@@ -1,0 +1,10 @@
+{> with status as String
+{> with leave_button as String
+<div class="header">
+    <div class="header-content">
+        <h1>💬 Dream WebSocket Chat</h1>
+        <div class="status" id="status">{{ status }}</div>
+    </div>
+    {{ leave_button }}
+</div>
+
