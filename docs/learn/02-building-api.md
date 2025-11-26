@@ -1,18 +1,22 @@
 # Lesson 2: Building an API
 
-**Time:** 45 minutes  
 **Goal:** Build a REST API with database, learn Services, and organize code
 
 You'll build a complete CRUD API for users with PostgreSQL, including database setup, migrations, and type-safe SQL queries.
 
 ## What You'll Learn
 
-- How to add a database connection (Services)
-- Path parameters for dynamic routes (`:id`)
-- Database migrations with Cigogne
-- Type-safe SQL with Squirrel
-- When to split code into models and views
-- Why models (write path) and views (read path) are separate
+This lesson assumes you have written the "Hello world" server from
+Lesson 1 and are comfortable running `gleam run`.
+
+By the end, you will know how to:
+
+- Add a database connection using a typed `Services` value.
+- Use path parameters for dynamic routes (`:id`).
+- Run database migrations with Cigogne.
+- Generate type-safe SQL helpers with Squirrel.
+- Split code into models and views and understand **why** that
+  separation matters.
 
 ## Prerequisites
 
@@ -103,7 +107,15 @@ migrate-new:
 	@gleam run -m cigogne new --name $(name)
 ```
 
-**Why a Makefile?** Instead of remembering `gleam run -m squirrel`, `gleam run -m cigogne all`, `docker-compose up`, etc., you just run `make db-up`, `make migrate`, `make squirrel`. One command, no thinking.
+**Why a Makefile?** Instead of remembering `gleam run -m squirrel`,
+`gleam run -m cigogne all`, `docker-compose up`, etc., you just run
+`make db-up`, `make migrate`, `make squirrel`. One command, no
+thinking.
+
+If you are new to Makefiles, you can think of each name (`run`,
+`db-up`, `migrate`) as a **shortcut** for a longer command. You do not
+need to know all of Make, you just need to know which shortcut to call
+for common tasks.
 
 ### Step 4: Start Database
 
@@ -215,10 +227,12 @@ pub fn initialize_services() -> Services {
 
 **What's happening here:**
 
-1. `Services` type holds the database connection
-2. `initialize_services()` creates the connection pool
-3. This runs once when the server starts
-4. Every controller gets access to `services.db`
+1. `Services` type holds the database connection.
+2. `initialize_services()` builds a configuration for Pog (the
+   PostgreSQL driver) and starts a connection pool.
+3. This code runs once when the server starts.
+4. Every controller gets access to `services.db` – a pooled database
+   connection – as an argument.
 
 **Why Services?**
 
@@ -319,10 +333,15 @@ fn row_to_user(row: sql.GetUserRow) -> User {
 
 **What's happening here:**
 
-1. Models handle data access - getting data from the database
-2. They take `db: Connection` explicitly (no globals)
-3. They return domain types (`User`), not database types
-4. They handle the conversion from DB rows to domain types internally
+1. Models handle data access – getting data from the database.
+2. They take `db: Connection` explicitly (no globals).
+3. They return domain types (`User`), not database row structs.
+4. They convert from DB rows to domain types inside helper functions
+   like `row_to_user`.
+
+If you are new to Gleam’s `Result` and pattern matching: each `case` on
+`sql.*` checks whether the query succeeded (`Ok`) or failed (`Error`)
+and then wraps database errors in the unified `dream.Error` type.
 
 **Why a separate model?**
 
@@ -370,7 +389,8 @@ fn identity(x: a) -> a {
 
 **What's happening here:**
 
-Views handle presentation - formatting data for output.
+Views handle presentation – formatting data for output as JSON strings.
+They know **nothing** about how data is stored.
 
 **Why separate from models?**
 
@@ -453,10 +473,17 @@ pub fn create(
 **What's happening here:**
 
 Controllers orchestrate the flow:
-1. Extract and validate path parameters using `require_int` (returns `Result` for safe handling)
-2. Call models for data access (models return `Result(_, dream.Error)`)
-3. Handle errors uniformly through `response_helpers.handle_error` (maps `dream.Error` to HTTP responses)
-4. Call views for formatting
+
+1. Extract and validate path parameters using `require_int` (returns a
+   `Result` instead of panicking).
+2. Call models for data access (models return `Result(_, dream.Error)`).
+3. Handle errors uniformly through `response_helpers.handle_error`
+   (maps `dream.Error` to HTTP responses).
+4. Call views for formatting.
+
+If you are new to the `use <- result.try(...)` pattern: it is Gleam’s
+way of saying “if this step fails, stop here and return the error,
+otherwise carry on”, without deeply nested `case` expressions.
 
 **Why this pattern?**
 

@@ -68,14 +68,207 @@ import gleam/string
 ///   |> dream.services(Services(db: my_db, cache: my_cache))
 ///   |> dream.router(my_router)
 /// ```
-pub type Dream(server, context, services) {
+pub opaque type Dream(server, context, services) {
   Dream(
     server: server,
     router: option.Option(Router(context, services)),
     context: context,
     services: option.Option(services),
     max_body_size: Int,
+    bind_interface: option.Option(String),
   )
+}
+
+// Accessor functions for internal use by server modules
+
+/// Create a new Dream instance with explicit configuration
+///
+/// ⚠️ **Warning: This is a low-level constructor**
+///
+/// This function is primarily for internal Dream framework use. Most users should
+/// use the builder pattern via `dream/servers/mist/server.new()` instead.
+///
+/// ## When You Might Need This
+///
+/// You might use this if:
+/// - You're building custom server adapters for Dream
+/// - You're testing Dream internals
+/// - You need to construct a Dream instance programmatically with all fields at once
+///
+/// ## Better Alternative
+///
+/// Use the builder pattern for better readability and type safety:
+///
+/// ```gleam
+/// server.new()
+/// |> server.context(MyContext)
+/// |> server.services(MyServices)
+/// |> server.router(my_router)
+/// |> server.max_body_size(10_000_000)
+/// |> server.bind("0.0.0.0")
+/// ```
+pub fn create(
+  server server: server,
+  router router: option.Option(Router(context, services)),
+  context context: context,
+  services services: option.Option(services),
+  max_body_size max_body_size: Int,
+  bind_interface bind_interface: option.Option(String),
+) -> Dream(server, context, services) {
+  Dream(
+    server: server,
+    router: router,
+    context: context,
+    services: services,
+    max_body_size: max_body_size,
+    bind_interface: bind_interface,
+  )
+}
+
+/// Get the underlying server instance from a Dream instance
+///
+/// ⚠️ **Warning: This breaks Dream's server abstraction**
+///
+/// This function exposes the underlying server implementation (currently `mist.Builder`).
+/// Using this in your application code creates tight coupling to Mist and prevents
+/// Dream from switching server implementations in the future.
+///
+/// ## The `risks_understood` Parameter
+///
+/// You **must** explicitly pass `risks_understood: True` to call this function.
+/// Passing `False` will panic. This forces you to consciously acknowledge that
+/// you're breaking Dream's abstraction.
+///
+/// ## When You Might Need This
+///
+/// You might legitimately need this if:
+/// - You need to configure Mist-specific features not exposed by Dream
+/// - You're integrating with libraries that expect raw Mist types
+/// - You're debugging server-level issues
+///
+/// ## Risks You're Accepting
+///
+/// By passing `risks_understood: True`, you acknowledge:
+/// - **Vendor lock-in**: Your code becomes coupled to Mist
+/// - **Breaking changes**: If Dream switches servers or upgrades Mist, your code breaks
+/// - **Lost abstractions**: You bypass Dream's carefully designed API
+///
+/// ## Better Alternatives
+///
+/// Before using this, check if Dream provides:
+/// - `server.bind()` for network interface configuration
+/// - `server.max_body_size()` for request size limits
+/// - Or open a GitHub issue requesting the feature you need
+///
+/// ## Example
+///
+/// ```gleam
+/// // You must explicitly acknowledge the risks
+/// let mist_server = dream.get_server(app, risks_understood: True)
+/// // Now you have raw Mist types - your code is coupled to Mist
+/// ```
+///
+/// If you must use this, isolate it in a single module and document why.
+///
+/// ## Panics
+///
+/// Panics if `risks_understood` is `False`. You must pass `True` to proceed.
+pub fn get_server(
+  dream: Dream(server, context, services),
+  risks_understood risks: Bool,
+) -> server {
+  case risks {
+    True -> dream.server
+    False ->
+      panic as "dream.get_server() requires risks_understood: True. This function breaks Dream's server abstraction and couples your code to Mist. Read the documentation to understand the risks before proceeding."
+  }
+}
+
+/// Get the router configured for this Dream instance
+///
+/// Returns the router if one has been set, or None if not yet configured.
+///
+/// ## Example
+///
+/// ```gleam
+/// let app = server.new() |> server.router(my_router)
+/// case dream.get_router(app) {
+///   Some(router) -> // Router is configured
+///   None -> // No router yet
+/// }
+/// ```
+pub fn get_router(
+  dream: Dream(server, context, services),
+) -> option.Option(Router(context, services)) {
+  dream.router
+}
+
+/// Get the context configured for this Dream instance
+///
+/// Returns the context value that will be passed to all controllers.
+///
+/// ## Example
+///
+/// ```gleam
+/// let app = server.new() |> server.context(MyContext(user: None))
+/// let ctx = dream.get_context(app)
+/// ```
+pub fn get_context(dream: Dream(server, context, services)) -> context {
+  dream.context
+}
+
+/// Get the services configured for this Dream instance
+///
+/// Returns the services if they have been set, or None if not yet configured.
+///
+/// ## Example
+///
+/// ```gleam
+/// let app = server.new() |> server.services(my_services)
+/// case dream.get_services(app) {
+///   Some(services) -> // Services are configured
+///   None -> // No services yet
+/// }
+/// ```
+pub fn get_services(
+  dream: Dream(server, context, services),
+) -> option.Option(services) {
+  dream.services
+}
+
+/// Get the max body size configured for this Dream instance
+///
+/// Returns the maximum request body size in bytes. Requests with bodies
+/// larger than this will be rejected.
+///
+/// ## Example
+///
+/// ```gleam
+/// let app = server.new() |> server.max_body_size(5_000_000)
+/// dream.get_max_body_size(app) // Returns 5_000_000
+/// ```
+pub fn get_max_body_size(dream: Dream(server, context, services)) -> Int {
+  dream.max_body_size
+}
+
+/// Get the bind interface configured for this Dream instance
+///
+/// Returns the network interface the server will bind to if configured,
+/// or None if using the default interface.
+///
+/// ## Example
+///
+/// ```gleam
+/// let app = server.new() |> server.bind("0.0.0.0")
+/// case dream.get_bind_interface(app) {
+///   Some(interface) -> // Will bind to specified interface
+///   None -> // Will use default interface
+/// }
+/// ```
+pub fn get_bind_interface(
+  dream: Dream(server, context, services),
+) -> option.Option(String) {
+  dream.bind_interface
 }
 
 /// Route a request through the router

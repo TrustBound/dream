@@ -208,7 +208,7 @@ POSTGRES_PORT=5435  # For test cleanup
 2. **No Warnings**: Clean compilation
 3. **Meaningful**: Tests real behavior, not implementation
 4. **Comprehensive**: Happy path + error cases
-5. **Fast**: Most tests complete in < 1 second
+5. **Fast**: Tests should run quickly enough for local development feedback (avoid unnecessarily slow scenarios)
 6. **Readable**: Gherkin scenarios are self-documenting
 
 ### ❌ Anti-Patterns to Avoid
@@ -355,7 +355,7 @@ See `examples/database` for reference implementation.
 
 ## Performance
 
-Integration tests run quickly - typically completing in seconds. The `streaming` example takes longer due to deliberate delays to test timing behavior. Database examples include setup/teardown time.
+Integration tests are designed to run quickly enough for regular local use. The `streaming` example takes longer due to deliberate delays to test timing behavior, and database examples include setup/teardown time.
 
 ## Future Improvements
 

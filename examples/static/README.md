@@ -105,14 +105,14 @@ examples/static/
 ```gleam
 // 1. Create controller
 import dream/controllers/static
-import dream/http/transaction.{type Request, type Response, get_param}
+import dream/http.{type Request, type Response, get_param}
 
-pub fn serve_static(request: Request, _ctx, _svc) -> Response {
+pub fn serve_static(request: Request, context, services) -> Response {
   let assert Ok(filepath) = get_param(request, "filepath")
   static.serve(
     request: request,
-    context: _ctx,
-    services: _svc,
+    context: context,
+    services: services,
     root: "./public",
     filepath: filepath,
     config: static.default_config(),
@@ -120,10 +120,18 @@ pub fn serve_static(request: Request, _ctx, _svc) -> Response {
 }
 
 // 2. Add route
-import dream/router.{route}
+import dream/http/request.{Get}
+import dream/router.{route, router}
 
-router
-|> route(Get, "/public/**filepath", serve_static, [])
+pub fn create_router() {
+  router()
+  |> route(
+    method: Get,
+    path: "/public/**filepath",
+    controller: serve_static,
+    middleware: [],
+  )
+}
 ```
 
 ### With Configuration

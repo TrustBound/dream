@@ -460,7 +460,7 @@ The type system ensures every controller action has the correct signature, Conte
 
 ## Next Steps
 
-1. **Start:** [5-Minute Quickstart](quickstart.md) - Get something running
+1. **Start:** [Quickstart](quickstart.md) - Get something running
 2. **Explore:** [Examples](examples.md) - Read commented, working code
 3. **Reference:** [Architecture](reference/architecture.md) - Deep technical dive
 

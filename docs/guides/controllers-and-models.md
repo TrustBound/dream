@@ -1,6 +1,16 @@
 # Controllers & Models
 
-Dream encourages a clean separation of concerns using the Model-View-Controller (MVC) pattern.
+Dream encourages a clean separation of concerns using the
+Model-View-Controller (MVC) pattern.
+
+This guide is for you if:
+
+- You know basic Gleam (functions, types, pattern matching).
+- You are new to Dream and want to see **where things go** in a real
+  app.
+
+We will explain controllers, models, and views in plain language and
+show how data flows between them.
 
 ## Controllers
 
@@ -14,6 +24,19 @@ Controllers handle HTTP requests. They are pure functions that:
 ```gleam
 fn(Request, Context, Services) -> Response
 ```
+
+In words:
+
+- `Request` – everything about the incoming HTTP request (method, path,
+  headers, body).
+- `Context` – per-request data you carry around (like current user,
+  request id).
+- `Services` – long-lived application dependencies (database pool, HTTP
+  clients, caches).
+- `Response` – what will be sent back to the client.
+
+Dream’s type system makes sure that **every controller** in a router has
+this shape (with your specific `Context` and `Services` types).
 
 **Example:**
 
@@ -43,7 +66,32 @@ pub fn show(
 }
 ```
 
-This controller uses `require_int` to safely extract and validate the path parameter. The `use` syntax keeps the code flat and readable, avoiding nested `case` statements. If the parameter is missing or invalid, `require_int` returns a `BadRequest` error. All errors are handled uniformly through `response_helpers.handle_error`, which maps `dream.Error` types to appropriate HTTP responses.
+This controller uses `require_int` to safely extract and validate the
+path parameter. If the parameter is missing or invalid,
+`require_int(request, "id")` returns a `Result` with a
+`BadRequest` error.
+
+The `use` syntax is Gleam’s way of working with `Result` values without
+nesting many `case` expressions. You can read this block:
+
+```gleam
+let result = {
+  use id <- result.try(require_int(request, "id"))
+  let db = services.database.connection
+  use task <- result.try(task_model.get(db, id))
+  Ok(task)
+}
+```
+
+as:
+
+1. Try to extract and validate `id` from the request.
+2. If that works, call `task_model.get`.
+3. If both steps succeed, return `Ok(task)`.
+4. If any step fails, short-circuit with that error.
+
+All errors end up in the final `case result` and are mapped to HTTP
+responses by `response_helpers.handle_error`.
 
 ### Best Practices
 - **Keep it thin:** Controllers should coordinate, not calculate. Move business logic to Models or Operations.

@@ -16,7 +16,7 @@ import gleam/yielder
 
 // Router
 pub fn create_router() {
-  router
+  router()
   |> stream_route(method: Post, path: "/upload", controller: upload_file, middleware: [])
 }
 
@@ -203,7 +203,7 @@ pub fn upload_image(request, context, services) -> Response {
     Some(stream) -> {
       case validate_and_process(stream) {
         Ok(file_id) -> json_response(status.created, "{\"file_id\": \"" <> file_id <> "\"}")
-        Error(InvalidFileType) -> text_response(status.unprocessable_entity, "Not an image")
+        Error(InvalidFileType) -> text_response(status.unprocessable_content, "Not an image")
         Error(_) -> text_response(status.internal_server_error, "Upload failed")
       }
     }
@@ -242,15 +242,14 @@ fn is_valid_image_header(chunk: BitArray) -> Bool {
 
 ```gleam
 import dream/servers/mist/server.{
-  bind, listen, max_body_size, read_timeout, router, services,
+  bind, listen, max_body_size, router, services,
 }
 
 pub fn main() {
   server.new()
   |> services(app_services)
   |> router(app_router)
-  |> max_body_size(100_000_000)  // 100MB for buffered routes
-  |> read_timeout(300_000)        // 5 minutes for uploads
+  |> max_body_size(100_000_000)  // 100MB for buffered routes (default is 10MB)
   |> bind("localhost")
   |> listen(3000)
 }
@@ -357,5 +356,6 @@ fn int_to_byte(n: Int) -> BitArray {
 
 - [Streaming Guide](streaming.md) - Complete guide
 - [Streaming API Reference](../reference/streaming-api.md) - Full API docs
+- [WebSockets Guide](websockets.md) - Real-time, bi-directional connections
 - [Examples](../../examples/streaming_capabilities/) - Working code
 

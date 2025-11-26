@@ -224,13 +224,14 @@ pub fn uppercase_incoming(request, context, services, next) {
 
 **Buffered route:**
 ```gleam
-router.post("/upload", upload, [])
+router()
+|> route(method: Post, path: "/upload", controller: upload, middleware: [])
 // Memory usage: 100MB (full body loaded)
 ```
 
 **Streaming route:**
 ```gleam
-router
+router()
 |> stream_route(method: Post, path: "/upload", controller: upload, middleware: [])
 // Memory usage: 64KB (default chunk size)
 ```
@@ -267,17 +268,7 @@ pub fn upload(request, context, services) -> Response {
 }
 ```
 
-### 3. Set Appropriate Timeouts
-
-```gleam
-// In main.gleam
-server.new()
-  |> router(app_router.create())
-  |> read_timeout(300_000)  // 5 minutes for large uploads
-  |> listen(3000)
-```
-
-### 4. Validate Chunks Early
+### 3. Validate Chunks Early
 
 ```gleam
 pub fn upload_image(request, context, services) -> Response {
@@ -286,7 +277,7 @@ pub fn upload_image(request, context, services) -> Response {
       // Validate first chunk for magic bytes
       case validate_first_chunk(stream) {
         Ok(valid_stream) -> save_image(valid_stream, services)
-        Error(_) -> text_response(status.unprocessable_entity, "Invalid image")
+        Error(_) -> text_response(status.unprocessable_content, "Invalid image")
       }
     }
     None -> text_response(status.bad_request, "Expected image upload")

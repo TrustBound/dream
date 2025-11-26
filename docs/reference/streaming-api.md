@@ -153,10 +153,11 @@ fn format_sse_event(event: String) -> BitArray {
 
 ```gleam
 pub fn stream_route(
-  method: Method,
-  path: String,
-  controller: fn(Request, context, services) -> Response,
-  middleware: List(Middleware(context, services)),
+  router_value: Router(context, services),
+  method method_value: Method,
+  path path_pattern: String,
+  controller controller_fn: fn(Request, context, services) -> Response,
+  middleware middleware_list: List(Middleware(context, services)),
 ) -> Router(context, services)
 ```
 
@@ -184,9 +185,19 @@ import dream/router.{router, stream_route}
 import dream/http/request.{Post, Put}
 
 pub fn create_router() {
-  router
-  |> stream_route(method: Post, path: "/upload", controller: controllers.upload, middleware: [])
-  |> stream_route(method: Put, path: "/files/:id", controller: controllers.replace_file, middleware: [auth])
+  router()
+  |> stream_route(
+    method: Post,
+    path: "/upload",
+    controller: controllers.upload,
+    middleware: [],
+  )
+  |> stream_route(
+    method: Put,
+    path: "/files/:id",
+    controller: controllers.replace_file,
+    middleware: [auth],
+  )
 }
 ```
 
@@ -194,10 +205,11 @@ pub fn create_router() {
 
 ```gleam
 pub fn route(
-  method: Method,
-  path: String,
-  controller: fn(Request, context, services) -> Response,
-  middleware: List(Middleware(context, services)),
+  router_value: Router(context, services),
+  method method_value: Method,
+  path path_pattern: String,
+  controller controller_fn: fn(Request, context, services) -> Response,
+  middleware middleware_list: List(Middleware(context, services)),
 ) -> Router(context, services)
 ```
 
@@ -282,7 +294,7 @@ pub fn max_body_size(
 
 Set maximum buffered body size in bytes.
 
-**Default:** 10MB
+**Default:** 10MB (10_000_000 bytes)
 
 **For streaming routes:** This limit doesn't apply (streams can be unlimited)
 
@@ -293,27 +305,6 @@ server.new()
   |> listen(3000)
 ```
 
-### read_timeout
-
-```gleam
-pub fn read_timeout(
-  server: Server(context, services),
-  milliseconds: Int,
-) -> Server(context, services)
-```
-
-Set timeout for reading request body.
-
-**Default:** 30 seconds
-
-**For streaming:** Use longer timeouts for large uploads
-
-**Example:**
-```gleam
-server.new()
-  |> read_timeout(300_000)  // 5 minutes
-  |> listen(3000)
-```
 
 ## Middleware with Streaming
 

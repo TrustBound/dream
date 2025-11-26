@@ -1,128 +1,276 @@
 # Core Patterns
 
-**Patterns for scaling your application logic beyond simple CRUD.**
+**The core patterns Dream provides for building reliable web applications.**
 
-## Operations (Business Logic)
+Dream is deliberately small. Instead of a large framework with many
+magical features, it gives you a handful of **reliable patterns** that
+compose well together. This page is an overview of those patterns and
+where to learn more about each.
 
-Controllers should be thin. When logic gets complex (validation, multiple database calls, external services), use an **Operation**.
 
-### The Problem
+## 1. Router + Thin Controllers
 
-Your controller action needs to:
-1. Validate input
-2. Get data from database
-3. Check authorization
-4. Update multiple records
-5. Call external service
-6. Send email
-7. Index in search
+**What it is**
 
-That's too much for a controller. Extract it to an operation.
+- The router maps `(method, path)` to a controller function.
+- Controllers are small functions that:
+  - Validate/parse input.
+  - Call models and/or operations.
+  - Call views to format a response.
+  - Map domain errors to HTTP responses.
 
-### The Solution
+**Why**
 
-```gleam
-// operations/create_user.gleam
-pub fn execute(services: Services, params: Params) -> Result(User, Error) {
-  use _ <- result.try(validate(params))
-  use user <- result.try(user_model.create(services.db, params))
-  let _ = mailer.send_welcome(services.mailer, user)
-  Ok(user)
-}
-```
+- Keeps HTTP concerns (status codes, headers) in one place.
+- Lets you test business logic separately.
+- Makes routes easy to scan: "this path calls this function".
 
-### Why Operations?
+**Learn more**
 
-**Testable without HTTP.** No mocking requests, no building Request objects—just test the business logic:
+- [Hello World](../learn/01-hello-world.md)
+- [Controllers & Models Guide](../guides/controllers-and-models.md)
 
-```gleam
-pub fn create_user_test() {
-  let services = test_services()
-  let params = UserParams(email: "test@example.com", name: "Test")
-  
-  let result = create_user.execute(services, params)
-  
-  assert Ok(user) = result
-  assert "test@example.com" = user.email
-}
-```
 
-**Reusable.** Call the same operation from:
-- API endpoints
-- Background jobs
-- CLI tasks
-- Admin interfaces
+## 2. Context & Services
 
-**Clear separation.** Controllers handle HTTP. Operations handle business logic.
+**What it is**
 
-### When to Use Operations
+- `Context` – **per-request** data (request id, authenticated user,
+  locale, etc.).
+- `Services` – **application-wide** dependencies (database pool, HTTP
+  client, caches, broadcaster, etc.).
+- Both are passed explicitly into middleware and controllers.
 
-✅ Use operations when:
-- Coordinating 2+ models
-- Complex business rules spanning entities
-- Side effects (events, emails, search indexing)
-- Logic you want to test without HTTP
+**Why**
 
-❌ Don't use operations for:
-- Simple CRUD (controller → model → view is fine)
-- Single model operations
-- Pure formatting (that's a view)
+- No hidden globals or process dictionary tricks.
+- The type system ensures every controller has the dependencies it
+  expects.
+- Makes unit tests easy: construct a `Services` value and call the
+  function.
 
-## Multi-Format Responses (JSON + HTML)
+**Learn more**
 
-Serve API clients and browsers from the same controller.
+- [Building an API](../learn/02-building-api.md)
+- [Architecture Reference – Context & Services](../reference/architecture.md#4-context-system)
 
-### The Pattern
 
-```gleam
-pub fn show(request: Request, context: Context, services: Services) -> Response {
-  // ... fetch data ...
-  case format {
-    "json" -> json_response(ok, view.to_json(data))
-    "html" -> html_response(ok, view.to_html(data))
-    "htmx" -> html_response(ok, view.card(data)) // Partial for dynamic updates
-  }
-}
-```
+## 3. Middleware Onion
 
-### Why Multi-Format?
+**What it is**
 
-**Don't build two separate backends.** One app, multiple views:
-- API clients get JSON
-- Browsers get HTML
-- HTMX requests get partial HTML
+- Middleware wraps controllers: `fn(Request, Context, Services, Next) -> Response`.
+- Each middleware can:
+  - Enrich context (e.g., add `user` from auth token).
+  - Transform requests or responses.
+  - Short-circuit and return early.
 
-**Same business logic.** Models and operations don't care about format. Views handle formatting.
+**Why**
 
-### Implementation
+- Encapsulates cross-cutting concerns (logging, auth, rate limiting).
+- Lets each route declare exactly which middleware it uses.
+- Keeps controllers focused on their main job.
 
-Views handle the formatting:
+**Learn more**
 
-```gleam
-// views/product_view.gleam
-pub fn respond(product: Product, request: Request) -> Response {
-  case get_format(request) {
-    Some("json") -> json_response(status.ok, to_json(product))
-    Some("csv") -> text_response(status.ok, to_csv(product))
-    _ -> html_response(status.ok, to_html(product))
-  }
-}
+- [Adding Auth](../learn/03-adding-auth.md)
+- [Authentication Guide](../guides/authentication.md)
 
-pub fn to_json(product: Product) -> String
-pub fn to_html(product: Product) -> String
-pub fn to_csv(product: Product) -> String
-```
 
-### Format Detection
+## 4. MVC: Controllers, Models, Views
 
-Detect format from:
-- Query parameter: `?format=json`
-- Accept header: `Accept: application/json`
-- Path extension: `/products/123.json`
+**What it is**
+
+- **Controllers** – HTTP layer: parse params, call models/operations,
+  call views, return `Response`.
+- **Models** – data access layer: talk to the database, return domain
+  types and `dream.Error`.
+- **Views** – presentation layer: turn domain types into strings
+  (JSON/HTML/CSV) or templates.
+
+**Why**
+
+- Clear separation of concerns.
+- Each layer is easy to test in isolation.
+- Views can support multiple formats without touching models.
+
+**Learn more**
+
+- [Controllers & Models Guide](../guides/controllers-and-models.md)
+- [Multiple Formats Guide](../guides/multiple-formats.md)
+
+
+## 5. Operations (Business Logic)
+
+**What it is**
+
+- Operations are functions that encapsulate complex workflows:
+  validation, multiple model calls, external services, side effects.
+- Controllers become thin: "extract params → call operation → map
+  errors → return response".
+
+**Why**
+
+- Keeps business logic out of controllers.
+- Easy to test (no HTTP types involved).
+- Reusable from REST, GraphQL, jobs, CLI, etc.
+
+**When to use**
+
+- Coordinating 2+ models or services.
+- Complex business rules.
+- Side effects (emails, search indexing, events).
+
+**Learn more**
+
+- [Advanced Patterns](../learn/04-advanced-patterns.md)
+- [Operations Guide](../guides/operations.md)
+
+
+## 6. Multi-Format Responses (JSON, HTML, HTMX, CSV)
+
+**What it is**
+
+- Single controller that can respond with different formats based on
+  `request.format`, headers, or query params.
+- Views provide `to_json`, `to_html`, `card`, `to_csv`, etc.
+
+**Why**
+
+- One backend for browsers, API clients, and HTMX.
+- Shared business logic and models.
+- Avoids duplicating controllers/routes by format.
+
+**Learn more**
+
+- [Multiple Formats Guide](../guides/multiple-formats.md)
+- [multi_format example](../examples.md#multi_format)
+
+
+## 7. Auth via Custom Context + Middleware
+
+**What it is**
+
+- Define `AuthContext` with a `user: Option(User)` field.
+- Auth middleware validates credentials and populates `context.user`.
+- Controllers pattern-match on `context.user` for auth/authorization
+  decisions.
+
+**Why**
+
+- Auth logic is written once and applied to many routes.
+- Controllers can assume `context.user` is set on protected routes.
+- Easy to test: build an `AuthContext` with or without a user.
+
+**Learn more**
+
+- [Lesson 3: Adding Auth](../learn/03-adding-auth.md)
+- [Authentication Guide](../guides/authentication.md)
+- [custom_context example](../examples.md#4-custom_context)
+
+
+## 8. Streaming (Ingress, Egress, SSE)
+
+**What it is**
+
+- **Ingress streaming** – `request.stream : Option(Yielder(BitArray))`
+  for large request bodies (uploads, proxying).
+- **Egress streaming** – `ResponseBody.Stream` for large responses or
+  long-running streams.
+- **Server-Sent Events** – a specialized streaming pattern for
+  one-way, event-style updates.
+
+**Why**
+
+- Handle large or long-lived payloads without loading everything into
+  memory.
+- Fit naturally with the BEAM's concurrency model.
+
+**Learn more**
+
+- [Streaming Guide](../guides/streaming.md)
+- [Streaming Quick Reference](../guides/streaming-quick-reference.md)
+- [streaming_capabilities example](../examples.md#streaming_capabilities)
+
+
+## 9. WebSockets + Broadcaster
+
+**What it is**
+
+- WebSocket upgrade pattern using
+  `dream/servers/mist/websocket.upgrade_websocket`.
+- Broadcaster service (`dream/services/broadcaster`) for pub/sub style
+  fan-out.
+- Handlers: `on_init`, `on_message`, `on_close` work with typed
+  `Message(custom)` and `Action(state, custom)`.
+
+**Why**
+
+- Typed, testable WebSocket handling with no closures capturing hidden
+  dependencies.
+- Easy fan-out to many connected clients.
+
+**Learn more**
+
+- [WebSockets Guide](../guides/websockets.md)
+- [websocket_chat example](../examples.md#websocket_chat)
+
+
+## 10. Template Layering (Elements → Components → Pages → Layouts)
+
+**What it is**
+
+- Layered server-side rendering using Matcha + Gleam:
+  - Elements (small `.matcha` templates).
+  - Components (Gleam functions composing elements).
+  - Pages (templates or Gleam functions composing components).
+  - Layouts (outer shell: nav, footer, `<html>`/`<body>`).
+
+**Why**
+
+- No duplicated HTML snippets.
+- Type-safe templates compiled to Gleam.
+- Scales well as the UI grows.
+
+**Learn more**
+
+- [Template Composition Guide](../guides/templates.md)
+- [tasks example](../examples.md#5-tasks)
+
+
+## 11. Testing: Black Box + Unified Errors
+
+**What it is**
+
+- Test **public interfaces** only (controllers, operations, views).
+- Use `dream.Error` everywhere in models/operations.
+- Centralize error → response mapping in a helper (e.g.
+  `response_helpers.handle_error`).
+
+**Why**
+
+- Tests survive refactors as long as behavior stays the same.
+- Controllers stay thin and uniform.
+- Assertion style remains consistent across your app.
+
+**Learn more**
+
+- [Testing Guide](../guides/testing.md)
+- [REST API Guide – Error Handling](../guides/rest-api.md#error-handling)
+
 
 ## Next Steps
 
-- [Operations Guide](../guides/operations.md) - Complete guide with examples
-- [Multiple Formats Guide](../guides/multiple-formats.md) - JSON, HTML, HTMX patterns
-- [Examples](../examples.md) - See patterns in action
+Use this page as a map of Dream's patterns:
+
+- When you feel a controller getting big – reach for **Operations**.
+- When you want HTML + JSON from one endpoint – use **Multi-Format**.
+- When many routes share auth logic – use **Context + Middleware**.
+- When payloads are large – use **Streaming**.
+- When you need real-time features – use **WebSockets + Broadcaster**.
+- When HTML grows – use **Template Layering**.
+
+For deeper explanations and complete examples, follow the links in each
+section or browse the [Guides](../guides/index.md) and
+[Examples](../examples.md).
 

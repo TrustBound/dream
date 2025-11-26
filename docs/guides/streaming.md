@@ -353,6 +353,10 @@ pub fn echo(request: Request, context, services) -> Response {
 
 ## Server-Sent Events (SSE)
 
+> Looking for **bi-directional, long-lived connections** (e.g. chat, live
+> dashboards)? Use WebSockets instead of HTTP streaming or SSE. See the
+> [WebSockets guide](websockets.md) for a full walkthrough.
+
 ### Basic SSE Endpoint
 
 ```gleam
@@ -484,21 +488,7 @@ fn create_success_response(msg: String) -> Response {
 }
 ```
 
-### 3. Set Timeouts for Streaming Routes
-
-```gleam
-import dream/servers/mist/server.{max_body_size, read_timeout}
-
-pub fn main() {
-  server.new()
-  |> router(app_router.create())
-  |> max_body_size(100_000_000)  // 100MB max
-  |> read_timeout(300_000)       // 5 minutes
-  |> listen(3000)
-}
-```
-
-### 4. Use Streaming Routes Explicitly
+### 3. Use Streaming Routes Explicitly
 
 ```gleam
 // DON'T: Assume all POST routes are streaming
@@ -655,7 +645,7 @@ fn check_is_valid_image(data: BitArray) -> Result(Nil, Error) {
 fn map_validation_result_to_response(result: Result(String, Error)) -> Response {
   case result {
     Ok(file_id) -> json_response(status.created, "{\"file_id\": \"" <> file_id <> "\"}")
-    Error(InvalidFileType) -> text_response(status.unprocessable_entity, "Invalid image format")
+    Error(InvalidFileType) -> text_response(status.unprocessable_content, "Invalid image format")
     Error(_) -> text_response(status.internal_server_error, "Upload failed")
   }
 }

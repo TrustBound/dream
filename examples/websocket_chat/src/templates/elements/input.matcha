@@ -1,0 +1,6 @@
+{> with id as String
+{> with placeholder as String
+{> with value as String
+{> with attributes as String
+<input type="text" id="{{ id }}" placeholder="{{ placeholder }}" value="{{ value }}" {{ attributes }} />
+

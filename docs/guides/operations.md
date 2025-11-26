@@ -1,6 +1,19 @@
 # Operations
 
-When your application logic gets complex, Controllers can become bloated. The **Operations** pattern helps organize business logic into reusable, testable units.
+When your application logic gets complex, Controllers can become
+bloated. The **Operations** pattern helps organize business logic into
+reusable, testable units.
+
+This guide is for you if:
+
+- You have controllers that feel “too smart” or too long.
+- You are coordinating several services (database, email, search,
+  websockets) in one place.
+- You want business logic that can be reused from HTTP, background jobs,
+  or other entrypoints.
+
+We will show what an Operation is, when to introduce one, and how it
+changes your controllers.
 
 ## What is an Operation?
 
@@ -13,7 +26,12 @@ An Operation is a function that encapsulates a specific business action. It sits
 
 ## Structure
 
-An operation typically takes `Services` and parameters, and returns a `Result`.
+An Operation is just a **function**. Typically it:
+
+- Takes `Services` and the input it needs (IDs, payloads, etc.).
+- Calls models and other services.
+- Returns a `Result(success_value, dream.Error)` so controllers can
+  handle errors uniformly.
 
 **Example: Reordering Tasks**
 
@@ -69,7 +87,18 @@ pub fn reorder(
 }
 ```
 
-This controller uses `require_int` to safely extract the path parameter, then calls the operation. The `use` syntax keeps the code flat and readable. All errors from the operation (which returns `dream.Error`) are handled uniformly through `response_helpers.handle_error`.
+This controller uses `require_int` to safely extract the path parameter,
+then calls the operation. The `use` syntax keeps the code flat and
+readable.
+
+All errors from the operation (which returns `Result(_, dream.Error)`)
+flow into the final `case result` and are turned into HTTP responses by
+`response_helpers.handle_error`.
+
+The important shift is:
+
+- Before: controller both **decides** what to do and **does** it.
+- After: controller **decides** what to do, Operation **does** it.
 
 ## Benefits
 

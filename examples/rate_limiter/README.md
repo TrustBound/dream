@@ -1,12 +1,12 @@
 # Singleton Rate Limiter Example
 
-Real-world rate limiting using the singleton pattern for global state management.
+Real-world rate limiting using shared ETS-backed state for global rate limiting.
 
 ## What This Demonstrates
 
-- **Singleton pattern** - Using `dream/singleton` for global state
+- **Global state via ETS** - Using `dream_ets` for shared state
 - **Global state management** - Shared state across all requests
-- **Services pattern** - Storing process Names in Services struct
+- **Services pattern** - Storing ETS tables in the Services struct
 - **Rate limiting middleware** - 429 responses when limit exceeded
 - **Fixed window algorithm** - 10 requests per 60 seconds
 - **Rate limit headers** - X-RateLimit-* headers in responses
@@ -14,7 +14,7 @@ Real-world rate limiting using the singleton pattern for global state management
 ## Running the Example
 
 ```bash
-cd examples/singleton
+cd examples/rate_limiter
 make run
 ```
 
@@ -65,42 +65,41 @@ curl -i http://localhost:3000/api/status
 ## Code Structure
 
 ```
-examples/singleton/
+examples/rate_limiter/
 ├── gleam.toml          # Project config
 ├── Makefile            # Build and run commands
 └── src/
-    ├── main.gleam     # Application entry point
-    ├── router.gleam   # Route definitions
+    ├── main.gleam      # Application entry point
+    ├── router.gleam    # Route definitions
     ├── services.gleam  # Service initialization
     ├── controllers/
     │   └── api_controller.gleam
     ├── middleware/
     │   └── rate_limit_middleware.gleam
     └── services/
-        └── rate_limiter_service.gleam  # Singleton service
+        └── rate_limiter_service.gleam  # ETS-backed rate limiter service
 ```
 
 ## Key Concepts
 
-- **Singleton Pattern** - One instance shared across all requests
-- **Process Names** - Must be created once and stored in Services
+- **ETS-backed shared state** - Request counters stored in ETS tables created at startup
+- **dream_ets integration** - Uses dream_ets config/operations helpers
 - **Fixed Window** - Simple rate limiting algorithm (count requests in time window)
 - **Middleware Integration** - Rate limiting happens before controllers run
 
 ## Important Pattern
 
-The `process.Name` must be created **once** at startup and stored in the Services struct. Calling `process.new_name()` repeatedly creates different name objects that won't reference the same singleton.
+The rate limiter service is created **once** at startup in `initialize_services` and stored in the `Services` struct. Middleware reuses that instance; it does **not** create new ETS tables on each request.
 
 ```gleam
-// ✅ Correct - name created once at startup
-let rate_limiter_name = process.new_name("rate_limiter")
-Services(rate_limiter: rate_limiter_name)
-
-// ❌ Wrong - creates new name each time
-fn get_rate_limiter() {
-  process.new_name("rate_limiter")  // Different name each call!
+// services.gleam (simplified)
+pub fn initialize_services() -> Services {
+  case create_rate_limiter() {
+    Ok(limiter) -> Services(rate_limiter: limiter)
+    Error(_) -> panic as "Could not initialize rate limiter service"
+  }
 }
 ```
 
-This example shows how to implement global state management and rate limiting in Dream.
+This example shows how to implement global state management and rate limiting in Dream using ETS.
 

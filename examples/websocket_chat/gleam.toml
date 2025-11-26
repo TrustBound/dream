@@ -1,0 +1,16 @@
+name = "dream_example_websocket_chat"
+version = "0.1.0"
+description = "Dream WebSocket Chat Example"
+licences = ["MIT"]
+
+[dependencies]
+dream = { path = "../.." }
+gleam_http = ">= 4.0.0 and < 5.0.0"
+gleam_stdlib = ">= 0.44.0 and < 2.0.0"
+gleam_erlang = ">= 0.30.0 and < 2.0.0"
+gleam_otp = ">= 0.10.0 and < 2.0.0"
+mist = ">= 5.0.3 and < 6.0.0"
+gleam_json = ">= 3.0.0 and < 4.0.0"
+
+[dev-dependencies]
+gleeunit = ">= 1.0.0 and < 2.0.0"

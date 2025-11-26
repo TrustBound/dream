@@ -1,21 +1,14 @@
-//// Request handler for Mist server
-////
-//// This module provides handler creation functionality that converts
-//// Mist requests to Dream requests, routes them, and converts the
-//// response back to Mist format.
-////
-//// This is an internal module used by the Dream server implementation.
-//// Most applications won't need to use this directly.
-
 import dream/dream
 import dream/http/header.{Header}
 import dream/http/request.{type Request, Request}
 import dream/http/response.{Response, Text}
 import dream/router.{type Route, type Router, find_route}
+import dream/servers/mist/internal
 import dream/servers/mist/request as mist_request
 import dream/servers/mist/response as mist_response
 import gleam/bit_array
 import gleam/bytes_tree
+import gleam/erlang/atom
 import gleam/http/request as http_request
 import gleam/http/response as http_response
 import gleam/option
@@ -33,6 +26,9 @@ import mist.{type Connection, type ResponseData, Bytes}
 /// 3. Read body (buffered) or wrap stream (streaming)
 /// 4. Route the request through the router
 /// 5. Convert Dream response back to Mist format
+/// 6. Handle HTTP → WebSocket upgrades when a controller calls
+///    `websocket.upgrade_websocket` (the upgrade response is stashed and
+///    returned here instead of a normal HTTP response)
 ///
 /// ## Parameters
 ///
@@ -72,20 +68,29 @@ fn create_request_handler(
   update_context: fn(context, String) -> context,
 ) -> fn(http_request.Request(Connection)) ->
   http_response.Response(ResponseData) {
-  fn(mist_req: http_request.Request(Connection)) {
-    // 1. Create a "Lightweight" Request (Headers, Path, Method only)
-    let #(partial_req, request_id) = mist_request.convert_metadata(mist_req)
+  fn(mist_request: http_request.Request(Connection)) {
+    // 1. Stash the Mist request
+    let request_key = atom.create(internal.request_key)
+    internal.put(request_key, internal.to_dynamic(mist_request))
 
-    // 2. Find the route using the lightweight request
-    case find_route(router, partial_req) {
+    // 2. Initialize response stash to None
+    let response_key = atom.create(internal.response_key)
+    internal.put(response_key, internal.to_dynamic(option.None))
+
+    // 3. Create a "Lightweight" Request (Headers, Path, Method only)
+    let #(partial_request, request_id) =
+      mist_request.convert_metadata(mist_request)
+
+    // 4. Find the route using the lightweight request
+    let dream_response = case find_route(router, partial_request) {
       option.Some(#(route, params)) -> {
         // Create context for this request by updating template with request_id
         let request_context = update_context(template_context, request_id)
 
-        // 3. Process body and route request
+        // Process body and route request
         handle_routed_request(
-          mist_req,
-          partial_req,
+          mist_request,
+          partial_request,
           route,
           params,
           max_body_size,
@@ -107,12 +112,22 @@ fn create_request_handler(
         mist_response.convert(dream_response)
       }
     }
+
+    // 5. Check for upgrade response in stash
+    let raw_upgrade = internal.get(response_key)
+    let upgrade_result: option.Option(http_response.Response(ResponseData)) =
+      internal.unsafe_coerce(raw_upgrade)
+
+    case upgrade_result {
+      option.Some(mist_response) -> mist_response
+      option.None -> dream_response
+    }
   }
 }
 
 fn handle_routed_request(
-  mist_req: http_request.Request(Connection),
-  partial_req: Request,
+  mist_request: http_request.Request(Connection),
+  partial_request: Request,
   route: Route(context, services),
   params: List(#(String, String)),
   max_body_size: Int,
@@ -120,19 +135,20 @@ fn handle_routed_request(
   services_instance: services,
 ) -> http_response.Response(ResponseData) {
   // 3. DECIDE: Stream or Buffer?
-  let final_req_result = case route.streaming {
-    True -> prepare_streaming_request(mist_req, partial_req)
-    False -> prepare_buffered_request(mist_req, partial_req, max_body_size)
+  let final_request_result = case route.streaming {
+    True -> prepare_streaming_request(mist_request, partial_request)
+    False ->
+      prepare_buffered_request(mist_request, partial_request, max_body_size)
   }
 
-  case final_req_result {
-    Ok(final_req) -> {
+  case final_request_result {
+    Ok(final_request) -> {
       // 4. Execute the route directly (we already found it above)
       // execute_route will set params on the request internally
       let dream_response =
         dream.execute_route(
           route,
-          final_req,
+          final_request,
           params,
           request_context,
           services_instance,
@@ -146,13 +162,13 @@ fn handle_routed_request(
 }
 
 fn prepare_streaming_request(
-  mist_req: http_request.Request(Connection),
-  partial_req: Request,
+  mist_request: http_request.Request(Connection),
+  partial_request: Request,
 ) -> Result(Request, http_response.Response(ResponseData)) {
-  case mist.stream(mist_req) {
+  case mist.stream(mist_request) {
     Ok(chunk_provider) -> {
       let stream = yielder.unfold(chunk_provider, stream_unfolder)
-      Ok(Request(..partial_req, stream: option.Some(stream)))
+      Ok(Request(..partial_request, stream: option.Some(stream)))
     }
     Error(_) -> Error(bad_request_response())
   }
@@ -170,15 +186,15 @@ fn stream_unfolder(
 }
 
 fn prepare_buffered_request(
-  mist_req: http_request.Request(Connection),
-  partial_req: Request,
+  mist_request: http_request.Request(Connection),
+  partial_request: Request,
   max_body_size: Int,
 ) -> Result(Request, http_response.Response(ResponseData)) {
-  case mist.read_body(mist_req, max_body_limit: max_body_size) {
-    Ok(req_with_body) -> {
+  case mist.read_body(mist_request, max_body_limit: max_body_size) {
+    Ok(request_with_body) -> {
       let body_string =
-        bit_array.to_string(req_with_body.body) |> result.unwrap("")
-      Ok(Request(..partial_req, body: body_string))
+        bit_array.to_string(request_with_body.body) |> result.unwrap("")
+      Ok(Request(..partial_request, body: body_string))
     }
     Error(_) -> Error(bad_request_response())
   }
