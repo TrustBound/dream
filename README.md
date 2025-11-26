@@ -19,118 +19,98 @@ Dream is a web toolkit for building servers. It's not a framework—you control 
 
 **Built for Gleam** (a type-safe functional language) and **runs on the BEAM** (the same runtime that powers WhatsApp, Discord, and millions of concurrent connections).
 
-## A Complete Example
+## A Quick Example
 
-Here's a working web server with middleware:
+Here is the smallest useful Dream server. It responds with `"Hello, world!"`.
 
 ```gleam
-// Import Dream's empty context type (no per-request data needed)
-import dream/context.{type EmptyContext}
+import dream/http.{text_response, ok}
+import dream/http/request.{Get}
+import dream/router.{router, route}
+import dream/servers/mist/server
 
-// Import parameter validation helper and error handling
-import dream/http.{require_string}
-import dream/http/error
-
-// Import request types
-import dream/http/request.{type Request, Get}
-
-// Import response types and builders
-import dream/http/response.{type Response, text_response}
-
-// Import HTTP status codes
-import dream/http/status.{bad_request, ok}
-
-// Import routing helpers
-import dream/router.{type EmptyServices, route, router as create_router}
-
-// Import server setup functions
-import dream/servers/mist/server.{bind, listen, router}
-
-// Import Gleam standard library
-import gleam/int
-import gleam/io
-import gleam/result
-
-// Middleware: Functions that wrap controllers
-// Signature: (Request, Context, Services, NextFunction) -> Response
-// This logging middleware demonstrates how middleware wraps controllers:
-// 1. Code runs BEFORE the controller (request flows in)
-// 2. Call `next()` to invoke the controller
-// 3. Code runs AFTER the controller (response flows out)
-fn logging_middleware(
-  request: Request,
-  context: EmptyContext,
-  services: EmptyServices,
-  next: fn(Request, EmptyContext, EmptyServices) -> Response,
-) -> Response {
-  // Code here runs BEFORE the controller
-  io.println("Incoming request: " <> request.path)
-
-  // Call the next middleware or controller
-  let response = next(request, context, services)
-
-  // Code here runs AFTER the controller
-  io.println("Completed with status: " <> int.to_string(response.status))
-
-  // Return the response (we can modify it here if needed)
-  response
+fn index(_request, _context, _services) {
+  text_response(ok, "Hello, world!")
 }
 
-// Controller: A function that handles HTTP requests
-// Signature: (Request, Context, Services) -> Response
-// Controllers extract parameters, do work, and return responses
-fn handle_echo(
-  request: Request,
-  _context: EmptyContext,
-  // Underscore prefix means "unused"
-  _services: EmptyServices,
-) -> Response {
-  // Use a result block to chain operations that return Result types
-  let result = {
-    // Extract and validate the "message" parameter from the URL
-    // require_string returns Result(String, Error)
-    use message <- result.try(require_string(request, "message"))
-    Ok(message)
-  }
-
-  // Pattern match on the result to build the appropriate response
-  case result {
-    Ok(message) -> text_response(ok, "Hello, " <> message <> "!")
-    Error(error) -> text_response(bad_request, error.message)
-  }
-}
-
-// Main entry point: Set up and start the web server
 pub fn main() {
-  // Create a router with one route
-  // The route has a path parameter `:message` that gets extracted automatically
   let app_router =
-    create_router()
-    |> route(
-      method: Get,
-      // Only match GET requests
-      path: "/echo/:message",
-      // :message is a path parameter
-      controller: handle_echo,
-      // Function to call when route matches
-      middleware: [logging_middleware],
-      // Middleware wraps the controller
-    )
+    router()
+    |> route(method: Get, path: "/", controller: index, middleware: [])
 
-  // Configure and start the server using the builder pattern
   server.new()
-  // Defaults to EmptyContext and EmptyServices - perfect for simple apps!
-  |> router(app_router)
-  // Use the router we created above
-  |> bind("localhost")
-  // Listen on localhost only
-  |> listen(3000)
-  // Start listening on port 3000
+  |> server.router(app_router)
+  |> server.bind("localhost")
+  |> server.listen(3000)
 }
 ```
 
-**Run this:** `gleam run` → Visit `http://localhost:3000/echo/World` → See `Hello, World!`  
-**Middleware logs:** Request path before, response status after. No configuration needed!
+**Run this:** `gleam run` → Visit `http://localhost:3000/` → See `Hello, world!`
+
+In words:
+
+- `index` is a **controller**: it takes a request/context/services and
+  returns a response.
+- `router()` and `route(...)` define which controller handles which
+  requests.
+- `server.new() |> ... |> server.listen(3000)` configures and starts a
+  Mist-based HTTP server using a builder pattern.
+
+Types are omitted here for brevity – Gleam can infer them. The
+[quickstart](https://github.com/TrustBound/dream/blob/main/docs/quickstart.md)
+walks through a fully-typed version line by line.
+
+## What Dream Can Do
+
+Dream is more than "Hello, world". Here are a few small examples of
+what it helps you build.
+
+### JSON APIs
+
+```gleam
+fn get_user(request, context, services) {
+  let user = find_user(services.db, id: 1)
+  json_response(ok, user_to_json(user))
+}
+```
+
+- Use `Services` to carry dependencies like a database pool.
+- Use view functions (like `user_to_json`) to keep formatting separate
+  from data access.
+
+### Streaming responses
+
+```gleam
+fn download_log(request, context, services) {
+  let stream = make_log_stream(services.log_store)
+  stream_response(ok, stream, "text/plain")
+}
+```
+
+- Send large responses as a stream of chunks.
+- Use the BEAM's strengths for long-running, memory-efficient
+  operations.
+
+### WebSockets
+
+```gleam
+fn chat(request, context, services) {
+  websocket.upgrade_websocket(
+    request,
+    dependencies: make_dependencies(request, services),
+    on_init: handle_init,
+    on_message: handle_message,
+    on_close: handle_close,
+  )
+}
+```
+
+- Upgrade an HTTP request to a typed WebSocket connection.
+- Use explicit `Dependencies` instead of closures, so it’s clear what
+  each handler needs.
+
+See the [guides](https://github.com/TrustBound/dream/blob/main/docs/index.md)
+for complete examples of JSON APIs, streaming, and WebSockets.
 
 ## Why This Approach?
 
@@ -146,7 +126,7 @@ pub fn main() {
 
 - 📚 [Complete Documentation](https://github.com/TrustBound/dream/blob/main/docs/index.md) - Guides, tutorials, and concepts
 - 📖 [API Reference](https://hexdocs.pm/dream) - Complete API documentation on HexDocs
-- 🚀 [5-Minute Quickstart](https://github.com/TrustBound/dream/blob/main/docs/quickstart.md) - Get a server running
+- 🚀 [Quickstart](https://github.com/TrustBound/dream/blob/main/docs/quickstart.md) - Get a server running
 - 💡 [Examples](https://github.com/TrustBound/dream/tree/main/examples) - Working code you can run
 
 ## Why Gleam? Why the BEAM?

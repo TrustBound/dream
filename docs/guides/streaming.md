@@ -353,6 +353,10 @@ pub fn echo(request: Request, context, services) -> Response {
 
 ## Server-Sent Events (SSE)
 
+> Looking for **bi-directional, long-lived connections** (e.g. chat, live
+> dashboards)? Use WebSockets instead of HTTP streaming or SSE. See the
+> [WebSockets guide](websockets.md) for a full walkthrough.
+
 ### Basic SSE Endpoint
 
 ```gleam

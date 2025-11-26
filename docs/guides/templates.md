@@ -1,8 +1,67 @@
 # Template Composition
 
-Many developers choose front-end frameworks like React or Vue, which is perfectly fine. Dream lets you choose whatever you want for a front-end.
+Many developers choose front-end frameworks like React or Vue, which is
+perfectly fine. Dream lets you choose whatever you want for a
+front-end.
 
-For those who wish to have server-side rendering with full type safety through Gleam, we have a suggested layered approach that keeps markup consistent, DRY, and reusable as applications grow.
+For those who want server-side rendering **in Gleam** with full type
+safety, this guide explains a layered approach that keeps markup
+consistent, DRY, and reusable as applications grow.
+
+You do not need to be a Matcha expert to follow along. We will point out
+where each layer’s files live and how they fit into the view layer of a
+Dream app.
+
+The basic Matcha mental model is:
+
+- **Input:** `.matcha` files that contain mostly HTML plus a few
+  templating directives.
+- **Compiler:** an external `matcha` binary (written in Rust) that you
+  run at the project root.
+- **Output:** `.gleam` modules with `render` / `render_tree` functions
+  that you import like any other module.
+
+In practice you will usually add a small Makefile target:
+
+```makefile
+matcha:
+	@matcha
+
+build:
+	@make matcha
+	@gleam build
+```
+
+and then treat Matcha as “one extra step before Gleam builds”. If you’re
+not familiar with Rust or Cargo, you can stick to downloading the
+prebuilt Matcha binary and just use it via this Makefile target.
+
+### Mini walkthrough: from `.matcha` to Gleam
+
+1. Create a simple template, e.g. `templates/elements/hello.matcha`:
+
+   ```jinja
+   {> with name as String
+   Hello {{ name }}!
+   ```
+
+2. Run `matcha` at the project root (or `make matcha`). Matcha will
+   generate `templates/elements/hello.gleam` with a `render` function:
+
+   ```gleam
+   import templates/elements/hello
+
+   pub fn greet(name: String) -> String {
+     hello.render(name: name)
+   }
+   ```
+
+3. Call `greet("Dream")` from your views or controllers to get the
+   rendered HTML string.
+
+You never call `render_tree` directly unless you are composing
+`StringTree` values manually; most apps will just use the
+`render(...) -> String` function.
 
 ## The Problem We Solved
 

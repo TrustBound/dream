@@ -2,12 +2,14 @@
 
 Complete, working applications. Read the code—it's commented to explain the patterns.
 
+If you are not sure where to start, follow the examples in the **Learning Order** section from top to bottom, then jump into the specialized examples that match what you are building.
+
 ---
 
 ## Learning Order
 
 ### 1. [simplest/](../examples/simplest/)
-**One file. One route.**
+**One file. One route.** (Best first "hello Dream" example.)
 
 The absolute minimum Dream app. Everything inline, no organization. Start here.
 
@@ -21,7 +23,7 @@ The absolute minimum Dream app. Everything inline, no organization. Start here.
 ---
 
 ### 2. [simple/](../examples/simple/)
-**Basic routing and path parameters.**
+**Basic routing and path parameters.** (Best first routing + path parameters example.)
 
 Multiple routes, path parameters, HTTP client usage.
 
@@ -31,12 +33,12 @@ Multiple routes, path parameters, HTTP client usage.
 - HTTP client (non-streaming)
 
 **Run:** `cd examples/simple && make run`
-**Test:** 4 integration tests
+**Test:** Integration tests
 
 ---
 
 ### 3. [database/](../examples/database/)
-**Full CRUD API with PostgreSQL.**
+**Full CRUD API with PostgreSQL.** (Best first database-backed REST API example.)
 
 Complete REST API with type-safe SQL, migrations, and validation.
 
@@ -49,12 +51,12 @@ Complete REST API with type-safe SQL, migrations, and validation.
 - Makefile automation
 
 **Run:** `cd examples/database && make db-up && make migrate && make run`
-**Test:** 15 integration tests with database isolation
+**Test:** Integration tests with database isolation
 
 ---
 
 ### 4. [custom_context/](../examples/custom_context/)
-**Authentication with middleware.**
+**Authentication with middleware.** (Best first auth + custom context example.)
 
 Custom context types and middleware for auth.
 
@@ -65,12 +67,12 @@ Custom context types and middleware for auth.
 - Protecting routes
 
 **Run:** `cd examples/custom_context && make run`
-**Test:** 8 integration tests covering authentication
+**Test:** Integration tests covering authentication
 
 ---
 
 ### 5. [tasks/](../examples/tasks/)
-**Full-featured task app with HTMX.**
+**Full-featured task app with HTMX.** (Best first templates + HTMX example.)
 
 Complete task management application with HTMX, semantic classless HTML, and composable templates.
 
@@ -89,7 +91,7 @@ Complete task management application with HTMX, semantic classless HTML, and com
 ## Specialized Examples
 
 ### [multi_format/](../examples/multi_format/)
-**JSON, HTML, CSV, HTMX responses.**
+**JSON, HTML, CSV, HTMX responses.** (Best first multi-format responses example.)
 
 Same data in multiple formats with content negotiation.
 
@@ -100,12 +102,12 @@ Same data in multiple formats with content negotiation.
 - HTMX partials
 
 **Run:** `cd examples/multi_format && make db-up && make migrate && make run`
-**Test:** 12 integration tests covering all formats
+**Test:** Integration tests covering all formats
 
 ---
 
 ### [streaming/](../examples/streaming/)
-**HTTP client with streaming.**
+**HTTP client with streaming.** (Best first streaming HTTP client example.)
 
 Both streaming and non-streaming HTTP requests to external APIs.
 
@@ -116,12 +118,12 @@ Both streaming and non-streaming HTTP requests to external APIs.
 - External API calls
 
 **Run:** `cd examples/streaming && make run`
-**Test:** 6 integration tests
+**Test:** Integration tests
 
 ---
 
 ### [streaming_capabilities/](../examples/streaming_capabilities/)
-**🔥 Advanced streaming patterns.**
+**🔥 Advanced streaming patterns.** (Read `streaming/` first; this is the advanced streaming showcase.)
 
 Complete streaming showcase: ingress, egress, bi-directional, middleware, proxying.
 
@@ -133,12 +135,29 @@ Complete streaming showcase: ingress, egress, bi-directional, middleware, proxyi
 - **Proxy streaming**: Stream from external sources
 
 **Run:** `cd examples/streaming_capabilities && make run`
-**Test:** Integration tests with all streaming patterns
+**Test:** Integration tests covering all streaming patterns
+
+---
+
+### [websocket_chat/](../examples/websocket_chat/)
+**Real-time chat with WebSockets.** (Best first WebSocket example.)
+
+A multi-user chat application that uses WebSockets and a broadcaster service.
+
+**Demonstrates:**
+- HTTP → WebSocket upgrade from a Dream controller
+- Typed WebSocket message loop (`on_init`, `on_message`, `on_close`)
+- Pub/sub broadcaster service for fan-out messaging
+- Frontend integration with JavaScript WebSocket client
+- End-to-end integration tests using Gherkin/Cucumber
+
+**Run:** `cd examples/websocket_chat && make run`
+**Test:** `cd examples/websocket_chat && make test-integration`
 
 ---
 
 ### [rate_limiter/](../examples/rate_limiter/)
-**Global rate limiting with shared state.**
+**Global rate limiting with shared state.** (Best first ETS + rate limiting example.)
 
 Rate limiting across all requests using shared ETS-backed state.
 
@@ -147,12 +166,12 @@ Rate limiting across all requests using shared ETS-backed state.
 - Rate limiting middleware
 
 **Run:** `cd examples/rate_limiter && make run`
-**Test:** 8 integration tests with unique IP isolation
+**Test:** Integration tests with unique IP isolation
 
 ---
 
 ### [static/](../examples/static/)
-**Serving static files.**
+**Serving static files.** (Best first static file serving example.)
 
 File serving with security, directory listing, MIME types.
 
@@ -163,7 +182,7 @@ File serving with security, directory listing, MIME types.
 - Directory listings
 
 **Run:** `cd examples/static && make run`
-**Test:** 10 integration tests with security validation
+**Test:** Integration tests with security validation
 
 ---
 

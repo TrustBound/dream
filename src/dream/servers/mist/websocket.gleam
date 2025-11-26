@@ -1,21 +1,91 @@
-//// WebSocket Support for Dream
+//// WebSocket support for Dream (Mist server adapter)
 ////
-//// This module provides Dream's WebSocket abstraction that remains
-//// server-agnostic. It handles the upgrade from HTTP to WebSocket
-//// and provides types for WebSocket message handling.
+//// This module provides Dream's WebSocket abstraction for the Mist server
+//// adapter. It upgrades an HTTP request to a WebSocket connection and runs
+//// a typed message loop driven by your handler functions.
 ////
-//// ## Example
+//// Most applications will import this module as:
 ////
 //// ```gleam
-//// import dream/websocket
+//// import dream/servers/mist/websocket
+//// ```
 ////
-//// pub fn handle_upgrade(request: Request, context: Context, services: Services) -> Response {
+//// ## Concepts
+////
+//// - `Connection` – opaque handle to the WebSocket. Use it to send messages
+////   back to the client.
+//// - `Message(custom)` – messages received from the client or from your
+////   application via a `Selector(custom)` (text, binary, custom, closed).
+//// - `Action(state, custom)` – the next step in the WebSocket state machine,
+////   returned from your `on_message` handler.
+////
+//// The typical lifecycle is:
+////
+//// 1. Router sends a request to a controller.
+//// 2. Controller calls `upgrade_websocket`.
+//// 3. `on_init` runs once when the WebSocket is established.
+//// 4. `on_message` runs for each incoming or custom message.
+//// 5. `on_close` runs after the connection closes.
+////
+//// Handlers follow Dream's "no closures" rule: instead of capturing
+//// dependencies, you define a `Dependencies` type and pass it explicitly
+//// into `upgrade_websocket` so every handler receives what it needs.
+////
+//// ## Example (echo chat)
+////
+//// ```gleam
+//// import dream/http/request.{type Request}
+//// import dream/http/response.{type Response, text_response}
+//// import dream/http/status
+//// import dream/servers/mist/websocket
+//// import gleam/erlang/process
+//// import gleam/option
+////
+//// pub type Dependencies {
+////   Dependencies(user_name: String)
+//// }
+////
+//// pub fn handle_upgrade(request: Request, context, services) -> Response {
+////   let user = request.get_query_param(request.query, "user")
+////   let user = option.unwrap(user, "Anonymous")
+////   let deps = Dependencies(user_name: user)
+////
 ////   websocket.upgrade_websocket(
 ////     request,
-////     on_init: fn(connection) { #(initial_state, None) },
+////     dependencies: deps,
+////     on_init: handle_init,
 ////     on_message: handle_message,
 ////     on_close: handle_close,
 ////   )
+//// }
+////
+//// fn handle_init(
+////   _connection: websocket.Connection,
+////   _deps: Dependencies,
+//// ) -> #(String, option.Option(process.Selector(String))) {
+////   // Initial state is the username, no extra messages yet
+////   #("", option.None)
+//// }
+////
+//// fn handle_message(
+////   state: String,
+////   message: websocket.Message(String),
+////   connection: websocket.Connection,
+////   deps: Dependencies,
+//// ) -> websocket.Action(String, String) {
+////   case message {
+////     websocket.TextMessage(text) -> {
+////       let reply = deps.user_name <> ": " <> text
+////       let _ = websocket.send_text(connection, reply)
+////       websocket.continue_connection(state)
+////     }
+////     websocket.ConnectionClosed -> websocket.stop_connection()
+////     _ -> websocket.continue_connection(state)
+////   }
+//// }
+////
+//// fn handle_close(_state: String, _deps: Dependencies) -> Nil {
+////   Nil
 //// }
 //// ```
 

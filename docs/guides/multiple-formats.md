@@ -10,11 +10,35 @@ Instead of separate `api/users_controller.gleam` and `web/users_controller.gleam
 
 ## Setup
 
-Add Matcha for HTML templates:
+For HTML templates we use Matcha, a small Rust program that reads
+`.matcha` files and generates Gleam modules with `render` functions.
 
-```bash
-gleam add marceau
+At a high level:
+
+- You write templates in `.matcha` files (HTML plus a bit of template
+  syntax).
+- You run the `matcha` binary at the project root.
+- It walks the project, finds `.matcha` files, and generates
+  `.gleam` modules next to them.
+- You import those generated modules from your views and call
+  `render(...)`.
+
+You can either download a prebuilt Matcha binary or build it from source
+if you already use Rust tooling.
+
+A typical Makefile integration looks like this:
+
+```makefile
+matcha:
+	@matcha
+
+build:
+	@make matcha
+	@gleam build
 ```
+
+Then you can run `make build` and know both templates and Gleam code are
+up to date.
 
 ## Pattern: JSON + HTML (Side-by-Side)
 

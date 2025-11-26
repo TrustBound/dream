@@ -18,7 +18,7 @@ Tests the request builder API:
 - ✅ `body_sets_request_body_test()` - Verify body builder
 - ✅ `add_header_adds_header_to_request_test()` - Verify header addition
 
-**Coverage: 9 tests** - All builder functions comprehensively tested
+**Coverage:** All builder functions are comprehensively tested
 
 ### Integration Tests: `stream_messages_integration_test.gleam`
 
@@ -87,7 +87,7 @@ Tests validating OTP compatibility:
 - ✅ `stream_messages_returns_request_id_test()` - API surface verification
 - ✅ `cancel_stream_accepts_request_id_test()` - Cancellation API verification
 
-**Coverage: 2 tests** - Quick API validation
+**Coverage:** Quick API validation for the smoke tests
 
 ## Test Quality Standards
 
@@ -97,7 +97,7 @@ All tests meet Dream's quality standards:
 ✅ **No Warnings** - Clean compilation with zero warnings  
 ✅ **Meaningful** - Tests real behavior and API contracts  
 ✅ **Comprehensive** - Covers happy path and API surface  
-✅ **Fast** - All tests complete in < 2 seconds  
+✅ **Fast** - Tests are designed to run quickly enough for local development feedback
 ✅ **Readable** - Clear Arrange/Act/Assert structure  
 
 ## OTP Compatibility Validation
@@ -171,17 +171,17 @@ cd modules/http_client
 gleam test
 
 # Expected output:
-# 17 passed, no failures
+# All tests passed, no failures
 ```
 
 ## Coverage Summary
 
-| Test Suite | Tests | What It Validates |
-|------------|-------|-------------------|
-| **client_test** | 9 | Request builder API |
-| **stream_messages_integration_test** | 6 | OTP compatibility, all execution modes |
-| **stream_messages_test** | 2 | API surface smoke tests |
-| **Total** | **17** | **Complete API coverage** |
+|| Test Suite | What It Validates |
+||------------|-------------------|
+|| **client_test** | Request builder API |
+|| **stream_messages_integration_test** | OTP compatibility, all execution modes |
+|| **stream_messages_test** | API surface smoke tests |
+|| **Total** | **Complete API coverage** |
 
 ## Conclusion
 

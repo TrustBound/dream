@@ -4,7 +4,7 @@
 
 Dream apps compile to native Erlang BEAM bytecode. They run on the same battle-tested runtime that powers WhatsApp, Discord, and other services handling millions of concurrent connections.
 
-This guide covers common deployment patterns.
+This guide covers common deployment patterns. You do not need all of them on day one: start with a simple container-based deploy (see **Docker** below), then come back later for Docker Compose, migrations, health checks, and platform-specific tips as your app grows.
 
 ## Building for Production
 

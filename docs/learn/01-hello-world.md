@@ -1,6 +1,5 @@
 # Lesson 1: Hello World
 
-**Time:** 5 minutes  
 **Goal:** Understand Dream's three core pieces
 
 Your first Dream app is just one file with three pieces: a router, a controller, and a server.
@@ -47,6 +46,9 @@ Visit http://localhost:3000 - you should see "Hello, World!"
 
 ## How It Works
 
+We’ll go through the file in three passes: controller, router, server.
+Along the way we’ll also explain some Gleam syntax.
+
 ### 1. The Controller
 
 ```gleam
@@ -59,11 +61,15 @@ fn index(
 }
 ```
 
-This is a controller - a function that:
-- Takes a Request, Context, and Services
-- Returns a Response
+This is a controller – a function that:
 
-The underscores (`_request`, `_context`, `_services`) mean we're not using those parameters yet. We will in later lessons.
+- Takes a `Request`, `Context`, and `Services`.
+- Returns a `Response`.
+
+In this very first example we do not need any information from the
+request or services, so the parameters are prefixed with `_` to tell
+Gleam “we know this argument is here, but we are not using it yet”.
+We will start using them in later lessons.
 
 ### 2. The Router
 
@@ -93,7 +99,7 @@ This configures and starts the server:
 - `bind()` - Listen on localhost only
 - `listen()` - Start on port 3000
 
-**Note:** Dream defaults to `EmptyContext` and `EmptyServices`. For simple apps, you only need to provide a router! We'll see custom context and services in later lessons.
+**Note:** Dream defaults to `AppContext` and `EmptyServices`. For simple apps, you only need to provide a router. We will see custom context and custom services in later lessons.
 
 ## What You Learned
 

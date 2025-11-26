@@ -26,6 +26,9 @@ import mist.{type Connection, type ResponseData, Bytes}
 /// 3. Read body (buffered) or wrap stream (streaming)
 /// 4. Route the request through the router
 /// 5. Convert Dream response back to Mist format
+/// 6. Handle HTTP → WebSocket upgrades when a controller calls
+///    `websocket.upgrade_websocket` (the upgrade response is stashed and
+///    returned here instead of a normal HTTP response)
 ///
 /// ## Parameters
 ///

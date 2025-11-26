@@ -7,6 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2025-11-25
+
+### Added
+
+**WebSocket Support**
+- Added WebSocket support via `dream/servers/mist/websocket` module
+- Server-agnostic WebSocket API that abstracts away Mist implementation details
+- Support for text messages, binary messages, custom messages, and connection lifecycle
+- Complete WebSocket chat example with comprehensive documentation
+- Integration tests using Cucumber/Gherkin for WebSocket functionality
+- WebSocket abstraction prevents vendor lock-in - users never see Mist types
+
+**Pub/Sub Broadcasting Service**
+- Added `dream/services/broadcaster` module for publish/subscribe messaging
+- Generic OTP actor-based broadcaster for fan-out messaging to multiple consumers
+- Type-safe message distribution with automatic subscriber cleanup
+- Integrates seamlessly with WebSocket connection selectors
+- Suitable for chat rooms, notifications, live updates, and general pub/sub patterns
+
+**Dream Type Accessors**
+- Added public accessor functions for Dream instance configuration:
+  - `dream.get_router()` - Get configured router
+  - `dream.get_context()` - Get configured context
+  - `dream.get_services()` - Get configured services
+  - `dream.get_max_body_size()` - Get max body size limit
+  - `dream.get_bind_interface()` - Get configured bind interface
+  - `dream.get_server()` - Get underlying server (requires `risks_understood: True`)
+
+### Changed
+
+**Dream Type Encapsulation**
+- Made `Dream` type opaque to hide internal server implementation details
+- Prevents users from depending on Mist types in their code
+- All construction now uses `dream.create()` with labeled arguments
+- Internal accessor functions provide controlled access to Dream state
+
+**Server Configuration**
+- Default `max_body_size` changed from effectively infinite (max_int64) to sensible 10MB (10,000,000 bytes)
+- `bind()` configuration now persists through `listen()` calls (previously was lost)
+
+### Fixed
+
+- Fixed `bind()` configuration being discarded when calling `listen()` - configuration now properly applied
+- Fixed Mist and Glisten type leaks in WebSocket API - all types now abstracted through Dream types
+- Fixed WebSocket error types - replaced `glisten.SocketReason` with Dream's own `SendError` type
+
+### Documentation
+
+**Beginner-Friendly Documentation Overhaul**
+- Standardized terminology and code examples across all documentation files (~830 additions, ~374 deletions)
+- Updated quickstart guide, learning tutorials, and all major guides for consistency
+- Fixed inconsistencies in streaming API documentation and architecture docs
+- Enhanced example READMEs (rate_limiter, static, streaming_capabilities) with better patterns
+- Aligned all code examples to match actual implementation patterns
+- Improved clarity for newcomers learning Dream's patterns and conventions
+
+**WebSocket Documentation**
+- Added comprehensive WebSocket chat example with 1,270+ line README
+- Complete architectural overview with data flow diagrams
+- Step-by-step walkthrough of WebSocket lifecycle and message handling
+- Line-by-line explanation of frontend JavaScript and CSS implementation
+- Documentation on Dream's no-closure pattern and server-agnostic design
+- Deep dive into pub/sub broadcaster service usage
+- Troubleshooting guide and common patterns for WebSocket applications
+- When to use (and not use) WebSockets vs. alternatives
+- Building your own WebSocket app guide from scratch
+- 9 comprehensive Cucumber/Gherkin integration test scenarios
+- Full CI/CD pipeline integration for WebSocket tests
+
 ## [2.1.0] - 2025-11-24
 
 ### Added

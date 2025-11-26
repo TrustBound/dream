@@ -2,13 +2,29 @@
 
 **How to test your Dream application without losing your sanity.**
 
-We use [Gleeunit](https://hexdocs.pm/gleeunit/), Gleam's standard testing framework. Tests live in `test/`, mirror your `src/` structure, and follow a simple pattern: Arrange, Act, Assert.
+This guide assumes you are comfortable running `gleam test` but may be
+**new to testing in Gleam** or to Gleeunit.
+
+We use [Gleeunit](https://hexdocs.pm/gleeunit/), Gleam's standard testing
+framework. Tests live in `test/`, mirror your `src/` structure, and
+follow a simple pattern: **Arrange, Act, Assert**.
+
+We will:
+
+- Show where to put tests and how to run them.
+- Explain how to test controllers, models, and middleware.
+- Show how to mock dependencies without global state.
+- Explain when something is a unit test vs an integration test.
 
 ## Test Philosophy
 
-Dream follows **black box testing**: test public interfaces only. Don't test private functions. Don't test implementation details. Test behavior.
+Dream follows **black box testing**: test public interfaces only. Don't
+test private functions. Don't test implementation details. Test
+observable behavior.
 
-**Why?** Because tests should survive refactoring. If you change how something works internally but the public API stays the same, your tests should still pass.
+**Why?** Because tests should survive refactoring. If you change how
+something works internally but the public API stays the same, your tests
+should still pass.
 
 ## Setup
 

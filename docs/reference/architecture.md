@@ -442,6 +442,12 @@ pub fn handler(request: Request, services: Services) -> Response {
 }
 ```
 
+The same rule applies to WebSocket handlers: instead of capturing services in
+closures, bundle them into a `Dependencies` type and pass that into
+`upgrade_websocket` so each handler receives what it needs explicitly.
+
+See the [WebSockets guide](../guides/websockets.md) for concrete patterns.
+
 ### Why Builder Pattern?
 
 Fluent, readable, and type-safe. Each step transforms the previous value. No global state. No side effects.

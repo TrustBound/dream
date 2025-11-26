@@ -2,30 +2,49 @@ import gleam/erlang/process.{type Selector, type Subject}
 import gleam/otp/actor
 import gleam/result
 
-/// A broadcaster manages subscriptions and message distribution
-/// for WebSocket connections or other concurrent consumers.
+/// Publish/subscribe broadcaster for concurrent consumers
 ///
-/// This is a simple publish/subscribe pattern that broadcasts
-/// messages to all subscribers. For more complex routing or
-/// filtering needs, implement a custom actor-based service.
+/// This module implements a small publish/subscribe (pub/sub) service using
+/// Gleam/OTP actors. It is a good fit for broadcasting messages to many
+/// WebSocket connections, but it can also be used for any fan-out messaging
+/// inside your application.
+///
+/// The flow is:
+///
+/// 1. Start a `Broadcaster(message)` at application startup and store it in
+///    your `Services` type.
+/// 2. Each consumer calls `subscribe/1` to obtain a `Channel(message)`.
+/// 3. Convert the channel to a `Selector(message)` with `channel_to_selector/1`
+///    when you want to receive messages in a select loop (for example inside a
+///    WebSocket handler).
+/// 4. Call `publish/2` from anywhere in your app to broadcast a message to all
+///    current subscribers.
+///
+/// For more complex routing, per-room partitioning, or persistence, treat this
+/// as a building block and layer additional actor logic on top.
 ///
 /// ## Example
 ///
 /// ```gleam
 /// // In services.gleam
 /// pub type Services {
-///   Services(chat_broadcaster: broadcaster.Broadcaster(ChatMessage))
+///   Services(chat_bus: broadcaster.Broadcaster(ChatMessage))
 /// }
 ///
 /// pub fn initialize() -> Services {
-///   let assert Ok(chat_broadcaster) = broadcaster.start_broadcaster()
-///   Services(chat_broadcaster: chat_broadcaster)
+///   let assert Ok(chat_bus) = broadcaster.start_broadcaster()
+///   Services(chat_bus: chat_bus)
 /// }
 ///
-/// // In controller
-/// let channel = broadcaster.subscribe(services.chat_broadcaster)
-/// let selector = broadcaster.channel_to_selector(channel)
-/// broadcaster.publish(services.chat_broadcaster, message)
+/// // In WebSocket init handler
+/// fn handle_init(conn, services: Services) {
+///   let channel = broadcaster.subscribe(services.chat_bus)
+///   let selector = broadcaster.channel_to_selector(channel)
+///   #(initial_state, Some(selector))
+/// }
+///
+/// // Anywhere in your app
+/// broadcaster.publish(services.chat_bus, ChatMessage("hello"))
 /// ```
 pub opaque type Broadcaster(message) {
   Broadcaster(subject: Subject(BroadcasterMessage(message)))

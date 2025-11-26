@@ -1,3 +1,10 @@
+//// Internal bridge between Mist and Dream for WebSockets/streaming
+////
+//// This module uses the Erlang process dictionary to stash per-request data
+//// (the current Mist request and an optional upgrade response). It is used by
+//// the Mist handler and WebSocket modules to coordinate HTTP → WebSocket
+//// upgrades and should not be used directly by application code.
+
 import gleam/dynamic.{type Dynamic}
 import gleam/erlang/atom.{type Atom}
 

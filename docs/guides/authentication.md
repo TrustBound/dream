@@ -2,6 +2,8 @@
 
 This guide shows how to implement authentication in Dream using custom context and middleware.
 
+If you prefer a step-by-step walkthrough, start with [Learning Path: Adding Auth](../learn/03-adding-auth.md) and then return to this page as a shorter reference.
+
 ## Concept
 
 In Dream, authentication is implemented using two core concepts:
