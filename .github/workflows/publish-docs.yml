@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish docs for (leave empty to use gleam.toml version)'
+        description: "Version to publish docs for (leave empty to use gleam.toml version)"
         required: false
         type: string
 
@@ -13,8 +13,8 @@ jobs:
     name: Publish Documentation to Hex
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Allow creating git tags
-    
+      contents: write # Allow creating git tags
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -35,8 +35,8 @@ jobs:
       - name: Create git tag if needed
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          TAG="v${VERSION}"
-          
+          TAG="${VERSION}"
+
           # Check if tag already exists
           if git rev-parse "${TAG}" >/dev/null 2>&1; then
             echo "✓ Tag ${TAG} already exists"
@@ -53,13 +53,13 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           echo "Checking if dream@${VERSION} exists on Hex..."
-          
+
           HTTP_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
             --max-time 10 \
             --retry 3 \
             --retry-delay 2 \
             "https://hex.pm/api/packages/dream/releases/${VERSION}")
-          
+
           if [ "$HTTP_RESPONSE" = "200" ]; then
             echo "✓ Package dream@${VERSION} exists on Hex"
           else
@@ -89,7 +89,7 @@ jobs:
             echo "Error: HEX_API_KEY secret is not set"
             exit 1
           fi
-          
+
           VERSION="${{ steps.version.outputs.version }}"
           echo "Publishing documentation for dream@${VERSION}..."
           gleam docs publish

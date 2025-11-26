@@ -162,7 +162,7 @@ jobs:
         run: |
           # Extract version from gleam.toml
           VERSION=$(grep '^version = ' gleam.toml | sed 's/version = "\(.*\)"/\1/')
-          TAG="v${VERSION}"
+          TAG="${VERSION}"
 
           # Check if tag already exists
           if git rev-parse "${TAG}" >/dev/null 2>&1; then
