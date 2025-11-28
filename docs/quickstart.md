@@ -29,16 +29,15 @@ gleam add dream
 Replace `src/hello_dream.gleam`:
 
 ```gleam
+import dream/context.{type EmptyContext}
 import dream/http.{type Request, type Response, text_response, ok}
 import dream/http/request.{Get}
-import dream/router.{type EmptyServices, route, router}
-import dream/servers/mist/server.{
-  bind, listen, new, router as set_router, services,
-} as server
+import dream/router.{type EmptyServices, route, router as create_router}
+import dream/servers/mist/server.{bind, listen, router}
 
 fn index(
   _request: Request,
-  _context: dream/context.AppContext,
+  _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
   text_response(ok, "Hello, World!")
@@ -46,7 +45,7 @@ fn index(
 
 pub fn main() {
   let app_router =
-    router()
+    create_router()
     |> route(method: Get, path: "/", controller: index, middleware: [])
 
   server.new()
