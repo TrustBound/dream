@@ -1,8 +1,9 @@
 -module(dream_httpc_shim).
 
 -export([request_stream/6, fetch_next/2, request_stream_messages/6, cancel_stream/1,
-         receive_stream_message/1, decode_stream_message_for_selector/1, normalize_headers/1,
-         request_sync/5]).
+         cancel_stream_by_string/1, receive_stream_message/1, decode_stream_message_for_selector/1,
+         normalize_headers/1, request_sync/5, ets_table_exists/1, ets_new/2, ets_insert/6,
+         ets_lookup/2, ets_delete/2]).
 
 %% Start a streaming HTTP request
 %%
@@ -217,27 +218,14 @@ build_req(Url, Headers, Body) ->
 
 %% Start a streaming HTTP request with direct message delivery
 %%
-%% This is a thin wrapper around httpc that lets it send messages directly
-%% to the ReceiverPid. No owner process, no buffering, no complexity.
-%%
-%% Parameters:
-%%   Method - HTTP method atom (get, post, put, delete, etc.)
-%%   Url - Full URL as a string
-%%   Headers - List of {Key, Value} tuples
-%%   Body - Request body as binary
-%%   ReceiverPid - Pid that will receive httpc messages directly
-%%
-%% Returns: {ok, RequestId} where RequestId is httpc's request identifier
-%%
-%% Messages sent to ReceiverPid by httpc:
-%%   {http, {RequestId, stream_start, Headers}}
-%%   {http, {RequestId, stream, BinaryChunk}}
-%%   {http, {RequestId, stream_end, Headers}}
-%%   {http, {RequestId, {error, Reason}}}
+%% Returns {ok, StringId} where StringId is a string representation of the request
+%% Stores mapping: StringId -> HttpcRef for cancellation
 request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
     ok = ensure_started(ssl),
     ok = ensure_started(inets),
     ok = configure_httpc(),
+
+    ensure_ref_mapping_table(),
 
     NUrl = to_list(Url),
     NHeaders = to_headers(Headers),
@@ -246,17 +234,34 @@ request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
     HttpOpts = [{timeout, TimeoutMs}, {connect_timeout, 15000}, {autoredirect, true}],
     StreamOpts = [{stream, self}, {sync, false}],
 
-    httpc:request(Method, Req, HttpOpts, StreamOpts).
+    case httpc:request(Method, Req, HttpOpts, StreamOpts) of
+        {ok, HttpcRef} ->
+            %% Convert ref to string for type-safe Gleam API
+            RefString = ref_to_string(HttpcRef),
+            %% Store mapping for cancellation
+            store_ref_mapping(RefString, HttpcRef),
+            {ok, RefString};
+        {error, Reason} ->
+            {error, format_error(Reason)}
+    end.
 
-%% Cancel a streaming request
-%%
-%% Parameters:
-%%   RequestId - The request ID returned from request_stream_messages/5
-%%
-%% Returns: ok
+%% Cancel a streaming request (legacy - takes httpc ref directly)
 cancel_stream(RequestId) ->
     httpc:cancel_request(RequestId),
     ok.
+
+%% Cancel a streaming request by string ID
+%% Looks up the httpc ref from our mapping table and cancels it
+cancel_stream_by_string(StringId) ->
+    case lookup_ref_by_string(StringId) of
+        {some, HttpcRef} ->
+            httpc:cancel_request(HttpcRef),
+            remove_ref_mapping(StringId),
+            nil;
+        none ->
+            %% Ref not found - stream already ended or never existed
+            nil
+    end.
 
 %% Receive and decode the next stream message
 %%
@@ -275,14 +280,14 @@ cancel_stream(RequestId) ->
 receive_stream_message(TimeoutMs) ->
     receive
         {http, {RequestId, stream_start, Headers}} ->
-            {stream_start, RequestId, Headers};
+            {stream_start, RequestId, normalize_headers(Headers)};
         {http, {RequestId, stream_start, Headers, _Pid}} ->
             %% Some httpc versions include pid
-            {stream_start, RequestId, Headers};
+            {stream_start, RequestId, normalize_headers(Headers)};
         {http, {RequestId, stream, Data}} ->
             {chunk, RequestId, Data};
         {http, {RequestId, stream_end, Headers}} ->
-            {stream_end, RequestId, Headers};
+            {stream_end, RequestId, normalize_headers(Headers)};
         {http, {RequestId, {error, Reason}}} ->
             {stream_error, RequestId, format_error(Reason)}
     after TimeoutMs ->
@@ -291,27 +296,44 @@ receive_stream_message(TimeoutMs) ->
 
 %% Decode an httpc stream message for selector integration
 %%
-%% Erlang does ALL the heavy lifting:
-%% - Receives FULL {http, InnerTuple} messages from selector
-%% - Pattern matches on all httpc message variants
-%% - Normalizes headers (charlist -> binary)
-%% - Returns simple {Tag, RequestId, Data} tuple
-%%
-%% Gleam just decodes the simple tuple - no raw httpc knowledge needed.
+%% Converts httpc refs to string IDs for type-safe Gleam API
+%% Returns {Tag, StringId, Data} tuple
 decode_stream_message_for_selector({http, InnerMessage}) ->
     case InnerMessage of
-        {RequestId, stream_start, Headers} ->
-            {stream_start, RequestId, normalize_headers(Headers)};
-        {RequestId, stream_start, Headers, _Pid} ->
-            {stream_start, RequestId, normalize_headers(Headers)};
-        {RequestId, stream, Data} ->
-            {chunk, RequestId, Data};
-        {RequestId, stream_end, Headers} ->
-            {stream_end, RequestId, normalize_headers(Headers)};
-        {RequestId, {error, Reason}} ->
-            {stream_error, RequestId, format_error(Reason)};
+        {HttpcRef, stream_start, Headers} ->
+            StringId = get_or_create_string_id(HttpcRef),
+            {stream_start, StringId, normalize_headers(Headers)};
+        {HttpcRef, stream_start, Headers, _Pid} ->
+            StringId = get_or_create_string_id(HttpcRef),
+            {stream_start, StringId, normalize_headers(Headers)};
+        {HttpcRef, stream, Data} ->
+            StringId = get_or_create_string_id(HttpcRef),
+            {chunk, StringId, Data};
+        {HttpcRef, stream_end, Headers} ->
+            StringId = get_or_create_string_id(HttpcRef),
+            %% Stream ended - clean up ref mapping
+            remove_ref_mapping(StringId),
+            {stream_end, StringId, normalize_headers(Headers)};
+        {HttpcRef, {error, Reason}} ->
+            StringId = get_or_create_string_id(HttpcRef),
+            %% Stream errored - clean up ref mapping
+            remove_ref_mapping(StringId),
+            {stream_error, StringId, format_error(Reason)};
         _ ->
             error(badarg)
+    end.
+
+%% Get string ID for httpc ref, creating mapping if needed
+%% This handles the case where selector receives messages before we stored the mapping
+get_or_create_string_id(HttpcRef) ->
+    case lookup_string_by_ref(HttpcRef) of
+        {some, StringId} ->
+            StringId;
+        none ->
+            %% First time seeing this ref - create mapping
+            StringId = ref_to_string(HttpcRef),
+            store_ref_mapping(StringId, HttpcRef),
+            StringId
     end.
 
 %% Normalize headers to always be string tuples for easy Gleam decoding
@@ -382,3 +404,127 @@ format_exit_reason(normal) ->
 format_exit_reason(Reason) ->
     %% Some other exit reason - format it for debugging
     iolist_to_binary(io_lib:format("Stream process died: ~p", [Reason])).
+
+%% =============================================================================
+%% ETS Functions for Stream Recorder State Management
+%% =============================================================================
+
+%% Check if ETS table exists
+ets_table_exists(Name) ->
+    try
+        NameAtom = binary_to_atom(Name, utf8),
+        case ets:info(NameAtom) of
+            undefined ->
+                false;
+            _ ->
+                true
+        end
+    catch
+        error:badarg ->
+            false
+    end.
+
+%% Create ETS table
+ets_new(Name, Options) ->
+    NameAtom = binary_to_atom(Name, utf8),
+    ets:new(NameAtom, Options).
+
+%% Insert recorder state into ETS table
+%% Stores as {Key, {Recorder, RecordedRequest, Chunks, LastChunkTime}}
+ets_insert(TableName, Key, Recorder, RecordedRequest, Chunks, LastChunkTime) ->
+    TableAtom = binary_to_atom(TableName, utf8),
+    Value = {Recorder, RecordedRequest, Chunks, LastChunkTime},
+    ets:insert(TableAtom, {Key, Value}),
+    nil.
+
+%% Lookup recorder state from ETS table
+%% Returns {some, State} or none
+ets_lookup(TableName, Key) ->
+    try
+        TableAtom = binary_to_atom(TableName, utf8),
+        case ets:lookup(TableAtom, Key) of
+            [{Key, {Recorder, RecordedRequest, Chunks, LastChunkTime}}] ->
+                %% Return as Gleam MessageStreamRecorderState constructor
+                State =
+                    {message_stream_recorder_state,
+                     Recorder,
+                     RecordedRequest,
+                     Chunks,
+                     LastChunkTime},
+                {some, State};
+            [] ->
+                none
+        end
+    catch
+        error:badarg ->
+            none
+    end.
+
+%% Delete a key from ETS table
+ets_delete(TableName, Key) ->
+    try
+        TableAtom = binary_to_atom(TableName, utf8),
+        ets:delete(TableAtom, Key)
+    catch
+        error:badarg ->
+            false
+    end.
+
+%% =============================================================================
+%% Request ID Mapping (String <-> Httpc Ref)
+%% =============================================================================
+
+%% Table for mapping string IDs to httpc refs (for cancellation)
+-define(REF_MAPPING_TABLE, dream_http_client_ref_mapping).
+
+%% Ensure ref mapping table exists (created on first use)
+ensure_ref_mapping_table() ->
+    case ets:info(?REF_MAPPING_TABLE) of
+        undefined ->
+            ets:new(?REF_MAPPING_TABLE, [set, public, named_table]),
+            ok;
+        _ ->
+            ok
+    end.
+
+%% Convert httpc ref to unique string ID
+%% Uses the ref's string representation which is guaranteed unique
+ref_to_string(Ref) ->
+    list_to_binary(io_lib:format("~p", [Ref])).
+
+%% Store bidirectional mapping: string <-> ref
+store_ref_mapping(StringId, HttpcRef) ->
+    ensure_ref_mapping_table(),
+    ets:insert(?REF_MAPPING_TABLE, {StringId, HttpcRef}),
+    %% Also store reverse mapping for message translation
+    ets:insert(?REF_MAPPING_TABLE, {HttpcRef, StringId}),
+    ok.
+
+%% Lookup httpc ref by string ID (for cancellation)
+lookup_ref_by_string(StringId) ->
+    case ets:lookup(?REF_MAPPING_TABLE, StringId) of
+        [{StringId, HttpcRef}] ->
+            {some, HttpcRef};
+        [] ->
+            none
+    end.
+
+%% Lookup string ID by httpc ref (for message translation)
+lookup_string_by_ref(HttpcRef) ->
+    case ets:lookup(?REF_MAPPING_TABLE, HttpcRef) of
+        [{HttpcRef, StringId}] ->
+            {some, StringId};
+        [] ->
+            none
+    end.
+
+%% Remove both mappings (cleanup after stream ends)
+remove_ref_mapping(StringId) ->
+    case lookup_ref_by_string(StringId) of
+        {some, HttpcRef} ->
+            ets:delete(?REF_MAPPING_TABLE, StringId),
+            ets:delete(?REF_MAPPING_TABLE, HttpcRef),
+            ok;
+        none ->
+            ok
+    end.

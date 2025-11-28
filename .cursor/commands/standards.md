@@ -1,22 +1,53 @@
 # Dream Coding Standards
 
-This document provides comprehensive coding standards for the Dream web framework. All code must follow these standards.
+This document summarizes the most important Dream coding standards in a way that is easy for Cursor to apply automatically. When in doubt, prefer the repo docs under `docs/reference/`.
 
-## Core Philosophy
+## Quick Rules for Cursor (READ FIRST)
 
-1. **Library, not framework** - Provide building blocks, not opinions
-2. **Explicit over implicit** - No magic, no hidden behavior  
-3. **Simple over clever** - Code should be obvious (boring is better than surprising)
-4. **Type-safe** - Leverage Gleam's type system fully
-5. **No closures** - All dependencies must be explicit parameters
+When editing or generating Dream code, ALWAYS follow these rules:
 
-## Function Naming Conventions
+1. **No hidden dependencies**
+   - Do NOT capture `Services`, database handles, or other dependencies in closures.
+   - Controllers, middleware, models, and helpers must be **named top-level functions** with explicit parameters.
+
+2. **No nested `case` and no clever control flow**
+   - Avoid deeply nested `case` expressions; instead, factor logic into small helper functions or use `result.try` / `option` helpers.
+   - Prefer straightforward code over clever tricks.
+
+3. **Semantic naming with `{verb}_{noun}`**
+   - Use meaningful names like `create_router`, `get_header`, `handle_error`.
+   - Do NOT prefix function names with the module name (`router.router_add_route` is invalid).
+   - Use full-word variable names (`request`, `services`, `user_id`), not abbreviations (`req`, `svc`, `uid`).
+
+4. **Explicit error handling**
+   - Use `Result(success, error)` for business logic.
+   - Never throw errors away with patterns like `Error(_)`; always bind and handle or intentionally document the decision.
+
+5. **Testing, docs, warnings, and structure**
+   - Any new or changed public function must have tests (black-box, via public APIs) and doc comments.
+   - Core Dream code (`src/dream/`) is expected to be fully covered by tests.
+   - Code should compile **with zero warnings**. For any unused variable, first decide:
+     - Is this variable meant to be used (a sign something is unimplemented)? If so, implement the missing behavior.
+     - Or should the variable be removed from the function signature? If so, update all call sites to match.
+   - When files grow large, prefer splitting into **small, focused modules** with clear, semantic names that match their responsibility (e.g. `router/matcher`, `router/path_params`), keeping the directory structure logical and discoverable.
+
+Details and rationale for these rules are below.
+
+## Core Philosophy (High-Level Rules)
+
+1. **Library, not framework** – Provide composable building blocks, not hidden framework magic.
+2. **Explicit over implicit** – No global state, no magic registration, no hidden behavior.
+3. **Simple over clever** – Prefer boring, obviously-correct code over clever tricks.
+4. **Type-safe** – Lean on Gleam’s type system; use `Result` for recoverable errors.
+5. **No closures for dependencies** – Dependencies must be explicit parameters, not captured.
+
+## Function Naming (CRITICAL)
 
 ### Core Rule: `{verb}_{noun}` Pattern
 
-Functions must follow the `{verb}_{noun}` pattern, where the verb describes the action and the noun describes what is being acted upon.
-
-**Each prefix must have a unique, unambiguous purpose. No two prefixes should overlap in their use cases.**
+- Functions normally follow the `{verb}_{noun}` pattern, where the verb describes the action and the noun describes what is being acted upon.
+- Each prefix (`create_`, `get_`, `handle_`, etc.) has a **single, unambiguous purpose**.
+- Do not invent new prefixes if an existing one already expresses the semantics.
 
 ### Module Namespace
 
@@ -36,7 +67,7 @@ router.router_create_router()  // Redundant module prefix
 router.router_add_route()      // Redundant module prefix
 ```
 
-### Prefix Categories
+### Prefix Categories (Use These Semantics)
 
 #### Creation & Construction
 
@@ -296,7 +327,7 @@ pub fn initialize() -> Result(System, Error)  // Use create_system or init_syste
 pub fn user() -> Result(User, Error)  // Use create_user, load_user, etc. instead
 ```
 
-## Variable and Parameter Naming
+## Variable and Parameter Naming (CRITICAL)
 
 Variables and parameters must use full, descriptive names without abbreviations, but should remain concise. Context provides meaning - don't encode everything in the variable name.
 
@@ -354,9 +385,13 @@ fn process(
 
 **Rationale:** Full words optimize for clarity over disk space, but excessive verbosity reduces clarity. Balance is key. **"When you get the message, hang up."**
 
-## No Closures Rule (CRITICAL)
+## No Closures / Anonymous Functions (CRITICAL)
 
 Functions cannot capture dependencies in closures. All dependencies must be explicit parameters.
+
+- Controllers, middleware, models, operations, and helpers MUST be **named top-level functions**.
+- Do **not** return anonymous functions from factory functions just to hide dependencies – instead, thread `Services` / `dependencies` explicitly.
+- Anonymous functions are allowed only when absolutely required by a third-party API and cannot be avoided.
 
 ❌ **BAD - Closure hides dependency:**
 ```gleam
@@ -380,7 +415,7 @@ fn handler(request: Request, context: Context, services: Services) -> Response {
 
 ### Exception: Third-Party Module Requirements
 
-Closures are allowed **only** when third-party modules absolutely require them and there is no alternative. This is typically necessary when interfacing with external libraries that have fixed function signatures.
+Closures are allowed **only** when third-party modules absolutely require them and there is no alternative. This is typically necessary when interfacing with external libraries that have fixed function signatures (e.g. some Mist or Erlang/OTP callbacks).
 
 ✅ **Acceptable - Required by third-party module:**
 ```gleam
@@ -406,7 +441,9 @@ fn create_mist_handler(services: Services) -> fn(Request) -> Response {
 
 ## Error Handling (CRITICAL)
 
-Do NOT throw away errors with underscore patterns like `Error(_)`, `Error(_error)`, or `_`. Errors must be handled explicitly or at minimum bound to a named variable to show intentional handling.
+- Use `Result(success, error)` for business logic; do not rely on exceptions for control flow.
+- Do NOT throw away errors with underscore patterns like `Error(_)`, `Error(_error)`, or `_`.
+- Errors must be handled explicitly or at minimum bound to a named variable to show intentional handling.
 
 ❌ **BAD:**
 ```gleam
@@ -435,6 +472,15 @@ case result {
 ```
 
 **Rationale:** Errors contain valuable information. Throwing them away with `_` makes debugging impossible and hides bugs. Even when intentionally discarding, name the error to show it was intentional.
+
+## Warnings and Unused Variables
+
+- Dream code should compile with **no warnings**.
+- For each unused variable warning, do NOT blindly prefix with `_`.
+- Instead, always decide one of the following and apply it consistently:
+  1. **Missing behavior:** The variable represents behavior that should exist (e.g. a service or parameter you intended to use). Implement the missing logic so the variable is used.
+  2. **Unused parameter:** The variable truly is not needed. Remove it from the function signature and update all call sites to match the new signature.
+- Only when a parameter is required by an external interface and is intentionally unused (e.g. a callback API that passes more arguments than you need), prefix it with `_` and add a brief comment if non-obvious.
 
 ## Testing Requirements
 
@@ -511,25 +557,33 @@ Include:
 - Example usage with imports
 - Any important notes or caveats
 
-## Anti-Patterns (NEVER DO)
+## Control Flow & Anti-Patterns (NEVER DO)
 
-- ❌ Closures that hide dependencies (except when required by third-party modules - see exception above)
-- ❌ Clever code (e.g., complex port generation using `erlang.make_ref()` + `string.length` for hashing)
-- ❌ Global state
-- ❌ Nested case expressions (flatten with helper functions)
-- ❌ Anonymous functions (extract to named functions)
-- ❌ Abbreviated variable names
-- ❌ Module name prefixes on functions
-- ❌ Testing private functions directly
-- ❌ Throwing away errors with underscore patterns (`Error(_)`, `Error(_error)`, etc.)
-- ❌ Using `gleam/io` `debug` function (it doesn't exist - use `string.inspect(value)` and print the result)
+- ❌ Closures that hide dependencies (except when required by third-party modules – see exception above).
+- ❌ Anonymous functions in core Dream code paths – extract to named functions.
+- ❌ Nested `case` expressions – instead, break logic into helper functions or use `result.try` / `option` helpers to sequence.
+- ❌ Clever code (e.g., non-obvious tricks instead of straightforward logic).
+- ❌ Global state – everything must be passed explicitly via parameters, `Context`, or `Services`.
+- ❌ Abbreviated variable names.
+- ❌ Module name prefixes on functions.
+- ❌ Testing private functions directly.
+- ❌ Throwing away errors with underscore patterns (`Error(_)`, `Error(_error)`, etc.).
+- ❌ Using a non-existent `gleam/io.debug` – instead, use `string.inspect` and log via appropriate mechanisms.
 
-## Architectural Rules
+## Architectural Rules (Context for Cursor)
 
-- **No global state** - Everything passed explicitly
-- **Result-based error handling** - No exceptions for control flow
-- **Context (per-request, mutable) vs Services (app-level, immutable)**
-- **Three-layer:** Controllers (HTTP) → Models (Data) → Utilities (Helpers)
+- **No global state** – Everything is passed explicitly.
+- **Result-based error handling** – No exceptions for normal control flow.
+- **Context vs Services** – Context is per-request; Services are app-level dependencies.
+- **Three-layer structure** – Controllers (HTTP) → Models (Data) → Utilities / Operations.
+
+## Module and File Organization
+
+- Aim for a **logical, discoverable module tree** – file and directory names should reflect their responsibility (e.g. `router/matcher`, `http/headers`, `services/broadcaster`).
+- Avoid monolithic files that mix many concerns. When a file grows large or handles multiple concepts, split it into smaller modules grouped under a directory named for the broader concept.
+- Keep naming **consistent and attractive** across modules: use the same vocabulary in file names, module names, and function names.
+- Prefer splitting by responsibility (matching, parsing, formatting, persistence, etc.) rather than by arbitrary technical detail.
+- When introducing new modules, update imports and re-export patterns so public APIs remain easy to discover from the main `dream` or `dream/http`/`dream/router` surfaces.
 
 ## Debugging Guidelines
 

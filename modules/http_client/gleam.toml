@@ -16,6 +16,7 @@ gleam_json = ">= 2.2.0 and < 4.0.0"
 gleam_yielder = ">= 1.0.0 and < 2.0.0"
 simplifile = ">= 2.0.0 and < 3.0.0"
 gleam_otp = ">= 1.2.0 and < 2.0.0"
+dream_ets = { path = "../ets" }
 
 [dev-dependencies]
 dream = { path = "../.." }

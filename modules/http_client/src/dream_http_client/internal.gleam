@@ -214,6 +214,16 @@ pub fn start_stream_messages(
 @external(erlang, "dream_httpc_shim", "cancel_stream")
 pub fn cancel_stream_internal(request_id: d.Dynamic) -> Nil
 
+/// Cancel a streaming request by string ID
+///
+/// Cancels an active streaming HTTP request using the string ID.
+///
+/// ## Parameters
+///
+/// - `request_id_string`: The request ID as a string
+@external(erlang, "dream_httpc_shim", "cancel_stream_by_string")
+pub fn cancel_stream_by_string(request_id_string: String) -> Nil
+
 /// Receive the next stream message with timeout
 ///
 /// Blocks waiting for an httpc stream message and returns a clean tuple.
