@@ -2,8 +2,8 @@
 # You typically do not need to edit this file
 
 packages = [
-  { name = "dream", version = "2.1.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_time", "gleam_yielder", "marceau", "mist", "simplifile"], source = "local", path = "../.." },
-  { name = "dream_http_client", version = "2.0.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_http", "gleam_stdlib", "gleam_yielder"], source = "local", path = "../../modules/http_client" },
+  { name = "dream", version = "2.2.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_time", "gleam_yielder", "marceau", "mist", "simplifile"], source = "local", path = "../.." },
+  { name = "dream_http_client", version = "2.0.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_yielder", "simplifile"], source = "local", path = "../../modules/http_client" },
   { name = "dream_mock_server", version = "1.0.0", build_tools = ["gleam"], requirements = ["dream", "gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_yielder"], source = "local", path = "../../modules/mock_server" },
   { name = "exception", version = "2.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "exception", source = "hex", outer_checksum = "329D269D5C2A314F7364BD2711372B6F2C58FA6F39981572E5CA68624D291F8C" },
   { name = "filepath", version = "1.1.2", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "filepath", source = "hex", outer_checksum = "B06A9AF0BF10E51401D64B98E4B627F1D2E48C154967DA7AF4D0914780A6D40A" },
@@ -32,3 +32,4 @@ dream_mock_server = { path = "../../modules/mock_server" }
 gleam_http = { version = ">= 3.6.0" }
 gleam_stdlib = { version = ">= 0.34.0" }
 gleam_yielder = { version = ">= 0.3.0" }
+gleam_erlang = { version = ">= 1.3.0 and < 2.0.0" }

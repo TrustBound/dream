@@ -8,4 +8,5 @@ gleam_yielder = ">= 0.3.0"
 dream = { path = "../../" }
 dream_http_client = { path = "../../modules/http_client" }
 dream_mock_server = { path = "../../modules/mock_server" }
+gleam_erlang = ">= 1.3.0 and < 2.0.0"
 
