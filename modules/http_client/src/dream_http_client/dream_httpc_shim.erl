@@ -12,8 +12,13 @@
 %%   Headers - List of {Key, Value} tuples
 %%   Body - Request body as binary
 %%   Receiver - Pid that will receive messages (unused, kept for compatibility)
+%%   TimeoutMs - Request timeout in milliseconds
 %%
 %% Returns: {ok, OwnerPid} where OwnerPid is the process handling the stream
+%%
+%% Note: This returns immediately. HTTP errors are detected asynchronously
+%% and returned via fetch_next/2. The owner process will exit if the HTTP
+%% request fails to start, which will cause fetch_next/2 to return an error.
 request_stream(Method, Url, Headers, Body, _Receiver, TimeoutMs) ->
     ok = ensure_started(ssl),
     ok = ensure_started(inets),
@@ -34,17 +39,25 @@ request_stream(Method, Url, Headers, Body, _Receiver, TimeoutMs) ->
 %% Returns:
 %%   {chunk, Bin} - Next chunk of data
 %%   {finished, Headers} - Stream completed with response headers
-%%   {error, Reason} - Error occurred
+%%   {error, Reason} - Error occurred (including if owner process died)
 fetch_next(OwnerPid, TimeoutMs) ->
+    MonitorRef = erlang:monitor(process, OwnerPid),
     OwnerPid ! {fetch_next, self()},
     receive
         {stream_chunk, Bin} ->
+            erlang:demonitor(MonitorRef, [flush]),
             {chunk, Bin};
         {stream_end, Headers} ->
+            erlang:demonitor(MonitorRef, [flush]),
             {finished, Headers};
         {stream_error, Reason} ->
-            {error, Reason}
+            erlang:demonitor(MonitorRef, [flush]),
+            {error, Reason};
+        {'DOWN', MonitorRef, process, OwnerPid, Reason} ->
+            %% Owner process died - extract the real error
+            {error, format_exit_reason(Reason)}
     after TimeoutMs ->
+        erlang:demonitor(MonitorRef, [flush]),
         {error, timeout}
     end.
 
@@ -56,6 +69,8 @@ stream_owner_loop(Method, Req, _Url, TimeoutMs) ->
         {ok, RequestId} ->
             stream_owner_wait(RequestId, []);
         Error ->
+            %% HTTP request failed to start - exit with error
+            %% fetch_next will detect the dead process and return an error
             exit({stream_start_failed, Error})
     end.
 
@@ -353,3 +368,17 @@ request_sync(Method, Url, Headers, Body, TimeoutMs) ->
 
 format_error(Reason) ->
     iolist_to_binary(io_lib:format("~p", [Reason])).
+
+%% Format exit reason from owner process death
+%%
+%% When the owner process dies, we extract the exit reason and format it
+%% into a meaningful error message for the user.
+format_exit_reason({stream_start_failed, Error}) ->
+    %% HTTP request failed to start - return the actual httpc error
+    format_error(Error);
+format_exit_reason(normal) ->
+    %% Normal exit - shouldn't happen in middle of stream
+    <<"Stream process exited normally">>;
+format_exit_reason(Reason) ->
+    %% Some other exit reason - format it for debugging
+    iolist_to_binary(io_lib:format("Stream process died: ~p", [Reason])).

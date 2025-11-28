@@ -15,6 +15,7 @@ A standalone HTTP/HTTPS client built on Erlang's battle-tested `httpc`. Supports
 ## Features
 
 - ✅ **Three execution modes**: Blocking, yielder streaming, and message-based streaming
+- ✅ **Recording and playback**: Record HTTP requests/responses for testing and offline development
 - ✅ **OTP-compatible**: Message-based streams work with actors and selectors
 - ✅ **Concurrent streams**: Handle multiple HTTP streams in a single actor
 - ✅ **Stream cancellation**: Cancel in-flight requests cleanly
@@ -424,6 +425,275 @@ let result = client.new
   |> timeout(300_000)  // 5 minutes
   |> stream_yielder()  // Works with all execution modes
 ```
+
+## Recording and Playback
+
+Record HTTP request/response pairs to files for testing, debugging, or offline development. Supports both blocking and streaming requests.
+
+### Quick Example
+
+```gleam
+import dream_http_client/client
+import dream_http_client/recorder
+import dream_http_client/matching
+
+// 1. Record real HTTP requests
+let assert Ok(rec) = recorder.start(
+  mode: recorder.Record(directory: "mocks/api"),
+  matching: matching.match_url_only(),
+)
+
+client.new
+  |> client.host("api.example.com")
+  |> client.path("/users")
+  |> client.recorder(rec)  // Attach recorder
+  |> client.send()  // Makes real request, records response
+
+recorder.stop(rec)  // Saves recordings to mocks/api/recordings.json
+
+// 2. Playback recorded responses (no network calls)
+let assert Ok(playback_rec) = recorder.start(
+  mode: recorder.Playback(directory: "mocks/api"),
+  matching: matching.match_url_only(),
+)
+
+client.new
+  |> client.host("api.example.com")
+  |> client.path("/users")
+  |> client.recorder(playback_rec)
+  |> client.send()  // Returns recorded response instantly
+```
+
+### Recording Modes
+
+#### Record Mode - Capture Real Requests
+
+```gleam
+import dream_http_client/recorder
+
+let assert Ok(rec) = recorder.start(
+  mode: recorder.Record(directory: "mocks"),
+  matching: matching.match_url_only(),
+)
+
+// Make multiple requests - all recorded in memory
+client.new |> client.host("api.example.com") |> client.path("/users") |> client.recorder(rec) |> client.send()
+client.new |> client.host("api.example.com") |> client.path("/posts") |> client.recorder(rec) |> client.send()
+
+// Save all recordings to disk
+recorder.stop(rec)  // Creates mocks/recordings.json
+```
+
+#### Playback Mode - Use Recorded Responses
+
+```gleam
+let assert Ok(rec) = recorder.start(
+  mode: recorder.Playback(directory: "mocks"),
+  matching: matching.match_url_only(),
+)
+
+// Returns recorded response, no network call
+let assert Ok(body) = client.new
+  |> client.host("api.example.com")
+  |> client.path("/users")
+  |> client.recorder(rec)
+  |> client.send()
+
+recorder.stop(rec)
+```
+
+#### Passthrough Mode - No Recording
+
+```gleam
+let assert Ok(rec) = recorder.start(
+  mode: recorder.Passthrough,
+  matching: matching.match_url_only(),
+)
+
+// Makes real request, no recording
+client.new
+  |> client.host("api.example.com")
+  |> client.recorder(rec)
+  |> client.send()
+```
+
+### Streaming Requests
+
+Recording works with all execution modes:
+
+```gleam
+// Record streaming request
+let assert Ok(rec) = recorder.start(
+  mode: recorder.Record(directory: "mocks/streaming"),
+  matching: matching.match_url_only(),
+)
+
+client.new
+  |> client.host("api.openai.com")
+  |> client.path("/v1/chat/completions")
+  |> client.recorder(rec)
+  |> client.stream_yielder()
+  |> yielder.each(process_chunk)
+
+recorder.stop(rec)  // Saves chunks with timing
+
+// Playback streaming request - chunks returned with preserved timing
+let assert Ok(playback_rec) = recorder.start(
+  mode: recorder.Playback(directory: "mocks/streaming"),
+  matching: matching.match_url_only(),
+)
+
+client.new
+  |> client.host("api.openai.com")
+  |> client.path("/v1/chat/completions")
+  |> client.recorder(playback_rec)
+  |> client.stream_yielder()  // Plays back recorded chunks
+  |> yielder.to_list()
+```
+
+### Request Matching
+
+Configure how requests are matched to recordings:
+
+```gleam
+import dream_http_client/matching
+
+// Default: Match on method + URL only
+let config = matching.match_url_only()
+
+// Custom matching
+let config = matching.MatchingConfig(
+  match_method: True,
+  match_url: True,
+  match_headers: False,  // Ignore auth tokens, timestamps, etc.
+  match_body: False,     // Ignore request IDs in body
+)
+
+let assert Ok(rec) = recorder.start(
+  mode: recorder.Playback(directory: "mocks"),
+  matching: config,
+)
+```
+
+### Use Cases
+
+**Testing Without External Dependencies:**
+```gleam
+// test/api_test.gleam
+pub fn get_user_profile_test() {
+  let assert Ok(rec) = recorder.start(
+    mode: recorder.Playback(directory: "test/fixtures/api"),
+    matching: matching.match_url_only(),
+  )
+
+  let result = api.get_user_profile("user123", rec)
+  
+  result |> should.be_ok()
+  recorder.stop(rec) |> result.unwrap(Nil)
+}
+```
+
+**Offline Development:**
+```gleam
+// Record API responses once
+let assert Ok(rec) = recorder.start(
+  mode: recorder.Record(directory: "dev/api_cache"),
+  matching: matching.match_url_only(),
+)
+
+// Make real API calls
+let _ = fetch_user_data(rec)
+let _ = fetch_product_catalog(rec)
+
+recorder.stop(rec)
+
+// Later: Work offline using recorded responses
+let assert Ok(playback_rec) = recorder.start(
+  mode: recorder.Playback(directory: "dev/api_cache"),
+  matching: matching.match_url_only(),
+)
+
+// No network needed!
+let _ = fetch_user_data(playback_rec)
+```
+
+**Debugging Production Issues:**
+```gleam
+// Record problematic request/response
+let assert Ok(rec) = recorder.start(
+  mode: recorder.Record(directory: "debug/issue-123"),
+  matching: matching.match_url_only(),
+)
+
+// Reproduce issue
+reproduce_bug(rec)
+recorder.stop(rec)
+
+// Check recording file to inspect exact request/response
+```
+
+### Recording Format
+
+Recordings are stored as JSON in `{directory}/recordings.json`:
+
+```json
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "request": {
+        "method": "GET",
+        "scheme": "https",
+        "host": "api.example.com",
+        "port": null,
+        "path": "/users",
+        "query": null,
+        "headers": [["Authorization", "Bearer token"]],
+        "body": ""
+      },
+      "response": {
+        "mode": "blocking",
+        "status": 200,
+        "headers": [["Content-Type", "application/json"]],
+        "body": "{\"users\": []}"
+      }
+    },
+    {
+      "request": { ... },
+      "response": {
+        "mode": "streaming",
+        "status": 200,
+        "headers": [["Content-Type", "text/event-stream"]],
+        "chunks": [
+          {"data": "data: Hello", "delay_ms": 50},
+          {"data": "data: world", "delay_ms": 50}
+        ]
+      }
+    }
+  ]
+}
+```
+
+You can edit these files manually to:
+- Modify responses for edge case testing
+- Adjust timing for streaming responses
+- Add new recordings without making real requests
+
+### Recorder API
+
+- `recorder.start(mode, matching)` - Create a new recorder
+- `recorder.stop(recorder)` - Save recordings (Record mode) and cleanup
+- `recorder.is_record_mode(recorder)` - Check if in Record mode
+- `recorder.add_recording(recorder, recording)` - Manually add a recording
+- `recorder.find_recording(recorder, request)` - Find matching recording
+- `recorder.get_recordings(recorder)` - Get all recordings
+
+- `recorder.Record(directory)` - Record real requests to directory
+- `recorder.Playback(directory)` - Play back from directory
+- `recorder.Passthrough` - No recording/playback
+
+- `matching.match_url_only()` - Default matching (method + URL)
+- `matching.MatchingConfig(...)` - Custom matching rules
 
 ## API Reference
 

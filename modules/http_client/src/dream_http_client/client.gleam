@@ -121,8 +121,33 @@
 //// |> timeout(60_000)  // 60 second timeout
 //// |> send()
 //// ```
+////
+//// ## Inspecting Requests
+////
+//// The `ClientRequest` type is opaque to ensure API stability. Use getter functions
+//// to inspect request properties for logging, testing, or middleware:
+////
+//// ```gleam
+//// import dream_http_client/client
+//// import gleam/io
+////
+//// let req = client.new
+////   |> client.host("api.example.com")
+////   |> client.path("/users/123")
+////
+//// // Inspect the request before sending
+//// io.println("Calling: " <> client.get_host(req) <> client.get_path(req))
+//// // Prints: "Calling: api.example.com/users/123"
+////
+//// let result = client.send(req)
+//// ```
+////
+//// Available getters: `get_method`, `get_scheme`, `get_host`, `get_port`, `get_path`,
+//// `get_query`, `get_headers`, `get_body`, `get_timeout`, `get_recorder`
 
 import dream_http_client/internal
+import dream_http_client/recorder
+import dream_http_client/recording
 import gleam/bit_array
 import gleam/bytes_tree
 import gleam/dynamic/decode as d
@@ -153,7 +178,11 @@ import gleam/yielder
 /// - `headers`: List of header name-value pairs
 /// - `body`: The request body as a string
 /// - `timeout`: Optional timeout in milliseconds (defaults to 30000ms)
-pub type ClientRequest {
+/// - `recorder`: Optional recorder for request/response recording and playback
+///
+/// The type is opaque to ensure API stability. Use `new` with builder functions
+/// to construct requests, and the getter functions to inspect request properties.
+pub opaque type ClientRequest {
   ClientRequest(
     method: http.Method,
     scheme: http.Scheme,
@@ -164,6 +193,7 @@ pub type ClientRequest {
     headers: List(#(String, String)),
     body: String,
     timeout: Option(Int),
+    recorder: Option(recorder.Recorder),
   )
 }
 
@@ -203,6 +233,7 @@ pub const new = ClientRequest(
   headers: [],
   body: "",
   timeout: None,
+  recorder: None,
 )
 
 /// Set the HTTP method for the request
@@ -434,6 +465,42 @@ pub fn body(client_request: ClientRequest, body_value: String) -> ClientRequest 
   ClientRequest(..client_request, body: body_value)
 }
 
+/// Set the recorder for the request
+///
+/// Attaches a recorder to the request for recording or playback.
+/// The recorder must be started with `recorder.start()` before use.
+///
+/// ## Parameters
+///
+/// - `client_request`: The request to modify
+/// - `recorder_value`: The recorder to attach
+///
+/// ## Returns
+///
+/// A new `ClientRequest` with the recorder attached.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+/// import dream_http_client/recorder
+///
+/// let assert Ok(rec) = recorder.start(
+///   mode: recorder.Record(directory: "mocks"),
+///   matching: recorder.match_url_only(),
+/// )
+///
+/// client.new
+/// |> client.host("api.example.com")
+/// |> client.recorder(rec)
+/// ```
+pub fn recorder(
+  client_request: ClientRequest,
+  recorder_value: recorder.Recorder,
+) -> ClientRequest {
+  ClientRequest(..client_request, recorder: Some(recorder_value))
+}
+
 /// Set the timeout for the request in milliseconds
 ///
 /// Sets how long to wait for a response before timing out. If not set,
@@ -490,6 +557,192 @@ pub fn add_header(
     #(name, value),
     ..client_request.headers
   ])
+}
+
+// ============================================================================
+// Request Inspection (Getters)
+// ============================================================================
+
+/// Get the HTTP method from a request
+///
+/// Returns the HTTP method (GET, POST, etc.) configured for the request.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+/// import gleam/http.{Post}
+///
+/// let req = client.new |> client.method(Post)
+/// let method = client.get_method(req)
+/// // method == Post
+/// ```
+pub fn get_method(client_request: ClientRequest) -> http.Method {
+  client_request.method
+}
+
+/// Get the URI scheme from a request
+///
+/// Returns the scheme (HTTP or HTTPS) configured for the request.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+/// import gleam/http.{Http}
+///
+/// let req = client.new |> client.scheme(Http)
+/// let scheme = client.get_scheme(req)
+/// // scheme == Http
+/// ```
+pub fn get_scheme(client_request: ClientRequest) -> http.Scheme {
+  client_request.scheme
+}
+
+/// Get the host from a request
+///
+/// Returns the hostname configured for the request.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+///
+/// let req = client.new |> client.host("api.example.com")
+/// let host = client.get_host(req)
+/// // host == "api.example.com"
+/// ```
+pub fn get_host(client_request: ClientRequest) -> String {
+  client_request.host
+}
+
+/// Get the port from a request
+///
+/// Returns the optional port number configured for the request.
+/// If None, the default port for the scheme will be used (80 for HTTP, 443 for HTTPS).
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+///
+/// let req = client.new |> client.port(8080)
+/// let port = client.get_port(req)
+/// // port == Some(8080)
+/// ```
+pub fn get_port(client_request: ClientRequest) -> Option(Int) {
+  client_request.port
+}
+
+/// Get the path from a request
+///
+/// Returns the request path configured for the request.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+///
+/// let req = client.new |> client.path("/api/users")
+/// let path = client.get_path(req)
+/// // path == "/api/users"
+/// ```
+pub fn get_path(client_request: ClientRequest) -> String {
+  client_request.path
+}
+
+/// Get the query string from a request
+///
+/// Returns the optional query string configured for the request.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+///
+/// let req = client.new |> client.query("page=1&limit=10")
+/// let query = client.get_query(req)
+/// // query == Some("page=1&limit=10")
+/// ```
+pub fn get_query(client_request: ClientRequest) -> Option(String) {
+  client_request.query
+}
+
+/// Get the headers from a request
+///
+/// Returns the list of headers configured for the request.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+///
+/// let req = client.new
+///   |> client.add_header("Authorization", "Bearer token")
+///   |> client.add_header("Content-Type", "application/json")
+/// let headers = client.get_headers(req)
+/// // headers == [#("Content-Type", "application/json"), #("Authorization", "Bearer token")]
+/// ```
+pub fn get_headers(client_request: ClientRequest) -> List(#(String, String)) {
+  client_request.headers
+}
+
+/// Get the body from a request
+///
+/// Returns the request body as a string.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+///
+/// let req = client.new |> client.body("{\"name\": \"Alice\"}")
+/// let body = client.get_body(req)
+/// // body == "{\"name\": \"Alice\"}"
+/// ```
+pub fn get_body(client_request: ClientRequest) -> String {
+  client_request.body
+}
+
+/// Get the timeout from a request
+///
+/// Returns the optional timeout in milliseconds configured for the request.
+/// If None, the default timeout (30000ms) will be used.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+///
+/// let req = client.new |> client.timeout(5000)
+/// let timeout = client.get_timeout(req)
+/// // timeout == Some(5000)
+/// ```
+pub fn get_timeout(client_request: ClientRequest) -> Option(Int) {
+  client_request.timeout
+}
+
+/// Get the recorder from a request
+///
+/// Returns the optional recorder attached to the request for recording or playback.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+/// import dream_http_client/recorder
+/// import dream_http_client/matching
+///
+/// let assert Ok(rec) = recorder.start(
+///   mode: recorder.Record(directory: "mocks"),
+///   matching: matching.match_url_only(),
+/// )
+/// let req = client.new |> client.recorder(rec)
+/// let recorder_opt = client.get_recorder(req)
+/// // recorder_opt == Some(rec)
+/// ```
+pub fn get_recorder(client_request: ClientRequest) -> Option(recorder.Recorder) {
+  client_request.recorder
 }
 
 // ============================================================================
@@ -592,12 +845,72 @@ pub type StreamMessage {
 /// }
 /// ```
 pub fn send(client_request: ClientRequest) -> Result(String, String) {
+  // Check for recorder
+  case client_request.recorder {
+    option.Some(rec) -> {
+      // Convert to RecordedRequest for matching/recording
+      let recorded_req = client_request_to_recorded_request(client_request)
+
+      // Try playback first
+      case recorder.find_recording(rec, recorded_req) {
+        option.Some(recording.Recording(_, response)) -> {
+          // Found matching recording - return it
+          case response {
+            recording.BlockingResponse(_, _, body) -> Ok(body)
+            recording.StreamingResponse(_, _, _) -> {
+              // Streaming response in blocking mode - not supported
+              Error(
+                "Recording contains streaming response, use stream_yielder() instead",
+              )
+            }
+          }
+        }
+        option.None -> {
+          // No matching recording - make real request
+          let result = send_real_request(client_request)
+
+          // Record the request/response if in Record mode
+          case result {
+            Ok(body) -> {
+              case recorder.is_record_mode(rec) {
+                True -> {
+                  let recorded_resp =
+                    recording.BlockingResponse(
+                      status: 200,
+                      // TODO: get actual status from response
+                      headers: [],
+                      body: body,
+                    )
+                  let rec_entry =
+                    recording.Recording(
+                      request: recorded_req,
+                      response: recorded_resp,
+                    )
+                  recorder.add_recording(rec, rec_entry)
+                }
+                False -> Nil
+              }
+              Ok(body)
+            }
+            Error(_) -> result
+          }
+        }
+      }
+    }
+    option.None -> {
+      // No recorder - make real request
+      send_real_request(client_request)
+    }
+  }
+}
+
+fn send_real_request(client_request: ClientRequest) -> Result(String, String) {
   let http_req = to_http_request(client_request)
   let url = build_url(http_req)
   let method_atom = internal.atomize_method(http_req.method)
   let method_dynamic = atom.to_dynamic(method_atom)
   let body = <<http_req.body:utf8>>
-  let timeout_value = get_timeout(client_request)
+  let timeout_value = resolve_timeout(client_request)
 
   case send_sync(method_dynamic, url, http_req.headers, body, timeout_value) {
     Ok(response_body) -> {
@@ -609,11 +922,26 @@ pub fn send(client_request: ClientRequest) -> Result(String, String) {
   }
 }
 
+fn client_request_to_recorded_request(
+  client_request: ClientRequest,
+) -> recording.RecordedRequest {
+  recording.RecordedRequest(
+    method: client_request.method,
+    scheme: client_request.scheme,
+    host: client_request.host,
+    port: client_request.port,
+    path: client_request.path,
+    query: client_request.query,
+    headers: client_request.headers,
+    body: client_request.body,
+  )
+}
+
 fn convert_string_error(_error: Nil) -> String {
   "Failed to convert response to string"
 }
 
-fn get_timeout(client_request: ClientRequest) -> Int {
+fn resolve_timeout(client_request: ClientRequest) -> Int {
   case client_request.timeout {
     Some(timeout_value) -> timeout_value
     None -> 30_000
@@ -727,12 +1055,62 @@ fn send_sync(
 pub fn stream_yielder(
   req: ClientRequest,
 ) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
+  // Check for recorder and playback mode
+  case req.recorder {
+    option.Some(rec) -> {
+      let recorded_req = client_request_to_recorded_request(req)
+      case recorder.find_recording(rec, recorded_req) {
+        option.Some(recording.Recording(_, response)) -> {
+          // Found recording - create yielder from chunks
+          case response {
+            recording.StreamingResponse(_, _, chunks) -> {
+              create_yielder_from_chunks(chunks)
+            }
+            recording.BlockingResponse(_, _, body) -> {
+              // Blocking response - return as single chunk
+              let chunk = bytes_tree.from_bit_array(<<body:utf8>>)
+              yielder.single(Ok(chunk))
+            }
+          }
+        }
+        option.None -> {
+          // No recording found - use real stream
+          stream_yielder_real(req)
+        }
+      }
+    }
+    option.None -> {
+      // No recorder - use real stream
+      stream_yielder_real(req)
+    }
+  }
+}
+
+fn stream_yielder_real(
+  req: ClientRequest,
+) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
   let http_req = to_http_request(req)
-  let timeout_value = get_timeout(req)
+  let timeout_value = resolve_timeout(req)
   // Pass dependencies explicitly in state instead of hiding in closure
   let initial_state =
     YielderState(owner: None, http_req: http_req, timeout_ms: timeout_value)
   yielder.unfold(initial_state, handle_yielder_unfold_with_deps)
+}
+
+fn create_yielder_from_chunks(
+  chunks: List(recording.Chunk),
+) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
+  chunks
+  |> yielder.from_list
+  |> yielder.map(convert_chunk_to_result)
+}
+
+fn convert_chunk_to_result(
+  chunk: recording.Chunk,
+) -> Result(bytes_tree.BytesTree, String) {
+  // TODO: Add delay based on chunk.delay_ms
+  let data = bytes_tree.from_bit_array(chunk.data)
+  Ok(data)
 }
 
 type YielderState {
@@ -859,7 +1237,7 @@ pub fn stream_messages(req: ClientRequest) -> Result(RequestId, String) {
   let method_atom = internal.atomize_method(http_req.method)
   let body = <<http_req.body:utf8>>
   let me = process.self()
-  let timeout_value = get_timeout(req)
+  let timeout_value = resolve_timeout(req)
 
   let result =
     internal.start_stream_messages(

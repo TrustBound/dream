@@ -14,6 +14,7 @@ import gleam/erlang/process
 import gleam/http
 import gleam/http/request.{type Request}
 import gleam/int
+import gleam/io
 import gleam/option
 import gleam/result
 import gleam/string
@@ -100,19 +101,29 @@ pub fn start_httpc_stream(req: Request(String), timeout_ms: Int) -> d.Dynamic {
 ///
 /// ## Parameters
 ///
-/// - `request_result`: The dynamic result from `start_httpc_stream()`
+/// - `request_result`: The dynamic result from `start_httpc_stream()`, which is
+///   always `{ok, OwnerPid}` (errors are detected asynchronously)
 ///
 /// ## Returns
 ///
-/// The owner PID as a dynamic value, or the original result if extraction fails.
+/// The owner PID as a dynamic value. If the HTTP request fails, the owner process
+/// will exit and `receive_next()` will return an error.
 pub fn extract_owner_pid(request_result: d.Dynamic) -> d.Dynamic {
-  // Expect {ok, OwnerPid}
-  let decoded = d.run(request_result, d.at([1], d.dynamic))
-  case decoded {
-    Ok(id) -> id
-    // If parsing fails, return the original - it might be an error tuple
-    // The parse error is not actionable here since we're just extracting a PID
-    Error(_parse_error) -> request_result
+  // Extract element [1] from {ok, OwnerPid} tuple
+  // This should always succeed since request_stream always returns {ok, Pid}
+  case d.run(request_result, d.at([1], d.dynamic)) {
+    Ok(pid) -> pid
+    Error(decode_errors) -> {
+      // Defensive: This should never happen since request_stream always returns {ok, Pid}
+      // If it does, log it so we know something changed in the shim
+      let error_details = string.inspect(decode_errors)
+      io.println_error(
+        "WARNING: Failed to extract owner PID - this should not happen. Error: "
+        <> error_details,
+      )
+      // Return original value - error will surface when receive_next tries to use it
+      request_result
+    }
   }
 }
 
