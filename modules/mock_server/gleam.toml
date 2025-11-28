@@ -9,7 +9,7 @@ links = [
 ]
 
 [dependencies]
-dream = ">= 2.1.0 and < 3.0.0"
+dream = ">= 2.2.0 and < 3.0.0"
 gleam_erlang = ">= 1.0.0 and < 2.0.0"
 gleam_http = ">= 4.0.0 and < 5.0.0"
 gleam_json = ">= 2.2.0 and < 4.0.0"

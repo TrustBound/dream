@@ -36,13 +36,9 @@ pub fn recorder_sets_request_recorder_test() {
   let updated = client.recorder(request, rec)
 
   // Assert
-  case updated {
-    client.ClientRequest(_, _, _, _, _, _, _, _, _, recorder_field) -> {
-      case recorder_field {
-        option.Some(_) -> Nil
-        option.None -> should.fail()
-      }
-    }
+  case client.get_recorder(updated) {
+    option.Some(_) -> Nil
+    option.None -> should.fail()
   }
 
   // Cleanup
