@@ -41,19 +41,19 @@ After that, dip into the sections below whenever you need more detail.
 - [REST API](guides/rest-api.md) - Production API patterns
 - [Deployment](guides/deployment.md) - Production deployment
 
-### 📖 [Concepts](concepts.md)
+### 📖 [Concepts](concepts/)
 **Core concepts explained.** Understanding how Dream works.
 - [How It Works](concepts/how-it-works.md) - Request flow from arrival to response
 - [Project Structure](concepts/project-structure.md) - Organizing a real application
 - [Core Patterns](concepts/patterns.md) - Catalog of Dream patterns: routing, context & services, middleware, MVC, operations, auth, multi-format responses, streaming, WebSockets, templates, testing
-- [All Concepts](concepts.md) - Complete overview of controllers, routers, middleware, models, views
 
 ### 📚 [Reference](reference/)
 **Need details?** Deep dives into the architecture and API.
-- [Architecture](reference/architecture.md) - How it all fits together
-- [Design Principles](reference/design-principles.md) - The "Why" behind Dream
-- [Why the BEAM?](reference/why-beam.md) - Understanding the runtime
+- [Architecture](concepts/architecture.md) - How it all fits together
+- [Design Principles](concepts/design-principles.md) - The "Why" behind Dream
+- [Why the BEAM?](concepts/why-beam.md) - Understanding the runtime
 - [Naming Conventions](reference/naming-conventions.md) - Code Style
+- [dream_standards](reference/dream_standards.md) - Hard coding rules for Dream core and modules
 
 ### 📦 Ecosystem
 Dream is modular. You use what you need:
@@ -71,7 +71,7 @@ Dream is modular. You use what you need:
 - `dream_json` - JSON encoding utilities
 - `dream_ets` - ETS (Erlang Term Storage) for in-memory storage
 
-See the [Architecture Reference](reference/architecture.md#modules-ecosystem) for detailed module documentation and usage examples.
+See the [Architecture Reference](concepts/architecture.md#modules-ecosystem) for detailed module documentation and usage examples.
 
 ---
 

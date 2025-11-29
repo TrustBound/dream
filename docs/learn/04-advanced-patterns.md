@@ -279,8 +279,8 @@ You now understand:
 - [Deployment Guide](../guides/deployment.md) - Running in production
 
 **Deep dives:**
-- [Dream vs Mist](../reference/dream-vs-mist.md) - See what Dream provides
-- [Architecture](../reference/architecture.md) - How it all fits together
+- [Dream vs Mist](../concepts/dream-vs-mist.md) - See what Dream provides
+- [Architecture](../concepts/architecture.md) - How it all fits together
 
 **Examples:**
 - [CMS Example](../../examples/cms/) - Full application with operations

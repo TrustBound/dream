@@ -331,7 +331,7 @@ See the [Multiple Formats Guide](multiple-formats.md) for detailed content negot
 
 ## Further Reading
 
-- [Architecture Reference](../reference/architecture.md) - MVC architecture overview
+- [Architecture Reference](../concepts/architecture.md) - MVC architecture overview
 - [Operations Guide](operations.md) - Complex business logic patterns
 - [Multiple Formats Guide](multiple-formats.md) - Content negotiation
 - [Advanced Patterns](../learn/04-advanced-patterns.md) - When to use Operations

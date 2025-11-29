@@ -52,7 +52,7 @@ where to learn more about each.
 **Learn more**
 
 - [Building an API](../learn/02-building-api.md)
-- [Architecture Reference – Context & Services](../reference/architecture.md#4-context-system)
+- [Architecture Reference – Context & Services](architecture.md#4-context-system)
 
 
 ## 3. Middleware Onion

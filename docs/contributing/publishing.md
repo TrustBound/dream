@@ -193,6 +193,6 @@ If a module isn't being published:
 ## Related Documentation
 
 - [Contributing Guide](index.md) - General contribution guidelines
-- [Design Principles](../reference/design-principles.md) - Code quality standards
-- [Architecture](../reference/architecture.md) - How modules fit together
+- [Design Principles](../concepts/design-principles.md) - Code quality standards
+- [Architecture](../concepts/architecture.md) - How modules fit together
 

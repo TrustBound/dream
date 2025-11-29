@@ -97,5 +97,5 @@ The response flows back through middleware (which can modify it), then back to t
 
 - [Components](components.md) - Detailed explanation of routers, controllers, middleware
 - [Request Flow Example](../examples/simple/) - See it in action
-- [Architecture Reference](../reference/architecture.md) - Deep technical dive
+- [Architecture Reference](architecture.md) - Deep technical dive
 

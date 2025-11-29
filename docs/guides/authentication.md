@@ -140,4 +140,4 @@ pub fn show_profile(
 ## See Also
 
 - [Learning Path: Adding Auth](../learn/03-adding-auth.md) - Step-by-step tutorial
-- [Context Reference](../reference/architecture.md#context) - More on context
+- [Context Reference](../concepts/architecture.md#context) - More on context

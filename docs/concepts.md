@@ -462,6 +462,6 @@ The type system ensures every controller action has the correct signature, Conte
 
 1. **Start:** [Quickstart](quickstart.md) - Get something running
 2. **Explore:** [Examples](examples.md) - Read commented, working code
-3. **Reference:** [Architecture](reference/architecture.md) - Deep technical dive
+3. **Reference:** [Architecture](concepts/architecture.md) - Deep technical dive
 
 **The examples are your documentation.** They're commented, tested, and production-ready. Read them.

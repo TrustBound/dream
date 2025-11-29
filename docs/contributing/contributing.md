@@ -12,7 +12,7 @@ Before contributing, understand Dream's core philosophy:
 - **Type-safe** - Leverage Gleam's type system fully
 - **No closures** - All dependencies explicit
 
-Read [Design Principles](../reference/design-principles.md) for the full picture.
+Read [Design Principles](../concepts/design-principles.md) for the full picture.
 
 ## Code Style
 
