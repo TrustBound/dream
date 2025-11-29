@@ -41,9 +41,13 @@ pub fn send_404_status_test() {
     Ok(body) -> {
       string.contains(body, "404") |> should.be_true()
     }
-    Error(_) -> {
-      // Connection-level errors are acceptable for status code tests
-      Nil
+    Error(error_reason) -> {
+      // Connection-level errors are acceptable for status code tests, but log
+      // them so they are visible when debugging.
+      io.println(
+        "send_404_status_test encountered connection-level error: "
+        <> error_reason,
+      )
     }
   }
 }
@@ -61,9 +65,13 @@ pub fn send_500_status_test() {
     Ok(body) -> {
       string.contains(body, "500") |> should.be_true()
     }
-    Error(_) -> {
-      // Connection-level errors are acceptable for status code tests
-      Nil
+    Error(error_reason) -> {
+      // Connection-level errors are acceptable for status code tests, but log
+      // them so they are visible when debugging.
+      io.println(
+        "send_500_status_test encountered connection-level error: "
+        <> error_reason,
+      )
     }
   }
 }
@@ -81,9 +89,13 @@ pub fn send_400_status_test() {
     Ok(body) -> {
       string.contains(body, "400") |> should.be_true()
     }
-    Error(_) -> {
-      // Connection-level errors are acceptable for status code tests
-      Nil
+    Error(error_reason) -> {
+      // Connection-level errors are acceptable for status code tests, but log
+      // them so they are visible when debugging.
+      io.println(
+        "send_400_status_test encountered connection-level error: "
+        <> error_reason,
+      )
     }
   }
 }

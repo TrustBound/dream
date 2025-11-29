@@ -33,7 +33,9 @@ dream_mock_server = { path = "../mock_server" }
 gleam_erlang = { version = ">= 0.30.0 and < 2.0.0" }
 gleam_http = { version = ">= 4.3.0 and < 5.0.0" }
 gleam_json = { version = ">= 2.2.0 and < 4.0.0" }
+gleam_otp = { version = ">= 1.2.0 and < 2.0.0" }
 gleam_stdlib = { version = ">= 0.44.0 and < 2.0.0" }
 gleam_yielder = { version = ">= 1.0.0 and < 2.0.0" }
 gleeunit = { version = ">= 1.0.0 and < 2.0.0" }
 mockth = { git = "https://github.com/bondiano/mockth.git", ref = "master" }
+simplifile = { version = ">= 2.0.0 and < 3.0.0" }

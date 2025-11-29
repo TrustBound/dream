@@ -84,10 +84,10 @@ pub fn save_recordings(
 }
 
 fn build_file_path(directory: String) -> String {
-  // Ensure directory ends with /
-  let dir = case string.ends_with(directory, "/") {
+  // Ensure directory ends with "/"
+  let normalized_directory = case string.ends_with(directory, "/") {
     True -> directory
     False -> directory <> "/"
   }
-  dir <> "recordings.json"
+  normalized_directory <> "recordings.json"
 }

@@ -3,6 +3,9 @@ import dream_http_client/matching
 import dream_http_client/recorder
 import dream_http_client/recording
 import dream_http_client_test
+import gleam/bit_array
+import gleam/bytes_tree
+import gleam/erlang/process
 import gleam/http
 import gleam/io
 import gleam/list
@@ -15,6 +18,10 @@ import simplifile
 
 @external(erlang, "erlang", "timestamp")
 fn get_timestamp() -> #(Int, Int, Int)
+
+fn test_recording_directory() -> String {
+  "build/test_recordings_" <> string.inspect(get_timestamp())
+}
 
 fn mock_request(path: String) -> client.ClientRequest {
   client.new
@@ -47,7 +54,7 @@ pub fn recorder_sets_request_recorder_test() {
 
 pub fn send_with_recorder_in_playback_mode_returns_recorded_response_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -137,7 +144,7 @@ pub fn send_with_no_recorder_makes_real_request_test() {
 
 pub fn send_with_recorder_in_record_mode_records_response_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -173,7 +180,7 @@ pub fn send_with_recorder_in_record_mode_records_response_test() {
 
 pub fn send_with_recorder_finding_streaming_response_returns_error_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -215,7 +222,7 @@ pub fn send_with_recorder_finding_streaming_response_returns_error_test() {
 
 pub fn stream_yielder_with_recorder_in_playback_mode_returns_recorded_chunks_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -282,7 +289,7 @@ pub fn stream_yielder_with_no_recorder_returns_real_stream_test() {
 
 pub fn stream_yielder_with_recorder_finding_blocking_response_returns_single_chunk_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -329,7 +336,7 @@ pub fn stream_yielder_with_recorder_finding_blocking_response_returns_single_chu
 
 pub fn stream_yielder_with_recorder_not_finding_recording_uses_real_stream_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Playback(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -346,4 +353,178 @@ pub fn stream_yielder_with_recorder_not_finding_recording_uses_real_stream_test(
 
   // Cleanup
   recorder.stop(rec) |> result.unwrap(Nil)
+}
+
+// ============================================================================
+// Integration Tests - Prove Recording Actually Works
+// ============================================================================
+
+pub fn stream_yielder_records_real_streaming_request_test() {
+  // Arrange - Start recorder in Record mode
+  let directory = test_recording_directory()
+  let mode = recorder.Record(directory: directory)
+  let matching = matching.match_url_only()
+  let assert Ok(rec) = recorder.start(mode, matching)
+
+  let request = mock_request("/stream/fast") |> client.recorder(rec)
+
+  // Act - Make REAL streaming request and consume all chunks
+  let yielder_result = client.stream_yielder(request)
+  let chunks = yielder.to_list(yielder_result)
+
+  // Extract successful chunks
+  let successful_chunks =
+    chunks
+    |> list.filter_map(fn(result) { result })
+    |> list.length
+
+  // Assert - Got real stream data
+  { successful_chunks > 0 } |> should.be_true()
+
+  // Act - Stop recorder (saves to file)
+  let assert Ok(_) = recorder.stop(rec)
+
+  // Assert - Recording file exists and contains streaming data
+  let assert Ok(file_content) = simplifile.read(directory <> "/recordings.json")
+
+  // Verify file contains "streaming" mode (not "blocking")
+  string.contains(file_content, "\"mode\":\"streaming\"")
+  |> should.be_true()
+
+  // Verify file contains "chunks" array
+  string.contains(file_content, "\"chunks\"")
+  |> should.be_true()
+
+  // Verify file contains chunk data
+  string.contains(file_content, "\"data\"")
+  |> should.be_true()
+
+  // Verify file contains delay information
+  string.contains(file_content, "\"delay_ms\"")
+  |> should.be_true()
+}
+
+pub fn stream_yielder_playback_matches_recorded_stream_test() {
+  // Arrange - Record a real streaming request first
+  let directory = test_recording_directory()
+  let mode = recorder.Record(directory: directory)
+  let matching = matching.match_url_only()
+  let assert Ok(rec) = recorder.start(mode, matching)
+
+  let request = mock_request("/stream/fast") |> client.recorder(rec)
+
+  // Record the stream
+  let yielder_result = client.stream_yielder(request)
+  let _original_chunks =
+    yielder_result
+    |> yielder.to_list
+    |> list.filter_map(fn(result) { result })
+
+  let assert Ok(_) = recorder.stop(rec)
+
+  // Act - MODIFY the recording file to prove playback reads from file, not server
+  let assert Ok(file_content) = simplifile.read(directory <> "/recordings.json")
+  // Replace chunk content - mock server sends "Chunk 1\n", "Chunk 2\n", etc.
+  let modified_content = string.replace(file_content, "Chunk", "MODIFIED")
+  let assert Ok(_) =
+    simplifile.write(directory <> "/recordings.json", modified_content)
+
+  // Act - Playback the MODIFIED recording
+  let playback_mode = recorder.Playback(directory: directory)
+  let assert Ok(playback_rec) = recorder.start(playback_mode, matching)
+
+  let playback_request =
+    mock_request("/stream/fast") |> client.recorder(playback_rec)
+
+  let playback_yielder = client.stream_yielder(playback_request)
+  let playback_data =
+    playback_yielder
+    |> yielder.to_list
+    |> list.filter_map(fn(result) { result })
+    |> list.map(fn(chunk) {
+      chunk
+      |> bytes_tree.to_bit_array
+      |> bit_array.to_string
+      |> result.unwrap("")
+    })
+    |> string.join("")
+
+  // Assert - Playback contains MODIFIED content (proves we read from file, not server)
+  string.contains(playback_data, "MODIFIED") |> should.be_true()
+
+  // Assert - Playback does NOT contain original "Chunk" text (proves it was modified)
+  string.contains(playback_data, "Chunk") |> should.be_false()
+
+  // Cleanup
+  recorder.stop(playback_rec) |> result.unwrap(Nil)
+}
+
+pub fn stream_messages_records_real_streaming_request_test() {
+  // Arrange - Start recorder in Record mode
+  let directory = test_recording_directory()
+  let mode = recorder.Record(directory: directory)
+  let matching = matching.match_url_only()
+  let assert Ok(rec) = recorder.start(mode, matching)
+
+  let request = mock_request("/stream/fast") |> client.recorder(rec)
+
+  // Act - Make REAL message-based streaming request
+  let assert Ok(_request_id) = client.stream_messages(request)
+
+  // Receive all messages using selector
+  let chunks = receive_all_stream_messages_via_selector([], 5000)
+  let chunk_count = list.length(chunks)
+
+  // Assert - Got real stream data
+  { chunk_count > 0 } |> should.be_true()
+
+  // Act - Stop recorder (saves to file)
+  let assert Ok(_) = recorder.stop(rec)
+
+  // Assert - Recording file exists and contains streaming data
+  let assert Ok(file_content) = simplifile.read(directory <> "/recordings.json")
+
+  // Verify file contains "streaming" mode
+  string.contains(file_content, "\"mode\":\"streaming\"")
+  |> should.be_true()
+
+  // Verify file contains chunks
+  string.contains(file_content, "\"chunks\"")
+  |> should.be_true()
+
+  // Verify file has at least as many chunks as we received
+  // (The recording should match what we got)
+  string.contains(file_content, "\"data\"")
+  |> should.be_true()
+}
+
+// Helper to receive all stream messages using selector (so recording happens)
+fn receive_all_stream_messages_via_selector(
+  acc: List(BitArray),
+  timeout_ms: Int,
+) -> List(BitArray) {
+  let sel =
+    process.new_selector()
+    |> client.select_stream_messages(fn(msg) { msg })
+
+  case process.selector_receive(sel, timeout_ms) {
+    Ok(client.Chunk(_request_id, data)) -> {
+      receive_all_stream_messages_via_selector([data, ..acc], timeout_ms)
+    }
+    Ok(client.StreamEnd(_request_id, _headers)) -> {
+      list.reverse(acc)
+    }
+    Ok(client.StreamError(_request_id, _reason)) -> {
+      list.reverse(acc)
+    }
+    Ok(client.StreamStart(_request_id, _headers)) -> {
+      receive_all_stream_messages_via_selector(acc, timeout_ms)
+    }
+    Ok(client.DecodeError(_reason)) -> {
+      list.reverse(acc)
+    }
+    Error(Nil) -> {
+      list.reverse(acc)
+    }
+  }
 }

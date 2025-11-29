@@ -117,7 +117,7 @@ pub fn decode_recording_file_with_valid_json_returns_recording_file_test() {
           entry.request.host |> should.equal("api.example.com")
           entry.request.path |> should.equal("/users")
         }
-        Error(_) -> {
+        Error(Nil) -> {
           io.println("Expected one entry")
           should.fail()
         }
@@ -175,7 +175,7 @@ pub fn decode_recording_file_with_streaming_response_decodes_chunks_test() {
             }
           }
         }
-        Error(_) -> {
+        Error(Nil) -> {
           io.println("Expected one entry")
           should.fail()
         }
@@ -307,7 +307,7 @@ pub fn encode_and_decode_recording_file_round_trips_correctly_test() {
             }
           }
         }
-        Error(_) -> {
+        Error(Nil) -> {
           io.println("Expected one entry")
           should.fail()
         }

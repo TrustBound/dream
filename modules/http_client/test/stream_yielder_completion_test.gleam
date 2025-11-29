@@ -11,6 +11,7 @@
 import dream_http_client/client
 import dream_http_client_test
 import gleam/http
+import gleam/io
 import gleam/list
 import gleam/yielder
 import gleeunit/should
@@ -41,7 +42,14 @@ pub fn stream_completes_without_error_test() {
     list.all(results, fn(result) {
       case result {
         Ok(_) -> True
-        Error(_) -> False
+        Error(error_reason) -> {
+          // Unexpected error in stream; this test expects only Ok results.
+          io.println(
+            "stream_completes_without_error_test saw unexpected error: "
+            <> error_reason,
+          )
+          False
+        }
       }
     })
 
@@ -60,7 +68,12 @@ pub fn last_chunk_is_ok_not_error_test() {
   case list.last(results) {
     Ok(Ok(_chunk)) -> Nil
     // Correct!
-    Ok(Error(_err)) -> should.fail()
+    Ok(Error(error_reason)) -> {
+      io.println(
+        "last_chunk_is_ok_not_error_test saw unexpected error: " <> error_reason,
+      )
+      should.fail()
+    }
     Error(Nil) -> should.fail()
   }
 }
@@ -82,7 +95,13 @@ pub fn to_list_works_correctly_test() {
     list.all(results, fn(result) {
       case result {
         Ok(_) -> True
-        Error(_) -> False
+        Error(error_reason) -> {
+          io.println(
+            "to_list_works_correctly_test saw unexpected error: "
+            <> error_reason,
+          )
+          False
+        }
       }
     })
 

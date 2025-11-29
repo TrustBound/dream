@@ -12,6 +12,10 @@ import gleeunit/should
 @external(erlang, "erlang", "timestamp")
 fn get_timestamp() -> #(Int, Int, Int)
 
+fn test_recording_directory() -> String {
+  "build/test_recordings_" <> string.inspect(get_timestamp())
+}
+
 fn create_test_recording() -> recording.Recording {
   let request =
     recording.RecordedRequest(
@@ -35,7 +39,7 @@ fn create_test_recording() -> recording.Recording {
 
 pub fn start_with_record_mode_returns_recorder_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
 
@@ -58,7 +62,7 @@ pub fn start_with_record_mode_returns_recorder_test() {
 
 pub fn start_with_playback_mode_returns_recorder_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Playback(directory: directory)
   let matching = matching.match_url_only()
 
@@ -103,7 +107,7 @@ pub fn start_with_passthrough_mode_returns_recorder_test() {
 
 pub fn is_record_mode_with_record_mode_returns_true_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -120,7 +124,7 @@ pub fn is_record_mode_with_record_mode_returns_true_test() {
 
 pub fn is_record_mode_with_playback_mode_returns_false_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Playback(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -153,7 +157,7 @@ pub fn is_record_mode_with_passthrough_mode_returns_false_test() {
 
 pub fn add_recording_in_record_mode_stores_recording_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -172,7 +176,7 @@ pub fn add_recording_in_record_mode_stores_recording_test() {
 
 pub fn find_recording_with_matching_request_returns_recording_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -197,7 +201,7 @@ pub fn find_recording_with_matching_request_returns_recording_test() {
 
 pub fn find_recording_with_non_matching_request_returns_none_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -231,7 +235,7 @@ pub fn find_recording_with_non_matching_request_returns_none_test() {
 
 pub fn get_recordings_with_multiple_recordings_returns_all_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -271,7 +275,7 @@ pub fn get_recordings_with_multiple_recordings_returns_all_test() {
 
 pub fn stop_with_record_mode_saves_recordings_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -287,7 +291,7 @@ pub fn stop_with_record_mode_saves_recordings_test() {
 
 pub fn stop_with_playback_mode_does_not_save_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Playback(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -347,7 +351,7 @@ pub fn find_recording_in_playback_mode_with_no_file_returns_none_test() {
 
 pub fn add_recording_then_find_recording_returns_same_recording_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -372,7 +376,7 @@ pub fn add_recording_then_find_recording_returns_same_recording_test() {
 
 pub fn get_recordings_with_no_recordings_returns_empty_list_test() {
   // Arrange
-  let directory = "/tmp/test_mocks_" <> string.inspect(get_timestamp())
+  let directory = test_recording_directory()
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)

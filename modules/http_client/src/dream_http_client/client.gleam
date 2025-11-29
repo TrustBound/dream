@@ -156,6 +156,8 @@ import gleam/erlang/process
 import gleam/http
 import gleam/http/request
 import gleam/int
+import gleam/io
+import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
@@ -165,7 +167,9 @@ import gleam/yielder
 ///
 /// Represents a complete HTTP request with all its components. Use the builder
 /// pattern with functions like `host()`, `path()`, `method()`, etc. to configure
-/// the request, then send it with `fetch.send()` or `stream.send()`.
+/// the request, then execute it with `send/1`, `stream_yielder/1`, or
+/// `stream_messages/1` depending on whether you want a blocking, yielder-based,
+/// or message-based streaming API.
 ///
 /// ## Fields
 ///
@@ -754,7 +758,7 @@ pub fn get_recorder(client_request: ClientRequest) -> Option(recorder.Recorder) 
 /// Returned by `stream_messages()` and used to identify which stream a message
 /// belongs to when handling multiple concurrent streams.
 pub opaque type RequestId {
-  RequestId(internal_id: d.Dynamic)
+  RequestId(id: String)
 }
 
 /// Stream message types sent to your process mailbox
@@ -838,87 +842,115 @@ pub type StreamMessage {
 ///   Ok(body) -> {
 ///     case decode(body, user_decoder) {
 ///       Ok(user) -> Ok(user)
-///       Error(_) -> Error("Invalid JSON response")
+///       Error(json_error) ->
+///         Error("Invalid JSON response: " <> string.inspect(json_error))
 ///     }
 ///   }
-///   Error(msg) -> Error("Request failed: " <> msg)
+///   Error(error_message) -> Error("Request failed: " <> error_message)
 /// }
 /// ```
 pub fn send(client_request: ClientRequest) -> Result(String, String) {
-  // Check for recorder
   case client_request.recorder {
-    option.Some(rec) -> {
-      // Convert to RecordedRequest for matching/recording
-      let recorded_req = client_request_to_recorded_request(client_request)
-
-      // Try playback first
-      case recorder.find_recording(rec, recorded_req) {
-        option.Some(recording.Recording(_, response)) -> {
-          // Found matching recording - return it
-          case response {
-            recording.BlockingResponse(_, _, body) -> Ok(body)
-            recording.StreamingResponse(_, _, _) -> {
-              // Streaming response in blocking mode - not supported
-              Error(
-                "Recording contains streaming response, use stream_yielder() instead",
-              )
-            }
-          }
-        }
-        option.None -> {
-          // No matching recording - make real request
-          let result = send_real_request(client_request)
-
-          // Record the request/response if in Record mode
-          case result {
-            Ok(body) -> {
-              case recorder.is_record_mode(rec) {
-                True -> {
-                  let recorded_resp =
-                    recording.BlockingResponse(
-                      status: 200,
-                      // TODO: get actual status from response
-                      headers: [],
-                      body: body,
-                    )
-                  let rec_entry =
-                    recording.Recording(
-                      request: recorded_req,
-                      response: recorded_resp,
-                    )
-                  recorder.add_recording(rec, rec_entry)
-                }
-                False -> Nil
-              }
-              Ok(body)
-            }
-            Error(_) -> result
-          }
-        }
-      }
-    }
-    option.None -> {
-      // No recorder - make real request
-      send_real_request(client_request)
-    }
+    option.Some(recorder_instance) ->
+      send_with_recorder(client_request, recorder_instance)
+    option.None -> send_without_recorder(client_request)
   }
 }
 
-fn send_real_request(client_request: ClientRequest) -> Result(String, String) {
-  let http_req = to_http_request(client_request)
-  let url = build_url(http_req)
-  let method_atom = internal.atomize_method(http_req.method)
+fn send_without_recorder(
+  client_request: ClientRequest,
+) -> Result(String, String) {
+  send_client_request_to_httpc(client_request)
+}
+
+fn send_with_recorder(
+  client_request: ClientRequest,
+  recorder_instance: recorder.Recorder,
+) -> Result(String, String) {
+  let recorded_request = client_request_to_recorded_request(client_request)
+
+  case recorder.find_recording(recorder_instance, recorded_request) {
+    option.Some(recording.Recording(_, response)) ->
+      handle_recorded_blocking_response(response)
+    option.None ->
+      send_and_maybe_record(client_request, recorder_instance, recorded_request)
+  }
+}
+
+fn handle_recorded_blocking_response(
+  response: recording.RecordedResponse,
+) -> Result(String, String) {
+  case response {
+    recording.BlockingResponse(_, _, body) -> Ok(body)
+    recording.StreamingResponse(_, _, _) ->
+      Error(
+        "Recording contains streaming response, use stream_yielder() instead",
+      )
+  }
+}
+
+fn send_and_maybe_record(
+  client_request: ClientRequest,
+  recorder_instance: recorder.Recorder,
+  recorded_request: recording.RecordedRequest,
+) -> Result(String, String) {
+  case send_client_request_to_httpc(client_request) {
+    Ok(body) -> {
+      record_blocking_response_if_needed(
+        recorder_instance,
+        recorded_request,
+        body,
+      )
+      Ok(body)
+    }
+    Error(error_message) -> Error(error_message)
+  }
+}
+
+fn record_blocking_response_if_needed(
+  recorder_instance: recorder.Recorder,
+  recorded_request: recording.RecordedRequest,
+  body: String,
+) -> Nil {
+  case recorder.is_record_mode(recorder_instance) {
+    True -> {
+      let recorded_response =
+        recording.BlockingResponse(
+          status: 200,
+          // TODO: get actual status from response
+          headers: [],
+          body: body,
+        )
+      let recorder_entry =
+        recording.Recording(
+          request: recorded_request,
+          response: recorded_response,
+        )
+      recorder.add_recording(recorder_instance, recorder_entry)
+    }
+    False -> Nil
+  }
+}
+
+fn send_client_request_to_httpc(
+  client_request: ClientRequest,
+) -> Result(String, String) {
+  let http_request = to_http_request(client_request)
+  let url = build_url(http_request)
+  let method_atom = internal.atomize_method(http_request.method)
   let method_dynamic = atom.to_dynamic(method_atom)
-  let body = <<http_req.body:utf8>>
+  let body = <<http_request.body:utf8>>
   let timeout_value = resolve_timeout(client_request)
 
-  case send_sync(method_dynamic, url, http_req.headers, body, timeout_value) {
+  case
+    send_sync(method_dynamic, url, http_request.headers, body, timeout_value)
+  {
     Ok(response_body) -> {
       response_body
       |> bit_array.to_string
       |> result.map_error(convert_string_error)
     }
-    Error(error_msg) -> Error(error_msg)
+    Error(error_message) -> Error(error_message)
   }
 }
 
@@ -937,7 +969,9 @@ fn client_request_to_recorded_request(
   )
 }
 
-fn convert_string_error(_error: Nil) -> String {
+fn convert_string_error(_unused: Nil) -> String {
+  // BitArray.to_string uses Nil for string conversion errors, so there is no
+  // additional error information to surface here.
   "Failed to convert response to string"
 }
 
@@ -989,7 +1023,7 @@ fn send_sync(
 ///
 /// ## Parameters
 ///
-/// - `req`: The configured HTTP request
+/// - `client_request`: The configured HTTP request
 ///
 /// ## Returns
 ///
@@ -1004,7 +1038,7 @@ fn send_sync(
 /// import dream_http_client/client.{host, path, stream_yielder}
 /// import gleam/yielder.{each}
 /// import gleam/bytes_tree.{to_string}
-/// import gleam/io.{print}
+/// import gleam/io.{print, println_error}
 ///
 /// client.new
 ///   |> host("api.openai.com")
@@ -1013,8 +1047,8 @@ fn send_sync(
 ///   |> each(fn(result) {
 ///     case result {
 ///       Ok(chunk) -> print(to_string(chunk))
-///       Error(reason) -> {
-///         io.println_error("Stream error: " <> reason)
+///       Error(error_reason) -> {
+///         println_error("Stream error: " <> error_reason)
 ///         // Stream is now done, no more chunks will arrive
 ///       }
 ///     }
@@ -1039,61 +1073,108 @@ fn send_sync(
 ///   |> yielder.to_list()
 ///
 /// // Handle results
-/// case list.try_map(chunks, fn(r) { r }) {
+/// case list.try_map(chunks, fn(result) { result }) {
 ///   Ok(chunk_list) -> {
 ///     // Concatenate all chunks
 ///     let body = 
 ///       chunk_list
 ///       |> list.map(bytes_tree.to_string)
-///       |> list.map(fn(r) { result.unwrap(r, "") })
+///       |> list.map(fn(chunk_result) { result.unwrap(chunk_result, "") })
 ///       |> string.join("")
 ///     Ok(body)
 ///   }
-///   Error(reason) -> Error("Stream failed: " <> reason)
+///   Error(error_reason) -> Error("Stream failed: " <> error_reason)
 /// }
 /// ```
 pub fn stream_yielder(
-  req: ClientRequest,
+  client_request: ClientRequest,
 ) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
-  // Check for recorder and playback mode
-  case req.recorder {
-    option.Some(rec) -> {
-      let recorded_req = client_request_to_recorded_request(req)
-      case recorder.find_recording(rec, recorded_req) {
-        option.Some(recording.Recording(_, response)) -> {
-          // Found recording - create yielder from chunks
-          case response {
-            recording.StreamingResponse(_, _, chunks) -> {
-              create_yielder_from_chunks(chunks)
-            }
-            recording.BlockingResponse(_, _, body) -> {
-              // Blocking response - return as single chunk
-              let chunk = bytes_tree.from_bit_array(<<body:utf8>>)
-              yielder.single(Ok(chunk))
-            }
-          }
-        }
-        option.None -> {
-          // No recording found - use real stream
-          stream_yielder_real(req)
-        }
-      }
-    }
-    option.None -> {
-      // No recorder - use real stream
-      stream_yielder_real(req)
+  case client_request.recorder {
+    option.Some(recorder_instance) ->
+      stream_yielder_with_recorder(client_request, recorder_instance)
+    option.None -> create_stream_yielder_from_client_request(client_request)
+  }
+}
+
+fn stream_yielder_with_recorder(
+  client_request: ClientRequest,
+  recorder_instance: recorder.Recorder,
+) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
+  let recorded_request = client_request_to_recorded_request(client_request)
+
+  case recorder.find_recording(recorder_instance, recorded_request) {
+    option.Some(recording.Recording(_, response)) ->
+      create_yielder_from_recorded_response(response)
+    option.None -> create_stream_yielder_from_client_request(client_request)
+  }
+}
+
+fn create_yielder_from_recorded_response(
+  response: recording.RecordedResponse,
+) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
+  case response {
+    recording.StreamingResponse(_, _, chunks) ->
+      create_yielder_from_chunks(chunks)
+    recording.BlockingResponse(_, _, body) -> {
+      // Blocking response - return as single chunk
+      let chunk = bytes_tree.from_bit_array(<<body:utf8>>)
+      yielder.single(Ok(chunk))
     }
   }
 }
 
-fn stream_yielder_real(
-  req: ClientRequest,
+fn create_stream_yielder_from_client_request(
+  client_request: ClientRequest,
 ) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
-  let http_req = to_http_request(req)
-  let timeout_value = resolve_timeout(req)
-  // Pass dependencies explicitly in state instead of hiding in closure
+  let http_request = to_http_request(client_request)
+  let timeout_value = resolve_timeout(client_request)
+
+  case client_request.recorder {
+    option.Some(recorder_instance) ->
+      stream_yielder_with_record_mode(
+        client_request,
+        recorder_instance,
+        http_request,
+        timeout_value,
+      )
+    option.None -> create_plain_yielder(http_request, timeout_value)
+  }
+}
+
+fn stream_yielder_with_record_mode(
+  client_request: ClientRequest,
+  recorder_instance: recorder.Recorder,
+  http_request: request.Request(String),
+  timeout_value: Int,
+) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
+  case recorder.is_record_mode(recorder_instance) {
+    True -> {
+      // Recording mode - wrap yielder to capture chunks
+      let recorded_request = client_request_to_recorded_request(client_request)
+      let initial_state =
+        RecordingYielderState(
+          owner: None,
+          http_req: http_request,
+          timeout_ms: timeout_value,
+          recorder: recorder_instance,
+          recorded_request: recorded_request,
+          chunks: [],
+          last_chunk_time: None,
+        )
+      yielder.unfold(initial_state, handle_recording_yielder_unfold)
+    }
+    False ->
+      // Playback mode was already handled, use normal yielder
+      create_plain_yielder(http_request, timeout_value)
+  }
+}
+
+fn create_plain_yielder(
+  http_request: request.Request(String),
+  timeout_value: Int,
+) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
   let initial_state =
-    YielderState(owner: None, http_req: http_req, timeout_ms: timeout_value)
+    YielderState(owner: None, http_req: http_request, timeout_ms: timeout_value)
   yielder.unfold(initial_state, handle_yielder_unfold_with_deps)
 }
 
@@ -1118,6 +1199,18 @@ type YielderState {
     owner: Option(d.Dynamic),
     http_req: request.Request(String),
     timeout_ms: Int,
+  )
+}
+
+type RecordingYielderState {
+  RecordingYielderState(
+    owner: Option(d.Dynamic),
+    http_req: request.Request(String),
+    timeout_ms: Int,
+    recorder: recorder.Recorder,
+    recorded_request: recording.RecordedRequest,
+    chunks: List(recording.Chunk),
+    last_chunk_time: Option(Int),
   )
 }
 
@@ -1170,6 +1263,120 @@ fn handle_yielder_next_with_state(
     Ok(option.None) -> yielder.Done
     Error(error_reason) -> yielder.Next(Error(error_reason), state)
   }
+}
+
+// Get current time in milliseconds for recording delays
+@external(erlang, "erlang", "monotonic_time")
+fn monotonic_time_native() -> Int
+
+fn get_time_ms() -> Int {
+  // Convert native time units to milliseconds
+  let native = monotonic_time_native()
+  // erlang:convert_time_unit(native, native, millisecond)
+  convert_time_unit(native, atom.create("native"), atom.create("millisecond"))
+}
+
+@external(erlang, "erlang", "convert_time_unit")
+fn convert_time_unit(time: Int, from_unit: atom.Atom, to_unit: atom.Atom) -> Int
+
+fn handle_recording_yielder_unfold(
+  state: RecordingYielderState,
+) -> yielder.Step(Result(bytes_tree.BytesTree, String), RecordingYielderState) {
+  case state.owner {
+    None -> handle_recording_yielder_start(state)
+    Some(owner) -> handle_recording_yielder_next(owner, state)
+  }
+}
+
+fn handle_recording_yielder_start(
+  state: RecordingYielderState,
+) -> yielder.Step(Result(bytes_tree.BytesTree, String), RecordingYielderState) {
+  let request_result =
+    internal.start_httpc_stream(state.http_req, state.timeout_ms)
+  let owner = internal.extract_owner_pid(request_result)
+  let now = get_time_ms()
+
+  case internal.receive_next(owner, state.timeout_ms) {
+    Ok(option.Some(bin)) -> {
+      // First chunk - record it
+      let chunk = recording.Chunk(data: bin, delay_ms: 0)
+      let new_state =
+        RecordingYielderState(
+          ..state,
+          owner: Some(owner),
+          chunks: [chunk],
+          last_chunk_time: Some(now),
+        )
+      yielder.Next(Ok(bytes_tree.from_bit_array(bin)), new_state)
+    }
+    Ok(option.None) -> {
+      // Empty stream - save recording with no chunks
+      save_streaming_recording(state, [])
+      yielder.Done
+    }
+    Error(error_reason) -> {
+      // Error on first chunk - don't record, just pass through error
+      yielder.Next(Error(error_reason), state)
+    }
+  }
+}
+
+fn handle_recording_yielder_next(
+  owner: d.Dynamic,
+  state: RecordingYielderState,
+) -> yielder.Step(Result(bytes_tree.BytesTree, String), RecordingYielderState) {
+  let now = get_time_ms()
+
+  case internal.receive_next(owner, state.timeout_ms) {
+    Ok(option.Some(bin)) -> {
+      // Calculate delay since last chunk
+      let delay = case state.last_chunk_time {
+        Some(last_time) -> now - last_time
+        None -> 0
+      }
+
+      // Record the chunk
+      let chunk = recording.Chunk(data: bin, delay_ms: delay)
+      let new_state =
+        RecordingYielderState(
+          ..state,
+          chunks: [chunk, ..state.chunks],
+          last_chunk_time: Some(now),
+        )
+      yielder.Next(Ok(bytes_tree.from_bit_array(bin)), new_state)
+    }
+    Ok(option.None) -> {
+      // Stream finished - save recording
+      save_streaming_recording(state, state.chunks)
+      yielder.Done
+    }
+    Error(error_reason) -> {
+      // Stream error - save what we have so far
+      save_streaming_recording(state, state.chunks)
+      yielder.Next(Error(error_reason), state)
+    }
+  }
+}
+
+fn save_streaming_recording(
+  state: RecordingYielderState,
+  chunks: List(recording.Chunk),
+) -> Nil {
+  // Reverse chunks to get correct order (we prepended them)
+  let ordered_chunks = list.reverse(chunks)
+
+  let response =
+    recording.StreamingResponse(
+      status: 200,
+      // TODO: capture actual status and headers
+      headers: [],
+      chunks: ordered_chunks,
+    )
+
+  let rec =
+    recording.Recording(request: state.recorded_request, response: response)
+
+  recorder.add_recording(state.recorder, rec)
 }
 
 /// Start a message-based streaming HTTP request (OTP compatible)
@@ -1231,37 +1438,112 @@ fn handle_yielder_next_with_state(
 ///   |> select_stream_messages(HttpStream)
 /// }
 /// ```
-pub fn stream_messages(req: ClientRequest) -> Result(RequestId, String) {
-  let http_req = to_http_request(req)
-  let url = build_url(http_req)
-  let method_atom = internal.atomize_method(http_req.method)
-  let body = <<http_req.body:utf8>>
-  let me = process.self()
-  let timeout_value = resolve_timeout(req)
+pub fn stream_messages(
+  client_request: ClientRequest,
+) -> Result(RequestId, String) {
+  // Check for recorder - if in Record mode, check playback first
+  case client_request.recorder {
+    option.Some(recorder_instance) ->
+      stream_messages_with_recorder(client_request, recorder_instance)
+    option.None -> stream_messages_without_recorder(client_request)
+  }
+}
 
-  let result =
+fn stream_messages_with_recorder(
+  client_request: ClientRequest,
+  recorder_instance: recorder.Recorder,
+) -> Result(RequestId, String) {
+  let recorded_request = client_request_to_recorded_request(client_request)
+
+  case recorder.find_recording(recorder_instance, recorded_request) {
+    option.Some(_recording) ->
+      // Found recording - message streaming doesn't support playback
+      // because we can't inject messages into user's mailbox
+      Error(
+        "Message-based streaming does not support playback mode. Use stream_yielder() instead.",
+      )
+    option.None ->
+      send_stream_messages_to_httpc(
+        client_request,
+        option.Some(recorder_instance),
+        recorded_request,
+      )
+  }
+}
+
+fn stream_messages_without_recorder(
+  client_request: ClientRequest,
+) -> Result(RequestId, String) {
+  let recorded_request = client_request_to_recorded_request(client_request)
+  send_stream_messages_to_httpc(client_request, option.None, recorded_request)
+}
+
+fn send_stream_messages_to_httpc(
+  client_request: ClientRequest,
+  recorder_option: Option(recorder.Recorder),
+  recorded_request: recording.RecordedRequest,
+) -> Result(RequestId, String) {
+  let http_request = to_http_request(client_request)
+  let url = build_url(http_request)
+  let method_atom = internal.atomize_method(http_request.method)
+  let body = <<http_request.body:utf8>>
+  let caller_process = process.self()
+  let timeout_value = resolve_timeout(client_request)
+
+  let start_result =
     internal.start_stream_messages(
       method_atom,
       url,
-      http_req.headers,
+      http_request.headers,
       body,
-      me,
+      caller_process,
       timeout_value,
     )
 
-  parse_stream_start_result(result)
+  case parse_stream_start_result(start_result) {
+    Ok(request_id) -> {
+      record_message_stream_if_needed(
+        request_id,
+        recorder_option,
+        recorded_request,
+      )
+      Ok(request_id)
+    }
+    Error(error_reason) -> Error(error_reason)
+  }
 }
 
-fn build_url(req: request.Request(String)) -> String {
-  let port_string = case req.port {
-    option.Some(p) -> ":" <> int.to_string(p)
+fn record_message_stream_if_needed(
+  request_id: RequestId,
+  recorder_option: Option(recorder.Recorder),
+  recorded_request: recording.RecordedRequest,
+) -> Nil {
+  case recorder_option {
+    option.Some(recorder_instance) -> {
+      case recorder.is_record_mode(recorder_instance) {
+        True ->
+          store_message_stream_recorder(
+            request_id,
+            recorder_instance,
+            recorded_request,
+          )
+        False -> Nil
+      }
+    }
+    option.None -> Nil
+  }
+}
+
+fn build_url(request: request.Request(String)) -> String {
+  let port_string = case request.port {
+    option.Some(port) -> ":" <> int.to_string(port)
     option.None -> ""
   }
-  http.scheme_to_string(req.scheme)
+  http.scheme_to_string(request.scheme)
   <> "://"
-  <> req.host
+  <> request.host
   <> port_string
-  <> req.path
+  <> request.path
 }
 
 fn parse_stream_start_result(result: d.Dynamic) -> Result(RequestId, String) {
@@ -1286,9 +1568,9 @@ fn parse_stream_start_tag(
 }
 
 fn extract_request_id(result: d.Dynamic) -> Result(RequestId, String) {
-  let id_result = d.run(result, d.at([1], d.dynamic))
+  let id_result = d.run(result, d.at([1], d.string))
   case id_result {
-    Ok(id_dyn) -> Ok(RequestId(internal_id: id_dyn))
+    Ok(id_string) -> Ok(RequestId(id: id_string))
     Error(decode_errors) ->
       Error("Failed to extract request ID: " <> string.inspect(decode_errors))
   }
@@ -1359,6 +1641,9 @@ pub fn select_stream_messages(
 fn create_selector_mapper(
   mapper: fn(StreamMessage) -> msg,
 ) -> fn(d.Dynamic) -> msg {
+  // process.select_record requires a callback of type fn(Dynamic) -> msg.
+  // This small helper exists to adapt that interface while keeping the
+  // higher-level mapper explicit and testable.
   apply_mapper_to_dynamic(_, mapper)
 }
 
@@ -1370,13 +1655,17 @@ fn apply_mapper_to_dynamic(
   // We just decode the simple {Tag, RequestId, Data} tuple
   let simplified = internal.decode_stream_message_for_selector(dyn)
   let stream_msg = decode_simplified_message(simplified)
+
+  // Record the message if this stream has a recorder
+  record_stream_message(stream_msg)
+
   mapper(stream_msg)
 }
 
 fn decode_simplified_message(dyn: d.Dynamic) -> StreamMessage {
-  // Decode the clean {Tag, RequestId, Data} tuple from Erlang
+  // Decode the clean {Tag, StringId, Data} tuple from Erlang
   let tag_result = d.run(dyn, d.at([0], d.dynamic))
-  let req_id_result = d.run(dyn, d.at([1], d.dynamic))
+  let req_id_result = d.run(dyn, d.at([1], d.string))
   let data_result = d.run(dyn, d.at([2], d.dynamic))
 
   case tag_result {
@@ -1387,14 +1676,14 @@ fn decode_simplified_message(dyn: d.Dynamic) -> StreamMessage {
 
 fn handle_tag_decode_error(
   decode_error: List(d.DecodeError),
-  req_id_result: Result(d.Dynamic, List(d.DecodeError)),
+  req_id_result: Result(String, List(d.DecodeError)),
 ) -> StreamMessage {
   let error_msg =
     "Internal error: Failed to decode stream message tag: "
     <> string.inspect(decode_error)
   case req_id_result {
-    Ok(req_id_dyn) -> {
-      let req_id = RequestId(internal_id: req_id_dyn)
+    Ok(req_id_string) -> {
+      let req_id = RequestId(id: req_id_string)
       StreamError(req_id, error_msg)
     }
     Error(req_id_error) -> {
@@ -1410,13 +1699,13 @@ fn handle_tag_decode_error(
 
 fn decode_with_tag(
   tag_dyn: d.Dynamic,
-  req_id_result: Result(d.Dynamic, List(d.DecodeError)),
+  req_id_result: Result(String, List(d.DecodeError)),
   data_result: Result(d.Dynamic, List(d.DecodeError)),
 ) -> StreamMessage {
   let tag = atom.cast_from_dynamic(tag_dyn) |> atom.to_string
   case req_id_result {
-    Ok(req_id_dyn) -> {
-      let req_id = RequestId(internal_id: req_id_dyn)
+    Ok(req_id_string) -> {
+      let req_id = RequestId(id: req_id_string)
       decode_by_tag(tag, req_id, data_result)
     }
     Error(decode_error) -> {
@@ -1605,6 +1894,176 @@ fn pair_with_name(value: String, name: String) -> #(String, String) {
 /// cancel_stream(req_id)
 /// ```
 pub fn cancel_stream(request_id: RequestId) -> Nil {
-  let RequestId(internal_id) = request_id
-  internal.cancel_stream_internal(internal_id)
+  let RequestId(id) = request_id
+  internal.cancel_stream_by_string(id)
+}
+
+// ============================================================================
+// Message-Based Streaming Recorder (Internal - ETS Storage)
+// ============================================================================
+
+type MessageStreamRecorderState {
+  MessageStreamRecorderState(
+    recorder: recorder.Recorder,
+    recorded_request: recording.RecordedRequest,
+    chunks: List(recording.Chunk),
+    last_chunk_time: Option(Int),
+  )
+}
+
+// ETS table name for recorder state
+const recorder_table_name = "dream_http_client_stream_recorders"
+
+// Ensure ETS table exists (idempotent)
+fn ensure_recorder_table() -> Nil {
+  case ets_table_exists(recorder_table_name) {
+    True -> Nil
+    False -> {
+      ets_new(recorder_table_name, [
+        atom.create("set"),
+        atom.create("public"),
+        atom.create("named_table"),
+      ])
+      Nil
+    }
+  }
+}
+
+@external(erlang, "dream_httpc_shim", "ets_table_exists")
+fn ets_table_exists(name: String) -> Bool
+
+@external(erlang, "dream_httpc_shim", "ets_new")
+fn ets_new(name: String, options: List(atom.Atom)) -> d.Dynamic
+
+@external(erlang, "dream_httpc_shim", "ets_insert")
+fn ets_insert(
+  table: String,
+  key: String,
+  recorder: recorder.Recorder,
+  recorded_request: recording.RecordedRequest,
+  chunks: List(recording.Chunk),
+  last_chunk_time: Option(Int),
+) -> Nil
+
+@external(erlang, "dream_httpc_shim", "ets_lookup")
+fn ets_lookup(table: String, key: String) -> Option(MessageStreamRecorderState)
+
+@external(erlang, "dream_httpc_shim", "ets_delete")
+fn ets_delete(table: String, key: String) -> Bool
+
+fn store_message_stream_recorder(
+  request_id: RequestId,
+  rec: recorder.Recorder,
+  recorded_req: recording.RecordedRequest,
+) -> Nil {
+  ensure_recorder_table()
+  let RequestId(id) = request_id
+  ets_insert(recorder_table_name, id, rec, recorded_req, [], None)
+}
+
+fn get_message_stream_recorder(
+  request_id: RequestId,
+) -> Option(MessageStreamRecorderState) {
+  let RequestId(id) = request_id
+  ets_lookup(recorder_table_name, id)
+}
+
+fn update_message_stream_recorder(
+  request_id: RequestId,
+  state: MessageStreamRecorderState,
+) -> Nil {
+  let RequestId(id) = request_id
+  ets_insert(
+    recorder_table_name,
+    id,
+    state.recorder,
+    state.recorded_request,
+    state.chunks,
+    state.last_chunk_time,
+  )
+}
+
+fn remove_message_stream_recorder(request_id: RequestId) -> Nil {
+  let RequestId(id) = request_id
+  ets_delete(recorder_table_name, id)
+  Nil
+}
+
+fn record_stream_message(message: StreamMessage) -> Nil {
+  case message {
+    Chunk(request_id, data) -> {
+      case get_message_stream_recorder(request_id) {
+        option.Some(state) -> {
+          let now = get_time_ms()
+          let delay = case state.last_chunk_time {
+            Some(last_time) -> now - last_time
+            None -> 0
+          }
+
+          let chunk = recording.Chunk(data: data, delay_ms: delay)
+          let new_state =
+            MessageStreamRecorderState(
+              recorder: state.recorder,
+              recorded_request: state.recorded_request,
+              chunks: [chunk, ..state.chunks],
+              last_chunk_time: Some(now),
+            )
+          update_message_stream_recorder(request_id, new_state)
+        }
+        option.None -> Nil
+      }
+    }
+    StreamEnd(request_id, _headers) -> {
+      case get_message_stream_recorder(request_id) {
+        option.Some(state) -> {
+          finish_message_stream_recording(request_id, state)
+        }
+        option.None -> Nil
+      }
+    }
+    StreamError(request_id, error_reason) -> {
+      let RequestId(request_id_string) = request_id
+      io.println_error(
+        "HTTP stream error while recording messages for request "
+        <> request_id_string
+        <> ": "
+        <> error_reason,
+      )
+      case get_message_stream_recorder(request_id) {
+        option.Some(state) -> {
+          finish_message_stream_recording(request_id, state)
+        }
+        option.None -> Nil
+      }
+    }
+    StreamStart(_request_id, _headers) -> Nil
+    DecodeError(error_reason) -> {
+      // DecodeError indicates a serious FFI problem at the FFI boundary.
+      io.println_error(
+        "Internal DecodeError in HTTP stream message recorder: " <> error_reason,
+      )
+      Nil
+    }
+  }
+}
+
+fn finish_message_stream_recording(
+  request_id: RequestId,
+  state: MessageStreamRecorderState,
+) -> Nil {
+  let ordered_chunks = list.reverse(state.chunks)
+
+  let response =
+    recording.StreamingResponse(
+      status: 200,
+      // TODO: capture actual status and headers from StreamStart
+      headers: [],
+      chunks: ordered_chunks,
+    )
+
+  let rec =
+    recording.Recording(request: state.recorded_request, response: response)
+
+  recorder.add_recording(state.recorder, rec)
+  remove_message_stream_recorder(request_id)
 }

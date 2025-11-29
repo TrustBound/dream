@@ -8,6 +8,7 @@ import dream_http_client/recording
 import dream_http_client/storage
 import gleam/dict
 import gleam/erlang/process
+import gleam/io
 import gleam/list
 import gleam/option
 import gleam/otp/actor.{type Next}
@@ -135,12 +136,14 @@ fn handle_recorder_message(
     FindRecording(request, reply_to) -> {
       let signature = matching.build_signature(request, state.matching)
       case dict.get(state.recordings, signature) {
-        Ok(rec) -> {
-          process.send(reply_to, FoundRecording(option.Some(rec)))
+        Ok(recording_value) -> {
+          process.send(reply_to, FoundRecording(option.Some(recording_value)))
           actor.continue(state)
         }
-        Error(_not_found) -> {
-          // Recording not found in dict - this is normal in playback mode
+        Error(not_found) -> {
+          // Recording not found in dict - this is normal in playback mode.
+          // Bind the error for clarity but do not treat it as a failure.
+          let _unused_not_found = not_found
           process.send(reply_to, FoundRecording(option.None))
           actor.continue(state)
         }
@@ -219,21 +222,33 @@ pub fn is_record_mode(recorder: Recorder) -> Bool {
 
   let selector =
     process.new_selector()
-    |> process.select_map(reply_subject, fn(msg) { msg })
+    |> process.select_map(reply_subject, identity_recorder_response)
 
   case process.selector_receive(selector, 1000) {
     Ok(ModeIsRecord(is_record)) -> is_record
-    Ok(_unexpected_message) -> {
-      // Received wrong message type - recorder is broken
-      // Return False as safe default
+    Ok(unexpected_message) -> {
+      // Received wrong message type - recorder is broken. Log the
+      // unexpected message and return False as a safe default.
+      io.println_error(
+        "Recorder returned unexpected response to CheckMode: "
+        <> string.inspect(unexpected_message),
+      )
       False
     }
-    Error(_timeout) -> {
-      // Process timeout (1 second) - recorder is not responding
-      // Return False as safe default
+    Error(timeout_error) -> {
+      // Process timeout (1 second) - recorder is not responding. Log the
+      // timeout and return False as a safe default.
+      io.println_error(
+        "Recorder did not respond to CheckMode within 1 second: "
+        <> string.inspect(timeout_error),
+      )
       False
     }
   }
+}
+
+fn identity_recorder_response(response: RecorderResponse) -> RecorderResponse {
+  response
 }
 
 /// Find a matching recording for a request
@@ -250,18 +265,26 @@ pub fn find_recording(
 
   let selector =
     process.new_selector()
-    |> process.select_map(reply_subject, fn(msg) { msg })
+    |> process.select_map(reply_subject, identity_recorder_response)
 
   case process.selector_receive(selector, 1000) {
     Ok(FoundRecording(rec_opt)) -> rec_opt
-    Ok(_unexpected_message) -> {
-      // Received wrong message type - recorder is broken
-      // Return None as safe default
+    Ok(unexpected_message) -> {
+      // Received wrong message type - recorder is broken. Log the
+      // unexpected message and return None as a safe default.
+      io.println_error(
+        "Recorder returned unexpected response to FindRecording: "
+        <> string.inspect(unexpected_message),
+      )
       option.None
     }
-    Error(_timeout) -> {
-      // Process timeout (1 second) - recorder is not responding
-      // Return None as safe default
+    Error(timeout_error) -> {
+      // Process timeout (1 second) - recorder is not responding. Log the
+      // timeout and return None as a safe default.
+      io.println_error(
+        "Recorder did not respond to FindRecording within 1 second: "
+        <> string.inspect(timeout_error),
+      )
       option.None
     }
   }
@@ -277,18 +300,26 @@ pub fn get_recordings(recorder: Recorder) -> List(recording.Recording) {
 
   let selector =
     process.new_selector()
-    |> process.select_map(reply_subject, fn(msg) { msg })
+    |> process.select_map(reply_subject, identity_recorder_response)
 
   case process.selector_receive(selector, 1000) {
     Ok(GotRecordings(recordings)) -> recordings
-    Ok(_unexpected_message) -> {
-      // Received wrong message type - recorder is broken
-      // Return empty list as safe default
+    Ok(unexpected_message) -> {
+      // Received wrong message type - recorder is broken. Log the
+      // unexpected message and return an empty list as a safe default.
+      io.println_error(
+        "Recorder returned unexpected response to GetRecordings: "
+        <> string.inspect(unexpected_message),
+      )
       []
     }
-    Error(_timeout) -> {
-      // Process timeout (1 second) - recorder is not responding
-      // Return empty list as safe default
+    Error(timeout_error) -> {
+      // Process timeout (1 second) - recorder is not responding. Log the
+      // timeout and return an empty list as a safe default.
+      io.println_error(
+        "Recorder did not respond to GetRecordings within 1 second: "
+        <> string.inspect(timeout_error),
+      )
       []
     }
   }
@@ -306,7 +337,7 @@ pub fn stop(recorder: Recorder) -> Result(Nil, String) {
 
   let selector =
     process.new_selector()
-    |> process.select_map(reply_subject, fn(msg) { msg })
+    |> process.select_map(reply_subject, identity_recorder_response)
 
   case process.selector_receive(selector, 5000) {
     Ok(Stopped(result)) -> result
@@ -316,9 +347,13 @@ pub fn stop(recorder: Recorder) -> Result(Nil, String) {
         <> string.inspect(unexpected_message),
       )
     }
-    Error(_timeout) -> {
-      // Process timeout (5 seconds) - recorder is not responding
-      Error("Recorder did not respond within 5 seconds")
+    Error(timeout_error) -> {
+      // Process timeout (5 seconds) - recorder is not responding. Include the
+      // timeout error details in the message.
+      Error(
+        "Recorder did not respond within 5 seconds: "
+        <> string.inspect(timeout_error),
+      )
     }
   }
 }

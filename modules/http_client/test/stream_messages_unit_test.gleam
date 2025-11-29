@@ -2,7 +2,9 @@ import dream_http_client/client
 import gleam/bit_array
 import gleam/erlang/atom
 import gleam/erlang/process
+import gleam/io
 import gleam/list
+import gleam/string
 import gleeunit/should
 
 /// Helper to send a mock httpc message directly to current process
@@ -19,14 +21,9 @@ fn is_content_type_json(header: #(String, String)) -> Bool {
   }
 }
 
-fn is_string_tuple_header(header: #(String, String)) -> Bool {
-  case header {
-    #(name, value) -> {
-      let _ = name
-      let _ = value
-      True
-    }
-  }
+fn is_string_tuple_header(_header: #(String, String)) -> Bool {
+  // Type alone is sufficient to prove we normalized to #(String, String).
+  True
 }
 
 /// Test: Selector correctly decodes StreamStart messages
@@ -98,7 +95,13 @@ pub fn decode_chunk_test() {
 fn verify_chunk_string(received_data: BitArray) -> Nil {
   case bit_array.to_string(received_data) {
     Ok(str) -> str |> should.equal("Hello, World!")
-    Error(_) -> should.fail()
+    Error(decode_error) -> {
+      io.println(
+        "verify_chunk_string failed to decode chunk: "
+        <> string.inspect(decode_error),
+      )
+      should.fail()
+    }
   }
 
   Nil

@@ -93,20 +93,20 @@ fn method_to_string(method: http.Method) -> String {
   }
 }
 
-fn build_url(req: recording.RecordedRequest) -> String {
-  let port_string = case req.port {
-    option.Some(p) -> ":" <> int.to_string(p)
+fn build_url(request: recording.RecordedRequest) -> String {
+  let port_string = case request.port {
+    option.Some(port) -> ":" <> int.to_string(port)
     option.None -> ""
   }
-  let query_string = case req.query {
-    option.Some(q) -> "?" <> q
+  let query_string = case request.query {
+    option.Some(query) -> "?" <> query
     option.None -> ""
   }
-  scheme_to_string(req.scheme)
+  scheme_to_string(request.scheme)
   <> "://"
-  <> req.host
+  <> request.host
   <> port_string
-  <> req.path
+  <> request.path
   <> query_string
 }
 

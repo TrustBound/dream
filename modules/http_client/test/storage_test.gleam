@@ -74,7 +74,7 @@ pub fn save_recordings_creates_file_and_load_recordings_loads_it_test() {
               entry.request.host |> should.equal("api.example.com")
               entry.request.path |> should.equal("/users")
             }
-            Error(_) -> {
+            Error(Nil) -> {
               io.println("Expected one recording")
               should.fail()
             }

@@ -4,6 +4,7 @@ import gleam/bit_array
 import gleam/bytes_tree
 import gleam/erlang/process
 import gleam/http
+import gleam/io
 import gleam/list
 import gleam/set.{type Set}
 import gleam/string
@@ -14,9 +15,8 @@ import gleeunit/should
 fn drain_mailbox(selector: process.Selector(client.StreamMessage)) -> Nil {
   case process.selector_receive(selector, 0) {
     Ok(_msg) -> drain_mailbox(selector)
-    Error(timeout) -> {
+    Error(Nil) -> {
       // Mailbox drained - no more messages available
-      let _ = timeout
       Nil
     }
   }
@@ -131,9 +131,8 @@ fn handle_collect_receive(
   // Increased timeout for mock server which has delays between chunks
   case process.selector_receive(selector, 5000) {
     Ok(msg) -> handle_collected_message(selector, acc, remaining, msg)
-    Error(timeout) -> {
+    Error(Nil) -> {
       // Timeout waiting for message - handle appropriately
-      let _ = timeout
       handle_collect_timeout(selector, acc, remaining)
     }
   }
@@ -440,9 +439,8 @@ fn handle_chunk_receive(
   // Increased timeout for mock server which has delays between chunks
   case process.selector_receive(selector, 5000) {
     Ok(msg) -> extract_chunk_or_retry(selector, attempts, msg)
-    Error(timeout) -> {
+    Error(Nil) -> {
       // Timeout - retry if attempts remaining
-      let _ = timeout
       receive_first_chunk(selector, attempts - 1)
     }
   }
@@ -530,10 +528,8 @@ fn handle_header_receive_for_req_id(
         msg,
         expected_req_id,
       )
-    Error(timeout) -> {
-      let _ = timeout
+    Error(Nil) ->
       receive_stream_start_for_req_id(selector, attempts - 1, expected_req_id)
-    }
   }
 }
 
@@ -567,9 +563,8 @@ fn handle_header_receive(
   // Increased timeout for mock server which has delays between chunks
   case process.selector_receive(selector, 5000) {
     Ok(msg) -> extract_headers_or_retry(selector, attempts, msg)
-    Error(timeout) -> {
+    Error(Nil) -> {
       // Timeout - retry if attempts remaining
-      let _ = timeout
       receive_stream_start_headers(selector, attempts - 1)
     }
   }
@@ -605,7 +600,13 @@ pub fn stream_yielder_test() {
     list.all(results, fn(result) {
       case result {
         Ok(_) -> True
-        Error(_) -> False
+        Error(error_reason) -> {
+          io.println(
+            "stream_yielder_test saw unexpected streaming error: "
+            <> error_reason,
+          )
+          False
+        }
       }
     })
   all_ok |> should.be_true()
@@ -614,7 +615,9 @@ pub fn stream_yielder_test() {
   case results {
     [Ok(first), ..] -> verify_first_chunk_size(first)
     [Error(error_msg), ..] -> {
-      let _ = error_msg
+      io.println(
+        "stream_yielder_test first chunk failed with error: " <> error_msg,
+      )
       should.fail()
     }
     [] -> should.fail()
@@ -642,7 +645,9 @@ pub fn send_root_test() {
       { string.length(body) > 0 } |> should.be_true()
     }
     Error(send_error) -> {
-      let _ = send_error
+      io.println(
+        "send_root_test expected success but got error: " <> send_error,
+      )
       should.fail()
     }
   }
@@ -666,7 +671,7 @@ pub fn send_get_test() {
       { string.contains(body, "/get") } |> should.be_true()
     }
     Error(send_error) -> {
-      let _ = send_error
+      io.println("send_get_test expected success but got error: " <> send_error)
       should.fail()
     }
   }
@@ -690,7 +695,9 @@ pub fn send_json_test() {
       { string.contains(body, "success") } |> should.be_true()
     }
     Error(send_error) -> {
-      let _ = send_error
+      io.println(
+        "send_json_test expected success but got error: " <> send_error,
+      )
       should.fail()
     }
   }
@@ -712,7 +719,9 @@ pub fn send_text_test() {
       body |> should.equal("Hello, World!")
     }
     Error(send_error) -> {
-      let _ = send_error
+      io.println(
+        "send_text_test expected success but got error: " <> send_error,
+      )
       should.fail()
     }
   }
@@ -736,7 +745,9 @@ pub fn send_uuid_test() {
     }
     Error(send_error) -> {
       // Should successfully send request
-      let _ = send_error
+      io.println(
+        "send_uuid_test expected success but got error: " <> send_error,
+      )
       should.fail()
     }
   }
@@ -905,9 +916,8 @@ pub fn cancel_stream_stops_messages_test() {
   let start_msg = receive_stream_start_for_req_id(selector, 10, req_id)
   case start_msg {
     Ok(_) -> verify_cancellation(selector, req_id)
-    Error(no_start) -> {
+    Error(Nil) -> {
       // Should receive StreamStart before cancelling
-      let _ = no_start
       should.fail()
     }
   }
@@ -948,7 +958,7 @@ fn count_received_messages_for_req_id(
         True -> 1
         False -> 0
       }
-    Error(_) -> 0
+    Error(Nil) -> 0
   }
   let count2 = case msg2 {
     Ok(msg) ->
@@ -956,7 +966,7 @@ fn count_received_messages_for_req_id(
         True -> 1
         False -> 0
       }
-    Error(_) -> 0
+    Error(Nil) -> 0
   }
   let count3 = case msg3 {
     Ok(msg) ->
@@ -964,7 +974,7 @@ fn count_received_messages_for_req_id(
         True -> 1
         False -> 0
       }
-    Error(_) -> 0
+    Error(Nil) -> 0
   }
   count1 + count2 + count3
 }
