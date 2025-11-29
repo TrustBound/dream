@@ -167,7 +167,9 @@ import gleam/yielder
 ///
 /// Represents a complete HTTP request with all its components. Use the builder
 /// pattern with functions like `host()`, `path()`, `method()`, etc. to configure
-/// the request, then send it with `fetch.send()` or `stream.send()`.
+/// the request, then execute it with `send/1`, `stream_yielder/1`, or
+/// `stream_messages/1` depending on whether you want a blocking, yielder-based,
+/// or message-based streaming API.
 ///
 /// ## Fields
 ///

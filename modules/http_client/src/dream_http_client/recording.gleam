@@ -56,6 +56,14 @@ pub type RecordingFile {
 // JSON Encoders
 // ============================================================================
 
+/// Encode a `RecordingFile` to JSON
+///
+/// This helper converts an in-memory `RecordingFile` value into a `json.Json`
+/// tree that can be rendered to a string and written to disk. It is used by
+/// the storage module when persisting recordings.
+///
+/// Most callers should use `storage.save_recordings/2` instead of calling this
+/// function directly.
 pub fn encode_recording_file(file: RecordingFile) -> json.Json {
   let entries_json = list.map(file.entries, encode_recording)
   json.object([
@@ -180,6 +188,15 @@ fn encode_scheme(scheme: http.Scheme) -> json.Json {
 // JSON Decoders
 // ============================================================================
 
+/// Decode a JSON string into a `RecordingFile`
+///
+/// Parses the given JSON string and attempts to decode it into a
+/// `RecordingFile` value. This is the inverse of `encode_recording_file/1` and
+/// is used by the storage module when loading recordings from disk.
+///
+/// On success, returns the decoded `RecordingFile`. On failure, returns a
+/// human-readable error message describing why the JSON could not be parsed or
+/// decoded.
 pub fn decode_recording_file(
   json_string: String,
 ) -> Result(RecordingFile, String) {
