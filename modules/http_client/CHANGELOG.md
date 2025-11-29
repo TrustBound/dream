@@ -5,6 +5,46 @@ All notable changes to `dream_http_client` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.1.1 - 2025-11-29
+
+### Fixed
+
+**Critical: Streaming Recording Now Actually Works**
+
+- Fixed broken streaming recording in `stream_yielder()` - was only doing playback, not recording
+- Fixed missing recorder integration in `stream_messages()` - had no recording implementation at all
+- Fixed `RequestId` type safety by eliminating `Dynamic` type leak - now wraps `String` properly
+- Fixed ETS-based bidirectional mapping for stream cancellation in recorded streams
+- Streaming recording now captures chunks and timing delays as they arrive, not just on completion
+
+**Error Handling and Code Quality**
+
+- Eliminated all error discarding with underscore patterns (`Error(_)`, `Error(_error)`) throughout the module
+- Added explicit error logging with `io.println_error()` to surface previously-silent failures
+- Flattened deeply nested case expressions into named helper functions for maintainability
+- Improved error messages and documentation for debugging
+
+**Documentation**
+
+- Added comprehensive documentation for `encode_recording_file()` and `decode_recording_file()`
+- Updated `ClientRequest` module docs to reference current public API entrypoints
+- Clarified expected error logging in tests (connection failures and timeouts are intentional)
+
+### Changed
+
+- Recording storage moved from `/tmp` to `build/` directory (cleaned by `gleam clean`)
+- Added `dream_ets` dependency to project for ETS state management
+- Internal variables renamed for clarity throughout (e.g., `req` → `client_request`, `rec` → `recorder_instance`)
+
+### Technical Notes
+
+- The streaming recording implementation was fundamentally broken in 2.1.0 - tests were rigged by manually creating `Recording` objects instead of making real HTTP requests
+- Users who tried to record streaming requests in 2.1.0 got empty recordings
+- This release actually implements what 2.1.0 claimed to provide
+- `RequestId` strings are generated from httpc refs (e.g., `#Ref<0.123.456>`) - unique per VM but not stable across restarts
+- Recording only adds overhead when recorder is attached in Record mode - zero cost otherwise
+- ETS tables (`dream_http_client_stream_recorders`, `dream_http_client_ref_mapping`) are created on-demand
+
 ## 2.1.0 - 2025-11-28
 
 ### Added
