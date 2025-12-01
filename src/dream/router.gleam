@@ -352,14 +352,11 @@ pub fn find_route(
 
   case trie_module.lookup(router_value.trie, method_string, path_segments) {
     option.Some(trie_module.Match(handler, params)) -> {
-      // Remap params using the route's param_names
-      // Params are accumulated in reverse order during traversal, so reverse them first
-      // to get path order, remap, then reverse back to maintain backward compatibility
+      // Params are accumulated in reverse order during traversal, so reverse them
+      // to get path order (first param in path = first in list)
       let reversed_params = list.reverse(params)
       let remapped_params =
         remap_params_to_route_names(reversed_params, handler.param_names)
-      // Reverse back to maintain backward compatibility (last param first)
-      let final_params = list.reverse(remapped_params)
 
       let route =
         Route(
@@ -369,7 +366,7 @@ pub fn find_route(
           middleware: handler.middleware,
           streaming: handler.streaming,
         )
-      option.Some(#(route, final_params))
+      option.Some(#(route, remapped_params))
     }
     option.None -> option.None
   }
@@ -414,6 +411,7 @@ fn extract_param_name_from_segment(segment: Segment) -> option.Option(String) {
     trie_module.SingleWildcard(option.None) -> option.Some("wildcard")
     trie_module.MultiWildcard(option.None) -> option.Some("path")
     trie_module.ExtensionPattern(_) -> option.None
+    trie_module.LiteralExtension(_, _) -> option.None
     trie_module.Literal(_) -> option.None
   }
 }
