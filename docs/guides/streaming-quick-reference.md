@@ -326,25 +326,33 @@ pub fn get_data(request, context, services) {
 ## Testing Streaming
 
 ```gleam
-import gleeunit/should
+import dream_test/unit.{describe, it}
+import dream_test/assertions/should.{equal, or_fail_with, should, fail_with}
 
-pub fn stream_response_yields_chunks_test() {
-  // Arrange
-  let stream =
-    yielder.range(1, 3)
-    |> yielder.map(int_to_byte)
-  
-  // Act
-  let response = stream_response(status.ok, stream, "application/octet-stream")
-  
-  // Assert
-  case response.body {
-    Stream(s) -> {
-      let chunks = yielder.to_list(s)
-      list.length(chunks) |> should.equal(3)
-    }
-    _ -> should.fail()
-  }
+pub fn tests() {
+  describe("streaming", [
+    it("yields expected chunks", fn() {
+      // Arrange
+      let stream =
+        yielder.range(1, 3)
+        |> yielder.map(int_to_byte)
+      
+      // Act
+      let response = stream_response(status.ok, stream, "application/octet-stream")
+      
+      // Assert
+      case response.body {
+        Stream(s) -> {
+          yielder.to_list(s)
+          |> list.length()
+          |> should()
+          |> equal(3)
+          |> or_fail_with("Should have 3 chunks")
+        }
+        _ -> fail_with("Expected Stream body")
+      }
+    }),
+  ])
 }
 
 fn int_to_byte(n: Int) -> BitArray {

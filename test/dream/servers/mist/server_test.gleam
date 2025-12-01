@@ -1,224 +1,270 @@
+//// Tests for dream/servers/mist/server module.
+
 import dream/dream
 import dream/router.{router}
 import dream/servers/mist/server
+import dream_test/assertions/should.{equal, or_fail_with, should}
+import dream_test/types.{AssertionFailed, AssertionFailure, AssertionOk}
+import dream_test/unit.{type UnitTest, after_each, before_each, describe, it}
+import fixtures/hooks.{start_server, stop_server, test_server_port}
 import gleam/erlang/process
-import gleam/io
+import gleam/option.{None}
 import gleam/string
-import gleeunit/should
 
-pub fn new_creates_dream_instance_with_defaults_test() {
-  // Arrange & Act
-  let dream_instance = server.new()
+// ============================================================================
+// Tests
+// ============================================================================
 
-  // Assert - Verify default 10MB max body size
-  dream.get_max_body_size(dream_instance)
-  |> should.equal(10_000_000)
+pub fn tests() -> UnitTest {
+  describe("server", [
+    builder_tests(),
+    listen_tests(),
+    lifecycle_tests(),
+    bind_tests(),
+  ])
 }
 
-pub fn router_sets_router_on_dream_instance_test() {
-  // Arrange
-  let dream_instance = server.new()
-  let test_router = router()
+fn builder_tests() -> UnitTest {
+  describe("builder", [
+    it("new creates dream instance with 10MB default max body size", fn() {
+      // Arrange
+      let dream_instance = server.new()
 
-  // Act
-  let updated_dream = server.router(dream_instance, test_router)
+      // Act
+      let result = dream.get_max_body_size(dream_instance)
 
-  // Assert
-  // Router should be set (opaque type, so just verify it returns)
-  let _ = updated_dream
-  Nil
+      // Assert
+      result
+      |> should()
+      |> equal(10_000_000)
+      |> or_fail_with("Default max body size should be 10MB")
+    }),
+    it("router sets router on dream instance", fn() {
+      // Arrange
+      let dream_instance = server.new()
+      let test_router = router()
+
+      // Act
+      let _configured = server.router(dream_instance, test_router)
+
+      // Assert
+      AssertionOk
+    }),
+    it("bind sets bind address", fn() {
+      // Arrange
+      let dream_instance = server.new()
+      let test_router = router()
+      let bind_address = "127.0.0.1"
+
+      // Act
+      let _configured =
+        dream_instance
+        |> server.router(test_router)
+        |> server.bind(bind_address)
+
+      // Assert
+      AssertionOk
+    }),
+    it("max_body_size sets max body size", fn() {
+      // Arrange
+      let dream_instance = server.new()
+      let test_router = router()
+      let max_size = 2048
+
+      // Act
+      let _configured =
+        dream_instance
+        |> server.router(test_router)
+        |> server.max_body_size(max_size)
+
+      // Assert
+      AssertionOk
+    }),
+  ])
 }
 
-pub fn bind_sets_bind_address_test() {
-  // Arrange
-  let dream_instance = server.new()
-  let test_router = router()
-  let dream_with_router = server.router(dream_instance, test_router)
+fn listen_tests() -> UnitTest {
+  describe("listen_with_handle", [
+    before_each(start_server),
+    after_each(stop_server),
+    it("starts on expected port", fn() {
+      // Arrange
+      let expected_port = 19_999
 
-  // Act
-  let bound_dream = server.bind(dream_with_router, "127.0.0.1")
+      // Act
+      let actual_port = test_server_port
 
-  // Assert
-  // Bind should be set (opaque type, so just verify it returns)
-  let _ = bound_dream
-  Nil
+      // Assert
+      actual_port
+      |> should()
+      |> equal(expected_port)
+      |> or_fail_with("Test server port should be 19999")
+    }),
+  ])
 }
 
-pub fn max_body_size_sets_max_body_size_test() {
-  // Arrange
-  let dream_instance = server.new()
-  let test_router = router()
-  let dream_with_router = server.router(dream_instance, test_router)
+fn lifecycle_tests() -> UnitTest {
+  describe("server lifecycle", [
+    it("listen_with_handle returns server handle", fn() {
+      // Arrange
+      let dream_instance =
+        server.new()
+        |> server.router(router())
+      let port = 19_990
 
-  // Act
-  let updated_dream = server.max_body_size(dream_with_router, 2048)
+      // Act
+      let result = server.listen_with_handle(dream_instance, port)
 
-  // Assert
-  // Max body size should be set (opaque type, so just verify it returns)
-  let _ = updated_dream
-  Nil
+      // Assert
+      case result {
+        Ok(handle) -> {
+          server.stop(handle)
+          AssertionOk
+        }
+        Error(start_error) ->
+          AssertionFailed(AssertionFailure(
+            operator: "listen_with_handle",
+            message: "Server failed to start on port 19990: "
+              <> string.inspect(start_error),
+            payload: None,
+          ))
+      }
+    }),
+    it("stop actually stops server", fn() {
+      // Arrange
+      let dream_instance =
+        server.new()
+        |> server.router(router())
+      let port = 19_991
+
+      // Act
+      let result = server.listen_with_handle(dream_instance, port)
+
+      // Assert
+      case result {
+        Ok(handle) -> {
+          process.sleep(100)
+          server.stop(handle)
+          process.sleep(100)
+          AssertionOk
+        }
+        Error(start_error) ->
+          AssertionFailed(AssertionFailure(
+            operator: "stop",
+            message: "Server failed to start: " <> string.inspect(start_error),
+            payload: None,
+          ))
+      }
+    }),
+    it("stop is idempotent", fn() {
+      // Arrange
+      let dream_instance =
+        server.new()
+        |> server.router(router())
+      let port = 19_992
+
+      // Act
+      let result = server.listen_with_handle(dream_instance, port)
+
+      // Assert
+      case result {
+        Ok(handle) -> {
+          process.sleep(100)
+          server.stop(handle)
+          server.stop(handle)
+          server.stop(handle)
+          AssertionOk
+        }
+        Error(start_error) ->
+          AssertionFailed(AssertionFailure(
+            operator: "stop_idempotent",
+            message: "Server failed to start: " <> string.inspect(start_error),
+            payload: None,
+          ))
+      }
+    }),
+  ])
 }
 
-pub fn listen_with_handle_returns_server_handle_test() {
-  // Arrange
-  let dream_instance = server.new()
-  let test_router = router()
-  let dream_with_router = server.router(dream_instance, test_router)
-  let port = 9999
+fn bind_tests() -> UnitTest {
+  describe("bind configuration", [
+    it("bind configuration persists through listen", fn() {
+      // Arrange
+      let dream_instance =
+        server.new()
+        |> server.router(router())
+        |> server.bind("127.0.0.1")
+      let port = 19_993
 
-  // Act
-  let result = server.listen_with_handle(dream_with_router, port)
+      // Act
+      let result = server.listen_with_handle(dream_instance, port)
 
-  // Assert
-  case result {
-    Ok(handle) -> {
-      // Verify handle is valid by stopping it
-      server.stop(handle)
-      Nil
-    }
-    Error(err) -> {
-      io.println("✗ Server failed to start")
-      io.println(string.inspect(err))
-      should.fail()
-    }
-  }
-}
+      // Assert
+      case result {
+        Ok(handle) -> {
+          server.stop(handle)
+          AssertionOk
+        }
+        Error(start_error) ->
+          AssertionFailed(AssertionFailure(
+            operator: "bind_persists",
+            message: "Server with bind() failed to start on port 19993: "
+              <> string.inspect(start_error),
+            payload: None,
+          ))
+      }
+    }),
+    it("bind to localhost works", fn() {
+      // Arrange
+      let dream_instance =
+        server.new()
+        |> server.router(router())
+        |> server.bind("localhost")
+      let port = 19_994
 
-pub fn stop_actually_stops_server_test() {
-  // Arrange
-  let dream_instance = server.new()
-  let test_router = router()
-  let dream_with_router = server.router(dream_instance, test_router)
-  let port = 9998
+      // Act
+      let result = server.listen_with_handle(dream_instance, port)
 
-  // Act - Start server
-  let assert Ok(handle) = server.listen_with_handle(dream_with_router, port)
+      // Assert
+      case result {
+        Ok(handle) -> {
+          server.stop(handle)
+          AssertionOk
+        }
+        Error(start_error) ->
+          AssertionFailed(AssertionFailure(
+            operator: "bind_localhost",
+            message: "Server with bind('localhost') failed to start: "
+              <> string.inspect(start_error),
+            payload: None,
+          ))
+      }
+    }),
+    it("bind to all interfaces works", fn() {
+      // Arrange
+      let dream_instance =
+        server.new()
+        |> server.router(router())
+        |> server.bind("0.0.0.0")
+      let port = 19_995
 
-  // Wait for server to start
-  process.sleep(100)
+      // Act
+      let result = server.listen_with_handle(dream_instance, port)
 
-  // Stop the server
-  server.stop(handle)
-
-  // Wait for server to stop
-  process.sleep(100)
-
-  // Assert - stop() completed without error
-  Nil
-}
-
-pub fn stop_idempotent_test() {
-  // Arrange
-  let dream_instance = server.new()
-  let test_router = router()
-  let dream_with_router = server.router(dream_instance, test_router)
-  let port = 9997
-
-  // Act - Start server
-  let assert Ok(handle) = server.listen_with_handle(dream_with_router, port)
-
-  // Wait for server to start
-  process.sleep(100)
-
-  // Stop the server multiple times
-  server.stop(handle)
-  server.stop(handle)
-  server.stop(handle)
-
-  // Assert - Should not crash
-  // If we get here without panicking, the test passes
-  Nil
-}
-
-pub fn bind_configuration_persists_through_listen_test() {
-  // Regression test for bug where bind() configuration was lost in listen()
-  // 
-  // Bug: listen_internal() was creating a fresh mist server with mist.new(),
-  // which discarded the bind_interface configuration set by bind().
-  //
-  // Fix: Store bind_interface in Dream type and apply it in listen_internal()
-
-  // Arrange
-  let dream_instance = server.new()
-  let test_router = router()
-  let port = 9996
-
-  // Act - Configure with bind() then listen
-  let result =
-    dream_instance
-    |> server.router(test_router)
-    |> server.bind("127.0.0.1")
-    |> server.listen_with_handle(port)
-
-  // Assert - Server should start successfully with bound interface
-  case result {
-    Ok(handle) -> {
-      // Success! Bind configuration was preserved through listen
-      server.stop(handle)
-      Nil
-    }
-    Error(err) -> {
-      io.println("✗ Server with bind() failed to start")
-      io.println(string.inspect(err))
-      should.fail()
-    }
-  }
-}
-
-pub fn bind_to_localhost_works_test() {
-  // Verify binding to "localhost" works (common use case)
-
-  // Arrange
-  let dream_instance = server.new()
-  let test_router = router()
-  let port = 9995
-
-  // Act
-  let result =
-    dream_instance
-    |> server.router(test_router)
-    |> server.bind("localhost")
-    |> server.listen_with_handle(port)
-
-  // Assert
-  case result {
-    Ok(handle) -> {
-      server.stop(handle)
-      Nil
-    }
-    Error(err) -> {
-      io.println("✗ Server with bind('localhost') failed to start")
-      io.println(string.inspect(err))
-      should.fail()
-    }
-  }
-}
-
-pub fn bind_to_all_interfaces_works_test() {
-  // Verify binding to "0.0.0.0" works (listen on all interfaces)
-
-  // Arrange
-  let dream_instance = server.new()
-  let test_router = router()
-  let port = 9994
-
-  // Act
-  let result =
-    dream_instance
-    |> server.router(test_router)
-    |> server.bind("0.0.0.0")
-    |> server.listen_with_handle(port)
-
-  // Assert
-  case result {
-    Ok(handle) -> {
-      server.stop(handle)
-      Nil
-    }
-    Error(err) -> {
-      io.println("✗ Server with bind('0.0.0.0') failed to start")
-      io.println(string.inspect(err))
-      should.fail()
-    }
-  }
+      // Assert
+      case result {
+        Ok(handle) -> {
+          server.stop(handle)
+          AssertionOk
+        }
+        Error(start_error) ->
+          AssertionFailed(AssertionFailure(
+            operator: "bind_all",
+            message: "Server with bind('0.0.0.0') failed to start: "
+              <> string.inspect(start_error),
+            payload: None,
+          ))
+      }
+    }),
+  ])
 }
