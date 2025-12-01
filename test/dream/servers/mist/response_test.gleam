@@ -24,6 +24,7 @@ pub fn tests() -> UnitTest {
 fn convert_tests() -> UnitTest {
   describe("convert", [
     it("preserves status code", fn() {
+      // Arrange
       let dream_response =
         Response(
           status: 200,
@@ -33,12 +34,17 @@ fn convert_tests() -> UnitTest {
           content_type: option.Some("text/plain; charset=utf-8"),
         )
 
-      mist_response.convert(dream_response).status
+      // Act
+      let result = mist_response.convert(dream_response)
+
+      // Assert
+      result.status
       |> should()
       |> equal(200)
       |> or_fail_with("Status should be 200")
     }),
     it("includes custom headers", fn() {
+      // Arrange
       let dream_response =
         Response(
           status: 200,
@@ -48,12 +54,17 @@ fn convert_tests() -> UnitTest {
           content_type: option.None,
         )
 
-      mist_response.convert(dream_response)
+      // Act
+      let result = mist_response.convert(dream_response)
+
+      // Assert
+      result
       |> should()
       |> have_mist_header("x-custom-header", "custom-value")
       |> or_fail_with("Should have custom header")
     }),
     it("includes content-type header", fn() {
+      // Arrange
       let dream_response =
         Response(
           status: 200,
@@ -63,12 +74,17 @@ fn convert_tests() -> UnitTest {
           content_type: option.Some("text/plain; charset=utf-8"),
         )
 
-      mist_response.convert(dream_response)
+      // Act
+      let result = mist_response.convert(dream_response)
+
+      // Assert
+      result
       |> should()
       |> have_mist_header("content-type", "text/plain; charset=utf-8")
       |> or_fail_with("Should have content-type header")
     }),
     it("converts simple cookie to Set-Cookie header", fn() {
+      // Arrange
       let cookie = simple_cookie("session", "abc123")
       let dream_response =
         Response(
@@ -79,12 +95,17 @@ fn convert_tests() -> UnitTest {
           content_type: option.None,
         )
 
-      mist_response.convert(dream_response)
+      // Act
+      let result = mist_response.convert(dream_response)
+
+      // Assert
+      result
       |> should()
       |> have_mist_header_containing("set-cookie", "session=abc123")
       |> or_fail_with("Should have session cookie")
     }),
     it("preserves other headers when cookie present", fn() {
+      // Arrange
       let cookie = simple_cookie("session", "abc123")
       let dream_response =
         Response(
@@ -95,12 +116,17 @@ fn convert_tests() -> UnitTest {
           content_type: option.None,
         )
 
-      mist_response.convert(dream_response)
+      // Act
+      let result = mist_response.convert(dream_response)
+
+      // Assert
+      result
       |> should()
       |> have_mist_header("x-test", "value")
       |> or_fail_with("Should preserve X-Test header")
     }),
     it("preserves multiple headers", fn() {
+      // Arrange
       let dream_response =
         Response(
           status: 201,
@@ -114,12 +140,17 @@ fn convert_tests() -> UnitTest {
           content_type: option.Some("application/json"),
         )
 
-      mist_response.convert(dream_response)
+      // Act
+      let result = mist_response.convert(dream_response)
+
+      // Assert
+      result
       |> should()
       |> have_mist_header("x-request-id", "req-123")
       |> or_fail_with("Should have X-Request-ID header")
     }),
     it("preserves cache-control header", fn() {
+      // Arrange
       let dream_response =
         Response(
           status: 201,
@@ -129,12 +160,17 @@ fn convert_tests() -> UnitTest {
           content_type: option.None,
         )
 
-      mist_response.convert(dream_response)
+      // Act
+      let result = mist_response.convert(dream_response)
+
+      // Assert
+      result
       |> should()
       |> have_mist_header("cache-control", "no-cache")
       |> or_fail_with("Should have Cache-Control header")
     }),
     it("includes Secure attribute for secure cookie", fn() {
+      // Arrange
       let cookie = secure_cookie("auth_token", "secret123")
       let dream_response =
         Response(
@@ -145,13 +181,18 @@ fn convert_tests() -> UnitTest {
           content_type: option.None,
         )
 
-      mist_response.convert(dream_response)
+      // Act
+      let result = mist_response.convert(dream_response)
+
+      // Assert
+      result
       |> should()
       |> extract_mist_header_value("set-cookie")
       |> contain_string("Secure")
       |> or_fail_with("Should have Secure attribute")
     }),
     it("includes HttpOnly attribute for secure cookie", fn() {
+      // Arrange
       let cookie = secure_cookie("auth_token", "secret123")
       let dream_response =
         Response(
@@ -162,13 +203,18 @@ fn convert_tests() -> UnitTest {
           content_type: option.None,
         )
 
-      mist_response.convert(dream_response)
+      // Act
+      let result = mist_response.convert(dream_response)
+
+      // Assert
+      result
       |> should()
       |> extract_mist_header_value("set-cookie")
       |> contain_string("HttpOnly")
       |> or_fail_with("Should have HttpOnly attribute")
     }),
     it("includes SameSite=Strict attribute for secure cookie", fn() {
+      // Arrange
       let cookie = secure_cookie("auth_token", "secret123")
       let dream_response =
         Response(
@@ -179,7 +225,11 @@ fn convert_tests() -> UnitTest {
           content_type: option.None,
         )
 
-      mist_response.convert(dream_response)
+      // Act
+      let result = mist_response.convert(dream_response)
+
+      // Assert
+      result
       |> should()
       |> extract_mist_header_value("set-cookie")
       |> contain_string("SameSite=Strict")

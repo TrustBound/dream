@@ -10,12 +10,17 @@ pub fn tests() -> UnitTest {
   describe("header", [
     describe("get_header", [
       it("returns value when header exists", fn() {
+        // Arrange
         let headers = [
           Header("Content-Type", "application/json"),
           Header("Authorization", "Bearer token"),
         ]
 
-        get_header(headers, "Content-Type")
+        // Act
+        let result = get_header(headers, "Content-Type")
+
+        // Assert
+        result
         |> should()
         |> be_some()
         |> equal("application/json")
@@ -24,7 +29,16 @@ pub fn tests() -> UnitTest {
     ]),
     describe("set_header", [
       it("adds header to empty list", fn() {
-        set_header([], "X-Custom", "value")
+        // Arrange
+        let headers = []
+        let name = "X-Custom"
+        let value = "value"
+
+        // Act
+        let result = set_header(headers, name, value)
+
+        // Assert
+        result
         |> should()
         |> have_length(1)
         |> or_fail_with("Expected one header after set_header")

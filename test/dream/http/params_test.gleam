@@ -32,61 +32,91 @@ pub fn tests() -> UnitTest {
 fn require_int_tests() -> UnitTest {
   describe("require_int", [
     it("returns Ok with valid integer", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_params(Get, "/test", [#("id", "123")])
 
-      require_int(request, "id")
+      // Act
+      let result = require_int(request, "id")
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal(123)
       |> or_fail_with("Should return 123")
     }),
     it("returns error for missing parameter", fn() {
+      // Arrange
       let request = test_request.create_request(Get, "/test")
 
-      require_int(request, "id")
+      // Act
+      let result = require_int(request, "id")
+
+      // Assert
+      result
       |> should()
       |> extract_error_message()
       |> contain_string("Missing")
       |> or_fail_with("Should mention 'Missing'")
     }),
     it("returns error for non-integer", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_params(Get, "/test", [#("id", "abc")])
 
-      require_int(request, "id")
+      // Act
+      let result = require_int(request, "id")
+
+      // Assert
+      result
       |> should()
       |> extract_error_message()
       |> contain_string("integer")
       |> or_fail_with("Should mention 'integer'")
     }),
     it("returns Ok with negative integer", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_params(Get, "/test", [#("id", "-42")])
 
-      require_int(request, "id")
+      // Act
+      let result = require_int(request, "id")
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal(-42)
       |> or_fail_with("Should return -42")
     }),
     it("returns Ok with zero", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_params(Get, "/test", [#("id", "0")])
 
-      require_int(request, "id")
+      // Act
+      let result = require_int(request, "id")
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal(0)
       |> or_fail_with("Should return 0")
     }),
     it("returns Ok with large integer", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_params(Get, "/test", [
           #("id", "999999"),
         ])
 
-      require_int(request, "id")
+      // Act
+      let result = require_int(request, "id")
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal(999_999)
@@ -98,43 +128,63 @@ fn require_int_tests() -> UnitTest {
 fn require_string_tests() -> UnitTest {
   describe("require_string", [
     it("returns Ok with valid parameter", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_params(Get, "/test", [
           #("name", "john"),
         ])
 
-      require_string(request, "name")
+      // Act
+      let result = require_string(request, "name")
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal("john")
       |> or_fail_with("Should return 'john'")
     }),
     it("returns error for missing parameter", fn() {
+      // Arrange
       let request = test_request.create_request(Get, "/test")
 
-      require_string(request, "name")
+      // Act
+      let result = require_string(request, "name")
+
+      // Assert
+      result
       |> should()
       |> extract_error_message()
       |> contain_string("Missing")
       |> or_fail_with("Should mention 'Missing'")
     }),
     it("returns Ok with empty string", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_params(Get, "/test", [#("name", "")])
 
-      require_string(request, "name")
+      // Act
+      let result = require_string(request, "name")
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal("")
       |> or_fail_with("Should return empty string")
     }),
     it("returns Ok with special characters", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_params(Get, "/test", [
           #("name", "user@example"),
         ])
 
-      require_string(request, "name")
+      // Act
+      let result = require_string(request, "name")
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal("user@example")
@@ -146,6 +196,7 @@ fn require_string_tests() -> UnitTest {
 fn require_form_tests() -> UnitTest {
   describe("require_form", [
     it("parses valid form body", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_body(
           Get,
@@ -153,13 +204,18 @@ fn require_form_tests() -> UnitTest {
           "title=Hello&description=World",
         )
 
-      require_form(request)
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> have_length(2)
       |> or_fail_with("Should parse 2 fields")
     }),
     it("extracts title field correctly", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_body(
           Get,
@@ -167,7 +223,11 @@ fn require_form_tests() -> UnitTest {
           "title=Hello&description=World",
         )
 
-      require_form(request)
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> extract_field("title")
@@ -175,6 +235,7 @@ fn require_form_tests() -> UnitTest {
       |> or_fail_with("title should be 'Hello'")
     }),
     it("extracts description field correctly", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_body(
           Get,
@@ -182,7 +243,11 @@ fn require_form_tests() -> UnitTest {
           "title=Hello&description=World",
         )
 
-      require_form(request)
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> extract_field("description")
@@ -190,15 +255,21 @@ fn require_form_tests() -> UnitTest {
       |> or_fail_with("description should be 'World'")
     }),
     it("returns error for empty body", fn() {
+      // Arrange
       let request = test_request.create_request_with_body(Get, "/test", "")
 
-      require_form(request)
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
       |> should()
       |> extract_error_message()
       |> contain_string("empty")
       |> or_fail_with("Should mention 'empty'")
     }),
     it("decodes URL-encoded space", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_body(
           Get,
@@ -206,7 +277,11 @@ fn require_form_tests() -> UnitTest {
           "name=hello%20world",
         )
 
-      require_form(request)
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> extract_field("name")
@@ -214,6 +289,7 @@ fn require_form_tests() -> UnitTest {
       |> or_fail_with("Should decode %20 as space")
     }),
     it("decodes URL-encoded email", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_body(
           Get,
@@ -221,7 +297,11 @@ fn require_form_tests() -> UnitTest {
           "email=user%40example.com",
         )
 
-      require_form(request)
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> extract_field("email")
@@ -229,10 +309,15 @@ fn require_form_tests() -> UnitTest {
       |> or_fail_with("Should decode %40 as @")
     }),
     it("decodes plus sign as space", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_body(Get, "/test", "query=search+term")
 
-      require_form(request)
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> extract_field("query")
@@ -240,20 +325,30 @@ fn require_form_tests() -> UnitTest {
       |> or_fail_with("Should decode + as space")
     }),
     it("handles single field", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_body(Get, "/test", "title=Hello")
 
-      require_form(request)
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> have_length(1)
       |> or_fail_with("Should parse 1 field")
     }),
     it("handles field without value", fn() {
+      // Arrange
       let request =
         test_request.create_request_with_body(Get, "/test", "flag&other=value")
 
-      require_form(request)
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> extract_field("flag")
@@ -266,40 +361,60 @@ fn require_form_tests() -> UnitTest {
 fn require_field_tests() -> UnitTest {
   describe("require_field", [
     it("returns Ok for existing field", fn() {
+      // Arrange
       let form = [#("title", "Hello World")]
 
-      require_field(form, "title")
+      // Act
+      let result = require_field(form, "title")
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal("Hello World")
       |> or_fail_with("Should return 'Hello World'")
     }),
     it("returns error for missing field", fn() {
+      // Arrange
       let form = [#("other", "value")]
 
-      require_field(form, "title")
+      // Act
+      let result = require_field(form, "title")
+
+      // Assert
+      result
       |> should()
       |> extract_error_message()
       |> contain_string("Missing required field")
       |> or_fail_with("Should mention 'Missing required field'")
     }),
     it("returns error for empty field", fn() {
+      // Arrange
       let form = [#("title", "")]
 
-      require_field(form, "title")
+      // Act
+      let result = require_field(form, "title")
+
+      // Assert
+      result
       |> should()
       |> extract_error_message()
       |> contain_string("cannot be empty")
       |> or_fail_with("Should mention 'cannot be empty'")
     }),
     it("finds correct field among multiple", fn() {
+      // Arrange
       let form = [
         #("title", "Hello"),
         #("description", "World"),
         #("priority", "3"),
       ]
 
-      require_field(form, "description")
+      // Act
+      let result = require_field(form, "description")
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal("World")
@@ -311,54 +426,84 @@ fn require_field_tests() -> UnitTest {
 fn require_field_int_tests() -> UnitTest {
   describe("require_field_int", [
     it("returns Ok for valid integer", fn() {
+      // Arrange
       let form = [#("priority", "5")]
 
-      require_field_int(form, "priority")
+      // Act
+      let result = require_field_int(form, "priority")
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal(5)
       |> or_fail_with("Should return 5")
     }),
     it("returns error for missing field", fn() {
+      // Arrange
       let form = [#("other", "value")]
 
-      require_field_int(form, "priority")
+      // Act
+      let result = require_field_int(form, "priority")
+
+      // Assert
+      result
       |> should()
       |> extract_error_message()
       |> contain_string("Missing required field")
       |> or_fail_with("Should mention 'Missing required field'")
     }),
     it("returns error for empty field", fn() {
+      // Arrange
       let form = [#("priority", "")]
 
-      require_field_int(form, "priority")
+      // Act
+      let result = require_field_int(form, "priority")
+
+      // Assert
+      result
       |> should()
       |> extract_error_message()
       |> contain_string("cannot be empty")
       |> or_fail_with("Should mention 'cannot be empty'")
     }),
     it("returns error for non-integer", fn() {
+      // Arrange
       let form = [#("priority", "abc")]
 
-      require_field_int(form, "priority")
+      // Act
+      let result = require_field_int(form, "priority")
+
+      // Assert
+      result
       |> should()
       |> extract_error_message()
       |> contain_string("must be an integer")
       |> or_fail_with("Should mention 'must be an integer'")
     }),
     it("returns Ok for negative integer", fn() {
+      // Arrange
       let form = [#("offset", "-10")]
 
-      require_field_int(form, "offset")
+      // Act
+      let result = require_field_int(form, "offset")
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal(-10)
       |> or_fail_with("Should return -10")
     }),
     it("returns Ok for zero", fn() {
+      // Arrange
       let form = [#("count", "0")]
 
-      require_field_int(form, "count")
+      // Act
+      let result = require_field_int(form, "count")
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal(0)
@@ -370,40 +515,67 @@ fn require_field_int_tests() -> UnitTest {
 fn field_optional_tests() -> UnitTest {
   describe("field_optional", [
     it("returns Some for existing field", fn() {
+      // Arrange
       let form = [#("description", "Some text")]
 
-      field_optional(form, "description")
+      // Act
+      let result = field_optional(form, "description")
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> equal("Some text")
       |> or_fail_with("Should return 'Some text'")
     }),
     it("returns None for missing field", fn() {
+      // Arrange
       let form = [#("other", "value")]
 
-      field_optional(form, "description")
+      // Act
+      let result = field_optional(form, "description")
+
+      // Assert
+      result
       |> should()
       |> be_none()
       |> or_fail_with("Should return None")
     }),
     it("returns None for empty field", fn() {
+      // Arrange
       let form = [#("description", "")]
 
-      field_optional(form, "description")
+      // Act
+      let result = field_optional(form, "description")
+
+      // Assert
+      result
       |> should()
       |> be_none()
       |> or_fail_with("Should return None for empty")
     }),
     it("returns None for empty form", fn() {
-      field_optional([], "description")
+      // Arrange
+      let form = []
+
+      // Act
+      let result = field_optional(form, "description")
+
+      // Assert
+      result
       |> should()
       |> be_none()
       |> or_fail_with("Should return None for empty form")
     }),
     it("returns Some for whitespace-only value", fn() {
+      // Arrange
       let form = [#("description", "   ")]
 
-      field_optional(form, "description")
+      // Act
+      let result = field_optional(form, "description")
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> equal("   ")

@@ -8,49 +8,91 @@ pub fn tests() -> UnitTest {
   describe("status", [
     describe("ok", [
       it("equals 200", fn() {
-        status.ok
+        // Arrange
+        let expected = 200
+
+        // Act
+        let result = status.ok
+
+        // Assert
+        result
         |> should()
-        |> equal(200)
+        |> equal(expected)
         |> or_fail_with("status.ok should equal 200")
       }),
     ]),
     describe("created", [
       it("equals 201", fn() {
-        status.created
+        // Arrange
+        let expected = 201
+
+        // Act
+        let result = status.created
+
+        // Assert
+        result
         |> should()
-        |> equal(201)
+        |> equal(expected)
         |> or_fail_with("status.created should equal 201")
       }),
     ]),
     describe("bad_request", [
       it("equals 400", fn() {
-        status.bad_request
+        // Arrange
+        let expected = 400
+
+        // Act
+        let result = status.bad_request
+
+        // Assert
+        result
         |> should()
-        |> equal(400)
+        |> equal(expected)
         |> or_fail_with("status.bad_request should equal 400")
       }),
     ]),
     describe("not_found", [
       it("equals 404", fn() {
-        status.not_found
+        // Arrange
+        let expected = 404
+
+        // Act
+        let result = status.not_found
+
+        // Assert
+        result
         |> should()
-        |> equal(404)
+        |> equal(expected)
         |> or_fail_with("status.not_found should equal 404")
       }),
     ]),
     describe("conflict", [
       it("equals 409", fn() {
-        status.conflict
+        // Arrange
+        let expected = 409
+
+        // Act
+        let result = status.conflict
+
+        // Assert
+        result
         |> should()
-        |> equal(409)
+        |> equal(expected)
         |> or_fail_with("status.conflict should equal 409")
       }),
     ]),
     describe("internal_server_error", [
       it("equals 500", fn() {
-        status.internal_server_error
+        // Arrange
+        let expected = 500
+
+        // Act
+        let result = status.internal_server_error
+
+        // Assert
+        result
         |> should()
-        |> equal(500)
+        |> equal(expected)
         |> or_fail_with("status.internal_server_error should equal 500")
       }),
     ]),

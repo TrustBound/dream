@@ -17,26 +17,41 @@ pub fn tests() -> UnitTest {
   describe("response", [
     describe("json_response", [
       it("sets status correctly", fn() {
+        // Arrange
         let body = "{\"message\": \"Hello\"}"
 
-        json_response(status.ok, body).status
+        // Act
+        let response = json_response(status.ok, body)
+
+        // Assert
+        response.status
         |> should()
         |> equal(200)
         |> or_fail_with("Status should be 200")
       }),
       it("sets content type to application/json", fn() {
+        // Arrange
         let body = "{\"message\": \"Hello\"}"
 
-        json_response(status.ok, body).content_type
+        // Act
+        let response = json_response(status.ok, body)
+
+        // Assert
+        response.content_type
         |> should()
         |> be_some()
         |> equal("application/json; charset=utf-8")
         |> or_fail_with("Content type should be JSON")
       }),
       it("sets body text", fn() {
+        // Arrange
         let body = "{\"message\": \"Hello\"}"
 
-        json_response(status.ok, body)
+        // Act
+        let response = json_response(status.ok, body)
+
+        // Assert
+        response
         |> should()
         |> extract_body_text()
         |> equal(body)
@@ -45,13 +60,27 @@ pub fn tests() -> UnitTest {
     ]),
     describe("html_response", [
       it("sets status correctly", fn() {
-        html_response(status.ok, "<h1>Hello</h1>").status
+        // Arrange
+        let html = "<h1>Hello</h1>"
+
+        // Act
+        let response = html_response(status.ok, html)
+
+        // Assert
+        response.status
         |> should()
         |> equal(200)
         |> or_fail_with("Status should be 200")
       }),
       it("sets content type to text/html", fn() {
-        html_response(status.ok, "<h1>Hello</h1>").content_type
+        // Arrange
+        let html = "<h1>Hello</h1>"
+
+        // Act
+        let response = html_response(status.ok, html)
+
+        // Assert
+        response.content_type
         |> should()
         |> be_some()
         |> equal("text/html; charset=utf-8")
@@ -60,13 +89,27 @@ pub fn tests() -> UnitTest {
     ]),
     describe("text_response", [
       it("sets status correctly", fn() {
-        text_response(status.ok, "Hello").status
+        // Arrange
+        let text = "Hello"
+
+        // Act
+        let response = text_response(status.ok, text)
+
+        // Assert
+        response.status
         |> should()
         |> equal(200)
         |> or_fail_with("Status should be 200")
       }),
       it("sets content type to text/plain", fn() {
-        text_response(status.ok, "Hello").content_type
+        // Arrange
+        let text = "Hello"
+
+        // Act
+        let response = text_response(status.ok, text)
+
+        // Assert
+        response.content_type
         |> should()
         |> be_some()
         |> equal("text/plain; charset=utf-8")
@@ -75,28 +118,50 @@ pub fn tests() -> UnitTest {
     ]),
     describe("redirect_response", [
       it("sets status to redirect code", fn() {
-        redirect_response(status.found, "/users/123").status
+        // Arrange
+        let location = "/users/123"
+
+        // Act
+        let response = redirect_response(status.found, location)
+
+        // Assert
+        response.status
         |> should()
         |> equal(302)
         |> or_fail_with("Status should be 302")
       }),
       it("sets Location header", fn() {
-        redirect_response(status.found, "/users/123").headers
+        // Arrange
+        let location = "/users/123"
+
+        // Act
+        let response = redirect_response(status.found, location)
+
+        // Assert
+        response.headers
         |> should()
         |> extract_first_header_value()
-        |> equal("/users/123")
+        |> equal(location)
         |> or_fail_with("Location header should be set")
       }),
     ]),
     describe("empty_response", [
       it("sets status correctly", fn() {
-        empty_response(status.no_content).status
+        // Act
+        let response = empty_response(status.no_content)
+
+        // Assert
+        response.status
         |> should()
         |> equal(204)
         |> or_fail_with("Status should be 204")
       }),
       it("has empty body", fn() {
-        empty_response(status.no_content)
+        // Act
+        let response = empty_response(status.no_content)
+
+        // Assert
+        response
         |> should()
         |> extract_body_text()
         |> equal("")

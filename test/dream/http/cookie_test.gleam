@@ -10,25 +10,46 @@ pub fn tests() -> UnitTest {
   describe("cookie", [
     describe("simple_cookie", [
       it("creates cookie with correct name", fn() {
-        simple_cookie("theme", "dark")
+        // Arrange
+        let name = "theme"
+        let value = "dark"
+
+        // Act
+        let cookie = simple_cookie(name, value)
+
+        // Assert
+        cookie
         |> cookie_name()
         |> should()
-        |> equal("theme")
+        |> equal(name)
         |> or_fail_with("Cookie name should be 'theme'")
       }),
       it("creates cookie with correct value", fn() {
-        simple_cookie("theme", "dark")
+        // Arrange
+        let name = "theme"
+        let value = "dark"
+
+        // Act
+        let cookie = simple_cookie(name, value)
+
+        // Assert
+        cookie
         |> cookie_value()
         |> should()
-        |> equal("dark")
+        |> equal(value)
         |> or_fail_with("Cookie value should be 'dark'")
       }),
     ]),
     describe("secure_cookie", [
       it("creates cookie that can be retrieved by name", fn() {
+        // Arrange
         let cookie = secure_cookie("session", "token123")
 
-        get_cookie_value([cookie], "session")
+        // Act
+        let result = get_cookie_value([cookie], "session")
+
+        // Assert
+        result
         |> should()
         |> be_some()
         |> equal("token123")

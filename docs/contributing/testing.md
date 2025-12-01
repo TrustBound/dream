@@ -1,89 +1,238 @@
-# Testing Guide for Dream
+# Testing Guide for Dream Contributors
 
-This document describes the testing infrastructure for the Dream web framework.
+Testing infrastructure and standards for the Dream web framework.
 
-## Test Suites
-
-### Unit Tests (Gleam)
-
-Located in `test/dream/` (core) and `modules/*/test/` (modules), these test framework functionality:
+## Running Tests
 
 ```bash
-# Run all tests (unit + integration)
+# Everything (unit + integration)
 make test
 
-# Run all unit tests (core + modules)
+# Unit tests only (core + modules)
 make test-unit
 
-# Run only Dream core tests
+# Dream core only
 make test-dream
 
-# Or run specific tests directly
-gleam test                              # Core only
-cd modules/http_client && make test     # Module only
-cd modules/mock_server && make test     # Module only
-```
-
-**Unit Test Coverage:**
-- **Dream Core**: HTTP, routing, validation, context, server
-- **dream_http_client**: HTTP client, streaming, error handling  
-- **dream_mock_server**: Mock server configuration, lifecycle
-
-### Integration Tests (Cucumber/BDD)
-
-Located in `modules/*/test/integration/` and `examples/*/test/integration/`, these test end-to-end functionality:
-
-```bash
-# Run all integration tests (modules + examples, requires PostgreSQL on port 5435)
+# Integration tests only
 make test-integration
-
-# Run specific example
-cd examples/database && make test-integration
-
-# Run specific module
-cd modules/mock_server && make test-integration
 ```
 
-**Integration Test Coverage:**
+## Unit Tests
 
-| Module/Example | What It Tests |
-|----------------|---------------|
-| **mock_server** (module) | Mock server endpoints, streaming, error handling |
-| **simple** | Basic routing, path parameters, 404 handling |
-| **custom_context** | Auth, authorization, token validation |
-| **static** | Static files, content types, security |
-| **streaming** | Request/response streaming, chunked transfer |
-| **streaming_capabilities** | Advanced streaming, SSE, proxying |
-| **rate_limiter** | Rate limiting, window behavior, headers |
-| **database** | CRUD, validation, persistence, isolation |
-| **multi_format** | JSON/CSV/HTML/HTMX, streaming CSV |
+### Framework
 
-## Integration Test Framework
+Dream uses [dream_test](https://hexdocs.pm/dream_test/), a BDD-style testing
+framework with `describe`/`it` blocks and chainable assertions.
+
+### Test Location
+
+| Source | Test |
+|--------|------|
+| `src/dream/context.gleam` | `test/dream/context_test.gleam` |
+| `src/dream/router.gleam` | `test/dream/router_test.gleam` |
+| `modules/http_client/src/...` | `modules/http_client/test/...` |
+
+### Test Structure
+
+```gleam
+import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/assertions/should.{equal, be_ok, or_fail_with, should}
+
+pub fn tests() -> UnitTest {
+  describe("module_name", [
+    describe("function_name", [
+      it("does X when Y", fn() {
+        // Arrange
+        let input = create_test_input()
+
+        // Act
+        let result = function_under_test(input)
+
+        // Assert
+        result
+        |> should()
+        |> equal(expected)
+        |> or_fail_with("Expected X")
+      }),
+    ]),
+  ])
+}
+```
+
+### Entry Point
+
+Tests are registered in `test/dream_test.gleam`:
+
+```gleam
+import dream_test/runner.{run_all}
+import dream_test/unit.{to_test_cases}
+import dream_test/reporter/bdd.{report}
+import gleam/io
+import gleam/list
+
+import dream/context_test
+import dream/router_test
+// ... other test modules
+
+pub fn main() {
+  [
+    to_test_cases("dream/context", context_test.tests()),
+    to_test_cases("dream/router", router_test.tests()),
+    // ... other modules
+  ]
+  |> list.flatten
+  |> run_all()
+  |> report(io.print)
+}
+```
+
+### Assertions
+
+```gleam
+import dream_test/assertions/should.{
+  be_empty, be_error, be_false, be_none, be_ok, be_some, be_true,
+  contain, contain_string, equal, or_fail_with, should,
+}
+
+// All assertions follow the pattern:
+value |> should() |> matcher() |> or_fail_with("message")
+
+// Matchers can be chained:
+result |> should() |> be_ok() |> equal(expected) |> or_fail_with("msg")
+```
+
+### Custom Matchers
+
+Located in `test/matchers/`, one per file:
+
+```gleam
+// test/matchers/extract_body_text.gleam
+import dream/http/response.{type Response, type ResponseBody, Text}
+import dream_test/types.{
+  type MatchResult, AssertionFailure, CustomMatcherFailure, MatchFailed, MatchOk,
+}
+import gleam/option.{Some}
+
+pub fn extract_body_text(result: MatchResult(Response)) -> MatchResult(String) {
+  case result {
+    MatchFailed(failure) -> MatchFailed(failure)
+    MatchOk(response) -> extract_from_body(response.body)
+  }
+}
+
+fn extract_from_body(body: ResponseBody) -> MatchResult(String) {
+  case body {
+    Text(text) -> MatchOk(text)
+    _other -> non_text_body_failure()
+  }
+}
+
+fn non_text_body_failure() -> MatchResult(String) {
+  MatchFailed(AssertionFailure(
+    operator: "extract_body_text",
+    message: "Expected Text body",
+    payload: Some(CustomMatcherFailure(
+      actual: "Non-text body type",
+      description: "Body is not Text",
+    )),
+  ))
+}
+```
+
+**Matcher Rules:**
+- One matcher per file
+- First parameter is `MatchResult(a)` (for pipe compatibility)
+- No nested `case` statements—extract to helper functions
+- Return `MatchResult(b)` for chaining
+
+### Fixtures
+
+Located in `test/fixtures/`:
+
+```gleam
+// test/fixtures/request.gleam
+pub fn create_request(method: Method, path: String) -> Request { ... }
+pub fn create_request_with_body(method: Method, path: String, body: String) -> Request { ... }
+
+// test/fixtures/handler.gleam
+pub fn test_handler(request, context, services) -> Response { ... }
+pub fn id_param_handler(request, context, services) -> Response { ... }
+```
+
+### Lifecycle Hooks
+
+```gleam
+import dream_test/unit.{describe, it, before_each, after_each, before_all, after_all}
+import dream_test/types.{AssertionOk}
+
+describe("tests with setup", [
+  before_each(fn() {
+    // Runs before each test
+    AssertionOk
+  }),
+  after_each(fn() {
+    // Runs after each test
+    AssertionOk
+  }),
+  it("test one", fn() { ... }),
+  it("test two", fn() { ... }),
+])
+```
+
+### Benchmarks
+
+Located in `test/benchmarks/`:
+
+```gleam
+// test/benchmarks/router_benchmark.gleam
+import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/types.{AssertionOk}
+import gleam/io
+
+pub fn tests() -> UnitTest {
+  describe("router benchmarks", [
+    it("100 routes lookup", fn() {
+      let router = build_router(100)
+      let result = benchmark(fn() { find_route(router, request) }, 10_000)
+      
+      io.println("[BENCH] 100-routes: " <> format_result(result))
+      AssertionOk
+    }),
+  ])
+}
+```
+
+**Benchmark Output:** Self-identifying single lines for parallel execution:
+```
+[BENCH] 100-first: 11815μs total, 1.18μs/lookup (10000 iterations)
+```
+
+## Integration Tests
 
 ### Technology Stack
 
 - **Cucumber**: BDD framework for Elixir
-- **Gherkin**: Human-readable test scenarios
-- **HTTPoison**: HTTP client for testing
-- **Postgrex**: PostgreSQL client for database cleanup
-- **ExUnit**: Elixir's test framework (runner)
+- **Gherkin**: Human-readable scenarios
+- **HTTPoison**: HTTP client
+- **Postgrex**: PostgreSQL client
 
-### Test Structure
+### Location
 
 ```
 examples/simple/
 ├── test/integration/
 │   ├── features/
-│   │   ├── simple.feature              # Gherkin scenarios
+│   │   ├── simple.feature
 │   │   └── step_definitions/
-│   │       └── http_steps.exs          # Step implementations
-│   ├── cucumber_test.exs               # ExUnit entry point
-│   └── test_helper.exs                 # Cucumber configuration
-├── mix.exs                              # Elixir dependencies
-└── Makefile                             # test-integration target
+│   │       └── http_steps.exs
+│   ├── cucumber_test.exs
+│   └── test_helper.exs
+├── mix.exs
+└── Makefile
 ```
 
-### Example Gherkin Scenario
+### Example Scenario
 
 ```gherkin
 Feature: Simple Example
@@ -91,89 +240,137 @@ Feature: Simple Example
   Background:
     Given the server is running on port 3000
 
-  Scenario: GET root endpoint returns hello world
+  Scenario: GET root returns hello
     When I send a GET request to "/"
     Then the response status should be 200
     And the response should contain "Hello from Dream"
 ```
 
+### Running Integration Tests
+
+```bash
+# All integration tests
+make test-integration
+
+# Specific example
+cd examples/database && make test-integration
+
+# Specific module
+cd modules/mock_server && make test-integration
+```
+
 ### Test Isolation
 
-**Database Examples** (`database`, `multi_format`):
-- Each scenario runs in a clean database state
-- Background step truncates tables: `TRUNCATE users CASCADE`
-- Seed data is reinserted for `multi_format`
-- Unique emails generated per test to avoid conflicts
+**Database examples:** Each scenario truncates tables and reseeds data.
 
-**Rate Limiter Example**:
-- Each scenario uses a unique IP address
-- Avoids rate limit interference between scenarios
-- Simulates window reset behavior
+**Rate limiter:** Each scenario uses unique IP to avoid interference.
 
-## Running Tests Locally
+## Test Standards
 
-### Prerequisites
+### Requirements
 
-```bash
-# Install Elixir (for Cucumber tests)
-brew install elixir  # macOS
-# OR
-apt-get install elixir  # Ubuntu
+| Requirement | Unit Tests | Integration Tests |
+|-------------|------------|-------------------|
+| External dependencies | ❌ None | ✅ Allowed |
+| Speed | Milliseconds | Seconds OK |
+| Determinism | Required | Required |
+| Cleanup | N/A | Required |
 
-# Start PostgreSQL (for database examples)
-docker-compose up -d  # from examples/database or examples/multi_format
+### Naming Convention
+
+```
+<function_name>_<condition>_<expected_result>
 ```
 
-### Run All Tests
+Examples:
+- `creates user with valid data`
+- `returns error for missing field`
+- `extracts param from path`
 
-```bash
-# Everything (unit + integration)
-make test
+### One Assertion Per Test
 
-# Only unit tests (core + modules)
-make test-unit
+```gleam
+// ✅ Good - focused tests
+describe("find_route", [
+  it("returns route for exact path", fn() { ... }),
+  it("extracts params from path", fn() { ... }),
+])
 
-# Only integration tests (modules + examples)
-make test-integration
-
-# Only Dream core tests
-make test-dream
+// ❌ Bad - multiple assertions
+it("finds route and extracts params", fn() {
+  // Two things being tested
+})
 ```
 
-### Run Specific Example
+### No Nested Cases
 
-```bash
-cd examples/database
-make test-integration
+```gleam
+// ❌ Bad
+case result {
+  MatchOk(response) -> {
+    case response.body {  // Nested!
+      Text(text) -> ...
+    }
+  }
+}
+
+// ✅ Good
+case result {
+  MatchFailed(failure) -> MatchFailed(failure)
+  MatchOk(response) -> extract_from_body(response.body)
+}
+
+fn extract_from_body(body) {
+  case body {
+    Text(text) -> MatchOk(text)
+    _other -> failure()
+  }
+}
 ```
 
-### Debug Failed Tests
+### Error Handling
 
-```bash
-# Check server logs
-tail -f /tmp/database_test.log
+Never discard errors:
 
-# Verify database connection
-docker-compose exec postgres psql -U postgres -d dream_example_database_db
+```gleam
+// ❌ Bad
+case result {
+  Ok(value) -> value
+  Error(_) -> default  // Error details lost
+}
 
-# Check for port conflicts
-lsof -i:3000
+// ✅ Good
+case result {
+  Ok(value) -> value
+  Error(reason) -> handle_error(reason)
+}
 ```
+
+## Coverage
+
+### What's Tested
+
+✅ HTTP methods, status codes, content types
+✅ Routing, parameters, wildcards
+✅ Streaming request/response
+✅ Validation, error handling
+✅ Cookies, headers
+✅ Middleware chain
+
+### Coverage Requirement
+
+All functions in `src/dream/` must have test coverage. Unreachable private
+functions are dead code—delete them.
 
 ## CI Integration
 
-### GitHub Actions Workflow
+### GitHub Actions
 
-The CI runs two jobs on every PR:
-
-1. **unit-tests**: Format check, build, all unit tests (core + modules)
-2. **integration-tests**: All integration tests (modules + examples)
-
-See `.github/workflows/ci.yml` for configuration.
+Two jobs on every PR:
+1. **unit-tests**: Format check, build, unit tests
+2. **integration-tests**: Integration tests with PostgreSQL
 
 ### PostgreSQL Service
-
-CI uses a PostgreSQL 16 service on port 5435:
 
 ```yaml
 services:
@@ -181,202 +378,67 @@ services:
     image: postgres:16-alpine
     ports:
       - 5435:5432
-    options: --health-cmd pg_isready
 ```
 
-### Environment Variables
-
-Database examples use environment variables:
+### Environment
 
 ```bash
 DATABASE_URL=postgres://postgres:postgres@localhost:5435/dream_example_database_db
-POSTGRES_PORT=5435  # For test cleanup
+POSTGRES_PORT=5435
 ```
 
-### CI-Specific Behavior
+## Adding Tests
 
-- **No Docker Compose**: Uses GitHub Actions PostgreSQL service
-- **Port 5435**: All database examples connect to this port in CI
-- **Database cleanup**: Each scenario truncates tables
-- **Sequential execution**: Examples run one at a time
+### New Unit Test Module
 
-## Test Quality Standards
+1. Create test file mirroring source structure
+2. Export `tests() -> UnitTest` function
+3. Register in `test/dream_test.gleam`
+4. Run `gleam test` to verify
 
-### ✅ What Makes a Good Integration Test
+### New Custom Matcher
 
-1. **Test Isolation**: Each scenario is independent
-2. **No Warnings**: Clean compilation
-3. **Meaningful**: Tests real behavior, not implementation
-4. **Comprehensive**: Happy path + error cases
-5. **Fast**: Tests should run quickly enough for local development feedback (avoid unnecessarily slow scenarios)
-6. **Readable**: Gherkin scenarios are self-documenting
+1. Create file in `test/matchers/`
+2. First param is `MatchResult(a)`
+3. Return `MatchResult(b)`
+4. No nested cases
+5. Import in test files as needed
 
-### ❌ Anti-Patterns to Avoid
+### New Integration Test
 
-1. **No cleanup**: Data persists between tests
-2. **Shared state**: Tests interfere with each other
-3. **Hardcoded IDs**: Assumes database state
-4. **Weak assertions**: `response should contain ""`
-5. **No error testing**: Only tests happy path
+1. Create `.feature` file
+2. Implement step definitions
+3. Add to `mix.exs` deps
+4. Add Makefile target
+5. Add to CI workflow
 
-## Coverage
+## Debugging
 
-### What's Tested
+### Failed Unit Tests
 
-✅ **HTTP Methods**: GET, POST, PUT, DELETE
-✅ **Status Codes**: 200, 201, 400, 404, 429, 500
-✅ **Content Types**: JSON, HTML, CSS, CSV, SVG
-✅ **Streaming**: Request and response streaming
-✅ **Authentication**: Token validation, role-based access
-✅ **Rate Limiting**: Window behavior, headers
-✅ **Database**: CRUD, validation, persistence
-✅ **Static Files**: Serving, content types, security
-✅ **Error Handling**: Invalid JSON, missing fields, not found
+```bash
+# Run with full output
+gleam test
 
-### What's NOT Tested (Out of Scope)
-
-❌ Performance/load testing
-❌ Stress testing (thousands of concurrent requests)
-❌ Network failure simulation
-❌ Long-running connection tests
-❌ Browser/JavaScript interaction
-
-## Adding New Tests
-
-### For New Examples
-
-1. Create Gherkin feature file:
-
-```gherkin
-# examples/your_example/test/integration/features/your_example.feature
-Feature: Your Example
-
-  Background:
-    Given the server is running on port 3000
-
-  Scenario: Your test scenario
-    When I send a GET request to "/endpoint"
-    Then the response status should be 200
+# Check specific module
+gleam test --module dream/router_test
 ```
 
-2. Implement step definitions (or reuse existing):
+### Failed Integration Tests
 
-```elixir
-# examples/your_example/test/integration/features/step_definitions/http_steps.exs
-defmodule HttpSteps do
-  use Cucumber.StepDefinition
+```bash
+# Check server logs
+tail -f /tmp/test.log
 
-  alias Jason
+# Verify database
+docker-compose exec postgres psql -U postgres -d test_db
 
-  @base_url "http://localhost:3000"
-
-  step "I send a {word} request to {string}", %{args: [method, path]} = context do
-    # Implementation
-  end
-end
+# Check ports
+lsof -i:3000
 ```
-
-3. Add Cucumber configuration:
-
-```elixir
-# examples/your_example/test/integration/test_helper.exs
-Application.put_env(:cucumber, :features, ["test/integration/features/**/*.feature"])
-Application.put_env(:cucumber, :steps, ["test/integration/features/step_definitions/**/*.exs"])
-ExUnit.start(timeout: 30_000)
-Cucumber.compile_features!()
-```
-
-4. Add test dependencies to `mix.exs`:
-
-```elixir
-defp deps do
-  [
-    {:cucumber, "~> 0.4.1", only: [:test]},
-    {:httpoison, "~> 2.0", only: [:test]},
-    {:jason, "~> 1.4", only: [:test]}
-  ]
-end
-```
-
-5. Add Makefile target:
-
-```makefile
-test-integration:
-	@gleam build
-	@gleam run -m main > /tmp/test.log 2>&1 &
-	@SERVER_PID=$$!; \
-	sleep 2; \
-	mix deps.get && MIX_ENV=test mix test; \
-	TEST_EXIT=$$?; \
-	kill $$SERVER_PID 2>/dev/null || true; \
-	exit $$TEST_EXIT
-```
-
-6. Add to CI workflow (`.github/workflows/ci.yml`)
-
-### For Database Examples
-
-Additionally:
-
-1. Add Postgrex dependency
-2. Implement database cleanup step
-3. Handle migrations in Makefile
-4. Use `POSTGRES_PORT` env var for CI compatibility
-
-See `examples/database` for reference implementation.
-
-## Continuous Integration
-
-### Workflow Status
-
-[![CI](https://github.com/TrustBound/dream/actions/workflows/ci.yml/badge.svg)](https://github.com/TrustBound/dream/actions/workflows/ci.yml)
-
-### Jobs
-
-1. **unit-tests**: Core + module unit tests
-2. **integration-tests**: Module + example integration tests
-
-### On Every PR
-
-- ✅ Code formatting check
-- ✅ Gleam compilation
-- ✅ Unit tests (core + modules)
-- ✅ Integration tests (modules + examples)
-
-### Debugging CI Failures
-
-1. **Check workflow logs**: GitHub Actions > CI > Failed job
-2. **Reproduce locally**: 
-   - Unit tests: `make test-unit`
-   - Integration tests: `make test-integration`
-3. **Check specific module/example**: `cd modules/mock_server && make test-integration`
-4. **Verify PostgreSQL**: Ensure service started correctly (for database examples)
-5. **Check timeouts**: Server startup should complete in < 30s
-
-## Performance
-
-Integration tests are designed to run quickly enough for regular local use. The `streaming` example takes longer due to deliberate delays to test timing behavior, and database examples include setup/teardown time.
-
-## Future Improvements
-
-Potential enhancements for reaching 11/10:
-
-- [ ] Concurrent request tests (race conditions)
-- [ ] Load testing (1000+ req/sec)
-- [ ] Connection pool exhaustion tests
-- [ ] Timeout behavior tests
-- [ ] WebSocket integration tests
-- [ ] File upload size limits
-- [ ] Memory usage profiling
-- [ ] Response time assertions
 
 ## Resources
 
-- [Cucumber Elixir Documentation](https://hexdocs.pm/cucumber/)
-- [HTTPoison Documentation](https://hexdocs.pm/httpoison/)
-- [GitHub Actions Documentation](https://docs.github.com/en/actions)
-- [Example Integration Tests](./examples/)
-
-
-
-
+- [dream_test documentation](https://hexdocs.pm/dream_test/)
+- [Cucumber Elixir](https://hexdocs.pm/cucumber/)
+- [GitHub Actions](https://docs.github.com/en/actions)

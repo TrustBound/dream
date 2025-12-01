@@ -5,7 +5,7 @@ packages = [
   { name = "argv", version = "1.0.2", build_tools = ["gleam"], requirements = [], otp_app = "argv", source = "hex", outer_checksum = "BA1FF0929525DEBA1CE67256E5ADF77A7CDDFE729E3E3F57A5BDCAA031DED09D" },
   { name = "backoff", version = "1.1.6", build_tools = ["rebar3"], requirements = [], otp_app = "backoff", source = "hex", outer_checksum = "CF0CFFF8995FB20562F822E5CC47D8CCF664C5ECDC26A684CBE85C225F9D7C39" },
   { name = "dream_http_client", version = "2.1.1", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_yielder", "simplifile"], otp_app = "dream_http_client", source = "hex", outer_checksum = "D43BC0DFD411CAB707345A6DF4E6B1EA299DCDBFF9230CB124917D2D6FE1775A" },
-  { name = "dream_test", version = "1.0.1", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_otp", "gleam_stdlib"], otp_app = "dream_test", source = "hex", outer_checksum = "5F5CC7C6AC95597B1D0ED6123C0F2BFB13C515F1CC2B4D5C2D51D15D9A0F6D95" },
+  { name = "dream_test", version = "1.0.3", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_otp", "gleam_stdlib"], otp_app = "dream_test", source = "hex", outer_checksum = "7C8E31A5608960F284FC0156D108AD3024DB264CC2EAC41A916346AD22B98C4E" },
   { name = "envoy", version = "1.0.2", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "envoy", source = "hex", outer_checksum = "95FD059345AA982E89A0B6E2A3BF1CF43E17A7048DCD85B5B65D3B9E4E39D359" },
   { name = "eval", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "eval", source = "hex", outer_checksum = "264DAF4B49DF807F303CA4A4E4EBC012070429E40BE384C58FE094C4958F9BDA" },
   { name = "exception", version = "2.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "exception", source = "hex", outer_checksum = "329D269D5C2A314F7364BD2711372B6F2C58FA6F39981572E5CA68624D291F8C" },
@@ -51,7 +51,7 @@ packages = [
 
 [requirements]
 dream_http_client = { version = ">= 2.1.1 and < 3.0.0" }
-dream_test = { version = ">= 1.0.0 and < 2.0.0" }
+dream_test = { version = ">= 1.0.3 and < 2.0.0" }
 gleam_erlang = { version = ">= 1.0.0 and < 2.0.0" }
 gleam_http = { version = ">= 4.3.0 and < 5.0.0" }
 gleam_json = { version = ">= 2.2.0 and < 4.0.0" }

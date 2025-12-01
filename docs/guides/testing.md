@@ -1,34 +1,40 @@
 # Guide: Testing
 
-**How to test your Dream application without losing your sanity.**
+**How to test your Dream application.**
 
-This guide assumes you are comfortable running `gleam test` but may be
-**new to testing in Gleam** or to Gleeunit.
+Dream uses [dream_test](https://hexdocs.pm/dream_test/), a testing framework
+designed for clarity and maintainability. Tests live in `test/`, mirror your
+`src/` structure, and use a BDD-style `describe`/`it` pattern.
 
-We use [Gleeunit](https://hexdocs.pm/gleeunit/), Gleam's standard testing
-framework. Tests live in `test/`, mirror your `src/` structure, and
-follow a simple pattern: **Arrange, Act, Assert**.
+## Quick Start
 
-We will:
+```gleam
+import dream_test/unit.{describe, it}
+import dream_test/assertions/should.{equal, or_fail_with, should}
 
-- Show where to put tests and how to run them.
-- Explain how to test controllers, models, and middleware.
-- Show how to mock dependencies without global state.
-- Explain when something is a unit test vs an integration test.
+pub fn tests() {
+  describe("users", [
+    it("creates user with valid data", fn() {
+      create_user("Alice", "alice@example.com")
+      |> should()
+      |> be_ok()
+      |> or_fail_with("Should create user")
+    }),
+  ])
+}
+```
 
-## Test Philosophy
+Run tests:
 
-Dream follows **black box testing**: test public interfaces only. Don't
-test private functions. Don't test implementation details. Test
-observable behavior.
+```bash
+gleam test
+```
 
-**Why?** Because tests should survive refactoring. If you change how
-something works internally but the public API stays the same, your tests
-should still pass.
+## Test Structure
 
-## Setup
+### Directory Layout
 
-Tests go in `test/`, not alongside code:
+Tests mirror your source structure:
 
 ```
 src/
@@ -44,146 +50,289 @@ test/
       users_controller_test.gleam
     models/
       user_test.gleam
-  your_app_test.gleam  # Test entry point
+  your_app_test.gleam  # Entry point
 ```
 
-Create test entry point `test/your_app_test.gleam`:
+### Entry Point
+
+Create `test/your_app_test.gleam`:
 
 ```gleam
-import gleeunit
+import dream_test/runner.{run_all}
+import dream_test/unit.{to_test_cases}
+import dream_test/reporter/bdd.{report}
+import gleam/io
+import gleam/list
+
+import your_app/controllers/users_controller_test
+import your_app/models/user_test
 
 pub fn main() {
-  gleeunit.main()
+  [
+    to_test_cases("controllers/users", users_controller_test.tests()),
+    to_test_cases("models/user", user_test.tests()),
+  ]
+  |> list.flatten
+  |> run_all()
+  |> report(io.print)
 }
 ```
 
-Run tests:
+### Test Module Pattern
 
-```bash
-gleam test
-```
-
-## Unit Test Requirements
-
-All unit tests must be:
-- **Isolated** - No external dependencies (databases, network, files)
-- **Fast** - Milliseconds, not seconds
-- **Deterministic** - Same result every time
-- **Reliable** - Pass regardless of environment
-
-If your test needs a database, it's not a unit test—it's an integration test.
-
-## Test Naming Convention
+Each test module exports a `tests()` function:
 
 ```gleam
-<function_name>_<condition>_<expected_result>_test()
+import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/assertions/should.{equal, be_ok, or_fail_with, should}
+
+pub fn tests() -> UnitTest {
+  describe("module_name", [
+    describe("function_name", [
+      it("does X when Y", fn() {
+        // Arrange
+        let input = "test"
+
+        // Act
+        let result = function_name(input)
+
+        // Assert
+        result
+        |> should()
+        |> equal("expected")
+        |> or_fail_with("Should return expected value")
+      }),
+    ]),
+  ])
+}
 ```
 
-Good names:
+## Assertions
+
+### Basic Matchers
 
 ```gleam
-pub fn create_user_with_valid_data_returns_user_test()
-pub fn create_user_with_empty_name_returns_error_test()
-pub fn get_user_that_does_not_exist_returns_not_found_test()
+import dream_test/assertions/should.{
+  be_empty, be_error, be_false, be_none, be_ok, be_some, be_true,
+  contain, contain_string, equal, or_fail_with, should,
+}
+
+// Equality
+result |> should() |> equal(expected) |> or_fail_with("msg")
+
+// Boolean
+condition |> should() |> be_true() |> or_fail_with("msg")
+condition |> should() |> be_false() |> or_fail_with("msg")
+
+// Options
+option |> should() |> be_some() |> or_fail_with("msg")
+option |> should() |> be_none() |> or_fail_with("msg")
+
+// Results
+result |> should() |> be_ok() |> or_fail_with("msg")
+result |> should() |> be_error() |> or_fail_with("msg")
+
+// Collections
+list |> should() |> contain(item) |> or_fail_with("msg")
+list |> should() |> be_empty() |> or_fail_with("msg")
+
+// Strings
+string |> should() |> contain_string("substring") |> or_fail_with("msg")
 ```
 
-Bad names:
+### Chaining Matchers
+
+Matchers can be chained to extract and assert:
 
 ```gleam
-pub fn test_create_user()  // Vague
-pub fn user_test()         // Too generic
-pub fn test1()             // Meaningless
+// Extract from Option then assert
+find_user(1)
+|> should()
+|> be_some()       // Unwraps Option, passes inner value
+|> equal(user)     // Asserts on the unwrapped value
+|> or_fail_with("User should exist")
+
+// Extract from Result then assert
+validate_email("test@example.com")
+|> should()
+|> be_ok()         // Unwraps Result, passes Ok value
+|> equal(true)     // Asserts on the unwrapped value
+|> or_fail_with("Email should be valid")
+```
+
+### Custom Matchers
+
+Create domain-specific matchers for cleaner tests:
+
+```gleam
+import dream_test/types.{
+  type MatchResult, AssertionFailure, CustomMatcherFailure, MatchFailed, MatchOk,
+}
+import gleam/option.{Some}
+
+/// Extract user name from validation result
+pub fn extract_user_name(
+  result: MatchResult(Result(User, ValidationError)),
+  getter: fn(User) -> String,
+) -> MatchResult(String) {
+  case result {
+    MatchFailed(failure) -> MatchFailed(failure)
+    MatchOk(Ok(user)) -> MatchOk(getter(user))
+    MatchOk(Error(_)) -> validation_failed_failure()
+  }
+}
+
+fn validation_failed_failure() -> MatchResult(String) {
+  MatchFailed(AssertionFailure(
+    operator: "extract_user_name",
+    message: "Expected Ok but got validation error",
+    payload: Some(CustomMatcherFailure(
+      actual: "Error(...)",
+      description: "Validation failed",
+    )),
+  ))
+}
+```
+
+Usage:
+
+```gleam
+validate_user(json_body)
+|> should()
+|> extract_user_name(fn(u) { u.name })
+|> equal("Alice")
+|> or_fail_with("Name should be Alice")
+```
+
+**Matcher Guidelines:**
+
+- One matcher per file in `test/matchers/`
+- First parameter is always `MatchResult(a)`
+- Additional parameters come after (works with pipes)
+- No nested `case` statements—extract to helper functions
+- Return `MatchResult(b)` for chaining
+
+## Fixtures
+
+Create reusable test data in `test/fixtures/`:
+
+```gleam
+// test/fixtures/request.gleam
+import dream/http/request.{type Request, Request, Get, Http, Http1}
+import gleam/option
+
+pub fn create_request(method: Method, path: String) -> Request {
+  Request(
+    method: method,
+    protocol: Http,
+    version: Http1,
+    path: path,
+    query: "",
+    params: [],
+    host: option.None,
+    port: option.None,
+    remote_address: option.None,
+    body: "",
+    stream: option.None,
+    headers: [],
+    cookies: [],
+    content_type: option.None,
+    content_length: option.None,
+  )
+}
+
+pub fn create_request_with_body(method: Method, path: String, body: String) -> Request {
+  Request(..create_request(method, path), body: body)
+}
+```
+
+Usage:
+
+```gleam
+import fixtures/request
+
+it("handles POST with body", fn() {
+  let req = request.create_request_with_body(Post, "/users", "{\"name\":\"Alice\"}")
+  // ...
+})
+```
+
+## Lifecycle Hooks
+
+### before_each / after_each
+
+Run setup/teardown for each test in a group:
+
+```gleam
+import dream_test/unit.{describe, it, before_each, after_each}
+import dream_test/types.{AssertionOk}
+
+pub fn tests() {
+  describe("database tests", [
+    before_each(fn() {
+      // Reset test state
+      AssertionOk
+    }),
+    after_each(fn() {
+      // Cleanup
+      AssertionOk
+    }),
+    it("creates record", fn() { /* ... */ }),
+    it("updates record", fn() { /* ... */ }),
+  ])
+}
+```
+
+### before_all / after_all
+
+Run once before/after all tests in a group (requires `run_suite`):
+
+```gleam
+import dream_test/unit.{describe, it, before_all, after_all}
+import dream_test/types.{AssertionOk}
+
+pub fn tests() {
+  describe("server tests", [
+    before_all(fn() {
+      // Start server once
+      AssertionOk
+    }),
+    after_all(fn() {
+      // Stop server
+      AssertionOk
+    }),
+    it("responds to GET /", fn() { /* ... */ }),
+    it("responds to POST /users", fn() { /* ... */ }),
+  ])
+}
 ```
 
 ## Testing Controllers
 
-Controllers receive `Request`, `Context`, and `Services`. Mock the services:
+Controllers receive `Request`, `Context`, and `Services`:
 
 ```gleam
-import dream/http.{type Request, type Response, text_response, ok}
-import gleam/dynamic/decode
-import gleeunit/should
+import dream/context
+import dream/router.{type EmptyServices, EmptyServices}
+import dream_test/unit.{describe, it}
+import dream_test/assertions/should.{equal, or_fail_with, should}
+import fixtures/request
 import your_app/controllers/users_controller
-import your_app/test_helpers.{mock_database_service, test_context, test_request}
 
-pub fn index_returns_list_of_users_test() {
-  // Arrange
-  let request = test_request()
-  let context = test_context()
-  let services = mock_database_service()
-  
-  // Act
-  let response = users_controller.index(request, context, services)
-  
-  // Assert
-  response.status |> should.equal(200)
-  response.body |> should.contain("[")
-}
-```
+pub fn tests() {
+  describe("users_controller", [
+    describe("index", [
+      it("returns 200 for valid request", fn() {
+        let req = request.create_request(Get, "/users")
+        let ctx = context.AppContext("test-id")
 
-Create test helpers in `test/your_app/test_helpers.gleam`:
-
-```gleam
-import dream/context.{type EmptyContext, EmptyContext}
-import dream/services/service.{DatabaseService}
-import your_app/context.{MyContext}
-import your_app/services.{Services}
-
-pub fn test_empty_context() -> EmptyContext {
-  EmptyContext
-}
-
-pub fn test_context() -> MyContext {
-  MyContext(request_id: "test-request-id", user: None)
-}
-
-pub fn test_request() -> Request {
-  Request(
-    method: Get,
-    path: "/test",
-    headers: [],
-    body: "",
-    params: dict.new(),
-  )
-}
-
-pub fn mock_database_service() -> Services {
-  let mock_db = DatabaseService(connection: mock_connection())
-  Services(database: mock_db)
-}
-```
-
-## Testing Models
-
-Models return `Result` types. Test them without HTTP:
-
-```gleam
-import gleeunit/should
-import your_app/models/user
-import your_app/test_helpers.{mock_database}
-
-pub fn create_user_with_valid_data_returns_user_test() {
-  // Arrange
-  let db = mock_database()
-  let name = "Alice"
-  let email = "alice@example.com"
-  
-  // Act
-  let result = user.create(db, name, email)
-  
-  // Assert
-  case result {
-    Ok(returned) -> {
-      case returned.rows {
-        [user_row] -> {
-          user_row.name |> should.equal(name)
-          user_row.email |> should.equal(email)
-        }
-        _ -> should.fail("Expected one user row")
-      }
-    }
-    Error(_) -> should.fail("Expected Ok, got Error")
-  }
+        users_controller.index(req, ctx, EmptyServices).status
+        |> should()
+        |> equal(200)
+        |> or_fail_with("Should return 200")
+      }),
+    ]),
+  ])
 }
 ```
 
@@ -192,250 +341,202 @@ pub fn create_user_with_valid_data_returns_user_test() {
 Test middleware with mock `next` functions:
 
 ```gleam
-import gleeunit/should
-import your_app/middleware/auth_middleware
+import dream/http/response.{Response, Text}
+import dream_test/unit.{describe, it}
+import dream_test/assertions/should.{equal, or_fail_with, should}
+import fixtures/request
+import gleam/option
+import your_app/middleware/auth
 
-fn should_not_call_next(
-  _request: Request,
-  _context: Context,
-  _services: Services,
-) -> Response {
-  panic as "Should not call next"
+fn success_handler(_req, _ctx, _svc) {
+  Response(200, Text("Success"), [], [], option.None)
 }
 
-fn success_handler(
-  _request: Request,
-  _context: Context,
-  _services: Services,
-) -> Response {
-  text_response(ok, "Success")
-}
+pub fn tests() {
+  describe("auth middleware", [
+    it("returns 401 without token", fn() {
+      let req = request.create_request(Get, "/protected")
+      let ctx = context.AppContext("test-id")
 
-pub fn auth_middleware_without_token_returns_401_test() {
-  // Arrange
-  let request = test_request()
-  let context = test_context()
-  let services = test_services()
-  let next = should_not_call_next
-  
-  // Act
-  let response = auth_middleware.auth_middleware(request, context, services, next)
-  
-  // Assert
-  response.status |> should.equal(401)
-}
+      auth.middleware(req, ctx, EmptyServices, success_handler).status
+      |> should()
+      |> equal(401)
+      |> or_fail_with("Should reject without token")
+    }),
+    it("calls next with valid token", fn() {
+      let req = request.create_request_with_header(Get, "/protected", "Authorization", "Bearer valid")
+      let ctx = context.AppContext("test-id")
 
-pub fn auth_middleware_with_valid_token_calls_next_test() {
-  // Arrange
-  let request = test_request_with_header("Authorization", "Bearer valid-token")
-  let context = test_context()
-  let services = test_services()
-  let next = success_handler
-  
-  // Act
-  let response = auth_middleware.auth_middleware(request, context, services, next)
-  
-  // Assert
-  response.status |> should.equal(200)
+      auth.middleware(req, ctx, EmptyServices, success_handler).status
+      |> should()
+      |> equal(200)
+      |> or_fail_with("Should pass with valid token")
+    }),
+  ])
 }
 ```
 
-## Mocking Dependencies
+## Testing Models
 
-Use dependency injection to make things mockable:
+Test business logic without HTTP:
 
 ```gleam
-// Instead of this:
-pub fn get_user(id: Int) -> Result(User, Error) {
-  let db = get_global_database()  // Hard to test
-  query_user(db, id)
-}
+import dream_test/unit.{describe, it}
+import dream_test/assertions/should.{be_error, be_ok, equal, or_fail_with, should}
+import your_app/models/user
 
-// Do this:
-pub fn get_user(db: Database, id: Int) -> Result(User, Error) {
-  query_user(db, id)  // Easy to mock the database
+pub fn tests() {
+  describe("user", [
+    describe("validate_email", [
+      it("accepts valid email", fn() {
+        user.validate_email("alice@example.com")
+        |> should()
+        |> be_ok()
+        |> or_fail_with("Should accept valid email")
+      }),
+      it("rejects empty email", fn() {
+        user.validate_email("")
+        |> should()
+        |> be_error()
+        |> or_fail_with("Should reject empty email")
+      }),
+    ]),
+  ])
 }
 ```
 
-Create mock implementations:
+## Unit vs Integration Tests
+
+### Unit Tests
+
+- **Location:** `test/your_app/`
+- **Requirements:**
+  - No external dependencies (database, network, files)
+  - Fast (milliseconds)
+  - Deterministic
+  - Isolated
+
+### Integration Tests
+
+- **Location:** `test/integration/`
+- **Requirements:**
+  - Can use real services
+  - Should clean up after themselves
+  - May be slower
 
 ```gleam
-fn mock_query(_sql: String, _params: List(Dynamic)) -> Result(List(User), Error) {
-  // Return test data
-  Ok([test_user()])
-}
+// test/integration/database_test.gleam
+import dream_test/unit.{describe, it, before_each}
+import dream_test/types.{AssertionOk}
 
-fn mock_execute(_sql: String, _params: List(Dynamic)) -> Result(Int, Error) {
-  Ok(1)
-}
-
-pub fn mock_database() -> Database {
-  Database {
-    query: mock_query,
-    execute: mock_execute,
-  }
+pub fn tests() {
+  describe("database integration", [
+    before_each(fn() {
+      // Truncate tables
+      cleanup_database()
+      AssertionOk
+    }),
+    it("persists user to database", fn() {
+      // Uses real database connection
+      // ...
+    }),
+  ])
 }
 ```
 
-## Integration Tests
+## Test Philosophy
 
-Integration tests touch real external systems. Keep them separate:
+### Black Box Testing
 
-```
-test/
-  integration/
-    database_test.gleam
-    api_test.gleam
-```
-
-These tests:
-- ✅ Can be slower
-- ✅ Can depend on external services
-- ✅ Should clean up after themselves
+Test public interfaces, not implementation details:
 
 ```gleam
-import gleeunit/should
-import your_app/database
+// ✅ Good - tests observable behavior
+it("returns user by ID", fn() {
+  find_user(1)
+  |> should()
+  |> be_some()
+  |> or_fail_with("Should find user")
+})
 
-pub fn database_connection_works_test() {
+// ❌ Bad - tests internal implementation
+it("calls database with correct SQL", fn() {
+  // Don't test how it works, test what it does
+})
+```
+
+### One Assertion Per Test
+
+Each test should verify one thing:
+
+```gleam
+// ✅ Good - focused tests
+describe("create_user", [
+  it("returns created user", fn() {
+    create_user("Alice", "alice@example.com")
+    |> should()
+    |> be_ok()
+    |> or_fail_with("Should create user")
+  }),
+  it("sets correct name", fn() {
+    create_user("Alice", "alice@example.com")
+    |> should()
+    |> be_ok()
+    |> extract_name()
+    |> equal("Alice")
+    |> or_fail_with("Name should be Alice")
+  }),
+])
+
+// ❌ Bad - multiple assertions
+it("creates user correctly", fn() {
+  let result = create_user("Alice", "alice@example.com")
+  result |> should() |> be_ok() |> or_fail_with("...")
+  // And then another assertion...
+})
+```
+
+### Arrange, Act, Assert
+
+Every test follows AAA with blank lines between sections:
+
+```gleam
+it("uppercases string", fn() {
   // Arrange
-  let assert Ok(db) = database.init_test_database()
-  
+  let input = "hello"
+
   // Act
-  let result = user.create(db, "Test User", "test@example.com")
-  
+  let result = string.uppercase(input)
+
   // Assert
-  result |> should.be_ok()
-  
-  // Cleanup
-  database.cleanup(db)
-}
+  result
+  |> should()
+  |> equal("HELLO")
+  |> or_fail_with("Should uppercase")
+})
 ```
 
-Run integration tests separately:
+## What to Test
 
-```bash
-gleam test --only integration
-```
+### ✅ Do Test
+
+- Public API functions
+- Business logic
+- Error handling
+- Edge cases (empty strings, zero, None)
+- Integration points
+
+### ❌ Don't Test
+
+- Private functions directly
+- Third-party libraries
+- Simple getters/setters
+- Configuration objects (unless validation logic)
 
 ## Coverage Requirements
 
-All functions in `src/dream/` must have 100% test coverage. If a private function isn't reachable through public functions, it's dead code—delete it.
-
-No coverage tools? Just review:
-- Every public function has tests
-- Every code path is exercised
-- Edge cases are covered
-
-## Arrange, Act, Assert Pattern
-
-Every test follows AAA:
-
-```gleam
-pub fn example_test() {
-  // Arrange: Set up test data
-  let input = "test value"
-  let expected = "TEST VALUE"
-  
-  // Act: Execute the function
-  let result = string.uppercase(input)
-  
-  // Assert: Verify the outcome
-  result |> should.equal(expected)
-}
-```
-
-Add blank lines between sections. Makes tests readable.
-
-## Common Assertions
-
-```gleam
-import gleeunit/should
-
-// Equality
-result |> should.equal(expected)
-result |> should.not_equal(unexpected)
-
-// Boolean
-condition |> should.be_true()
-condition |> should.be_false()
-
-// Options
-option |> should.be_some()
-option |> should.be_none()
-
-// Results
-result |> should.be_ok()
-result |> should.be_error()
-
-// Lists
-list |> should.contain(item)
-```
-
-## Testing JSON Encoding/Decoding
-
-```gleam
-import gleam/json
-import gleeunit/should
-
-pub fn user_view_encoder_creates_valid_json_test() {
-  // Arrange
-  let user = sql.GetUserRow(id: 1, name: "Alice", email: "alice@example.com", created_at: None)
-  
-  // Act - encoding happens in views
-  let json_obj = user_view.encode_user(user.id, user.name, user.email, user.created_at)
-  let json_string = json.to_string(json_obj)
-  
-  // Assert
-  json_string |> should.contain("\"name\":\"Alice\"")
-  json_string |> should.contain("\"email\":\"alice@example.com\"")
-}
-
-// Note: In practice, you'd test the full view function
-pub fn user_view_respond_formats_correctly_test() {
-  // Create a mock result
-  let user = sql.GetUserRow(id: 1, name: "Alice", email: "alice@example.com", created_at: None)
-  let result = Ok(pog.Returned(count: 1, rows: [user]))
-  
-  // Test the view
-  let response = user_view.respond(result)
-  
-  response.status |> should.equal(200)
-  // Check response body contains expected JSON
-}
-
-pub fn user_decoder_parses_valid_json_test() {
-  // Arrange
-  let json_string = "{\"name\":\"Alice\",\"email\":\"alice@example.com\"}"
-  
-  // Act
-  let result = json.decode(json_string, user.decoder())
-  
-  // Assert
-  case result {
-    Ok(#(name, email)) -> {
-      name |> should.equal("Alice")
-      email |> should.equal("alice@example.com")
-    }
-    Error(_) -> should.fail("Expected Ok, got Error")
-  }
-}
-```
-
-## What NOT to Test
-
-Don't test:
-- ❌ Private functions directly
-- ❌ Third-party libraries (they have their own tests)
-- ❌ Getters/setters with no logic
-- ❌ Configuration objects (unless validation logic)
-
-Do test:
-- ✅ Public API functions
-- ✅ Business logic
-- ✅ Error handling
-- ✅ Edge cases
-- ✅ Integration points
+All functions in `src/dream/` must have test coverage. If a private function
+isn't reachable through public functions, it's dead code—delete it.
 
 ## Running Tests
 
@@ -443,90 +544,23 @@ Do test:
 # Run all tests
 gleam test
 
-# Run tests for a specific module
-gleam test --module your_app/controllers/users_controller_test
-
-# Watch mode (run tests on file changes)
-gleam test --watch
+# Run with make (includes formatting check)
+make test
 ```
 
 ## Tips
 
-1. **Write tests first** (TDD) or right after (TAD). Don't leave it for later.
-2. **One assertion per test** when possible. Makes failures clear.
-3. **Test edge cases**: empty strings, zero, negative numbers, None values
-4. **Test error paths**: What happens when things go wrong?
-5. **Keep tests fast**: If tests are slow, you won't run them
-6. **Don't mock what you don't own**: Use real types when possible
-
-## Example: Complete Test File
-
-```gleam
-import gleeunit
-import gleeunit/should
-import your_app/models/user
-import your_app/test_helpers.{mock_database}
-
-pub fn main() {
-  gleeunit.main()
-}
-
-pub fn create_user_with_valid_data_returns_user_test() {
-  let db = mock_database()
-  let result = user.create(db, "Alice", "alice@example.com")
-  
-  case result {
-    Ok(returned) -> {
-      case returned.rows {
-        [user_row] -> {
-          user_row.name |> should.equal("Alice")
-          user_row.email |> should.equal("alice@example.com")
-        }
-        _ -> should.fail("Expected one row")
-      }
-    }
-    Error(_) -> should.fail("Expected Ok")
-  }
-}
-
-pub fn create_user_with_empty_name_returns_error_test() {
-  let db = mock_database()
-  let result = user.create(db, "", "alice@example.com")
-  
-  result |> should.be_error()
-}
-
-pub fn get_user_that_exists_returns_user_test() {
-  let db = mock_database()
-  let result = user.get(db, 1)
-  
-  result |> should.be_ok()
-}
-
-pub fn get_user_that_does_not_exist_returns_error_test() {
-  let db = mock_database()
-  let result = user.get(db, 999)
-  
-  result |> should.be_error()
-}
-```
-
-## Summary
-
-Testing in Dream:
-- ✅ Black box testing (public interfaces only)
-- ✅ Tests in `test/` directory
-- ✅ Mock dependencies via dependency injection
-- ✅ Follow AAA pattern
-- ✅ Unit tests: fast, isolated, deterministic
-- ✅ Integration tests: separate directory
-- ✅ 100% coverage of `src/dream/`
-
-Good tests make refactoring safe. Write them.
+1. **Write tests first** (TDD) or immediately after
+2. **One assertion per test** for clear failures
+3. **Test edge cases**: empty, zero, negative, None
+4. **Test error paths**: what happens when things fail?
+5. **Keep tests fast**: slow tests don't get run
+6. **Use fixtures**: don't repeat test data setup
 
 ---
 
 **See Also:**
-- [Deployment](deployment.md) - Running tests in production
-- [REST API](rest-api.md) - Testing API endpoints
 
+- [dream_test documentation](https://hexdocs.pm/dream_test/)
+- [Deployment](deployment.md)
+- [REST API](rest-api.md)

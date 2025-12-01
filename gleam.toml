@@ -1,6 +1,6 @@
 name = "dream"
-version = "2.2.0"
-description = "A composable web library for Gleam/BEAM"
+version = "2.3.0"
+description = "Clean, composable web development for Gleam. No magic."
 licences = ["MIT"]
 repository = { type = "github", user = "TrustBound", repo = "dream" }
 links = [
@@ -23,5 +23,5 @@ simplifile = ">= 2.3.0 and < 3.0.0"
 [dev-dependencies]
 squirrel = ">= 4.0.0 and < 5.0.0"
 mockth = { git = "https://github.com/bondiano/mockth.git", ref = "master" }
-dream_test = ">= 1.0.0 and < 2.0.0"
+dream_test = ">= 1.0.3 and < 2.0.0"
 dream_http_client = ">= 2.1.1 and < 3.0.0"

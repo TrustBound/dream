@@ -40,25 +40,36 @@ pub fn tests() -> UnitTest {
 fn body_as_string_tests() -> UnitTest {
   describe("body_as_string", [
     it("returns empty string for empty stream", fn() {
+      // Arrange
       let stream = yielder.empty()
       let request = test_request.create_streaming_request(Post, "/test", stream)
 
-      body_as_string(request)
+      // Act
+      let result = body_as_string(request)
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal("")
       |> or_fail_with("Empty stream should return empty string")
     }),
     it("returns error for invalid UTF-8", fn() {
+      // Arrange
       let stream = yielder.from_list([<<0xFF, 0xFF>>])
       let request = test_request.create_streaming_request(Post, "/test", stream)
 
-      body_as_string(request)
+      // Act
+      let result = body_as_string(request)
+
+      // Assert
+      result
       |> should()
       |> be_error()
       |> or_fail_with("Invalid UTF-8 should return error")
     }),
     it("collects multiple chunks", fn() {
+      // Arrange
       let stream =
         yielder.from_list([
           bit_array.from_string("Chunk 1"),
@@ -66,13 +77,18 @@ fn body_as_string_tests() -> UnitTest {
         ])
       let request = test_request.create_streaming_request(Post, "/test", stream)
 
-      body_as_string(request)
+      // Act
+      let result = body_as_string(request)
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal("Chunk 1Chunk 2")
       |> or_fail_with("Should collect all chunks")
     }),
     it("handles many chunks", fn() {
+      // Arrange
       let chunks = [
         bit_array.from_string("Chunk 1 "),
         bit_array.from_string("Chunk 2 "),
@@ -83,16 +99,25 @@ fn body_as_string_tests() -> UnitTest {
       let stream = yielder.from_list(chunks)
       let request = test_request.create_streaming_request(Post, "/test", stream)
 
-      body_as_string(request)
+      // Act
+      let result = body_as_string(request)
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal("Chunk 1 Chunk 2 Chunk 3 Chunk 4 Chunk 5")
       |> or_fail_with("Should handle many chunks")
     }),
     it("returns empty string for buffered empty body", fn() {
+      // Arrange
       let request = test_request.create_request_with_body(Post, "/test", "")
 
-      body_as_string(request)
+      // Act
+      let result = body_as_string(request)
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal("")
@@ -104,6 +129,7 @@ fn body_as_string_tests() -> UnitTest {
 fn middleware_streaming_tests() -> UnitTest {
   describe("middleware with streaming", [
     it("preserves stream through pass-through middleware", fn() {
+      // Arrange
       let stream = yielder.from_list([bit_array.from_string("test")])
       let request = test_request.create_streaming_request(Post, "/test", stream)
       let middleware = fn(inner_request: Request, app_context, services, next) {
@@ -112,15 +138,19 @@ fn middleware_streaming_tests() -> UnitTest {
       let chain = build_controller_chain([Middleware(middleware)], test_handler)
       let test_context = context.AppContext("id")
 
-      chain(request, test_context, EmptyServices).status
+      // Act
+      let response = chain(request, test_context, EmptyServices)
+
+      // Assert
+      response.status
       |> should()
       |> equal(200)
       |> or_fail_with("Middleware should preserve stream")
     }),
     it("can consume stream before controller", fn() {
+      // Arrange
       let stream = yielder.from_list([bit_array.from_string("secret")])
       let request = test_request.create_streaming_request(Post, "/test", stream)
-
       let consuming_middleware = fn(
         inner_request: Request,
         app_context,
@@ -137,26 +167,26 @@ fn middleware_streaming_tests() -> UnitTest {
             Response(500, Text("Stream read error"), [], [], option.None)
         }
       }
-
       let controller = fn(inner_request: Request, _ctx, _svc) -> Response {
         Response(200, Text(inner_request.body), [], [], option.None)
       }
-
       let chain =
         build_controller_chain([Middleware(consuming_middleware)], controller)
       let test_context = context.AppContext("id")
 
+      // Act
       let response = chain(request, test_context, EmptyServices)
 
+      // Assert
       response.status
       |> should()
       |> equal(200)
       |> or_fail_with("Status should be 200")
     }),
     it("passes consumed body to controller", fn() {
+      // Arrange
       let stream = yielder.from_list([bit_array.from_string("consumed")])
       let request = test_request.create_streaming_request(Post, "/test", stream)
-
       let consuming_middleware = fn(
         inner_request: Request,
         app_context,
@@ -173,16 +203,18 @@ fn middleware_streaming_tests() -> UnitTest {
             Response(500, Text("Stream read error"), [], [], option.None)
         }
       }
-
       let controller = fn(inner_request: Request, _ctx, _svc) -> Response {
         Response(200, Text(inner_request.body), [], [], option.None)
       }
-
       let chain =
         build_controller_chain([Middleware(consuming_middleware)], controller)
       let test_context = context.AppContext("id")
 
-      chain(request, test_context, EmptyServices)
+      // Act
+      let response = chain(request, test_context, EmptyServices)
+
+      // Assert
+      response
       |> should()
       |> extract_body_text()
       |> equal("consumed")
@@ -194,20 +226,30 @@ fn middleware_streaming_tests() -> UnitTest {
 fn stream_error_tests() -> UnitTest {
   describe("stream error handling", [
     it("handles invalid UTF-8 gracefully", fn() {
+      // Arrange
       let invalid_chunk = <<0xFF, 0xFE, 0xFD>>
       let stream = yielder.from_list([invalid_chunk])
       let request = test_request.create_streaming_request(Post, "/test", stream)
 
-      body_as_string(request)
+      // Act
+      let result = body_as_string(request)
+
+      // Assert
+      result
       |> should()
       |> be_error()
       |> or_fail_with("Should return error for invalid UTF-8")
     }),
     it("first consumption of stream works", fn() {
+      // Arrange
       let stream = yielder.from_list([bit_array.from_string("test")])
       let request = test_request.create_streaming_request(Post, "/test", stream)
 
-      body_as_string(request)
+      // Act
+      let result = body_as_string(request)
+
+      // Assert
+      result
       |> should()
       |> be_ok()
       |> equal("test")
@@ -219,80 +261,90 @@ fn stream_error_tests() -> UnitTest {
 fn route_streaming_tests() -> UnitTest {
   describe("route streaming", [
     it("buffered route receives full body", fn() {
+      // Arrange
       let test_router = create_test_router()
       let request =
         test_request.create_request_with_body(Post, "/buffer", "buffered data")
+      let app_context = context.AppContext("id")
 
-      dream.route_request(
-        test_router,
-        request,
-        context.AppContext("id"),
-        EmptyServices,
-      )
+      // Act
+      let response =
+        dream.route_request(test_router, request, app_context, EmptyServices)
+
+      // Assert
+      response
       |> should()
       |> extract_body_text()
       |> equal("buffered data")
       |> or_fail_with("Should receive buffered data")
     }),
     it("streaming route receives stream", fn() {
+      // Arrange
       let test_router = create_test_router()
       let stream = yielder.from_list([bit_array.from_string("streamed data")])
       let request =
         test_request.create_streaming_request(Post, "/stream", stream)
+      let app_context = context.AppContext("id")
 
-      dream.route_request(
-        test_router,
-        request,
-        context.AppContext("id"),
-        EmptyServices,
-      )
+      // Act
+      let response =
+        dream.route_request(test_router, request, app_context, EmptyServices)
+
+      // Assert
+      response
       |> should()
       |> extract_body_text()
       |> equal("streamed data")
       |> or_fail_with("Should receive streamed data")
     }),
     it("streaming route handles empty stream", fn() {
+      // Arrange
       let test_router = create_test_router()
       let empty_stream = yielder.empty()
       let request =
         test_request.create_streaming_request(Post, "/stream", empty_stream)
+      let app_context = context.AppContext("id")
 
-      dream.route_request(
-        test_router,
-        request,
-        context.AppContext("id"),
-        EmptyServices,
-      )
+      // Act
+      let response =
+        dream.route_request(test_router, request, app_context, EmptyServices)
+
+      // Assert
+      response
       |> should()
       |> extract_body_text()
       |> equal("")
       |> or_fail_with("Should handle empty stream")
     }),
     it("buffered route handles empty body", fn() {
+      // Arrange
       let test_router = create_test_router()
       let request = test_request.create_request_with_body(Post, "/buffer", "")
+      let app_context = context.AppContext("id")
 
-      dream.route_request(
-        test_router,
-        request,
-        context.AppContext("id"),
-        EmptyServices,
-      )
+      // Act
+      let response =
+        dream.route_request(test_router, request, app_context, EmptyServices)
+
+      // Assert
+      response
       |> should()
       |> extract_body_text()
       |> equal("")
       |> or_fail_with("Should handle empty body")
     }),
     it("returns 404 for nonexistent route", fn() {
+      // Arrange
       let test_router = create_test_router()
       let request = test_request.create_request(Post, "/nonexistent")
+      let app_context = context.AppContext("id")
 
-      dream.route_request(
-        test_router,
-        request,
-        context.AppContext("id"),
-        EmptyServices,
-      ).status
+      // Act
+      let response =
+        dream.route_request(test_router, request, app_context, EmptyServices)
+
+      // Assert
+      response.status
       |> should()
       |> equal(404)
       |> or_fail_with("Should return 404")

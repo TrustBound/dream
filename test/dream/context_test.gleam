@@ -9,16 +9,28 @@ pub fn tests() -> UnitTest {
   describe("context", [
     describe("new_context", [
       it("creates AppContext with provided request id", fn() {
+        // Arrange
         let request_id = "test-request-123"
 
-        context.new_context(request_id)
+        // Act
+        let result = context.new_context(request_id)
+
+        // Assert
+        result
         |> should()
         |> extract_request_id()
         |> equal(request_id)
         |> or_fail_with("AppContext should contain the request id")
       }),
       it("creates AppContext with empty string when given empty id", fn() {
-        context.new_context("")
+        // Arrange
+        let request_id = ""
+
+        // Act
+        let result = context.new_context(request_id)
+
+        // Assert
+        result
         |> should()
         |> extract_request_id()
         |> equal("")

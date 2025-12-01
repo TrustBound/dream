@@ -27,27 +27,57 @@ pub fn tests() -> UnitTest {
 fn builder_tests() -> UnitTest {
   describe("builder", [
     it("new creates dream instance with 10MB default max body size", fn() {
-      dream.get_max_body_size(server.new())
+      // Arrange
+      let dream_instance = server.new()
+
+      // Act
+      let result = dream.get_max_body_size(dream_instance)
+
+      // Assert
+      result
       |> should()
       |> equal(10_000_000)
       |> or_fail_with("Default max body size should be 10MB")
     }),
     it("router sets router on dream instance", fn() {
-      let _ = server.router(server.new(), router())
+      // Arrange
+      let dream_instance = server.new()
+      let test_router = router()
+
+      // Act
+      let _configured = server.router(dream_instance, test_router)
+
+      // Assert
       AssertionOk
     }),
     it("bind sets bind address", fn() {
-      let _ =
-        server.new()
-        |> server.router(router())
-        |> server.bind("127.0.0.1")
+      // Arrange
+      let dream_instance = server.new()
+      let test_router = router()
+      let bind_address = "127.0.0.1"
+
+      // Act
+      let _configured =
+        dream_instance
+        |> server.router(test_router)
+        |> server.bind(bind_address)
+
+      // Assert
       AssertionOk
     }),
     it("max_body_size sets max body size", fn() {
-      let _ =
-        server.new()
-        |> server.router(router())
-        |> server.max_body_size(2048)
+      // Arrange
+      let dream_instance = server.new()
+      let test_router = router()
+      let max_size = 2048
+
+      // Act
+      let _configured =
+        dream_instance
+        |> server.router(test_router)
+        |> server.max_body_size(max_size)
+
+      // Assert
       AssertionOk
     }),
   ])
@@ -58,11 +88,16 @@ fn listen_tests() -> UnitTest {
     before_each(start_server),
     after_each(stop_server),
     it("starts on expected port", fn() {
-      // Server is started by before_each hook
-      // Just verify the port constant is what we expect
-      test_server_port
+      // Arrange
+      let expected_port = 19_999
+
+      // Act
+      let actual_port = test_server_port
+
+      // Assert
+      actual_port
       |> should()
-      |> equal(19_999)
+      |> equal(expected_port)
       |> or_fail_with("Test server port should be 19999")
     }),
   ])
@@ -71,11 +106,16 @@ fn listen_tests() -> UnitTest {
 fn lifecycle_tests() -> UnitTest {
   describe("server lifecycle", [
     it("listen_with_handle returns server handle", fn() {
-      let result =
+      // Arrange
+      let dream_instance =
         server.new()
         |> server.router(router())
-        |> server.listen_with_handle(19_990)
+      let port = 19_990
 
+      // Act
+      let result = server.listen_with_handle(dream_instance, port)
+
+      // Assert
       case result {
         Ok(handle) -> {
           server.stop(handle)
@@ -91,20 +131,21 @@ fn lifecycle_tests() -> UnitTest {
       }
     }),
     it("stop actually stops server", fn() {
-      let result =
+      // Arrange
+      let dream_instance =
         server.new()
         |> server.router(router())
-        |> server.listen_with_handle(19_991)
+      let port = 19_991
 
+      // Act
+      let result = server.listen_with_handle(dream_instance, port)
+
+      // Assert
       case result {
         Ok(handle) -> {
-          // Wait for server to start
           process.sleep(100)
-          // Stop the server
           server.stop(handle)
-          // Wait for server to stop
           process.sleep(100)
-          // If we get here without panic, stop() worked
           AssertionOk
         }
         Error(start_error) ->
@@ -116,15 +157,19 @@ fn lifecycle_tests() -> UnitTest {
       }
     }),
     it("stop is idempotent", fn() {
-      let result =
+      // Arrange
+      let dream_instance =
         server.new()
         |> server.router(router())
-        |> server.listen_with_handle(19_992)
+      let port = 19_992
 
+      // Act
+      let result = server.listen_with_handle(dream_instance, port)
+
+      // Assert
       case result {
         Ok(handle) -> {
           process.sleep(100)
-          // Stop the server multiple times - should not crash
           server.stop(handle)
           server.stop(handle)
           server.stop(handle)
@@ -144,13 +189,17 @@ fn lifecycle_tests() -> UnitTest {
 fn bind_tests() -> UnitTest {
   describe("bind configuration", [
     it("bind configuration persists through listen", fn() {
-      // Regression test: bind() configuration should not be lost in listen()
-      let result =
+      // Arrange
+      let dream_instance =
         server.new()
         |> server.router(router())
         |> server.bind("127.0.0.1")
-        |> server.listen_with_handle(19_993)
+      let port = 19_993
 
+      // Act
+      let result = server.listen_with_handle(dream_instance, port)
+
+      // Assert
       case result {
         Ok(handle) -> {
           server.stop(handle)
@@ -166,12 +215,17 @@ fn bind_tests() -> UnitTest {
       }
     }),
     it("bind to localhost works", fn() {
-      let result =
+      // Arrange
+      let dream_instance =
         server.new()
         |> server.router(router())
         |> server.bind("localhost")
-        |> server.listen_with_handle(19_994)
+      let port = 19_994
 
+      // Act
+      let result = server.listen_with_handle(dream_instance, port)
+
+      // Assert
       case result {
         Ok(handle) -> {
           server.stop(handle)
@@ -187,12 +241,17 @@ fn bind_tests() -> UnitTest {
       }
     }),
     it("bind to all interfaces works", fn() {
-      let result =
+      // Arrange
+      let dream_instance =
         server.new()
         |> server.router(router())
         |> server.bind("0.0.0.0")
-        |> server.listen_with_handle(19_995)
+      let port = 19_995
 
+      // Act
+      let result = server.listen_with_handle(dream_instance, port)
+
+      // Assert
       case result {
         Ok(handle) -> {
           server.stop(handle)

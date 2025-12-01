@@ -40,11 +40,17 @@ pub fn tests() -> UnitTest {
 fn streaming_flag_tests() -> UnitTest {
   describe("streaming flag", [
     it("stream_route with POST sets streaming to true", fn() {
+      // Arrange
       let test_router =
         router()
         |> stream_route(Post, "/upload", test_handler, [])
+      let request = test_request.create_request(Post, "/upload")
 
-      find_route(test_router, test_request.create_request(Post, "/upload"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_streaming_flag()
@@ -52,11 +58,17 @@ fn streaming_flag_tests() -> UnitTest {
       |> or_fail_with("streaming flag should be true")
     }),
     it("stream_route with PUT sets streaming to true", fn() {
+      // Arrange
       let test_router =
         router()
         |> stream_route(Put, "/upload", test_handler, [])
+      let request = test_request.create_request(Put, "/upload")
 
-      find_route(test_router, test_request.create_request(Put, "/upload"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_streaming_flag()
@@ -64,11 +76,17 @@ fn streaming_flag_tests() -> UnitTest {
       |> or_fail_with("streaming flag should be true")
     }),
     it("stream_route with PATCH sets streaming to true", fn() {
+      // Arrange
       let test_router =
         router()
         |> stream_route(Patch, "/upload", test_handler, [])
+      let request = test_request.create_request(Patch, "/upload")
 
-      find_route(test_router, test_request.create_request(Patch, "/upload"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_streaming_flag()
@@ -76,11 +94,17 @@ fn streaming_flag_tests() -> UnitTest {
       |> or_fail_with("streaming flag should be true")
     }),
     it("regular route sets streaming to false", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Post, "/upload", test_handler, [])
+      let request = test_request.create_request(Post, "/upload")
 
-      find_route(test_router, test_request.create_request(Post, "/upload"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_streaming_flag()
@@ -93,39 +117,65 @@ fn streaming_flag_tests() -> UnitTest {
 fn basic_route_tests() -> UnitTest {
   describe("basic routing", [
     it("empty router returns None", fn() {
-      find_route(router(), test_request.create_request(Get, "/users"))
+      // Arrange
+      let test_router = router()
+      let request = test_request.create_request(Get, "/users")
+
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_none()
       |> or_fail_with("Empty router should return None")
     }),
     it("matches single literal route", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/users", test_handler, [])
+      let request = test_request.create_request(Get, "/users")
 
-      find_route(test_router, test_request.create_request(Get, "/users"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> or_fail_with("Should match /users route")
     }),
     it("matches GET on path with multiple methods", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/users", test_handler, [])
         |> route(Post, "/users", test_handler, [])
+      let request = test_request.create_request(Get, "/users")
 
-      find_route(test_router, test_request.create_request(Get, "/users"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> or_fail_with("Should match GET /users")
     }),
     it("matches POST on path with multiple methods", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/users", test_handler, [])
         |> route(Post, "/users", test_handler, [])
+      let request = test_request.create_request(Post, "/users")
 
-      find_route(test_router, test_request.create_request(Post, "/users"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> or_fail_with("Should match POST /users")
@@ -136,11 +186,17 @@ fn basic_route_tests() -> UnitTest {
 fn parameter_tests() -> UnitTest {
   describe("parameter extraction", [
     it("extracts single parameter", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/users/:id", test_handler, [])
+      let request = test_request.create_request(Get, "/users/123")
 
-      find_route(test_router, test_request.create_request(Get, "/users/123"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -148,14 +204,17 @@ fn parameter_tests() -> UnitTest {
       |> or_fail_with("Should extract id parameter")
     }),
     it("extracts multiple parameters in path order", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/users/:user_id/posts/:post_id", test_handler, [])
+      let request = test_request.create_request(Get, "/users/123/posts/456")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/users/123/posts/456"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -163,14 +222,17 @@ fn parameter_tests() -> UnitTest {
       |> or_fail_with("Should extract params in path order")
     }),
     it("extracts parameter with special characters", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/users/:slug", test_handler, [])
+      let request = test_request.create_request(Get, "/users/john-doe")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/users/john-doe"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -178,11 +240,17 @@ fn parameter_tests() -> UnitTest {
       |> or_fail_with("Should extract slug with hyphen")
     }),
     it("extracts numeric parameter", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/items/:count", test_handler, [])
+      let request = test_request.create_request(Get, "/items/999")
 
-      find_route(test_router, test_request.create_request(Get, "/items/999"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -195,14 +263,17 @@ fn parameter_tests() -> UnitTest {
 fn wildcard_tests() -> UnitTest {
   describe("wildcard routes", [
     it("matches wildcard single segment", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/files/*path", test_handler, [])
+      let request = test_request.create_request(Get, "/files/document")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/files/document"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -210,15 +281,18 @@ fn wildcard_tests() -> UnitTest {
       |> or_fail_with("Should capture single segment")
     }),
     it("matches multi-wildcard for multiple segments", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/files/**path", test_handler, [])
+      let request =
+        test_request.create_request(Get, "/files/dir/subdir/file.txt")
 
-      // Use ** (multi-wildcard) to capture multiple path segments
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/files/dir/subdir/file.txt"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -226,14 +300,17 @@ fn wildcard_tests() -> UnitTest {
       |> or_fail_with("Should capture full path")
     }),
     it("wildcard with extension preserves extension", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/files/*filename", test_handler, [])
+      let request = test_request.create_request(Get, "/files/document.pdf")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/files/document.pdf"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -241,14 +318,18 @@ fn wildcard_tests() -> UnitTest {
       |> or_fail_with("Wildcard should capture full segment")
     }),
     it("wildcard with multiple dots", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/files/*filename", test_handler, [])
+      let request =
+        test_request.create_request(Get, "/files/file.backup.tar.gz")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/files/file.backup.tar.gz"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -256,14 +337,17 @@ fn wildcard_tests() -> UnitTest {
       |> or_fail_with("Should capture full filename with multiple dots")
     }),
     it("wildcard with hidden files", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/files/*filename", test_handler, [])
+      let request = test_request.create_request(Get, "/files/.hidden")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/files/.hidden"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -276,73 +360,97 @@ fn wildcard_tests() -> UnitTest {
 fn extension_pattern_tests() -> UnitTest {
   describe("extension patterns", [
     it("matches literal extension pattern for json", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/products.{json,xml}", test_handler, [])
+      let request = test_request.create_request(Get, "/products.json")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/products.json"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> or_fail_with("Should match products.json")
     }),
     it("matches literal extension pattern for xml", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/products.{json,xml}", test_handler, [])
+      let request = test_request.create_request(Get, "/products.xml")
 
-      find_route(test_router, test_request.create_request(Get, "/products.xml"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> or_fail_with("Should match products.xml")
     }),
     it("does not match unlisted extension", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/products.{json,xml}", test_handler, [])
+      let request = test_request.create_request(Get, "/products.csv")
 
-      find_route(test_router, test_request.create_request(Get, "/products.csv"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_none()
       |> or_fail_with("Should not match products.csv")
     }),
     it("extension pattern on wildcard", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/images/*.{jpg,png}", test_handler, [])
+      let request = test_request.create_request(Get, "/images/photo.jpg")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/images/photo.jpg"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> or_fail_with("Should match *.jpg pattern")
     }),
     it("extension pattern on wildcard png", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/images/*.{jpg,png}", test_handler, [])
+      let request = test_request.create_request(Get, "/images/icon.png")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/images/icon.png"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> or_fail_with("Should match *.png pattern")
     }),
     it("param preserves extension in value", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/products/:id", param_handler, [])
+      let request = test_request.create_request(Get, "/products/1.json")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/products/1.json"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -355,12 +463,18 @@ fn extension_pattern_tests() -> UnitTest {
 fn precedence_tests() -> UnitTest {
   describe("route precedence", [
     it("literal route takes precedence over param", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/users/new", literal_handler, [])
         |> route(Get, "/users/:id", param_handler, [])
+      let request = test_request.create_request(Get, "/users/new")
 
-      find_route(test_router, test_request.create_request(Get, "/users/new"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -368,12 +482,18 @@ fn precedence_tests() -> UnitTest {
       |> or_fail_with("Literal route should have no params")
     }),
     it("param route matches non-literal", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/users/new", literal_handler, [])
         |> route(Get, "/users/:id", param_handler, [])
+      let request = test_request.create_request(Get, "/users/123")
 
-      find_route(test_router, test_request.create_request(Get, "/users/123"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -381,15 +501,18 @@ fn precedence_tests() -> UnitTest {
       |> or_fail_with("Param route should capture id")
     }),
     it("extension pattern takes precedence over param route", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/images/*.{jpg,png}", test_handler, [])
         |> route(Get, "/images/:name", param_handler, [])
+      let request = test_request.create_request(Get, "/images/photo.jpg")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/images/photo.jpg"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -397,15 +520,18 @@ fn precedence_tests() -> UnitTest {
       |> or_fail_with("Extension pattern should match with no params")
     }),
     it("param route matches non-pattern extensions", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/images/*.{jpg,png}", test_handler, [])
         |> route(Get, "/images/:name", param_handler, [])
+      let request = test_request.create_request(Get, "/images/document.pdf")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/images/document.pdf"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -418,23 +544,35 @@ fn precedence_tests() -> UnitTest {
 fn method_matching_tests() -> UnitTest {
   describe("method matching", [
     it("does not match wrong method", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/users", test_handler, [])
+      let request = test_request.create_request(Post, "/users")
 
-      find_route(test_router, test_request.create_request(Post, "/users"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_none()
       |> or_fail_with("POST should not match GET route")
     }),
     it("each method has its own route", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/items", test_handler, [])
         |> route(Post, "/items", test_handler, [])
         |> route(Put, "/items/:id", test_handler, [])
+      let request = test_request.create_request(Put, "/items/123")
 
-      find_route(test_router, test_request.create_request(Put, "/items/123"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -447,25 +585,38 @@ fn method_matching_tests() -> UnitTest {
 fn middleware_chain_tests() -> UnitTest {
   describe("middleware chain", [
     it("route with empty middleware list works", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/simple", test_handler, [])
+      let request = test_request.create_request(Get, "/simple")
 
-      find_route(test_router, test_request.create_request(Get, "/simple"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> or_fail_with("Should match route with empty middleware")
     }),
     it("build_controller_chain with no middleware returns controller", fn() {
+      // Arrange
       let controller = build_controller_chain([], test_handler)
       let request = test_request.create_request(Get, "/")
+      let app_context = context.AppContext("test")
 
-      controller(request, context.AppContext("test"), router.EmptyServices).status
+      // Act
+      let response = controller(request, app_context, router.EmptyServices)
+
+      // Assert
+      response.status
       |> should()
       |> equal(200)
       |> or_fail_with("Controller should return 200")
     }),
     it("middleware wraps controller and adds header", fn() {
+      // Arrange
       let add_header_middleware = fn(request, app_context, services, next) {
         let response = next(request, app_context, services)
         Response(..response, headers: [
@@ -473,20 +624,25 @@ fn middleware_chain_tests() -> UnitTest {
           ..response.headers
         ])
       }
-
       let controller =
         build_controller_chain(
           [router.Middleware(add_header_middleware)],
           test_handler,
         )
       let request = test_request.create_request(Get, "/")
+      let app_context = context.AppContext("test")
 
-      controller(request, context.AppContext("test"), router.EmptyServices).headers
+      // Act
+      let response = controller(request, app_context, router.EmptyServices)
+
+      // Assert
+      response.headers
       |> should()
       |> have_length(2)
       |> or_fail_with("Should have 2 headers")
     }),
     it("middleware adds X-Custom header", fn() {
+      // Arrange
       let add_header_middleware = fn(request, app_context, services, next) {
         let response = next(request, app_context, services)
         Response(..response, headers: [
@@ -494,16 +650,18 @@ fn middleware_chain_tests() -> UnitTest {
           ..response.headers
         ])
       }
-
       let controller =
         build_controller_chain(
           [router.Middleware(add_header_middleware)],
           test_handler,
         )
       let request = test_request.create_request(Get, "/")
-      let response =
-        controller(request, context.AppContext("test"), router.EmptyServices)
+      let app_context = context.AppContext("test")
 
+      // Act
+      let response = controller(request, app_context, router.EmptyServices)
+
+      // Assert
       response.headers
       |> should()
       |> extract_header_name_at_index(0)
@@ -511,6 +669,7 @@ fn middleware_chain_tests() -> UnitTest {
       |> or_fail_with("First header should be X-Custom")
     }),
     it("multiple middleware execute in order (first wraps second)", fn() {
+      // Arrange
       let first_middleware = fn(request, app_context, services, next) {
         let response = next(request, app_context, services)
         Response(..response, headers: [
@@ -518,7 +677,6 @@ fn middleware_chain_tests() -> UnitTest {
           ..response.headers
         ])
       }
-
       let second_middleware = fn(request, app_context, services, next) {
         let response = next(request, app_context, services)
         Response(..response, headers: [
@@ -526,7 +684,6 @@ fn middleware_chain_tests() -> UnitTest {
           ..response.headers
         ])
       }
-
       let controller =
         build_controller_chain(
           [
@@ -536,11 +693,12 @@ fn middleware_chain_tests() -> UnitTest {
           test_handler,
         )
       let request = test_request.create_request(Get, "/")
-      let response =
-        controller(request, context.AppContext("test"), router.EmptyServices)
+      let app_context = context.AppContext("test")
 
-      // First middleware wraps second, so it runs last on the way out
-      // Headers should be: X-First, X-Second, Content-Type
+      // Act
+      let response = controller(request, app_context, router.EmptyServices)
+
+      // Assert
       response.headers
       |> should()
       |> extract_header_name_at_index(0)
@@ -548,6 +706,7 @@ fn middleware_chain_tests() -> UnitTest {
       |> or_fail_with("First header should be X-First")
     }),
     it("second middleware header comes after first", fn() {
+      // Arrange
       let first_middleware = fn(request, app_context, services, next) {
         let response = next(request, app_context, services)
         Response(..response, headers: [
@@ -555,7 +714,6 @@ fn middleware_chain_tests() -> UnitTest {
           ..response.headers
         ])
       }
-
       let second_middleware = fn(request, app_context, services, next) {
         let response = next(request, app_context, services)
         Response(..response, headers: [
@@ -563,7 +721,6 @@ fn middleware_chain_tests() -> UnitTest {
           ..response.headers
         ])
       }
-
       let controller =
         build_controller_chain(
           [
@@ -573,9 +730,12 @@ fn middleware_chain_tests() -> UnitTest {
           test_handler,
         )
       let request = test_request.create_request(Get, "/")
-      let response =
-        controller(request, context.AppContext("test"), router.EmptyServices)
+      let app_context = context.AppContext("test")
 
+      // Act
+      let response = controller(request, app_context, router.EmptyServices)
+
+      // Assert
       response.headers
       |> should()
       |> extract_header_name_at_index(1)
@@ -590,13 +750,18 @@ fn parameter_remapping_tests() -> UnitTest {
     it(
       "routes with different param names at same position use correct names",
       fn() {
-        // Routes sharing a param child node should each extract using their own param name
+        // Arrange
         let test_router =
           router()
           |> route(Get, "/users/:id", param_handler, [])
           |> route(Get, "/users/:user_id/posts", test_handler, [])
+        let request = test_request.create_request(Get, "/users/123")
 
-        find_route(test_router, test_request.create_request(Get, "/users/123"))
+        // Act
+        let result = find_route(test_router, request)
+
+        // Assert
+        result
         |> should()
         |> be_some()
         |> extract_route_params()
@@ -605,15 +770,18 @@ fn parameter_remapping_tests() -> UnitTest {
       },
     ),
     it("nested route extracts its own param name", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/users/:id", param_handler, [])
         |> route(Get, "/users/:user_id/posts", test_handler, [])
+      let request = test_request.create_request(Get, "/users/123/posts")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/users/123/posts"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -621,15 +789,18 @@ fn parameter_remapping_tests() -> UnitTest {
       |> or_fail_with("Should extract 'user_id' (route's declared param name)")
     }),
     it("multiple params extract with correct names for first route", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/users/:id/posts/:post_id", param_handler, [])
         |> route(Get, "/users/:user_id/comments/:comment_id", test_handler, [])
+      let request = test_request.create_request(Get, "/users/123/posts/456")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/users/123/posts/456"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -637,15 +808,18 @@ fn parameter_remapping_tests() -> UnitTest {
       |> or_fail_with("Should extract id and post_id")
     }),
     it("multiple params extract with correct names for second route", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/users/:id/posts/:post_id", param_handler, [])
         |> route(Get, "/users/:user_id/comments/:comment_id", test_handler, [])
+      let request = test_request.create_request(Get, "/users/123/comments/789")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/users/123/comments/789"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -653,15 +827,18 @@ fn parameter_remapping_tests() -> UnitTest {
       |> or_fail_with("Should extract user_id and comment_id")
     }),
     it("wildcard routes extract with their own param names", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/files/*file", param_handler, [])
         |> route(Get, "/images/*image", test_handler, [])
+      let request = test_request.create_request(Get, "/files/document.pdf")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/files/document.pdf"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -669,15 +846,18 @@ fn parameter_remapping_tests() -> UnitTest {
       |> or_fail_with("Should extract 'file' wildcard")
     }),
     it("second wildcard route extracts its own param name", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/files/*file", param_handler, [])
         |> route(Get, "/images/*image", test_handler, [])
+      let request = test_request.create_request(Get, "/images/photo.jpg")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/images/photo.jpg"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -690,50 +870,65 @@ fn parameter_remapping_tests() -> UnitTest {
 fn extension_stripping_tests() -> UnitTest {
   describe("extension stripping", [
     it("literal route matches path with extension", fn() {
-      // Routes without extensions should match paths with extensions
-      // This enables format detection in controllers (e.g., /products.json -> /products)
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/products", test_handler, [])
+      let request = test_request.create_request(Get, "/products.json")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/products.json"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> or_fail_with("/products.json should match /products route")
     }),
     it("literal route matches path with csv extension", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/products", test_handler, [])
+      let request = test_request.create_request(Get, "/products.csv")
 
-      find_route(test_router, test_request.create_request(Get, "/products.csv"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> or_fail_with("/products.csv should match /products route")
     }),
     it("literal route matches path without extension", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/products", test_handler, [])
+      let request = test_request.create_request(Get, "/products")
 
-      find_route(test_router, test_request.create_request(Get, "/products"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> or_fail_with("/products should match /products route")
     }),
     it("param route matches path with extension", fn() {
-      // /products/1.json should match /products/:id with param preserving extension
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/products/:id", param_handler, [])
+      let request = test_request.create_request(Get, "/products/1.json")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/products/1.json"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -741,14 +936,17 @@ fn extension_stripping_tests() -> UnitTest {
       |> or_fail_with("Param should preserve extension for format detection")
     }),
     it("param route matches path with csv extension", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/products/:id", param_handler, [])
+      let request = test_request.create_request(Get, "/products/123.csv")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/products/123.csv"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -756,11 +954,17 @@ fn extension_stripping_tests() -> UnitTest {
       |> or_fail_with("Param should preserve csv extension")
     }),
     it("param route matches path without extension", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/products/:id", param_handler, [])
+      let request = test_request.create_request(Get, "/products/456")
 
-      find_route(test_router, test_request.create_request(Get, "/products/456"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -768,14 +972,17 @@ fn extension_stripping_tests() -> UnitTest {
       |> or_fail_with("Param should work without extension")
     }),
     it("nested route with extension on param", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/api/v1/users/:id", param_handler, [])
+      let request = test_request.create_request(Get, "/api/v1/users/123.json")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/api/v1/users/123.json"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -783,6 +990,7 @@ fn extension_stripping_tests() -> UnitTest {
       |> or_fail_with("Nested param should preserve extension")
     }),
     it("nested route with extension on last param", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(
@@ -791,11 +999,14 @@ fn extension_stripping_tests() -> UnitTest {
           param_handler,
           [],
         )
+      let request =
+        test_request.create_request(Get, "/api/v1/posts/456/comments/789.csv")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/api/v1/posts/456/comments/789.csv"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -803,16 +1014,18 @@ fn extension_stripping_tests() -> UnitTest {
       |> or_fail_with("Last param should preserve extension")
     }),
     it("extension pattern takes priority over stripping", fn() {
-      // Explicit extension pattern routes should match before stripping
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/images/*.{jpg,png}", test_handler, [])
         |> route(Get, "/images/:name", param_handler, [])
+      let request = test_request.create_request(Get, "/images/photo.jpg")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/images/photo.jpg"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -820,15 +1033,18 @@ fn extension_stripping_tests() -> UnitTest {
       |> or_fail_with("Extension pattern should match (no params)")
     }),
     it("param route matches when extension not in pattern", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/images/*.{jpg,png}", test_handler, [])
         |> route(Get, "/images/:name", param_handler, [])
+      let request = test_request.create_request(Get, "/images/document.gif")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/images/document.gif"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()
@@ -841,36 +1057,49 @@ fn extension_stripping_tests() -> UnitTest {
 fn regression_tests() -> UnitTest {
   describe("regression tests", [
     it("does not match unregistered path", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/users", test_handler, [])
+      let request = test_request.create_request(Get, "/products")
 
-      find_route(test_router, test_request.create_request(Get, "/products"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_none()
       |> or_fail_with("Should not match unregistered path")
     }),
     it("trailing slash is treated as same route", fn() {
-      // Router normalizes paths by filtering empty segments
-      // So /users/ is treated the same as /users
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/users", test_handler, [])
+      let request = test_request.create_request(Get, "/users/")
 
-      find_route(test_router, test_request.create_request(Get, "/users/"))
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> or_fail_with("Trailing slash should match same route")
     }),
     it("matches nested paths", fn() {
+      // Arrange
       let test_router =
         router()
         |> route(Get, "/api/v1/users/:id/posts", test_handler, [])
+      let request = test_request.create_request(Get, "/api/v1/users/123/posts")
 
-      find_route(
-        test_router,
-        test_request.create_request(Get, "/api/v1/users/123/posts"),
-      )
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
       |> should()
       |> be_some()
       |> extract_route_params()

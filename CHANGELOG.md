@@ -7,11 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2025-12-01
+
+### Changed
+
+**Test Framework Migration**
+
+- Replaced `gleeunit` with `dream_test` for BDD-style testing with process isolation
+- Migrated to `describe`/`it` blocks with AAA (Arrange-Act-Assert) pattern
+- Added 21 custom matchers in `test/matchers/` for cleaner assertions
+- Added reusable test fixtures in `test/fixtures/` (request, response, handler, hooks)
+- All 239 tests now run with process isolation, lifecycle hooks, and parallel execution
+
+### Fixed
+
+**Router Parameter Ordering**
+
+- Parameters are now returned in path order instead of reversed
+- Routes like `/users/:user_id/posts/:post_id` now correctly return `[("user_id", "1"), ("post_id", "2")]`
+- Previously returned parameters in reverse order due to double list reversal
+
+**Extension Pattern Matching**
+
+- Added `LiteralExtension` segment type for patterns like `/products.{json,xml}`
+- Extension patterns now correctly match paths like `/products.json` and `/products.xml`
+- Previously these patterns were treated as literal strings and didn't match
+
+### Documentation
+
+- Rewrote `docs/guides/testing.md` for `dream_test` framework
+- Rewrote `docs/contributing/testing.md` with contributor guidelines
+- Updated `docs/guides/streaming.md` and `docs/guides/streaming-quick-reference.md` test examples
+
+### Internal
+
+- Removed `gleeunit` dependency
+- Added `dream_test >= 1.0.3` and `dream_http_client >= 2.1.1` as dev dependencies
+- Benchmark tests now use `dream_test` process isolation with self-identifying output
+
 ## [2.2.0] - 2025-11-25
 
 ### Added
 
 **WebSocket Support**
+
 - Added WebSocket support via `dream/servers/mist/websocket` module
 - Server-agnostic WebSocket API that abstracts away Mist implementation details
 - Support for text messages, binary messages, custom messages, and connection lifecycle
@@ -20,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WebSocket abstraction prevents vendor lock-in - users never see Mist types
 
 **Pub/Sub Broadcasting Service**
+
 - Added `dream/services/broadcaster` module for publish/subscribe messaging
 - Generic OTP actor-based broadcaster for fan-out messaging to multiple consumers
 - Type-safe message distribution with automatic subscriber cleanup
@@ -27,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Suitable for chat rooms, notifications, live updates, and general pub/sub patterns
 
 **Dream Type Accessors**
+
 - Added public accessor functions for Dream instance configuration:
   - `dream.get_router()` - Get configured router
   - `dream.get_context()` - Get configured context
@@ -38,12 +79,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 **Dream Type Encapsulation**
+
 - Made `Dream` type opaque to hide internal server implementation details
 - Prevents users from depending on Mist types in their code
 - All construction now uses `dream.create()` with labeled arguments
 - Internal accessor functions provide controlled access to Dream state
 
 **Server Configuration**
+
 - Default `max_body_size` changed from effectively infinite (max_int64) to sensible 10MB (10,000,000 bytes)
 - `bind()` configuration now persists through `listen()` calls (previously was lost)
 
@@ -56,6 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 
 **Beginner-Friendly Documentation Overhaul**
+
 - Standardized terminology and code examples across all documentation files (~830 additions, ~374 deletions)
 - Updated quickstart guide, learning tutorials, and all major guides for consistency
 - Fixed inconsistencies in streaming API documentation and architecture docs
@@ -64,6 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved clarity for newcomers learning Dream's patterns and conventions
 
 **WebSocket Documentation**
+
 - Added comprehensive WebSocket chat example with 1,270+ line README
 - Complete architectural overview with data flow diagrams
 - Step-by-step walkthrough of WebSocket lifecycle and message handling
@@ -81,6 +126,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 **New Module: dream_mock_server 1.0.0**
+
 - General-purpose HTTP mock server for testing HTTP clients
 - Provides both streaming and non-streaming endpoints
 - Programmatic control with `start(port)` and `stop(handle)` functions
@@ -104,6 +150,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full HexDocs documentation
 
 **dream_http_client 2.0.0 - Message-Based Streaming**
+
 - Added message-based streaming API with `stream_messages()` for OTP actors
 - Added `StreamMessage` type with `StreamStart`, `Chunk`, `StreamEnd`, `StreamError`, and `DecodeError` variants
 - Added `RequestId` opaque type for stream identification
@@ -120,6 +167,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed all `panic` calls in favor of graceful error returns
 
 **Documentation**
+
 - Added `CONTRIBUTING.md` with quick start guide and links to detailed docs
 - Added `CODE_OF_CONDUCT.md` based on Contributor Covenant 2.1
 - Added `SECURITY.md` clarifying Dream's security responsibilities as a library
@@ -132,6 +180,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 **dream_http_client 2.0.0 - BREAKING CHANGES**
+
 - **BREAKING**: Consolidated modules - `fetch.request()` → `client.send()`, `stream.stream_request()` → `client.stream_yielder()`
   - **Migration**: Change `import dream_http_client/fetch` to `import dream_http_client/client` and use `client.send()`
   - **Migration**: Change `import dream_http_client/stream` to `import dream_http_client/client` and use `client.stream_yielder()`
@@ -148,6 +197,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 **dream_http_client 2.0.0**
+
 - Fixed `send()` to use synchronous `httpc` mode for non-streaming requests
 - Previously used streaming mode which couldn't handle `Content-Length` responses
 - Fixed `stream_yielder()` and `stream_messages()` to correctly include port in URLs
@@ -165,12 +215,14 @@ Special thanks to **Louis Pilfold** for bringing to our attention that the HTTP 
 ### 🚨 Breaking Changes
 
 **Router API Change**
+
 - Changed `router` from a constant to a function: `router()`
   - **Migration:** Change all `router` references to `router()` in your code
   - **Reason:** Radix trie implementation requires runtime initialization with `dict.new()`
   - **Impact:** All routers in examples and applications must be updated
 
 **Default Context and Services**
+
 - `server.new()` now defaults to `EmptyContext` and `EmptyServices` instead of requiring `AppContext`
   - **Migration:** Remove unnecessary `context()` and `services()` calls if you don't need custom context/services
   - **Impact:** Simplified API for applications that don't require per-request context
@@ -179,6 +231,7 @@ Special thanks to **Louis Pilfold** for bringing to our attention that the HTTP 
 ### Added
 
 **Radix Trie Router**
+
 - Complete router rewrite using radix trie data structure for O(path depth) performance
   - Replaces linear search O(N routes) with O(path depth) lookup
   - Benchmarks show 241x faster for first route match, 1353x faster for route-not-found cases
@@ -200,6 +253,7 @@ Special thanks to **Louis Pilfold** for bringing to our attention that the HTTP 
   - Parameter remapping tests with multiple params and wildcards
 
 **Context Improvements**
+
 - Added `EmptyContext` type for applications that don't require per-request context
 - `server.new()` now defaults to `EmptyContext` and `EmptyServices`
   - No need to call `.context()` or `.services()` for simple applications
@@ -207,6 +261,7 @@ Special thanks to **Louis Pilfold** for bringing to our attention that the HTTP 
 - Updated all example applications to use simplified API where appropriate
 
 **Documentation Updates**
+
 - Added radix trie performance information to quickstart and concepts documentation
 - Added type-safety trade-off explanation with link to Discussion #15
 - Updated all documentation from `router` constant to `router()` function
@@ -218,6 +273,7 @@ Special thanks to **Louis Pilfold** for bringing to our attention that the HTTP 
 ### Changed
 
 **Router Implementation**
+
 - `Router` type now holds `trie.RadixTrie` instead of `List(Route)`
 - Route insertion now happens via radix trie instead of list append
 - Route lookup uses trie traversal with parameter extraction and remapping
@@ -226,6 +282,7 @@ Special thanks to **Louis Pilfold** for bringing to our attention that the HTTP 
 - Anonymous functions extracted to named helpers throughout router module
 
 **Code Quality**
+
 - Eliminated all nested `case` statements across codebase
   - `dream/http/transaction`: Refactored `get_header` and `get_cookie` to use recursive helpers
   - `dream/servers/mist/handler`: Extracted anonymous function to `create_request_handler`
@@ -234,6 +291,7 @@ Special thanks to **Louis Pilfold** for bringing to our attention that the HTTP 
 - Fixed all compiler warnings (unused imports, redundant tuples, unused arguments)
 
 **Example Applications**
+
 - Updated all 8 example applications to use `router()` function
 - Simplified example code by removing unnecessary `context()` and `services()` calls
 - Updated controller and middleware signatures to use full parameter names
@@ -241,11 +299,13 @@ Special thanks to **Louis Pilfold** for bringing to our attention that the HTTP 
 - Improved Makefiles with Docker availability checks and better error handling
 
 **Internal Architecture**
+
 - Added `dream.execute_route()` function to centralize route execution logic
 - Handler now passes extracted parameters directly to `execute_route()` (avoids redundant lookups)
 - Removed redundant `set_params()` calls in handler
 
 ### Fixed
+
 - Multi-wildcard routes now correctly match zero segments (e.g., `/public/` matches `/public/**filepath`)
 - Extension stripping preserves original parameter values for format detection
   - `/products/:id` matching `/products/1.json` now correctly extracts `id=1.json` with `format=json`
@@ -255,16 +315,18 @@ Special thanks to **Louis Pilfold** for bringing to our attention that the HTTP 
 - All compiler warnings resolved (unused imports, redundant code, unused arguments)
 
 ### Performance
+
 - Router lookup improved from O(N routes) to O(path depth)
 - Benchmarks (100 routes):
   - First route: 0.56μs (was 135μs) - 241x faster
-  - Middle route: 1.44μs (was 70μs) - 49x faster  
+  - Middle route: 1.44μs (was 70μs) - 49x faster
   - Last route: 1.35μs (was 7.3μs) - 5.4x faster
   - Not found: 1.85μs (was 2500μs) - 1353x faster
 
 ### Migration Guide
 
 **1. Update router references:**
+
 ```gleam
 // Before (v1.x)
 import dream/router.{router}
@@ -276,6 +338,7 @@ let app_router = router() |> route(...)
 ```
 
 **2. Simplify server setup (optional):**
+
 ```gleam
 // Before (v1.x)
 server.new()
@@ -289,6 +352,7 @@ server.new()
 ```
 
 **3. Update imports if using `AppContext`:**
+
 ```gleam
 // Before (v1.x) - AppContext was the default
 import dream/context.{AppContext}
@@ -307,6 +371,7 @@ Special thanks to [Louis Pilfold](https://github.com/lpil) for suggesting the ra
 ## [1.0.2] - 2025-11-21
 
 ### Changed
+
 - Completely refactored README for better accessibility and clarity
   - Reduced from 520 lines to ~130 lines for better scannability
   - Added zero-knowledge friendly introduction explaining what Dream, Gleam, and BEAM are
@@ -324,18 +389,21 @@ Special thanks to [Louis Pilfold](https://github.com/lpil) for suggesting the ra
 ## [1.0.1] - 2025-11-22
 
 ### Fixed
+
 - Fixed logo display on hex.pm by using full GitHub URLs instead of relative paths in README files
 - Added Dream logo to all module README files (dream_config, dream_ets, dream_http_client, dream_json, dream_opensearch, dream_postgres)
 
 ## [1.0.0] - 2025-11-21
 
 ### Added
+
 - Initial stable release to Hex.pm
 - All modules published as separate packages (dream_config, dream_http_client, dream_postgres, dream_opensearch, dream_json, dream_ets)
 
 ## [0.1.0] - 2025-11-19
 
 ### Added
+
 - Unified error handling with `dream.Error` type across framework and applications
 - Parameter validation functions: `require_int`, `require_string`, `require_form`, `require_field`, `require_field_int`
 - Consolidated HTTP imports via `dream/http` module re-exporting all HTTP utilities
@@ -347,6 +415,7 @@ Special thanks to [Louis Pilfold](https://github.com/lpil) for suggesting the ra
 - Multi-format response patterns documentation
 
 ### Changed
+
 - Parameter validation functions renamed from `get_*` to `require_*` for semantic clarity
 - All documentation updated to use consolidated `dream/http` imports
 - Error handling unified across framework - models, controllers, and operations all use `dream.Error`
@@ -354,6 +423,7 @@ Special thanks to [Louis Pilfold](https://github.com/lpil) for suggesting the ra
 - Response helpers pattern documented and standardized across examples
 
 ### Fixed
+
 - Nested case statements removed from parameter validation functions
 - Documentation cross-references verified and corrected
 - Import patterns standardized across all documentation
@@ -361,6 +431,7 @@ Special thanks to [Louis Pilfold](https://github.com/lpil) for suggesting the ra
 ## [0.0.1] - 2025-11-06
 
 ### Added
+
 - Initial release
 - Mist HTTP server adapter
 - Builder pattern for server, router, and HTTP client
@@ -381,16 +452,19 @@ Special thanks to [Louis Pilfold](https://github.com/lpil) for suggesting the ra
 - Example applications (simple, database, custom_context, singleton, static, multi_format, streaming)
 
 ### Changed
+
 - Documentation moved from `documentation/` to `docs/`
 - Examples restructured as standalone Gleam projects with integration tests
 - All code examples now include proper imports
 - Improved documentation tone and consistency
 
-[Unreleased]: https://github.com/TrustBound/dream/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/TrustBound/dream/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/TrustBound/dream/compare/v2.2.0...v2.3.0
+[2.2.0]: https://github.com/TrustBound/dream/compare/v2.1.0...v2.2.0
+[2.1.0]: https://github.com/TrustBound/dream/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/TrustBound/dream/compare/v1.0.2...v2.0.0
 [1.0.2]: https://github.com/TrustBound/dream/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/TrustBound/dream/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/TrustBound/dream/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/TrustBound/dream/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/TrustBound/dream/releases/tag/v0.0.1
-

@@ -57,4 +57,5 @@ pub fn main() {
   all_tests
   |> runner.run_all()
   |> bdd.report(io.println)
+  |> runner.exit_on_failure()
 }
