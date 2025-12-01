@@ -1,414 +1,495 @@
+//// Tests for dream/http/request module.
+
 import dream/http/request.{
-  Get, Http, Http1, Request, body_as_string, get_int_param, get_param,
-  get_query_param, get_string_param,
+  type Request, Get, Http, Http1, Request, body_as_string, get_int_param,
+  get_param, get_query_param, get_string_param,
 }
+import dream_test/assertions/should.{
+  be_error, be_none, be_ok, be_some, equal, or_fail_with, should,
+}
+import dream_test/unit.{type UnitTest, describe, it}
 import gleam/bit_array
 import gleam/option
 import gleam/yielder
-import gleeunit/should
 
-pub fn body_as_string_with_text_body_returns_string_test() {
-  // Arrange
-  let request =
-    Request(
-      method: Get,
-      protocol: Http,
-      version: Http1,
-      path: "/test",
-      query: "",
-      params: [],
-      host: option.None,
-      port: option.None,
-      remote_address: option.None,
-      body: "test body",
-      stream: option.None,
-      headers: [],
-      cookies: [],
-      content_type: option.None,
-      content_length: option.None,
-    )
+// ============================================================================
+// Helper Functions
+// ============================================================================
 
-  // Act
-  let result = body_as_string(request)
+fn create_test_request(body: String) -> Request {
+  Request(
+    method: Get,
+    protocol: Http,
+    version: Http1,
+    path: "/test",
+    query: "",
+    params: [],
+    host: option.None,
+    port: option.None,
+    remote_address: option.None,
+    body: body,
+    stream: option.None,
+    headers: [],
+    cookies: [],
+    content_type: option.None,
+    content_length: option.None,
+  )
+}
 
-  // Assert
-  case result {
-    Ok(body) -> body |> should.equal("test body")
-    Error(_) -> should.fail()
+fn create_request_with_stream(stream: yielder.Yielder(BitArray)) -> Request {
+  Request(
+    method: Get,
+    protocol: Http,
+    version: Http1,
+    path: "/test",
+    query: "",
+    params: [],
+    host: option.None,
+    port: option.None,
+    remote_address: option.None,
+    body: "",
+    stream: option.Some(stream),
+    headers: [],
+    cookies: [],
+    content_type: option.None,
+    content_length: option.None,
+  )
+}
+
+fn create_request_with_params(
+  path: String,
+  params: List(#(String, String)),
+) -> Request {
+  Request(
+    method: Get,
+    protocol: Http,
+    version: Http1,
+    path: path,
+    query: "",
+    params: params,
+    host: option.None,
+    port: option.None,
+    remote_address: option.None,
+    body: "",
+    stream: option.None,
+    headers: [],
+    cookies: [],
+    content_type: option.None,
+    content_length: option.None,
+  )
+}
+
+fn get_param_value(request: Request, name: String) -> String {
+  case get_param(request, name) {
+    Ok(param) -> param.value
+    Error(_) -> ""
   }
 }
 
-pub fn body_as_string_with_stream_body_collects_to_string_test() {
-  // Arrange
-  let chunk1 = bit_array.from_string("Hello ")
-  let chunk2 = bit_array.from_string("World")
-  let stream = yielder.from_list([chunk1, chunk2])
-
-  let request =
-    Request(
-      method: Get,
-      protocol: Http,
-      version: Http1,
-      path: "/test",
-      query: "",
-      params: [],
-      host: option.None,
-      port: option.None,
-      remote_address: option.None,
-      body: "",
-      stream: option.Some(stream),
-      headers: [],
-      cookies: [],
-      content_type: option.None,
-      content_length: option.None,
-    )
-
-  // Act
-  let result = body_as_string(request)
-
-  // Assert
-  case result {
-    Ok(body) -> body |> should.equal("Hello World")
-    Error(_) -> should.fail()
+fn get_param_raw(request: Request, name: String) -> String {
+  case get_param(request, name) {
+    Ok(param) -> param.raw
+    Error(_) -> ""
   }
 }
 
-pub fn body_as_string_with_empty_stream_returns_empty_string_test() {
-  // Arrange
-  let stream = yielder.empty()
-
-  let request =
-    Request(
-      method: Get,
-      protocol: Http,
-      version: Http1,
-      path: "/test",
-      query: "",
-      params: [],
-      host: option.None,
-      port: option.None,
-      remote_address: option.None,
-      body: "",
-      stream: option.Some(stream),
-      headers: [],
-      cookies: [],
-      content_type: option.None,
-      content_length: option.None,
-    )
-
-  // Act
-  let result = body_as_string(request)
-
-  // Assert
-  case result {
-    Ok(body) -> body |> should.equal("")
-    Error(_) -> should.fail()
+fn get_param_format(request: Request, name: String) -> option.Option(String) {
+  case get_param(request, name) {
+    Ok(param) -> param.format
+    Error(_) -> option.None
   }
 }
 
-pub fn body_as_string_with_invalid_utf8_in_stream_handles_gracefully_test() {
-  // Arrange
-  // Create invalid UTF-8 sequence
-  let invalid_chunk = <<0xFF, 0xFF>>
-  let stream = yielder.from_list([invalid_chunk])
+// ============================================================================
+// Tests
+// ============================================================================
 
-  let request =
-    Request(
-      method: Get,
-      protocol: Http,
-      version: Http1,
-      path: "/test",
-      query: "",
-      params: [],
-      host: option.None,
-      port: option.None,
-      remote_address: option.None,
-      body: "",
-      stream: option.Some(stream),
-      headers: [],
-      cookies: [],
-      content_type: option.None,
-      content_length: option.None,
-    )
-
-  // Act
-  let result = body_as_string(request)
-
-  // Assert
-  case result {
-    Ok(_) -> should.fail()
-    Error(_) -> Nil
-  }
+pub fn tests() -> UnitTest {
+  describe("request", [
+    body_as_string_tests(),
+    get_param_tests(),
+    get_int_param_tests(),
+    get_string_param_tests(),
+    get_query_param_tests(),
+  ])
 }
 
-pub fn get_param_with_format_extension_extracts_format_test() {
-  let request =
-    Request(
-      method: Get,
-      protocol: Http,
-      version: Http1,
-      path: "/users/123.json",
-      query: "",
-      params: [#("id", "123.json")],
-      host: option.None,
-      port: option.None,
-      remote_address: option.None,
-      body: "",
-      stream: option.None,
-      headers: [],
-      cookies: [],
-      content_type: option.None,
-      content_length: option.None,
-    )
+fn body_as_string_tests() -> UnitTest {
+  describe("body_as_string", [
+    it("returns text body as string", fn() {
+      // Arrange
+      let request = create_test_request("test body")
 
-  case get_param(request, "id") {
-    Ok(param) -> {
-      param.value |> should.equal("123")
-      param.raw |> should.equal("123.json")
-      case param.format {
-        option.Some(fmt) -> fmt |> should.equal("json")
-        option.None -> should.fail()
-      }
-    }
-    Error(_) -> should.fail()
-  }
+      // Act
+      let result = body_as_string(request)
+
+      // Assert
+      result
+      |> should()
+      |> be_ok()
+      |> equal("test body")
+      |> or_fail_with("Should return body text")
+    }),
+    it("collects stream chunks to string", fn() {
+      // Arrange
+      let chunk1 = bit_array.from_string("Hello ")
+      let chunk2 = bit_array.from_string("World")
+      let stream = yielder.from_list([chunk1, chunk2])
+      let request = create_request_with_stream(stream)
+
+      // Act
+      let result = body_as_string(request)
+
+      // Assert
+      result
+      |> should()
+      |> be_ok()
+      |> equal("Hello World")
+      |> or_fail_with("Should collect stream to string")
+    }),
+    it("returns empty string for empty stream", fn() {
+      // Arrange
+      let stream = yielder.empty()
+      let request = create_request_with_stream(stream)
+
+      // Act
+      let result = body_as_string(request)
+
+      // Assert
+      result
+      |> should()
+      |> be_ok()
+      |> equal("")
+      |> or_fail_with("Should return empty string")
+    }),
+    it("returns error for invalid UTF-8 in stream", fn() {
+      // Arrange
+      let invalid_chunk = <<0xFF, 0xFF>>
+      let stream = yielder.from_list([invalid_chunk])
+      let request = create_request_with_stream(stream)
+
+      // Act
+      let result = body_as_string(request)
+
+      // Assert
+      result
+      |> should()
+      |> be_error()
+      |> or_fail_with("Should return error for invalid UTF-8")
+    }),
+  ])
 }
 
-pub fn get_int_param_with_valid_integer_returns_ok_test() {
-  let request =
-    Request(
-      method: Get,
-      protocol: Http,
-      version: Http1,
-      path: "/users/123",
-      query: "",
-      params: [#("id", "123")],
-      host: option.None,
-      port: option.None,
-      remote_address: option.None,
-      body: "",
-      stream: option.None,
-      headers: [],
-      cookies: [],
-      content_type: option.None,
-      content_length: option.None,
-    )
+fn get_param_tests() -> UnitTest {
+  describe("get_param", [
+    it("extracts value from param with format extension", fn() {
+      // Arrange
+      let request =
+        create_request_with_params("/users/123.json", [#("id", "123.json")])
 
-  case get_int_param(request, "id") {
-    Ok(id) -> id |> should.equal(123)
-    Error(_) -> should.fail()
-  }
+      // Act
+      let result = get_param_value(request, "id")
+
+      // Assert
+      result
+      |> should()
+      |> equal("123")
+      |> or_fail_with("Value should be '123'")
+    }),
+    it("preserves raw value with extension", fn() {
+      // Arrange
+      let request =
+        create_request_with_params("/users/123.json", [#("id", "123.json")])
+
+      // Act
+      let result = get_param_raw(request, "id")
+
+      // Assert
+      result
+      |> should()
+      |> equal("123.json")
+      |> or_fail_with("Raw should be '123.json'")
+    }),
+    it("extracts format from extension", fn() {
+      // Arrange
+      let request =
+        create_request_with_params("/users/123.json", [#("id", "123.json")])
+
+      // Act
+      let result = get_param_format(request, "id")
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> equal("json")
+      |> or_fail_with("Format should be 'json'")
+    }),
+  ])
 }
 
-pub fn get_int_param_with_missing_parameter_returns_error_test() {
-  let request =
-    Request(
-      method: Get,
-      protocol: Http,
-      version: Http1,
-      path: "/users",
-      query: "",
-      params: [],
-      host: option.None,
-      port: option.None,
-      remote_address: option.None,
-      body: "",
-      stream: option.None,
-      headers: [],
-      cookies: [],
-      content_type: option.None,
-      content_length: option.None,
-    )
+fn get_int_param_tests() -> UnitTest {
+  describe("get_int_param", [
+    it("returns Ok for valid integer", fn() {
+      // Arrange
+      let request = create_request_with_params("/users/123", [#("id", "123")])
 
-  case get_int_param(request, "id") {
-    Ok(_) -> should.fail()
-    Error(msg) -> msg |> should.equal("Missing id parameter")
-  }
+      // Act
+      let result = get_int_param(request, "id")
+
+      // Assert
+      result
+      |> should()
+      |> be_ok()
+      |> equal(123)
+      |> or_fail_with("Should return 123")
+    }),
+    it("returns error for missing parameter", fn() {
+      // Arrange
+      let request = create_request_with_params("/users", [])
+
+      // Act
+      let result = get_int_param(request, "id")
+
+      // Assert
+      result
+      |> should()
+      |> be_error()
+      |> equal("Missing id parameter")
+      |> or_fail_with("Should return missing error")
+    }),
+    it("returns error for non-integer", fn() {
+      // Arrange
+      let request = create_request_with_params("/users/abc", [#("id", "abc")])
+
+      // Act
+      let result = get_int_param(request, "id")
+
+      // Assert
+      result
+      |> should()
+      |> be_error()
+      |> equal("id must be an integer")
+      |> or_fail_with("Should return integer error")
+    }),
+  ])
 }
 
-pub fn get_int_param_with_non_integer_returns_error_test() {
-  let request =
-    Request(
-      method: Get,
-      protocol: Http,
-      version: Http1,
-      path: "/users/abc",
-      query: "",
-      params: [#("id", "abc")],
-      host: option.None,
-      port: option.None,
-      remote_address: option.None,
-      body: "",
-      stream: option.None,
-      headers: [],
-      cookies: [],
-      content_type: option.None,
-      content_length: option.None,
-    )
+fn get_string_param_tests() -> UnitTest {
+  describe("get_string_param", [
+    it("returns Ok for valid parameter", fn() {
+      // Arrange
+      let request =
+        create_request_with_params("/users/john", [#("name", "john")])
 
-  case get_int_param(request, "id") {
-    Ok(_) -> should.fail()
-    Error(msg) -> msg |> should.equal("id must be an integer")
-  }
+      // Act
+      let result = get_string_param(request, "name")
+
+      // Assert
+      result
+      |> should()
+      |> be_ok()
+      |> equal("john")
+      |> or_fail_with("Should return 'john'")
+    }),
+    it("returns error for missing parameter", fn() {
+      // Arrange
+      let request = create_request_with_params("/users", [])
+
+      // Act
+      let result = get_string_param(request, "name")
+
+      // Assert
+      result
+      |> should()
+      |> be_error()
+      |> equal("Missing name parameter")
+      |> or_fail_with("Should return missing error")
+    }),
+  ])
 }
 
-pub fn get_string_param_with_valid_parameter_returns_ok_test() {
-  let request =
-    Request(
-      method: Get,
-      protocol: Http,
-      version: Http1,
-      path: "/users/john",
-      query: "",
-      params: [#("name", "john")],
-      host: option.None,
-      port: option.None,
-      remote_address: option.None,
-      body: "",
-      stream: option.None,
-      headers: [],
-      cookies: [],
-      content_type: option.None,
-      content_length: option.None,
-    )
+fn get_query_param_tests() -> UnitTest {
+  describe("get_query_param", [
+    it("decodes percent-encoded space", fn() {
+      // Arrange
+      let query_string = "name=hello%20world"
 
-  case get_string_param(request, "name") {
-    Ok(name) -> name |> should.equal("john")
-    Error(_) -> should.fail()
-  }
-}
+      // Act
+      let result = get_query_param(query_string, "name")
 
-pub fn get_string_param_with_missing_parameter_returns_error_test() {
-  let request =
-    Request(
-      method: Get,
-      protocol: Http,
-      version: Http1,
-      path: "/users",
-      query: "",
-      params: [],
-      host: option.None,
-      port: option.None,
-      remote_address: option.None,
-      body: "",
-      stream: option.None,
-      headers: [],
-      cookies: [],
-      content_type: option.None,
-      content_length: option.None,
-    )
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> equal("hello world")
+      |> or_fail_with("Should decode %20 as space")
+    }),
+    it("decodes percent-encoded ampersand", fn() {
+      // Arrange
+      let query_string = "title=Buy%20milk%20%26%20eggs"
 
-  case get_string_param(request, "name") {
-    Ok(_) -> should.fail()
-    Error(msg) -> msg |> should.equal("Missing name parameter")
-  }
-}
+      // Act
+      let result = get_query_param(query_string, "title")
 
-// Query parameter tests with URL decoding
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> equal("Buy milk & eggs")
+      |> or_fail_with("Should decode %26 as &")
+    }),
+    it("decodes plus sign as space", fn() {
+      // Arrange
+      let query_string = "name=hello+world"
 
-pub fn get_query_param_decodes_percent_encoded_values_test() {
-  // Test %20 (space) decoding
-  case get_query_param("name=hello%20world", "name") {
-    option.Some(value) -> value |> should.equal("hello world")
-    option.None -> should.fail()
-  }
-}
+      // Act
+      let result = get_query_param(query_string, "name")
 
-pub fn get_query_param_decodes_percent_encoded_ampersand_test() {
-  // Test %26 (&) decoding
-  case get_query_param("title=Buy%20milk%20%26%20eggs", "title") {
-    option.Some(value) -> value |> should.equal("Buy milk & eggs")
-    option.None -> should.fail()
-  }
-}
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> equal("hello world")
+      |> or_fail_with("Should decode + as space")
+    }),
+    it("decodes multiple encoded characters", fn() {
+      // Arrange
+      let query_string = "query=search%20for%20%22test%22"
 
-pub fn get_query_param_decodes_plus_sign_as_space_test() {
-  // Test + (plus sign) decoding to space
-  case get_query_param("name=hello+world", "name") {
-    option.Some(value) -> value |> should.equal("hello world")
-    option.None -> should.fail()
-  }
-}
+      // Act
+      let result = get_query_param(query_string, "query")
 
-pub fn get_query_param_decodes_multiple_encoded_chars_test() {
-  // Test multiple encoded characters
-  case get_query_param("query=search%20for%20%22test%22", "query") {
-    option.Some(value) -> value |> should.equal("search for \"test\"")
-    option.None -> should.fail()
-  }
-}
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> equal("search for \"test\"")
+      |> or_fail_with("Should decode all percent-encoded chars")
+    }),
+    it("decodes both key and value", fn() {
+      // Arrange
+      let query_string = "user%20name=john%20doe"
 
-pub fn get_query_param_decodes_key_and_value_test() {
-  // Test that both key and value are decoded
-  case get_query_param("user%20name=john%20doe", "user name") {
-    option.Some(value) -> value |> should.equal("john doe")
-    option.None -> should.fail()
-  }
-}
+      // Act
+      let result = get_query_param(query_string, "user name")
 
-pub fn get_query_param_handles_empty_value_test() {
-  // Test parameter with no value
-  case get_query_param("flag&other=value", "flag") {
-    option.Some(value) -> value |> should.equal("")
-    option.None -> should.fail()
-  }
-}
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> equal("john doe")
+      |> or_fail_with("Should decode key and value")
+    }),
+    it("handles empty value", fn() {
+      // Arrange
+      let query_string = "flag&other=value"
 
-pub fn get_query_param_handles_multiple_parameters_test() {
-  // Test multiple parameters, finding the right one
-  case get_query_param("name=john&age=30&city=new%20york", "city") {
-    option.Some(value) -> value |> should.equal("new york")
-    option.None -> should.fail()
-  }
-}
+      // Act
+      let result = get_query_param(query_string, "flag")
 
-pub fn get_query_param_returns_none_for_missing_parameter_test() {
-  // Test missing parameter
-  case get_query_param("name=john&age=30", "missing") {
-    option.Some(_) -> should.fail()
-    option.None -> option.None |> should.be_none()
-  }
-}
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> equal("")
+      |> or_fail_with("Should return empty string for flag")
+    }),
+    it("finds parameter among multiple", fn() {
+      // Arrange
+      let query_string = "name=john&age=30&city=new%20york"
 
-pub fn get_query_param_handles_empty_query_string_test() {
-  // Test empty query string
-  case get_query_param("", "name") {
-    option.Some(_) -> should.fail()
-    option.None -> option.None |> should.be_none()
-  }
-}
+      // Act
+      let result = get_query_param(query_string, "city")
 
-pub fn get_query_param_decodes_special_characters_test() {
-  // Test various special characters
-  case get_query_param("path=/home/user%2Fdocuments", "path") {
-    option.Some(value) -> value |> should.equal("/home/user/documents")
-    option.None -> should.fail()
-  }
-}
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> equal("new york")
+      |> or_fail_with("Should find city parameter")
+    }),
+    it("returns None for missing parameter", fn() {
+      // Arrange
+      let query_string = "name=john&age=30"
 
-pub fn get_query_param_handles_malformed_encoding_gracefully_test() {
-  // Test malformed percent encoding (falls back gracefully)
-  case get_query_param("name=hello%2", "name") {
-    option.Some(value) -> {
-      // Should fall back to original string with + replaced
-      value |> should.equal("hello%2")
-    }
-    option.None -> should.fail()
-  }
-}
+      // Act
+      let result = get_query_param(query_string, "missing")
 
-pub fn get_query_param_decodes_unicode_characters_test() {
-  // Test Unicode character encoding (UTF-8)
-  case get_query_param("text=hello%20%E2%9C%93", "text") {
-    option.Some(value) -> value |> should.equal("hello ✓")
-    option.None -> should.fail()
-  }
-}
+      // Assert
+      result
+      |> should()
+      |> be_none()
+      |> or_fail_with("Should return None")
+    }),
+    it("returns None for empty query string", fn() {
+      // Arrange
+      let query_string = ""
 
-pub fn get_query_param_handles_equals_sign_in_value_test() {
-  // Test equals sign in value (should not break parsing)
-  case get_query_param("equation=x%3Dy%2Bz", "equation") {
-    option.Some(value) -> value |> should.equal("x=y+z")
-    option.None -> should.fail()
-  }
+      // Act
+      let result = get_query_param(query_string, "name")
+
+      // Assert
+      result
+      |> should()
+      |> be_none()
+      |> or_fail_with("Should return None for empty query")
+    }),
+    it("decodes slash in value", fn() {
+      // Arrange
+      let query_string = "path=/home/user%2Fdocuments"
+
+      // Act
+      let result = get_query_param(query_string, "path")
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> equal("/home/user/documents")
+      |> or_fail_with("Should decode %2F as /")
+    }),
+    it("handles malformed encoding gracefully", fn() {
+      // Arrange
+      let query_string = "name=hello%2"
+
+      // Act
+      let result = get_query_param(query_string, "name")
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> equal("hello%2")
+      |> or_fail_with("Should fall back to original")
+    }),
+    it("decodes unicode characters", fn() {
+      // Arrange
+      let query_string = "text=hello%20%E2%9C%93"
+
+      // Act
+      let result = get_query_param(query_string, "text")
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> equal("hello ✓")
+      |> or_fail_with("Should decode UTF-8")
+    }),
+    it("handles equals sign in value", fn() {
+      // Arrange
+      let query_string = "equation=x%3Dy%2Bz"
+
+      // Act
+      let result = get_query_param(query_string, "equation")
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> equal("x=y+z")
+      |> or_fail_with("Should decode = in value")
+    }),
+  ])
 }

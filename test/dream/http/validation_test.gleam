@@ -1,7 +1,20 @@
+//// Tests for dream/http/validation module.
+
 import dream/http/validation
+import dream_test/assertions/should.{
+  contain_string, equal, not_equal, or_fail_with, should,
+}
+import dream_test/unit.{type UnitTest, describe, it}
 import gleam/dynamic/decode
-import gleam/option
-import gleeunit/should
+import matchers/extract_user_name.{extract_user_name}
+import matchers/extract_validation_error_field.{extract_validation_error_field}
+import matchers/extract_validation_error_message.{
+  extract_validation_error_message,
+}
+
+// ============================================================================
+// Test Types
+// ============================================================================
 
 type TestUser {
   TestUser(name: String, email: String)
@@ -13,75 +26,97 @@ fn user_decoder() -> decode.Decoder(TestUser) {
   decode.success(TestUser(name: name, email: email))
 }
 
-pub fn validate_json_with_valid_data_returns_decoded_data_test() {
-  // Arrange
-  let body = "{\"name\": \"John\", \"email\": \"john@example.com\"}"
+// ============================================================================
+// Tests
+// ============================================================================
 
-  // Act
-  let result = validation.validate_json(body, user_decoder())
+pub fn tests() -> UnitTest {
+  describe("validation", [
+    describe("validate_json", [
+      it("decodes valid JSON to user name", fn() {
+        // Arrange
+        let body = "{\"name\": \"John\", \"email\": \"john@example.com\"}"
 
-  // Assert
-  case result {
-    Ok(user) -> {
-      user.name |> should.equal("John")
-      user.email |> should.equal("john@example.com")
-    }
-    Error(_) -> should.fail()
-  }
-}
+        // Act
+        let result = validation.validate_json(body, user_decoder())
 
-pub fn validate_json_with_invalid_json_returns_error_test() {
-  // Arrange
-  let body = "{invalid json"
+        // Assert
+        result
+        |> should()
+        |> extract_user_name(fn(user: TestUser) { user.name })
+        |> equal("John")
+        |> or_fail_with("Name should be 'John'")
+      }),
+      it("decodes valid JSON to user email", fn() {
+        // Arrange
+        let body = "{\"name\": \"John\", \"email\": \"john@example.com\"}"
 
-  // Act
-  let result = validation.validate_json(body, user_decoder())
+        // Act
+        let result = validation.validate_json(body, user_decoder())
 
-  // Assert
-  case result {
-    Ok(_) -> should.fail()
-    Error(validation.ValidationError(message, _, _, _)) -> {
-      message |> should.not_equal("")
-    }
-  }
-}
+        // Assert
+        result
+        |> should()
+        |> extract_user_name(fn(user: TestUser) { user.email })
+        |> equal("john@example.com")
+        |> or_fail_with("Email should be 'john@example.com'")
+      }),
+      it("returns error for invalid JSON syntax", fn() {
+        // Arrange
+        let body = "{invalid json"
 
-pub fn validate_json_with_wrong_types_returns_error_with_details_test() {
-  // Arrange
-  let body = "{\"name\": 123, \"email\": \"john@example.com\"}"
+        // Act
+        let result = validation.validate_json(body, user_decoder())
 
-  // Act
-  let result = validation.validate_json(body, user_decoder())
+        // Assert
+        result
+        |> should()
+        |> extract_validation_error_message()
+        |> not_equal("")
+        |> or_fail_with("Should have error message")
+      }),
+      it("returns error with field name for wrong type", fn() {
+        // Arrange
+        let body = "{\"name\": 123, \"email\": \"john@example.com\"}"
 
-  // Assert
-  case result {
-    Ok(_) -> should.fail()
-    Error(validation.ValidationError(message, field, _expected, _found)) -> {
-      message |> should.not_equal("")
-      // Validation error should have field details
-      case field {
-        option.Some(f) -> f |> should.equal("name")
-        option.None -> should.fail()
-      }
-    }
-  }
-}
+        // Act
+        let result = validation.validate_json(body, user_decoder())
 
-pub fn validate_json_with_missing_fields_returns_error_test() {
-  // Arrange
-  let body = "{\"name\": \"John\"}"
+        // Assert
+        result
+        |> should()
+        |> extract_validation_error_field()
+        |> equal("name")
+        |> or_fail_with("Field should be 'name'")
+      }),
+      it("returns error with field name for missing field", fn() {
+        // Arrange
+        let body = "{\"name\": \"John\"}"
 
-  // Act
-  let result = validation.validate_json(body, user_decoder())
+        // Act
+        let result = validation.validate_json(body, user_decoder())
 
-  // Assert
-  case result {
-    Ok(_) -> should.fail()
-    Error(validation.ValidationError(_, field, _, _)) -> {
-      case field {
-        option.Some(f) -> f |> should.equal("email")
-        option.None -> should.fail()
-      }
-    }
-  }
+        // Assert
+        result
+        |> should()
+        |> extract_validation_error_field()
+        |> equal("email")
+        |> or_fail_with("Field should be 'email'")
+      }),
+      it("returns descriptive error message for wrong type", fn() {
+        // Arrange
+        let body = "{\"name\": 123, \"email\": \"john@example.com\"}"
+
+        // Act
+        let result = validation.validate_json(body, user_decoder())
+
+        // Assert
+        result
+        |> should()
+        |> extract_validation_error_message()
+        |> contain_string("name")
+        |> or_fail_with("Error message should mention field name")
+      }),
+    ]),
+  ])
 }

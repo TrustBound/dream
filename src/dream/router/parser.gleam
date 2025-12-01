@@ -35,7 +35,8 @@
 //// 5. Multi-segment wildcards (lowest priority)
 
 import dream/router/trie.{
-  type Segment, ExtensionPattern, Literal, MultiWildcard, Param, SingleWildcard,
+  type Segment, ExtensionPattern, Literal, LiteralExtension, MultiWildcard,
+  Param, SingleWildcard,
 }
 import gleam/list
 import gleam/option.{None, Some}
@@ -124,8 +125,33 @@ fn parse_segment(segment: String) -> Segment {
     "*" -> SingleWildcard(None)
     "*" <> name -> SingleWildcard(Some(name))
 
-    // Literal segment
-    _ -> Literal(segment)
+    // Check for literal with brace extension pattern: name.{ext1,ext2}
+    _ -> parse_literal_or_extension(segment)
+  }
+}
+
+/// Parse a segment that might be a literal or a literal with extension pattern
+///
+/// Handles patterns like "products.{json,xml}" which should match
+/// "products.json" or "products.xml"
+fn parse_literal_or_extension(segment: String) -> Segment {
+  case string.split_once(segment, ".{") {
+    Ok(#(base_name, rest)) -> {
+      // Found a brace pattern like "products.{json,xml}"
+      // rest is "json,xml}" - need to parse extensions
+      case string.ends_with(rest, "}") {
+        True -> {
+          let inner = string.drop_end(rest, 1)
+          let extensions =
+            inner
+            |> string.split(",")
+            |> list.map(string.trim)
+          LiteralExtension(base_name, extensions)
+        }
+        False -> Literal(segment)
+      }
+    }
+    Error(_) -> Literal(segment)
   }
 }
 

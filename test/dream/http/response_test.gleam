@@ -1,79 +1,172 @@
-import dream/http/header.{Header}
+//// Tests for dream/http/response module.
+
 import dream/http/response.{
-  Text, empty_response, html_response, json_response, redirect_response,
-  text_response,
+  empty_response, html_response, json_response, redirect_response, text_response,
 }
 import dream/http/status
-import gleam/option
-import gleeunit/should
+import dream_test/assertions/should.{be_some, equal, or_fail_with, should}
+import dream_test/unit.{type UnitTest, describe, it}
+import matchers/extract_body_text.{extract_body_text}
+import matchers/extract_first_header_value.{extract_first_header_value}
 
-pub fn json_response_creates_response_with_correct_content_type_test() {
-  // Arrange
-  let body = "{\"message\": \"Hello\"}"
+// ============================================================================
+// Tests
+// ============================================================================
 
-  // Act
-  let result = json_response(status.ok, body)
+pub fn tests() -> UnitTest {
+  describe("response", [
+    describe("json_response", [
+      it("sets status correctly", fn() {
+        // Arrange
+        let body = "{\"message\": \"Hello\"}"
 
-  // Assert
-  result.status |> should.equal(200)
-  result.content_type
-  |> should.equal(option.Some("application/json; charset=utf-8"))
+        // Act
+        let response = json_response(status.ok, body)
 
-  case result.body {
-    Text(text) -> text |> should.equal(body)
-    _ -> should.fail()
-  }
-}
+        // Assert
+        response.status
+        |> should()
+        |> equal(200)
+        |> or_fail_with("Status should be 200")
+      }),
+      it("sets content type to application/json", fn() {
+        // Arrange
+        let body = "{\"message\": \"Hello\"}"
 
-pub fn html_response_creates_response_with_correct_content_type_test() {
-  // Arrange
-  let body = "<h1>Hello</h1>"
+        // Act
+        let response = json_response(status.ok, body)
 
-  // Act
-  let result = html_response(status.ok, body)
+        // Assert
+        response.content_type
+        |> should()
+        |> be_some()
+        |> equal("application/json; charset=utf-8")
+        |> or_fail_with("Content type should be JSON")
+      }),
+      it("sets body text", fn() {
+        // Arrange
+        let body = "{\"message\": \"Hello\"}"
 
-  // Assert
-  result.status |> should.equal(200)
-  result.content_type |> should.equal(option.Some("text/html; charset=utf-8"))
-}
+        // Act
+        let response = json_response(status.ok, body)
 
-pub fn text_response_creates_response_with_correct_content_type_test() {
-  // Arrange
-  let body = "Hello"
+        // Assert
+        response
+        |> should()
+        |> extract_body_text()
+        |> equal(body)
+        |> or_fail_with("Body should match input")
+      }),
+    ]),
+    describe("html_response", [
+      it("sets status correctly", fn() {
+        // Arrange
+        let html = "<h1>Hello</h1>"
 
-  // Act
-  let result = text_response(status.ok, body)
+        // Act
+        let response = html_response(status.ok, html)
 
-  // Assert
-  result.status |> should.equal(200)
-  result.content_type |> should.equal(option.Some("text/plain; charset=utf-8"))
-}
+        // Assert
+        response.status
+        |> should()
+        |> equal(200)
+        |> or_fail_with("Status should be 200")
+      }),
+      it("sets content type to text/html", fn() {
+        // Arrange
+        let html = "<h1>Hello</h1>"
 
-pub fn redirect_response_creates_response_with_location_header_test() {
-  // Arrange
-  let location = "/users/123"
+        // Act
+        let response = html_response(status.ok, html)
 
-  // Act
-  let result = redirect_response(status.found, location)
+        // Assert
+        response.content_type
+        |> should()
+        |> be_some()
+        |> equal("text/html; charset=utf-8")
+        |> or_fail_with("Content type should be HTML")
+      }),
+    ]),
+    describe("text_response", [
+      it("sets status correctly", fn() {
+        // Arrange
+        let text = "Hello"
 
-  // Assert
-  result.status |> should.equal(302)
+        // Act
+        let response = text_response(status.ok, text)
 
-  case result.headers {
-    [Header("Location", loc)] -> loc |> should.equal(location)
-    _ -> should.fail()
-  }
-}
+        // Assert
+        response.status
+        |> should()
+        |> equal(200)
+        |> or_fail_with("Status should be 200")
+      }),
+      it("sets content type to text/plain", fn() {
+        // Arrange
+        let text = "Hello"
 
-pub fn empty_response_creates_response_with_empty_body_test() {
-  // Arrange & Act
-  let result = empty_response(status.no_content)
+        // Act
+        let response = text_response(status.ok, text)
 
-  // Assert
-  result.status |> should.equal(204)
+        // Assert
+        response.content_type
+        |> should()
+        |> be_some()
+        |> equal("text/plain; charset=utf-8")
+        |> or_fail_with("Content type should be plain text")
+      }),
+    ]),
+    describe("redirect_response", [
+      it("sets status to redirect code", fn() {
+        // Arrange
+        let location = "/users/123"
 
-  case result.body {
-    Text("") -> Nil
-    _ -> should.fail()
-  }
+        // Act
+        let response = redirect_response(status.found, location)
+
+        // Assert
+        response.status
+        |> should()
+        |> equal(302)
+        |> or_fail_with("Status should be 302")
+      }),
+      it("sets Location header", fn() {
+        // Arrange
+        let location = "/users/123"
+
+        // Act
+        let response = redirect_response(status.found, location)
+
+        // Assert
+        response.headers
+        |> should()
+        |> extract_first_header_value()
+        |> equal(location)
+        |> or_fail_with("Location header should be set")
+      }),
+    ]),
+    describe("empty_response", [
+      it("sets status correctly", fn() {
+        // Act
+        let response = empty_response(status.no_content)
+
+        // Assert
+        response.status
+        |> should()
+        |> equal(204)
+        |> or_fail_with("Status should be 204")
+      }),
+      it("has empty body", fn() {
+        // Act
+        let response = empty_response(status.no_content)
+
+        // Assert
+        response
+        |> should()
+        |> extract_body_text()
+        |> equal("")
+        |> or_fail_with("Body should be empty")
+      }),
+    ]),
+  ])
 }
