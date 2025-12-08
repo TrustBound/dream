@@ -51,3 +51,4 @@ Feature: WebSocket Chat
         Then the response status should be 200
         And the response should contain ".welcome-screen"
 
+

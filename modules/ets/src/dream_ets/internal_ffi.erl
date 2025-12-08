@@ -58,7 +58,7 @@ ets_delete_all_objects(TableId) ->
 ets_first(TableId) ->
     case ets:first(TableId) of
         '$end_of_table' ->
-            {error, empty};
+            {error, empty_table};
         Key ->
             {ok, Key}
     end.
@@ -90,7 +90,7 @@ ets_take(TableId, Key) ->
 ets_update_element(TableId, Key, {Pos, Value}) ->
     case ets:update_element(TableId, Key, {Pos, Value}) of
         true ->
-            ok;
+            {ok, nil};
         false ->
             {error, not_found}
     end.
@@ -126,21 +126,33 @@ ets_select(TableId, MatchSpec) ->
 
 %% Save table to file
 ets_tab2file(TableId, Filename) ->
-    case ets:tab2file(TableId, Filename) of
+    %% Convert binary (Gleam String) to charlist (Erlang string)
+    FilenamePath = binary_to_list(Filename),
+    case ets:tab2file(TableId, FilenamePath) of
         ok ->
-            ok;
+            {ok, nil};
         {error, Reason} ->
-            {error, Reason}
+            {error, {invalid_operation, format_error(Reason)}}
     end.
 
 %% Load table from file
 ets_file2tab(Filename) ->
-    case ets:file2tab(Filename) of
+    %% Convert binary (Gleam String) to charlist (Erlang string)
+    FilenamePath = binary_to_list(Filename),
+    case ets:file2tab(FilenamePath) of
         {ok, TableId} ->
             {ok, TableId};
         {error, Reason} ->
-            {error, Reason}
+            {error, {invalid_operation, format_error(Reason)}}
     end.
+
+%% Format error reason as string
+format_error(Reason) when is_atom(Reason) ->
+    atom_to_binary(Reason, utf8);
+format_error(Reason) when is_list(Reason) ->
+    iolist_to_binary(io_lib:format("~p", [Reason]));
+format_error(Reason) ->
+    iolist_to_binary(io_lib:format("~p", [Reason])).
 
 %% Convert any Erlang term to Dynamic (identity function - Gleam FFI handles the wrapping)
 to_dynamic(Value) ->
