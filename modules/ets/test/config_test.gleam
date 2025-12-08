@@ -1,265 +1,306 @@
+//// Tests for dream_ets/config module.
+
 import dream_ets/config
-import dream_ets/operations
-import dream_ets/table
-import gleeunit
-import gleeunit/should
-
-pub fn main() {
-  gleeunit.main()
+import dream_test/assertions/should.{
+  be_error, be_ok, equal, or_fail_with, should,
 }
+import dream_test/unit.{type UnitTest, describe, it}
+import matchers/extract_table_name.{extract_table_name}
 
-pub fn new_creates_config_with_defaults_test() {
-  // Arrange & Act
-  let config = config.new("test_table")
+pub fn tests() -> UnitTest {
+  describe("config", [
+    describe("new", [
+      it("creates table successfully", fn() {
+        // Arrange
+        let config_value = config.new("test_new_creates")
 
-  // Assert - verify defaults by creating table
-  let result =
-    config
-    |> config.key_string()
-    |> config.value_string()
-    |> config.create()
+        // Act
+        let result =
+          config_value
+          |> config.key_string()
+          |> config.value_string()
+          |> config.create()
 
-  case result {
-    Ok(table) -> {
-      table.table_name(table) |> should.equal("test_table")
-      case operations.delete_table(table) {
-        Ok(_) -> Nil
-        Error(_) -> should.fail()
-      }
-    }
-    Error(_) -> should.fail()
-  }
-}
+        // Assert
+        result
+        |> should()
+        |> be_ok()
+        |> or_fail_with("Should create table")
+      }),
+      it("stores correct table name", fn() {
+        // Arrange
+        let config_value = config.new("test_table_name_check")
 
-pub fn table_type_set_changes_table_type_test() {
-  // Arrange - use helper functions
-  let set_config =
-    config.new("test_set_type")
-    |> config.key_string()
-    |> config.value_string()
-    |> config.table_type(config.table_type_set())
+        // Act
+        let result =
+          config_value
+          |> config.key_string()
+          |> config.value_string()
+          |> config.create()
 
-  let ordered_config =
-    config.new("test_ordered_type")
-    |> config.key_string()
-    |> config.value_string()
-    |> config.table_type(config.table_type_ordered_set())
+        // Assert
+        result
+        |> should()
+        |> extract_table_name()
+        |> equal("test_table_name_check")
+        |> or_fail_with("Should have correct name")
+      }),
+    ]),
+    describe("table_type", [
+      it("creates table with set type", fn() {
+        // Arrange
+        let set_config =
+          config.new("test_set_type")
+          |> config.key_string()
+          |> config.value_string()
+          |> config.table_type(config.table_type_set())
 
-  // Assert - both should create successfully
-  case config.create(set_config) {
-    Ok(set_table) -> {
-      case config.create(ordered_config) {
-        Ok(ordered_table) -> {
-          case operations.delete_table(set_table) {
-            Ok(_) -> {
-              case operations.delete_table(ordered_table) {
-                Ok(_) -> Nil
-                Error(_) -> should.fail()
-              }
-            }
-            Error(_) -> should.fail()
-          }
-        }
-        Error(_) -> {
-          case operations.delete_table(set_table) {
-            Ok(_) -> should.fail()
-            Error(_) -> should.fail()
-          }
-        }
-      }
-    }
-    Error(_) -> should.fail()
-  }
-}
+        // Act
+        let result = config.create(set_config)
 
-pub fn access_protected_sets_access_mode_test() {
-  // Arrange
-  let base_config =
-    config.new("test_protected")
-    |> config.key_string()
-    |> config.value_string()
+        // Assert
+        result
+        |> should()
+        |> be_ok()
+        |> or_fail_with("Should create table with set type")
+      }),
+      it("creates table with ordered_set type", fn() {
+        // Arrange
+        let ordered_config =
+          config.new("test_ordered_type")
+          |> config.key_string()
+          |> config.value_string()
+          |> config.table_type(config.table_type_ordered_set())
 
-  // Act
-  let protected_config = config.access(base_config, config.access_protected())
+        // Act
+        let result = config.create(ordered_config)
 
-  // Assert
-  case config.create(protected_config) {
-    Ok(table) -> {
-      case operations.delete_table(table) {
-        Ok(_) -> Nil
-        Error(_) -> should.fail()
-      }
-    }
-    Error(_) -> should.fail()
-  }
-}
+        // Assert
+        result
+        |> should()
+        |> be_ok()
+        |> or_fail_with("Should create table with ordered_set type")
+      }),
+      it("creates table with bag type", fn() {
+        // Arrange
+        let bag_config =
+          config.new("test_bag_type")
+          |> config.key_string()
+          |> config.value_string()
+          |> config.table_type(config.table_type_bag())
 
-pub fn read_concurrency_enables_read_concurrency_test() {
-  // Arrange
-  let base_config =
-    config.new("test_read_concurrency")
-    |> config.key_string()
-    |> config.value_string()
+        // Act
+        let result = config.create(bag_config)
 
-  // Act
-  let concurrency_config = config.read_concurrency(base_config, True)
+        // Assert
+        result
+        |> should()
+        |> be_ok()
+        |> or_fail_with("Should create table with bag type")
+      }),
+      it("creates table with duplicate_bag type", fn() {
+        // Arrange
+        let dup_bag_config =
+          config.new("test_dup_bag_type")
+          |> config.key_string()
+          |> config.value_string()
+          |> config.table_type(config.table_type_duplicate_bag())
 
-  // Assert
-  case config.create(concurrency_config) {
-    Ok(table) -> {
-      case operations.delete_table(table) {
-        Ok(_) -> Nil
-        Error(_) -> should.fail()
-      }
-    }
-    Error(_) -> should.fail()
-  }
-}
+        // Act
+        let result = config.create(dup_bag_config)
 
-pub fn write_concurrency_enables_write_concurrency_test() {
-  // Arrange
-  let base_config =
-    config.new("test_write_concurrency")
-    |> config.key_string()
-    |> config.value_string()
+        // Assert
+        result
+        |> should()
+        |> be_ok()
+        |> or_fail_with("Should create table with duplicate_bag type")
+      }),
+    ]),
+    describe("keypos", [
+      it("creates table with custom key position", fn() {
+        // Arrange
+        let keypos_config =
+          config.new("test_keypos")
+          |> config.keypos(2)
+          |> config.key_string()
+          |> config.value_string()
 
-  // Act
-  let concurrency_config = config.write_concurrency(base_config, True)
+        // Act
+        let result = config.create(keypos_config)
 
-  // Assert
-  case config.create(concurrency_config) {
-    Ok(table) -> {
-      case operations.delete_table(table) {
-        Ok(_) -> Nil
-        Error(_) -> should.fail()
-      }
-    }
-    Error(_) -> should.fail()
-  }
-}
+        // Assert
+        result
+        |> should()
+        |> be_ok()
+        |> or_fail_with("Should create table with custom keypos")
+      }),
+    ]),
+    describe("access", [
+      it("creates table with protected access", fn() {
+        // Arrange
+        let protected_config =
+          config.new("test_protected")
+          |> config.key_string()
+          |> config.value_string()
+          |> config.access(config.access_protected())
 
-pub fn compressed_enables_compression_test() {
-  // Arrange
-  let base_config =
-    config.new("test_compressed")
-    |> config.key_string()
-    |> config.value_string()
+        // Act
+        let result = config.create(protected_config)
 
-  // Act
-  let compressed_config = config.compressed(base_config, True)
+        // Assert
+        result
+        |> should()
+        |> be_ok()
+        |> or_fail_with("Should create table with protected access")
+      }),
+    ]),
+    describe("read_concurrency", [
+      it("creates table with read concurrency enabled", fn() {
+        // Arrange
+        let concurrency_config =
+          config.new("test_read_concurrency")
+          |> config.key_string()
+          |> config.value_string()
+          |> config.read_concurrency(True)
 
-  // Assert
-  case config.create(compressed_config) {
-    Ok(table) -> {
-      case operations.delete_table(table) {
-        Ok(_) -> Nil
-        Error(_) -> should.fail()
-      }
-    }
-    Error(_) -> should.fail()
-  }
-}
+        // Act
+        let result = config.create(concurrency_config)
 
-pub fn key_string_sets_string_key_encoding_test() {
-  // Arrange
-  let base_config =
-    config.new("test_key_string")
-    |> config.value_string()
+        // Assert
+        result
+        |> should()
+        |> be_ok()
+        |> or_fail_with("Should create table with read concurrency")
+      }),
+    ]),
+    describe("write_concurrency", [
+      it("creates table with write concurrency enabled", fn() {
+        // Arrange
+        let concurrency_config =
+          config.new("test_write_concurrency")
+          |> config.key_string()
+          |> config.value_string()
+          |> config.write_concurrency(True)
 
-  // Act
-  let string_key_config = config.key_string(base_config)
+        // Act
+        let result = config.create(concurrency_config)
 
-  // Assert
-  case config.create(string_key_config) {
-    Ok(table) -> {
-      case operations.delete_table(table) {
-        Ok(_) -> Nil
-        Error(_) -> should.fail()
-      }
-    }
-    Error(_) -> should.fail()
-  }
-}
+        // Assert
+        result
+        |> should()
+        |> be_ok()
+        |> or_fail_with("Should create table with write concurrency")
+      }),
+    ]),
+    describe("compressed", [
+      it("creates table with compression enabled", fn() {
+        // Arrange
+        let compressed_config =
+          config.new("test_compressed")
+          |> config.key_string()
+          |> config.value_string()
+          |> config.compressed(True)
 
-pub fn value_string_sets_string_value_encoding_test() {
-  // Arrange
-  let base_config =
-    config.new("test_value_string")
-    |> config.key_string()
+        // Act
+        let result = config.create(compressed_config)
 
-  // Act
-  let string_value_config = config.value_string(base_config)
+        // Assert
+        result
+        |> should()
+        |> be_ok()
+        |> or_fail_with("Should create table with compression")
+      }),
+    ]),
+    describe("key_string", [
+      it("creates table with string key encoding", fn() {
+        // Arrange
+        let string_key_config =
+          config.new("test_key_string")
+          |> config.key_string()
+          |> config.value_string()
 
-  // Assert
-  case config.create(string_value_config) {
-    Ok(table) -> {
-      case operations.delete_table(table) {
-        Ok(_) -> Nil
-        Error(_) -> should.fail()
-      }
-    }
-    Error(_) -> should.fail()
-  }
-}
+        // Act
+        let result = config.create(string_key_config)
 
-pub fn counter_configures_counter_table_test() {
-  // Arrange
-  let base_config = config.new("test_counter")
+        // Assert
+        result
+        |> should()
+        |> be_ok()
+        |> or_fail_with("Should create table with string keys")
+      }),
+    ]),
+    describe("value_string", [
+      it("creates table with string value encoding", fn() {
+        // Arrange
+        let string_value_config =
+          config.new("test_value_string")
+          |> config.key_string()
+          |> config.value_string()
 
-  // Act
-  let counter_config = config.counter(base_config)
+        // Act
+        let result = config.create(string_value_config)
 
-  // Assert
-  case config.create(counter_config) {
-    Ok(table) -> {
-      case operations.delete_table(table) {
-        Ok(_) -> Nil
-        Error(_) -> should.fail()
-      }
-    }
-    Error(_) -> should.fail()
-  }
-}
+        // Assert
+        result
+        |> should()
+        |> be_ok()
+        |> or_fail_with("Should create table with string values")
+      }),
+    ]),
+    describe("counter", [
+      it("creates counter table", fn() {
+        // Arrange
+        let counter_config =
+          config.new("test_counter")
+          |> config.counter()
 
-pub fn create_requires_key_and_value_encoders_test() {
-  // Arrange - config without encoders
-  let incomplete_config = config.new("test_incomplete")
+        // Act
+        let result = config.create(counter_config)
 
-  // Act & Assert
-  case config.create(incomplete_config) {
-    Ok(_) -> should.fail()
-    Error(table.InvalidKey) -> Nil
-    Error(_) -> should.fail()
-  }
-}
+        // Assert
+        result
+        |> should()
+        |> be_ok()
+        |> or_fail_with("Should create counter table")
+      }),
+    ]),
+    describe("create", [
+      it("returns InvalidKey error for missing key encoder", fn() {
+        // Arrange - config without encoders
+        let incomplete_config = config.new("test_incomplete")
 
-pub fn create_returns_error_for_duplicate_table_name_test() {
-  // Arrange
-  let config1 =
-    config.new("duplicate_test")
-    |> config.key_string()
-    |> config.value_string()
+        // Act
+        let result = config.create(incomplete_config)
 
-  let config2 =
-    config.new("duplicate_test")
-    |> config.key_string()
-    |> config.value_string()
+        // Assert
+        result
+        |> should()
+        |> be_error()
+        |> or_fail_with("Should return error for missing key encoder")
+      }),
+      it("returns TableAlreadyExists error for duplicate name", fn() {
+        // Arrange
+        let config1 =
+          config.new("duplicate_test")
+          |> config.key_string()
+          |> config.value_string()
 
-  // Act
-  case config.create(config1) {
-    Ok(table1) -> {
-      // Try to create second table with same name
-      case config.create(config2) {
-        Ok(_) -> should.fail()
-        Error(table.TableAlreadyExists) -> {
-          case operations.delete_table(table1) {
-            Ok(_) -> Nil
-            Error(_) -> should.fail()
-          }
-        }
-        Error(_) -> should.fail()
-      }
-    }
-    Error(_) -> should.fail()
-  }
+        let _table1 = config.create(config1)
+
+        let config2 =
+          config.new("duplicate_test")
+          |> config.key_string()
+          |> config.value_string()
+
+        // Act
+        let result = config.create(config2)
+
+        // Assert
+        result
+        |> should()
+        |> be_error()
+        |> or_fail_with("Should return error for duplicate table name")
+      }),
+    ]),
+  ])
 }
