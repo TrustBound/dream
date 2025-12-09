@@ -1,0 +1,4 @@
+- pull the latest from both develop and main
+- create a pull request from develop to main
+- If this is a main dream release title it "Release X.X.X: ..."
+- If this is a module release, title it "{Module Name} Release X.X.X: ..."

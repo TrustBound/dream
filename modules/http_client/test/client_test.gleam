@@ -1,4 +1,4 @@
-import dream_http_client/client
+import dream_http_client/client.{Header}
 import gleam/http
 import gleam/list
 import gleam/option
@@ -77,7 +77,7 @@ pub fn query_sets_request_query_test() {
 pub fn headers_sets_request_headers_test() {
   // Arrange
   let request = client.new
-  let headers_value = [#("Authorization", "Bearer token")]
+  let headers_value = [Header("Authorization", "Bearer token")]
 
   // Act
   let updated = client.headers(request, headers_value)
@@ -121,7 +121,7 @@ pub fn add_header_adds_header_to_request_test() {
   let headers = client.get_headers(updated)
   list.length(headers) |> should.equal(1)
   case headers {
-    [#(name, value), ..] -> {
+    [Header(name, value), ..] -> {
       name |> should.equal("X-Custom")
       value |> should.equal("value")
     }

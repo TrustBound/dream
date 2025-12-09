@@ -163,6 +163,40 @@ import gleam/result
 import gleam/string
 import gleam/yielder
 
+/// HTTP header
+///
+/// Represents a single HTTP header with a name and value. Used throughout the
+/// module for type-safe header handling.
+///
+/// ## Fields
+///
+/// - `name`: Header name (e.g., "Content-Type", "Authorization")
+/// - `value`: Header value (e.g., "application/json", "Bearer token")
+///
+/// ## Usage
+///
+/// Headers are constructed automatically by builder functions like `add_header()`,
+/// but you'll work with this type when inspecting headers:
+///
+/// ```gleam
+/// let headers = client.get_headers(request)
+/// case headers {
+///   [Header(name, value), ..] -> {
+///     io.println(name <> ": " <> value)
+///   }
+///   [] -> io.println("No headers")
+/// }
+/// ```
+///
+/// ## Notes
+///
+/// - Header names are case-sensitive as stored, but HTTP treats them case-insensitively
+/// - Duplicate header names are allowed (e.g., multiple Set-Cookie headers)
+/// - Headers are stored in the order they were added
+pub type Header {
+  Header(name: String, value: String)
+}
+
 /// HTTP client request configuration
 ///
 /// Represents a complete HTTP request with all its components. Use the builder
@@ -194,10 +228,14 @@ pub opaque type ClientRequest {
     port: Option(Int),
     path: String,
     query: Option(String),
-    headers: List(#(String, String)),
+    headers: List(Header),
     body: String,
     timeout: Option(Int),
     recorder: Option(recorder.Recorder),
+    on_stream_start: Option(fn(List(Header)) -> Nil),
+    on_stream_chunk: Option(fn(BitArray) -> Nil),
+    on_stream_end: Option(fn(List(Header)) -> Nil),
+    on_stream_error: Option(fn(String) -> Nil),
   )
 }
 
@@ -238,6 +276,10 @@ pub const new = ClientRequest(
   body: "",
   timeout: None,
   recorder: None,
+  on_stream_start: None,
+  on_stream_chunk: None,
+  on_stream_end: None,
+  on_stream_error: None,
 )
 
 /// Set the HTTP method for the request
@@ -431,7 +473,7 @@ pub fn query(
 /// ```
 pub fn headers(
   client_request: ClientRequest,
-  headers_value: List(#(String, String)),
+  headers_value: List(Header),
 ) -> ClientRequest {
   ClientRequest(..client_request, headers: headers_value)
 }
@@ -527,6 +569,115 @@ pub fn timeout(client_request: ClientRequest, timeout_ms: Int) -> ClientRequest 
   ClientRequest(..client_request, timeout: option.Some(timeout_ms))
 }
 
+/// Set callback for stream start event
+///
+/// Sets a function to be called when a stream starts and headers are received.
+/// Optional - if not set, stream start is ignored.
+///
+/// ## Parameters
+///
+/// - `client_request`: The request to modify
+/// - `callback`: Function called with response headers when stream starts
+///
+/// ## Example
+///
+/// ```gleam
+/// client.new
+/// |> client.host("api.example.com")
+/// |> client.on_stream_start(fn(headers) {
+///   io.println("Stream started with " <> int.to_string(list.length(headers)) <> " headers")
+/// })
+/// |> client.start_stream()
+/// ```
+pub fn on_stream_start(
+  client_request: ClientRequest,
+  callback: fn(List(Header)) -> Nil,
+) -> ClientRequest {
+  ClientRequest(..client_request, on_stream_start: Some(callback))
+}
+
+/// Set callback for stream chunk event
+///
+/// Sets a function to be called for each data chunk received from the stream.
+/// This is where you process the actual response data.
+///
+/// ## Parameters
+///
+/// - `client_request`: The request to modify
+/// - `callback`: Function called with each chunk of data
+///
+/// ## Example
+///
+/// ```gleam
+/// client.new
+/// |> client.host("api.openai.com")
+/// |> client.on_stream_chunk(fn(data) {
+///   let text = bytes_tree.from_bit_array(data) |> bytes_tree.to_string
+///   io.print(text)
+/// })
+/// |> client.start_stream()
+/// ```
+pub fn on_stream_chunk(
+  client_request: ClientRequest,
+  callback: fn(BitArray) -> Nil,
+) -> ClientRequest {
+  ClientRequest(..client_request, on_stream_chunk: Some(callback))
+}
+
+/// Set callback for stream end event
+///
+/// Sets a function to be called when a stream completes successfully.
+/// Optional - if not set, stream completion is ignored.
+///
+/// ## Parameters
+///
+/// - `client_request`: The request to modify
+/// - `callback`: Function called with trailing headers when stream completes
+///
+/// ## Example
+///
+/// ```gleam
+/// client.new
+/// |> client.host("api.example.com")
+/// |> client.on_stream_end(fn(_headers) {
+///   io.println("Stream completed")
+/// })
+/// |> client.start_stream()
+/// ```
+pub fn on_stream_end(
+  client_request: ClientRequest,
+  callback: fn(List(Header)) -> Nil,
+) -> ClientRequest {
+  ClientRequest(..client_request, on_stream_end: Some(callback))
+}
+
+/// Set callback for stream error event
+///
+/// Sets a function to be called if the stream fails with an error.
+/// Handles both HTTP errors and network errors.
+///
+/// ## Parameters
+///
+/// - `client_request`: The request to modify
+/// - `callback`: Function called with error reason if stream fails
+///
+/// ## Example
+///
+/// ```gleam
+/// client.new
+/// |> client.host("api.example.com")
+/// |> client.on_stream_error(fn(reason) {
+///   io.println_error("Stream failed: " <> reason)
+/// })
+/// |> client.start_stream()
+/// ```
+pub fn on_stream_error(
+  client_request: ClientRequest,
+  callback: fn(String) -> Nil,
+) -> ClientRequest {
+  ClientRequest(..client_request, on_stream_error: Some(callback))
+}
+
 /// Add a header to the request
 ///
 /// Adds a single header to the existing headers list without replacing them.
@@ -558,7 +709,7 @@ pub fn add_header(
   value: String,
 ) -> ClientRequest {
   ClientRequest(..client_request, headers: [
-    #(name, value),
+    Header(name, value),
     ..client_request.headers
   ])
 }
@@ -685,9 +836,9 @@ pub fn get_query(client_request: ClientRequest) -> Option(String) {
 ///   |> client.add_header("Authorization", "Bearer token")
 ///   |> client.add_header("Content-Type", "application/json")
 /// let headers = client.get_headers(req)
-/// // headers == [#("Content-Type", "application/json"), #("Authorization", "Bearer token")]
+/// // headers == [Header("Content-Type", "application/json"), Header("Authorization", "Bearer token")]
 /// ```
-pub fn get_headers(client_request: ClientRequest) -> List(#(String, String)) {
+pub fn get_headers(client_request: ClientRequest) -> List(Header) {
   client_request.headers
 }
 
@@ -755,8 +906,42 @@ pub fn get_recorder(client_request: ClientRequest) -> Option(recorder.Recorder) 
 
 /// Opaque request identifier for message-based streaming
 ///
-/// Returned by `stream_messages()` and used to identify which stream a message
-/// belongs to when handling multiple concurrent streams.
+/// A unique identifier for an active HTTP stream started with `stream_messages()`.
+/// This identifier is included in all `StreamMessage` variants to allow handling
+/// multiple concurrent streams in a single actor process.
+///
+/// ## Usage
+///
+/// When handling multiple concurrent streams, use the `RequestId` to:
+/// - Track which stream a message belongs to
+/// - Associate chunks with the correct request
+/// - Cancel specific streams with `cancel_stream()`
+/// - Maintain per-stream state in your actor
+///
+/// ## Examples
+///
+/// ```gleam
+/// // Start multiple streams
+/// let assert Ok(req_id_1) = client.new |> client.host("api.com") |> client.path("/stream/1") |> client.stream_messages()
+/// let assert Ok(req_id_2) = client.new |> client.host("api.com") |> client.path("/stream/2") |> client.stream_messages()
+///
+/// // Messages include RequestId to distinguish them
+/// case message {
+///   client.Chunk(id, data) -> {
+///     if id == req_id_1 {
+///       process_stream_1(data)
+///     } else if id == req_id_2 {
+///       process_stream_2(data)
+///     }
+///   }
+/// }
+/// ```
+///
+/// ## Notes
+///
+/// - RequestId values are opaque - do not rely on their internal structure
+/// - RequestIds are unique per VM instance but not stable across restarts
+/// - Use pattern matching or equality comparison to identify streams
 pub opaque type RequestId {
   RequestId(id: String)
 }
@@ -790,15 +975,56 @@ pub opaque type RequestId {
 /// the request ID itself could not be decoded from the corrupted message.
 pub type StreamMessage {
   /// Stream started, headers received
-  StreamStart(request_id: RequestId, headers: List(#(String, String)))
+  StreamStart(request_id: RequestId, headers: List(Header))
   /// Data chunk received
   Chunk(request_id: RequestId, data: BitArray)
   /// Stream completed successfully
-  StreamEnd(request_id: RequestId, headers: List(#(String, String)))
+  StreamEnd(request_id: RequestId, headers: List(Header))
   /// Stream failed with error (connection drop, timeout, HTTP error, etc.)
   StreamError(request_id: RequestId, reason: String)
   /// Failed to decode stream message from Erlang FFI (indicates library bug)
   DecodeError(reason: String)
+}
+
+/// Handle to a running HTTP stream
+///
+/// Opaque handle returned from `start_stream()` representing a stream running in
+/// a dedicated BEAM process. Use this handle to control the stream lifecycle.
+///
+/// ## Lifecycle Management
+///
+/// - `await_stream(handle)` - Wait for stream to complete
+/// - `cancel_stream_handle(handle)` - Stop the stream early
+/// - `is_stream_active(handle)` - Check if still running
+///
+/// ## Process Isolation
+///
+/// Each stream runs in its own BEAM process, which means:
+/// - Multiple streams run concurrently without blocking
+/// - Stream crashes don't affect your application
+/// - Your process mailbox stays clean (HTTP messages go to stream process)
+/// - Callbacks execute in the stream process, not your process
+///
+/// ## Example
+///
+/// ```gleam
+/// // Start stream
+/// let assert Ok(stream) = client.start_stream(request)
+///
+/// // Check status
+/// case client.is_stream_active(stream) {
+///   True -> io.println("Still streaming...")
+///   False -> io.println("Completed")
+/// }
+///
+/// // Wait for completion
+/// client.await_stream(stream)
+///
+/// // Or cancel early
+/// client.cancel_stream_handle(stream)
+/// ```
+pub opaque type StreamHandle {
+  StreamHandle(pid: process.Pid)
 }
 
 // ============================================================================
@@ -964,7 +1190,7 @@ fn client_request_to_recorded_request(
     port: client_request.port,
     path: client_request.path,
     query: client_request.query,
-    headers: client_request.headers,
+    headers: headers_to_tuples(client_request.headers),
     body: client_request.body,
   )
 }
@@ -1226,7 +1452,7 @@ fn handle_yielder_unfold_with_deps(
 fn to_http_request(client_request: ClientRequest) -> request.Request(String) {
   request.Request(
     method: client_request.method,
-    headers: client_request.headers,
+    headers: headers_to_tuples(client_request.headers),
     body: client_request.body,
     scheme: client_request.scheme,
     host: client_request.host,
@@ -1234,6 +1460,14 @@ fn to_http_request(client_request: ClientRequest) -> request.Request(String) {
     path: client_request.path,
     query: client_request.query,
   )
+}
+
+fn headers_to_tuples(headers: List(Header)) -> List(#(String, String)) {
+  list.map(headers, fn(h) { #(h.name, h.value) })
+}
+
+fn tuples_to_headers(tuples: List(#(String, String))) -> List(Header) {
+  list.map(tuples, fn(t) { Header(name: t.0, value: t.1) })
 }
 
 fn handle_yielder_start_with_state(
@@ -1379,68 +1613,9 @@ fn save_streaming_recording(
   recorder.add_recording(state.recorder, rec)
 }
 
-/// Start a message-based streaming HTTP request (OTP compatible)
-///
-/// Sends an HTTP request and returns a request ID immediately. httpc sends
-/// stream messages directly to your process mailbox. Use this for:
-///
-/// - **OTP actors handling multiple concurrent streams**
-/// - **Long-lived connections that need cancellation**
-/// - **Integration with OTP supervisors and selectors**
-///
-/// For simple sequential streaming, use `stream_yielder()` instead.
-///
-/// ## Message Flow
-///
-/// Messages are sent to your process mailbox automatically:
-/// 1. `StreamStart(request_id, headers)` - Headers received
-/// 2. `Chunk(request_id, data)` - Zero or more data chunks
-/// 3. `StreamEnd(request_id, headers)` or `StreamError(request_id, reason)` - Done
-///
-/// ## Parameters
-///
-/// - `req`: The configured HTTP request
-///
-/// ## Returns
-///
-/// - `Ok(RequestId)`: Stream started, messages will arrive in your mailbox
-/// - `Error(String)`: Failed to start the stream
-///
-/// ## Example
-///
-/// ```gleam
-/// import dream_http_client/client.{
-///   type StreamMessage, Chunk, StreamEnd, StreamError, StreamStart,
-///   select_stream_messages
-/// }
-/// import gleam/otp/actor.{continue}
-/// import gleam/erlang/process.{new_selector}
-///
-/// pub type Message {
-///   HttpStream(StreamMessage)
-/// }
-///
-/// fn handle_message(msg: Message, state: State) {
-///   case msg {
-///     HttpStream(stream_msg) -> {
-///       case stream_msg {
-///         Chunk(req_id, data) -> process_chunk(data, state)
-///         StreamEnd(req_id, _) -> cleanup(req_id, state)
-///         StreamError(req_id, reason) -> handle_error(req_id, reason, state)
-///         StreamStart(_, _) -> continue(state)
-///       }
-///     }
-///   }
-/// }
-///
-/// fn init_selector() {
-///   new_selector()
-///   |> select_stream_messages(HttpStream)
-/// }
-/// ```
-pub fn stream_messages(
-  client_request: ClientRequest,
-) -> Result(RequestId, String) {
+// Internal: Start a message-based streaming HTTP request
+// Used by start_stream() to initiate the HTTP stream
+fn stream_messages(client_request: ClientRequest) -> Result(RequestId, String) {
   // Check for recorder - if in Record mode, check playback first
   case client_request.recorder {
     option.Some(recorder_instance) ->
@@ -1593,40 +1768,9 @@ fn extract_error_reason(result: d.Dynamic) -> Result(RequestId, String) {
   }
 }
 
-/// Add stream message handling to an OTP selector
-///
-/// Integrates HTTP stream messages into your OTP actor's selector. This allows
-/// you to handle HTTP streams alongside other messages in your actor.
-///
-/// The mapper function converts `StreamMessage` to your actor's message type.
-///
-/// ## Parameters
-///
-/// - `selector`: Your existing selector
-/// - `mapper`: Function to wrap `StreamMessage` in your message type
-///
-/// ## Returns
-///
-/// Updated selector that handles stream messages
-///
-/// ## Example
-///
-/// ```gleam
-/// import dream_http_client/client.{type StreamMessage, select_stream_messages}
-/// import gleam/erlang/process.{type Selector, new_selector, selecting}
-///
-/// pub type Message {
-///   HttpStream(StreamMessage)
-///   OtherMessage(String)
-/// }
-///
-/// fn build_selector() -> Selector(Message) {
-///   new_selector()
-///   |> select_stream_messages(HttpStream)
-///   |> selecting(some_subject, OtherMessage)
-/// }
-/// ```
-pub fn select_stream_messages(
+// Internal: Add stream message handling to a selector
+// Used by start_stream() to receive HTTP messages in spawned process
+fn select_stream_messages(
   selector: process.Selector(msg),
   mapper: fn(StreamMessage) -> msg,
 ) -> process.Selector(msg) {
@@ -1753,7 +1897,7 @@ fn decode_stream_start_headers(
   headers_dyn: d.Dynamic,
 ) -> StreamMessage {
   case decode_headers(headers_dyn) {
-    Ok(headers) -> StreamStart(req_id, headers)
+    Ok(headers) -> StreamStart(req_id, tuples_to_headers(headers))
     Error(header_decode_error) -> {
       let error_msg =
         "Failed to decode headers in StreamStart: "
@@ -1810,7 +1954,7 @@ fn decode_stream_end_headers(
   headers_dyn: d.Dynamic,
 ) -> StreamMessage {
   case decode_headers(headers_dyn) {
-    Ok(headers) -> StreamEnd(req_id, headers)
+    Ok(headers) -> StreamEnd(req_id, tuples_to_headers(headers))
     Error(header_decode_error) -> {
       let error_msg =
         "Failed to decode trailing headers in StreamEnd: "
@@ -1872,10 +2016,244 @@ fn pair_with_name(value: String, name: String) -> #(String, String) {
   #(name, value)
 }
 
-/// Cancel an active streaming request
+/// Start an HTTP stream with callback handlers
+///
+/// Spawns a dedicated process to handle HTTP streaming and calls your callbacks
+/// as messages arrive. This is the recommended API for streaming.
+///
+/// Returns a `StreamHandle` immediately (non-blocking). The stream runs in a
+/// separate process, and your callbacks execute in that process.
+///
+/// ## Parameters
+///
+/// - `request`: The configured HTTP request with callbacks set via builder pattern
+///
+/// ## Returns
+///
+/// - `Ok(StreamHandle)`: Stream started successfully
+/// - `Error(String)`: Failed to start stream
+///
+/// ## Example
+///
+/// ```gleam
+/// let assert Ok(stream) = client.new
+///   |> client.host("api.openai.com")
+///   |> client.path("/v1/chat/completions")
+///   |> client.on_stream_chunk(fn(data) {
+///     case bit_array.to_string(data) {
+///       Ok(text) -> io.print(text)
+///       Error(_) -> Nil
+///     }
+///   })
+///   |> client.on_stream_error(fn(reason) {
+///     io.println_error("Error: " <> reason)
+///   })
+///   |> client.start_stream()
+///
+/// // Later: cancel if needed
+/// client.cancel_stream_handle(stream)
+/// ```
+pub fn start_stream(request: ClientRequest) -> Result(StreamHandle, String) {
+  // Ensure ETS tables exist before spawning
+  ensure_ets_tables()
+
+  // Spawn process to handle the stream
+  let stream_pid = process.spawn_unlinked(fn() { run_stream_process(request) })
+
+  Ok(StreamHandle(pid: stream_pid))
+}
+
+// Ensure all required ETS tables exist
+fn ensure_ets_tables() -> Nil {
+  ensure_recorder_table()
+  ensure_ref_mapping_table_wrapper()
+}
+
+@external(erlang, "dream_httpc_shim", "ensure_ref_mapping_table")
+fn ensure_ref_mapping_table_wrapper() -> Nil
+
+fn run_stream_process(request: ClientRequest) -> Nil {
+  // Build selector for HTTP messages
+  let selector =
+    process.new_selector()
+    |> select_stream_messages(fn(msg) { msg })
+
+  // Start the stream using internal API
+  case stream_messages(request) {
+    Error(reason) -> {
+      // Call error callback if set
+      case request.on_stream_error {
+        Some(on_error) -> on_error(reason)
+        None -> Nil
+      }
+    }
+    Ok(req_id) -> {
+      // Process messages until stream completes
+      process_stream_loop(selector, req_id, request)
+    }
+  }
+}
+
+fn process_stream_loop(
+  selector: process.Selector(StreamMessage),
+  req_id: RequestId,
+  request: ClientRequest,
+) -> Nil {
+  case process.selector_receive(selector, 30_000) {
+    Ok(message) -> {
+      handle_stream_message(message, req_id, request, selector)
+    }
+    Error(Nil) -> {
+      // Timeout waiting for messages
+      case request.on_stream_error {
+        Some(on_error) -> on_error("Timeout waiting for stream messages")
+        None -> Nil
+      }
+    }
+  }
+}
+
+fn handle_stream_message(
+  message: StreamMessage,
+  req_id: RequestId,
+  request: ClientRequest,
+  selector: process.Selector(StreamMessage),
+) -> Nil {
+  case message {
+    StreamStart(stream_req_id, headers) -> {
+      case stream_req_id == req_id {
+        True -> {
+          case request.on_stream_start {
+            Some(on_start) -> on_start(headers)
+            None -> Nil
+          }
+          process_stream_loop(selector, req_id, request)
+        }
+        False -> process_stream_loop(selector, req_id, request)
+      }
+    }
+
+    Chunk(stream_req_id, data) -> {
+      case stream_req_id == req_id {
+        True -> {
+          case request.on_stream_chunk {
+            Some(on_chunk) -> on_chunk(data)
+            None -> Nil
+          }
+          process_stream_loop(selector, req_id, request)
+        }
+        False -> process_stream_loop(selector, req_id, request)
+      }
+    }
+
+    StreamEnd(stream_req_id, headers) -> {
+      case stream_req_id == req_id {
+        True -> {
+          case request.on_stream_end {
+            Some(on_end) -> on_end(headers)
+            None -> Nil
+          }
+          Nil
+        }
+        False -> process_stream_loop(selector, req_id, request)
+      }
+    }
+
+    StreamError(stream_req_id, reason) -> {
+      case stream_req_id == req_id {
+        True -> {
+          case request.on_stream_error {
+            Some(on_error) -> on_error(reason)
+            None -> Nil
+          }
+          Nil
+        }
+        False -> process_stream_loop(selector, req_id, request)
+      }
+    }
+
+    DecodeError(reason) -> {
+      case request.on_stream_error {
+        Some(on_error) -> on_error("DecodeError: " <> reason)
+        None -> Nil
+      }
+      Nil
+    }
+  }
+}
+
+/// Cancel a stream started with start_stream()
+///
+/// Stops the stream process and cancels the underlying HTTP request.
+/// Safe to call multiple times on the same handle.
+///
+/// ## Example
+///
+/// ```gleam
+/// let assert Ok(stream) = client.start_stream(request)
+/// // Later:
+/// client.cancel_stream_handle(stream)
+/// ```
+pub fn cancel_stream_handle(handle: StreamHandle) -> Nil {
+  let StreamHandle(pid) = handle
+  process.kill(pid)
+}
+
+/// Check if a stream is still active
+///
+/// Returns True if the stream process is still running, False otherwise.
+///
+/// ## Example
+///
+/// ```gleam
+/// let assert Ok(stream) = client.start_stream(request)
+/// case client.is_stream_active(stream) {
+///   True -> io.println("Stream still running")
+///   False -> io.println("Stream completed")
+/// }
+/// ```
+pub fn is_stream_active(handle: StreamHandle) -> Bool {
+  let StreamHandle(pid) = handle
+  process.is_alive(pid)
+}
+
+/// Wait for a stream to complete
+///
+/// Blocks until the stream process exits. Use this when you need to wait
+/// for the stream to finish before continuing.
+///
+/// Returns Ok(Nil) when stream completes.
+///
+/// For timeout behavior, use cancel_stream_handle() with a timer, or
+/// implement your own timeout logic.
+///
+/// ## Example
+///
+/// ```gleam
+/// let assert Ok(stream) = client.start_stream(request)
+/// client.await_stream(stream)
+/// io.println("Stream finished")
+/// ```
+pub fn await_stream(handle: StreamHandle) -> Nil {
+  let StreamHandle(pid) = handle
+
+  // Poll until process exits
+  case process.is_alive(pid) {
+    True -> {
+      process.sleep(50)
+      await_stream(handle)
+    }
+    False -> Nil
+  }
+}
+
+/// Cancel an active streaming request (low-level API)
 ///
 /// Cancels an HTTP stream that was started with `stream_messages()`.
 /// After cancellation, no more messages will be sent to your process.
+///
+/// **Note:** This is a low-level API. Most users should use `start_stream()`
+/// and `cancel_stream_handle()` instead.
 ///
 /// ## Parameters
 ///

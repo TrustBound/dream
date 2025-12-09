@@ -1,6 +1,8 @@
 import dream_http_client/matching
 import dream_http_client/recorder
 import dream_http_client/recording
+import dream_http_client/storage
+import gleam/erlang/process
 import gleam/http
 import gleam/io
 import gleam/list
@@ -386,6 +388,39 @@ pub fn get_recordings_with_no_recordings_returns_empty_list_test() {
 
   // Assert
   list.length(recordings) |> should.equal(0)
+
+  // Cleanup
+  recorder.stop(rec) |> result.unwrap(Nil)
+}
+
+pub fn add_recording_in_record_mode_saves_immediately_test() {
+  // Arrange
+  let directory = test_recording_directory()
+  let mode = recorder.Record(directory: directory)
+  let matching = matching.match_url_only()
+  let assert Ok(rec) = recorder.start(mode, matching)
+  let test_recording = create_test_recording()
+
+  // Act
+  recorder.add_recording(rec, test_recording)
+
+  // Wait for actor to process message and file write to complete
+  process.sleep(100)
+
+  // Assert - Load directly from file without calling stop()
+  let loaded = storage.load_recordings(directory)
+  case loaded {
+    Ok(recordings) -> {
+      list.length(recordings) |> should.equal(1)
+      case list.first(recordings) {
+        Ok(recording) -> {
+          recording.request.host |> should.equal("api.example.com")
+        }
+        Error(_) -> should.fail()
+      }
+    }
+    Error(_) -> should.fail()
+  }
 
   // Cleanup
   recorder.stop(rec) |> result.unwrap(Nil)

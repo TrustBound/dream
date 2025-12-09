@@ -31,6 +31,27 @@ fn create_test_recording() -> recording.Recording {
   recording.Recording(request: request, response: response)
 }
 
+fn create_second_test_recording() -> recording.Recording {
+  let request =
+    recording.RecordedRequest(
+      method: http.Get,
+      scheme: http.Https,
+      host: "api.example.com",
+      port: option.None,
+      path: "/posts",
+      query: option.None,
+      headers: [],
+      body: "",
+    )
+  let response =
+    recording.BlockingResponse(
+      status: 200,
+      headers: [],
+      body: "{\"posts\": []}",
+    )
+  recording.Recording(request: request, response: response)
+}
+
 pub fn load_recordings_with_nonexistent_file_returns_empty_list_test() {
   // Arrange
   let directory =
@@ -97,24 +118,7 @@ pub fn save_recordings_with_multiple_recordings_saves_all_test() {
   // Arrange
   let directory = "/tmp/recorder_test_multi_" <> string.inspect(get_timestamp())
   let recording1 = create_test_recording()
-  let recording2 =
-    recording.Recording(
-      request: recording.RecordedRequest(
-        method: http.Get,
-        scheme: http.Https,
-        host: "api.example.com",
-        port: option.None,
-        path: "/posts",
-        query: option.None,
-        headers: [],
-        body: "",
-      ),
-      response: recording.BlockingResponse(
-        status: 200,
-        headers: [],
-        body: "{\"posts\": []}",
-      ),
-    )
+  let recording2 = create_second_test_recording()
 
   // Act
   let save_result = storage.save_recordings(directory, [recording1, recording2])
@@ -138,4 +142,24 @@ pub fn save_recordings_with_multiple_recordings_saves_all_test() {
       should.fail()
     }
   }
+}
+
+pub fn save_recording_immediately_appends_to_existing_test() {
+  // Arrange
+  let directory =
+    "/tmp/recorder_test_immediate_" <> string.inspect(get_timestamp())
+  let recording1 = create_test_recording()
+  let recording2 = create_second_test_recording()
+
+  // Save first recording
+  let assert Ok(_) = storage.save_recordings(directory, [recording1])
+
+  // Act - Save second recording immediately
+  let result = storage.save_recording_immediately(directory, recording2)
+
+  // Assert
+  result |> should.be_ok()
+
+  let assert Ok(loaded) = storage.load_recordings(directory)
+  list.length(loaded) |> should.equal(2)
 }

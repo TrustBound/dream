@@ -459,20 +459,29 @@ pub fn stream_yielder_playback_matches_recorded_stream_test() {
   recorder.stop(playback_rec) |> result.unwrap(Nil)
 }
 
-pub fn stream_messages_records_real_streaming_request_test() {
+pub fn start_stream_records_real_streaming_request_test() {
   // Arrange - Start recorder in Record mode
   let directory = test_recording_directory()
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
 
-  let request = mock_request("/stream/fast") |> client.recorder(rec)
+  // Track chunks received
+  let chunks_subject = process.new_subject()
 
-  // Act - Make REAL message-based streaming request
-  let assert Ok(_request_id) = client.stream_messages(request)
+  let request =
+    mock_request("/stream/fast")
+    |> client.recorder(rec)
+    |> client.on_stream_chunk(fn(data) { process.send(chunks_subject, data) })
 
-  // Receive all messages using selector
-  let chunks = receive_all_stream_messages_via_selector([], 5000)
+  // Act - Make REAL streaming request with new API
+  let assert Ok(_stream_handle) = client.start_stream(request)
+
+  // Wait for stream to complete
+  process.sleep(2000)
+
+  // Collect chunks from mailbox
+  let chunks = collect_chunks_from_mailbox(chunks_subject, [])
   let chunk_count = list.length(chunks)
 
   // Assert - Got real stream data
@@ -492,39 +501,18 @@ pub fn stream_messages_records_real_streaming_request_test() {
   string.contains(file_content, "\"chunks\"")
   |> should.be_true()
 
-  // Verify file has at least as many chunks as we received
-  // (The recording should match what we got)
+  // Verify file has chunk data
   string.contains(file_content, "\"data\"")
   |> should.be_true()
 }
 
-// Helper to receive all stream messages using selector (so recording happens)
-fn receive_all_stream_messages_via_selector(
+// Helper to collect chunks from subject mailbox
+fn collect_chunks_from_mailbox(
+  subject: process.Subject(BitArray),
   acc: List(BitArray),
-  timeout_ms: Int,
 ) -> List(BitArray) {
-  let sel =
-    process.new_selector()
-    |> client.select_stream_messages(fn(msg) { msg })
-
-  case process.selector_receive(sel, timeout_ms) {
-    Ok(client.Chunk(_request_id, data)) -> {
-      receive_all_stream_messages_via_selector([data, ..acc], timeout_ms)
-    }
-    Ok(client.StreamEnd(_request_id, _headers)) -> {
-      list.reverse(acc)
-    }
-    Ok(client.StreamError(_request_id, _reason)) -> {
-      list.reverse(acc)
-    }
-    Ok(client.StreamStart(_request_id, _headers)) -> {
-      receive_all_stream_messages_via_selector(acc, timeout_ms)
-    }
-    Ok(client.DecodeError(_reason)) -> {
-      list.reverse(acc)
-    }
-    Error(Nil) -> {
-      list.reverse(acc)
-    }
+  case process.receive(subject, 100) {
+    Ok(data) -> collect_chunks_from_mailbox(subject, [data, ..acc])
+    Error(Nil) -> list.reverse(acc)
   }
 }

@@ -13,7 +13,37 @@ import gleam/option
 import gleam/result
 import gleam/string
 
-/// Recorded HTTP request
+/// A recorded HTTP request
+///
+/// Captures all components of an HTTP request for recording and playback.
+/// This type is used internally by the recorder to match incoming requests
+/// against recorded ones.
+///
+/// ## Fields
+///
+/// - `method`: HTTP method (GET, POST, PUT, DELETE, etc.)
+/// - `scheme`: Protocol scheme (HTTP or HTTPS)
+/// - `host`: Server hostname or IP address
+/// - `port`: Optional port number (None uses default: 80 for HTTP, 443 for HTTPS)
+/// - `path`: Request path (e.g., "/api/users/123")
+/// - `query`: Optional query string without the leading "?" (e.g., "page=1&limit=10")
+/// - `headers`: List of header name-value pairs
+/// - `body`: Request body as a string
+///
+/// ## Examples
+///
+/// ```gleam
+/// let request = recording.RecordedRequest(
+///   method: http.Get,
+///   scheme: http.Https,
+///   host: "api.example.com",
+///   port: option.None,
+///   path: "/users/123",
+///   query: option.Some("fields=name,email"),
+///   headers: [#("Authorization", "Bearer token123")],
+///   body: "",
+/// )
+/// ```
 pub type RecordedRequest {
   RecordedRequest(
     method: http.Method,
@@ -27,7 +57,36 @@ pub type RecordedRequest {
   )
 }
 
-/// Recorded HTTP response - can be blocking or streaming
+/// A recorded HTTP response
+///
+/// Represents either a blocking (complete) response or a streaming response
+/// with chunks. This type captures the response data needed for playback.
+///
+/// ## Variants
+///
+/// - `BlockingResponse(status, headers, body)`: Complete response body received at once
+/// - `StreamingResponse(status, headers, chunks)`: Response delivered in chunks with timing
+///
+/// ## Examples
+///
+/// ```gleam
+/// // Blocking response
+/// let blocking = recording.BlockingResponse(
+///   status: 200,
+///   headers: [#("Content-Type", "application/json")],
+///   body: "{\"users\": []}",
+/// )
+///
+/// // Streaming response
+/// let streaming = recording.StreamingResponse(
+///   status: 200,
+///   headers: [#("Content-Type", "text/event-stream")],
+///   chunks: [
+///     recording.Chunk(data: <<"chunk1":utf8>>, delay_ms: 100),
+///     recording.Chunk(data: <<"chunk2":utf8>>, delay_ms: 100),
+///   ],
+/// )
+/// ```
 pub type RecordedResponse {
   BlockingResponse(status: Int, headers: List(#(String, String)), body: String)
   StreamingResponse(
@@ -37,17 +96,75 @@ pub type RecordedResponse {
   )
 }
 
-/// Streaming chunk with timing information
+/// A streaming chunk with timing information
+///
+/// Represents a single chunk of data from a streaming HTTP response, along with
+/// the delay (in milliseconds) since the previous chunk. This timing information
+/// is used during playback to recreate the original streaming behavior.
+///
+/// ## Fields
+///
+/// - `data`: The chunk data as a `BitArray`
+/// - `delay_ms`: Milliseconds since the previous chunk (0 for the first chunk)
+///
+/// ## Examples
+///
+/// ```gleam
+/// let chunk = recording.Chunk(
+///   data: <<"Hello, ":utf8>>,
+///   delay_ms: 50,  // 50ms delay before this chunk
+/// )
+/// ```
 pub type Chunk {
   Chunk(data: BitArray, delay_ms: Int)
 }
 
-/// Complete recording entry (request + response pair)
+/// A complete recording entry (request + response pair)
+///
+/// Represents a single recorded HTTP interaction: one request and its corresponding
+/// response. Multiple `Recording` values are stored together in a `RecordingFile`.
+///
+/// ## Fields
+///
+/// - `request`: The recorded HTTP request
+/// - `response`: The recorded HTTP response (blocking or streaming)
+///
+/// ## Examples
+///
+/// ```gleam
+/// let recording = recording.Recording(
+///   request: recorded_request,
+///   response: recorded_response,
+/// )
+/// ```
 pub type Recording {
   Recording(request: RecordedRequest, response: RecordedResponse)
 }
 
-/// Recording file format (versioned)
+/// Recording file format (versioned container)
+///
+/// The top-level structure for storing multiple recordings in a JSON file.
+/// Includes a version field for future format compatibility and a list of
+/// recording entries.
+///
+/// ## Fields
+///
+/// - `version`: Format version string (currently "1.0")
+/// - `entries`: List of recording entries (request/response pairs)
+///
+/// ## Examples
+///
+/// ```gleam
+/// let file = recording.RecordingFile(
+///   version: "1.0",
+///   entries: [recording1, recording2, recording3],
+/// )
+/// ```
+///
+/// ## Notes
+///
+/// - Version field allows future format changes while maintaining backward compatibility
+/// - This type is primarily used internally by `encode_recording_file` and `decode_recording_file`
 pub type RecordingFile {
   RecordingFile(version: String, entries: List(Recording))
 }
@@ -58,12 +175,37 @@ pub type RecordingFile {
 
 /// Encode a `RecordingFile` to JSON
 ///
-/// This helper converts an in-memory `RecordingFile` value into a `json.Json`
-/// tree that can be rendered to a string and written to disk. It is used by
-/// the storage module when persisting recordings.
+/// Converts an in-memory `RecordingFile` value into a `json.Json` tree that can
+/// be rendered to a string and written to disk. This function handles the JSON
+/// encoding of all nested types (requests, responses, chunks, etc.).
 ///
-/// Most callers should use `storage.save_recordings/2` instead of calling this
-/// function directly.
+/// ## Parameters
+///
+/// - `file`: The recording file to encode
+///
+/// ## Returns
+///
+/// A `json.Json` value representing the recording file structure, ready to be
+/// serialized with `json.to_string()`.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let file = recording.RecordingFile(
+///   version: "1.0",
+///   entries: [recording1, recording2],
+/// )
+///
+/// let json_value = recording.encode_recording_file(file)
+/// let json_string = json.to_string(json_value)
+/// // Now write json_string to disk
+/// ```
+///
+/// ## Notes
+///
+/// - Most callers should use `storage.save_recordings()` instead of calling this directly
+/// - This function is used internally by the storage module
+/// - The JSON format includes a version field for future compatibility
 pub fn encode_recording_file(file: RecordingFile) -> json.Json {
   let entries_json = list.map(file.entries, encode_recording)
   json.object([
@@ -190,13 +332,40 @@ fn encode_scheme(scheme: http.Scheme) -> json.Json {
 
 /// Decode a JSON string into a `RecordingFile`
 ///
-/// Parses the given JSON string and attempts to decode it into a
-/// `RecordingFile` value. This is the inverse of `encode_recording_file/1` and
-/// is used by the storage module when loading recordings from disk.
+/// Parses a JSON string and decodes it into a `RecordingFile` value. This is
+/// the inverse of `encode_recording_file()` and is used by the storage module
+/// when loading recordings from disk.
 ///
-/// On success, returns the decoded `RecordingFile`. On failure, returns a
-/// human-readable error message describing why the JSON could not be parsed or
-/// decoded.
+/// ## Parameters
+///
+/// - `json_string`: The JSON string to decode (typically read from a file)
+///
+/// ## Returns
+///
+/// - `Ok(RecordingFile)`: Successfully decoded recording file
+/// - `Error(String)`: Human-readable error message describing why decoding failed
+///
+/// ## Examples
+///
+/// ```gleam
+/// // Read JSON from file
+/// let assert Ok(json_content) = simplifile.read("mocks/recordings.json")
+///
+/// // Decode to RecordingFile
+/// case recording.decode_recording_file(json_content) {
+///   Ok(file) -> {
+///     io.println("Loaded " <> int.to_string(list.length(file.entries)) <> " recordings")
+///   }
+///   Error(reason) -> io.println_error("Failed to decode: " <> reason)
+/// }
+/// ```
+///
+/// ## Notes
+///
+/// - Most callers should use `storage.load_recordings()` instead of calling this directly
+/// - This function is used internally by the storage module
+/// - Error messages include field paths to help identify decoding issues
+/// - Handles both blocking and streaming response formats
 pub fn decode_recording_file(
   json_string: String,
 ) -> Result(RecordingFile, String) {
