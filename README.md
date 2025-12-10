@@ -1,17 +1,31 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/TrustBound/dream/main/ricky_and_lucy.png" alt="Dream Logo" width="200" alt="Ricky Moony and Lucy, a moon shaped mascot for Dream with the star shaped mascot for Gleam, each with cute cartoon eyes and a smile">
+  <img src="https://raw.githubusercontent.com/TrustBound/dream/main/ricky_and_lucy.png" alt="Ricky Moony and Lucy, a moon shaped mascot for Dream with the star shaped mascot for Gleam, each with cute cartoon eyes and a smile" width="200">
 
-  <b>Clean, composable web development for Gleam. No magic.</b>
+<b>Clean, composable web development for Gleam. No magic.</b>
+
 </div>
 
+<br />
+
 <div align="center">
+  <a href="https://hex.pm/packages/dream">
+    <img src="https://img.shields.io/hexpm/v/dream" alt="Hex Package">
+  </a>
   <a href="https://github.com/TrustBound/dream/releases">
     <img src="https://img.shields.io/github/v/release/TrustBound/dream?label=Release" alt="Latest Release">
   </a>
   <a href="https://hexdocs.pm/dream">
     <img src="https://img.shields.io/badge/hex-docs-lightgreen.svg" alt="HexDocs">
   </a>
+  <a href="https://github.com/TrustBound/dream/blob/main/LICENSE.md">
+    <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License">
+  </a>
+  <a href="https://gleam.run">
+    <img src="https://img.shields.io/badge/gleam-%E2%9C%A8-ffaff3" alt="Gleam">
+  </a>
 </div>
+
+<br />
 
 ## What is Dream?
 
@@ -134,11 +148,13 @@ for complete examples of JSON APIs, streaming, and WebSockets.
 **Gleam** is a type-safe functional language. You get compile-time error checking, no nulls, and a modern syntax. Learn it in a weekend.
 
 **The BEAM** is the runtime that powers Erlang and Elixir. It was built for reliability and concurrency:
+
 - **Millions of concurrent connections** per server (WhatsApp: 2.8M per server)
 - **Fault tolerance** - processes crash in isolation, the rest keep running
 - **Hot code reloading** - update code without dropping connections
 
 **Real-world results:**
+
 - Discord: 12M+ concurrent users, 26M WebSocket events/sec with ~5 engineers
 - Remote: Grew from zero to unicorn (~$3B) in ~2 years with Elixir
 - BBC: Elixir serving almost all BBC web and app traffic
@@ -169,10 +185,14 @@ You provide:
 
 See the [Contributing Guide](https://github.com/TrustBound/dream/blob/main/docs/index.md#contributing) for guidelines.
 
+---
+
 ## License
 
-[MIT License](https://github.com/TrustBound/dream/blob/main/LICENSE.md)
+MIT — see [LICENSE.md](LICENSE.md)
 
 ---
 
-*Built with Gleam. Runs on the BEAM. Works like you'd expect.*
+<div align="center">
+  <sub>Built in Gleam, on the BEAM, by the <a href="https://github.com/trustbound/dream">Dream Team</a> ❤️</sub>
+</div>

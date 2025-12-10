@@ -10,8 +10,36 @@ import simplifile
 
 /// Load recordings from a JSON file
 ///
-/// Returns an empty list if the file doesn't exist (for playback mode,
-/// this means no recordings are available).
+/// Reads and decodes recordings from `{directory}/recordings.json`. This function
+/// is used internally by the recorder when starting in Playback mode, but can also
+/// be called directly to inspect or manipulate recordings.
+///
+/// ## Parameters
+///
+/// - `directory`: The directory containing the `recordings.json` file
+///
+/// ## Returns
+///
+/// - `Ok(List(Recording))`: Successfully loaded recordings (empty list if file doesn't exist)
+/// - `Error(String)`: Error message if file exists but cannot be read or decoded
+///
+/// ## Examples
+///
+/// ```gleam
+/// // Load recordings for inspection
+/// case storage.load_recordings("mocks/api") {
+///   Ok(recordings) -> {
+///     io.println("Loaded " <> int.to_string(list.length(recordings)) <> " recordings")
+///   }
+///   Error(reason) -> io.println_error("Failed to load: " <> reason)
+/// }
+/// ```
+///
+/// ## Notes
+///
+/// - Returns an empty list (not an error) if the file doesn't exist
+/// - This is the expected behavior for Playback mode when no recordings have been created yet
+/// - File format must match the versioned JSON structure (see `recording.RecordingFile`)
 pub fn load_recordings(
   directory: String,
 ) -> Result(List(recording.Recording), String) {
@@ -33,10 +61,58 @@ pub fn load_recordings(
   }
 }
 
+/// Save a single recording immediately by appending to existing recordings
+///
+/// Loads existing recordings, prepends the new recording, and saves all.
+/// This uses a read-modify-write approach that prioritizes reliability over performance.
+///
+/// **Performance Tradeoff:** This function performs O(n) file I/O operations where n is
+/// the number of existing recordings. For typical use cases (recording once, playback often),
+/// this is acceptable. If you need high-performance recording with deferred saves or delta
+/// files, please create an issue at https://github.com/TrustBound/dream/issues.
+pub fn save_recording_immediately(
+  directory: String,
+  recording: recording.Recording,
+) -> Result(Nil, String) {
+  use existing <- result.try(load_recordings(directory))
+  save_recordings(directory, [recording, ..existing])
+}
+
 /// Save recordings to a JSON file
 ///
-/// Creates the directory if it doesn't exist and writes all recordings
-/// to a single JSON file.
+/// Writes all recordings to `{directory}/recordings.json` in the versioned JSON format.
+/// Creates the directory if it doesn't exist. This function overwrites any existing
+/// recordings file.
+///
+/// ## Parameters
+///
+/// - `directory`: The directory where `recordings.json` will be written
+/// - `recordings`: List of recordings to save
+///
+/// ## Returns
+///
+/// - `Ok(Nil)`: Successfully saved all recordings
+/// - `Error(String)`: Error message if directory creation or file write fails
+///
+/// ## Examples
+///
+/// ```gleam
+/// let recordings = [
+///   create_test_recording(),
+///   create_another_recording(),
+/// ]
+///
+/// case storage.save_recordings("mocks/api", recordings) {
+///   Ok(_) -> io.println("Saved recordings successfully")
+///   Error(reason) -> io.println_error("Failed to save: " <> reason)
+/// }
+/// ```
+///
+/// ## Notes
+///
+/// - Directory is created automatically if it doesn't exist
+/// - Existing `recordings.json` file is overwritten (use `load_recordings` first to merge)
+/// - File format includes version field for future compatibility
 pub fn save_recordings(
   directory: String,
   recordings: List(recording.Recording),

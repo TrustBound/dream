@@ -15,12 +15,68 @@ import gleam/otp/actor.{type Next}
 import gleam/result
 import gleam/string
 
-/// Opaque recorder handle - contains subject for state management
+/// Opaque recorder handle for managing HTTP request/response recordings
+///
+/// A `Recorder` is a handle to an OTP actor process that manages recording state.
+/// Multiple HTTP requests can share the same recorder by passing the same handle.
+/// The recorder handles saving recordings to disk, loading them for playback,
+/// and matching requests to recorded responses.
+///
+/// ## Thread Safety
+///
+/// Recorders are safe to use concurrently - multiple requests can use the same
+/// recorder handle simultaneously. The internal actor processes messages sequentially.
+///
+/// ## Lifecycle
+///
+/// 1. Create with `recorder.start(mode, matching)`
+/// 2. Attach to requests with `client.recorder(rec)`
+/// 3. Optionally cleanup with `recorder.stop(rec)` (recordings already saved)
+///
+/// ## Examples
+///
+/// ```gleam
+/// // Record mode
+/// let assert Ok(rec) = recorder.start(
+///   mode: recorder.Record(directory: "mocks"),
+///   matching: matching.match_url_only(),
+/// )
+///
+/// // Use recorder with requests
+/// client.new
+///   |> client.host("api.example.com")
+///   |> client.recorder(rec)
+///   |> client.send()
+///
+/// // Cleanup (optional - recordings already saved)
+/// recorder.stop(rec)
+/// ```
 pub opaque type Recorder {
   Recorder(subject: process.Subject(RecorderMessage))
 }
 
-/// Recorder mode
+/// Recorder operating mode
+///
+/// Determines how the recorder behaves when attached to HTTP requests.
+///
+/// ## Variants
+///
+/// - `Record(directory)`: Capture real HTTP requests/responses and save to disk
+/// - `Playback(directory)`: Return recorded responses without making network calls
+/// - `Passthrough`: Make real requests without recording or playback
+///
+/// ## Examples
+///
+/// ```gleam
+/// // Record real API calls
+/// let record_mode = recorder.Record(directory: "mocks/api")
+///
+/// // Playback recorded responses
+/// let playback_mode = recorder.Playback(directory: "mocks/api")
+///
+/// // No recording or playback
+/// let passthrough_mode = recorder.Passthrough
+/// ```
 pub type Mode {
   Record(directory: String)
   Playback(directory: String)
@@ -39,8 +95,48 @@ type RecorderState {
 
 /// Start a new recorder in the specified mode
 ///
-/// Creates a process to manage recorder state internally.
-/// Multiple requests can share the same recorder by passing the same handle.
+/// Creates an OTP actor process to manage recorder state. The recorder handles
+/// saving recordings to disk (Record mode), loading them for playback (Playback mode),
+/// or passing requests through unchanged (Passthrough mode).
+///
+/// ## Parameters
+///
+/// - `mode`: The operating mode (Record, Playback, or Passthrough)
+/// - `matching_config`: Configuration for matching requests to recordings
+///
+/// ## Returns
+///
+/// - `Ok(Recorder)`: Successfully started recorder
+/// - `Error(String)`: Error message if startup fails (e.g., cannot load recordings in Playback mode)
+///
+/// ## Examples
+///
+/// ```gleam
+/// // Record mode - captures and saves requests/responses
+/// let assert Ok(rec) = recorder.start(
+///   mode: recorder.Record(directory: "mocks/api"),
+///   matching: matching.match_url_only(),
+/// )
+///
+/// // Playback mode - returns recorded responses
+/// let assert Ok(playback_rec) = recorder.start(
+///   mode: recorder.Playback(directory: "mocks/api"),
+///   matching: matching.match_url_only(),
+/// )
+///
+/// // Passthrough mode - no recording or playback
+/// let assert Ok(passthrough_rec) = recorder.start(
+///   mode: recorder.Passthrough,
+///   matching: matching.match_url_only(),
+/// )
+/// ```
+///
+/// ## Notes
+///
+/// - In Playback mode, recordings are loaded from disk at startup
+/// - In Record mode, recordings are saved immediately when captured (no need to call `stop()`)
+/// - Multiple requests can share the same recorder handle safely
+/// - The recorder process runs until `stop()` is called or the VM shuts down
 pub fn start(
   mode: Mode,
   matching_config: matching.MatchingConfig,
@@ -131,7 +227,21 @@ fn handle_recorder_message(
           matching: state.matching,
           recordings: new_recordings,
         )
-      actor.continue(new_state)
+
+      // Save immediately if in Record mode
+      case state.mode {
+        Record(dir) -> {
+          case storage.save_recording_immediately(dir, rec) {
+            Ok(_) -> actor.continue(new_state)
+            Error(save_error) -> {
+              // Log error but don't crash - keep in-memory recording
+              io.println_error("Failed to save recording: " <> save_error)
+              actor.continue(new_state)
+            }
+          }
+        }
+        _ -> actor.continue(new_state)
+      }
     }
     FindRecording(request, reply_to) -> {
       let signature = matching.build_signature(request, state.matching)
@@ -163,24 +273,8 @@ fn handle_recorder_message(
       actor.continue(state)
     }
     Stop(reply_to) -> {
-      // Save recordings if in Record mode
-      case state.mode {
-        Record(dir) -> {
-          let all_recordings = dict.values(state.recordings)
-          case storage.save_recordings(dir, all_recordings) {
-            Ok(_) -> {
-              process.send(reply_to, Stopped(Ok(Nil)))
-            }
-            Error(reason) -> {
-              process.send(reply_to, Stopped(Error(reason)))
-            }
-          }
-        }
-        _ -> {
-          // No save needed for Playback or Passthrough
-          process.send(reply_to, Stopped(Ok(Nil)))
-        }
-      }
+      // No need to save - recordings already saved immediately
+      process.send(reply_to, Stopped(Ok(Nil)))
       actor.stop()
     }
   }
@@ -206,7 +300,43 @@ type RecorderResponse {
 
 /// Add a recording to the recorder
 ///
-/// Only works in Record mode. In other modes, this is a no-op.
+/// Manually adds a recording to the recorder's in-memory state and saves it to disk
+/// immediately if in Record mode. This function is typically called automatically
+/// by the HTTP client when a request completes, but can be used directly for testing
+/// or manual recording creation.
+///
+/// ## Parameters
+///
+/// - `recorder`: The recorder to add the recording to
+/// - `rec`: The recording (request/response pair) to add
+///
+/// ## Behavior by Mode
+///
+/// - **Record mode**: Adds to in-memory state and saves to disk immediately
+/// - **Playback mode**: No-op (recordings loaded from disk at startup)
+/// - **Passthrough mode**: No-op (no recording functionality)
+///
+/// ## Examples
+///
+/// ```gleam
+/// let assert Ok(rec) = recorder.start(
+///   mode: recorder.Record(directory: "mocks"),
+///   matching: matching.match_url_only(),
+/// )
+///
+/// // Manually add a recording
+/// let manual_recording = recording.Recording(
+///   request: create_test_request(),
+///   response: create_test_response(),
+/// )
+/// recorder.add_recording(rec, manual_recording)
+/// ```
+///
+/// ## Notes
+///
+/// - Recordings are saved immediately in Record mode (no need to call `stop()`)
+/// - If save fails, error is logged but recording remains in memory
+/// - Duplicate recordings (same signature) overwrite previous ones
 pub fn add_recording(recorder: Recorder, rec: recording.Recording) -> Nil {
   let Recorder(subject) = recorder
   process.send(subject, AddRecording(rec))
@@ -214,7 +344,35 @@ pub fn add_recording(recorder: Recorder, rec: recording.Recording) -> Nil {
 
 /// Check if recorder is in Record mode
 ///
-/// Returns true if the recorder is in Record mode, false otherwise.
+/// Determines whether the recorder is configured to capture and save real HTTP
+/// requests/responses. Useful for conditional logic that only applies during recording.
+///
+/// ## Parameters
+///
+/// - `recorder`: The recorder to check
+///
+/// ## Returns
+///
+/// - `True`: Recorder is in Record mode
+/// - `False`: Recorder is in Playback or Passthrough mode
+///
+/// ## Examples
+///
+/// ```gleam
+/// let assert Ok(rec) = recorder.start(
+///   mode: recorder.Record(directory: "mocks"),
+///   matching: matching.match_url_only(),
+/// )
+///
+/// if recorder.is_record_mode(rec) {
+///   io.println("Recording mode active")
+/// }
+/// ```
+///
+/// ## Notes
+///
+/// - Returns `False` if the recorder process doesn't respond (safe default)
+/// - Timeout is 1 second - recorder should respond quickly
 pub fn is_record_mode(recorder: Recorder) -> Bool {
   let Recorder(subject) = recorder
   let reply_subject = process.new_subject()
@@ -253,8 +411,51 @@ fn identity_recorder_response(response: RecorderResponse) -> RecorderResponse {
 
 /// Find a matching recording for a request
 ///
-/// Returns the matching recording if found, or None if not found.
-/// Only works in Playback mode. In other modes, returns None.
+/// Searches for a recording that matches the given request based on the recorder's
+/// matching configuration. This is used internally by the HTTP client during playback,
+/// but can be called directly to check if a recording exists.
+///
+/// ## Parameters
+///
+/// - `recorder`: The recorder to search in
+/// - `request`: The request to find a matching recording for
+///
+/// ## Returns
+///
+/// - `Some(Recording)`: Matching recording found
+/// - `None`: No matching recording found (or not in Playback mode)
+///
+/// ## Examples
+///
+/// ```gleam
+/// let assert Ok(rec) = recorder.start(
+///   mode: recorder.Playback(directory: "mocks"),
+///   matching: matching.match_url_only(),
+/// )
+///
+/// let request = recording.RecordedRequest(
+///   method: http.Get,
+///   scheme: http.Https,
+///   host: "api.example.com",
+///   port: option.None,
+///   path: "/users",
+///   query: option.None,
+///   headers: [],
+///   body: "",
+/// )
+///
+/// case recorder.find_recording(rec, request) {
+///   Some(recording) -> io.println("Found recording")
+///   None -> io.println("No recording found")
+/// }
+/// ```
+///
+/// ## Notes
+///
+/// - Only works in Playback mode (returns `None` in other modes)
+/// - Matching uses the recorder's `MatchingConfig` (method, URL, headers, body)
+/// - Returns `None` if recorder doesn't respond (safe default)
+/// - Timeout is 1 second - recorder should respond quickly
 pub fn find_recording(
   recorder: Recorder,
   request: recording.RecordedRequest,
@@ -292,7 +493,37 @@ pub fn find_recording(
 
 /// Get all recordings from the recorder
 ///
-/// Returns all recordings currently stored in the recorder.
+/// Retrieves all recordings currently stored in the recorder's in-memory state.
+/// In Playback mode, this returns all recordings loaded from disk at startup.
+/// In Record mode, this returns all recordings captured so far (including unsaved ones).
+///
+/// ## Parameters
+///
+/// - `recorder`: The recorder to get recordings from
+///
+/// ## Returns
+///
+/// - `List(Recording)`: All recordings in the recorder (empty list if none or error)
+///
+/// ## Examples
+///
+/// ```gleam
+/// let assert Ok(rec) = recorder.start(
+///   mode: recorder.Record(directory: "mocks"),
+///   matching: matching.match_url_only(),
+/// )
+///
+/// // Make some requests...
+///
+/// let recordings = recorder.get_recordings(rec)
+/// io.println("Captured " <> int.to_string(list.length(recordings)) <> " recordings")
+/// ```
+///
+/// ## Notes
+///
+/// - Returns empty list if recorder doesn't respond (safe default)
+/// - In Record mode, includes recordings that may not yet be saved to disk
+/// - Timeout is 1 second - recorder should respond quickly
 pub fn get_recordings(recorder: Recorder) -> List(recording.Recording) {
   let Recorder(subject) = recorder
   let reply_subject = process.new_subject()
@@ -325,11 +556,45 @@ pub fn get_recordings(recorder: Recorder) -> List(recording.Recording) {
   }
 }
 
-/// Stop the recorder and save recordings
+/// Stop the recorder and cleanup
 ///
-/// In Record mode, saves all recordings to disk before stopping.
-/// In other modes, just stops the process.
-/// Returns an error if saving fails.
+/// Stops the recorder's OTP actor process and releases resources. In Record mode,
+/// recordings are already saved to disk immediately when captured, so this function
+/// only performs cleanup. Calling `stop()` is optional but recommended for proper
+/// resource management.
+///
+/// ## Parameters
+///
+/// - `recorder`: The recorder to stop
+///
+/// ## Returns
+///
+/// - `Ok(Nil)`: Successfully stopped the recorder
+/// - `Error(String)`: Error message if the recorder doesn't respond within 5 seconds
+///
+/// ## Examples
+///
+/// ```gleam
+/// let assert Ok(rec) = recorder.start(
+///   mode: recorder.Record(directory: "mocks"),
+///   matching: matching.match_url_only(),
+/// )
+///
+/// // Use recorder...
+///
+/// // Cleanup (optional - recordings already saved)
+/// case recorder.stop(rec) {
+///   Ok(_) -> io.println("Recorder stopped")
+///   Error(reason) -> io.println_error("Failed to stop: " <> reason)
+/// }
+/// ```
+///
+/// ## Notes
+///
+/// - Recordings are saved immediately when captured - `stop()` is not required for persistence
+/// - This function is optional but recommended for proper resource cleanup
+/// - Timeout is 5 seconds - recorder should stop quickly
+/// - After calling `stop()`, the recorder handle is no longer valid
 pub fn stop(recorder: Recorder) -> Result(Nil, String) {
   let Recorder(subject) = recorder
   let reply_subject = process.new_subject()

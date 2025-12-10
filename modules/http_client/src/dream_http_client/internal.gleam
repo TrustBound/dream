@@ -182,21 +182,33 @@ fn convert_to_atom(dyn: d.Dynamic) -> Result(atom.Atom, e) {
 
 /// Start a message-based streaming HTTP request
 ///
-/// This is a thin FFI wrapper that calls httpc directly. Messages are sent
-/// to the caller's process mailbox. No owner process, no buffering.
+/// Low-level FFI function that initiates a streaming HTTP request using Erlang's
+/// `httpc` library. Messages are sent directly to the specified process mailbox
+/// without buffering or an intermediate owner process.
+///
+/// **Note:** This is an internal function used by the public API. Most callers
+/// should use `client.stream_messages()` instead.
 ///
 /// ## Parameters
 ///
-/// - `method`: HTTP method atom
-/// - `url`: Request URL
-/// - `headers`: HTTP headers
-/// - `body`: Request body
-/// - `receiver`: Process to receive stream messages
-/// - `timeout_ms`: Timeout in milliseconds
+/// - `method`: HTTP method as an Erlang atom (e.g., `atom.create("get")`)
+/// - `url`: Full request URL (scheme://host:port/path?query)
+/// - `headers`: List of HTTP header name-value pairs
+/// - `body`: Request body as a `BitArray`
+/// - `receiver`: Process ID that will receive stream messages
+/// - `timeout_ms`: Request timeout in milliseconds
 ///
 /// ## Returns
 ///
-/// A dynamic value containing `{ok, RequestId}` or `{error, Reason}`.
+/// A dynamic value containing either:
+/// - `{ok, RequestId}` - Stream started successfully
+/// - `{error, Reason}` - Failed to start stream
+///
+/// ## Notes
+///
+/// - This function is used internally by `client.stream_messages()`
+/// - Messages arrive as Erlang tuples that must be decoded
+/// - Use `decode_stream_message_for_selector()` for selector integration
 @external(erlang, "dream_httpc_shim", "request_stream_messages")
 pub fn start_stream_messages(
   method: atom.Atom,
@@ -209,50 +221,94 @@ pub fn start_stream_messages(
 
 /// Cancel a streaming request
 ///
-/// Cancels an active streaming HTTP request.
+/// Low-level FFI function that cancels an active streaming HTTP request using
+/// the httpc request ID.
+///
+/// **Note:** This is an internal function used by the public API. Most callers
+/// should use `client.cancel_stream()` instead.
 ///
 /// ## Parameters
 ///
 /// - `request_id`: The httpc request ID as a dynamic value
+///
+/// ## Notes
+///
+/// - This function is used internally by `client.cancel_stream()`
+/// - After cancellation, no more messages will be sent to the receiver process
+/// - Safe to call multiple times on the same request ID
 @external(erlang, "dream_httpc_shim", "cancel_stream")
 pub fn cancel_stream_internal(request_id: d.Dynamic) -> Nil
 
 /// Cancel a streaming request by string ID
 ///
-/// Cancels an active streaming HTTP request using the string ID.
+/// Low-level FFI function that cancels an active streaming HTTP request using
+/// the string representation of the request ID.
+///
+/// **Note:** This is an internal function used by the public API. Most callers
+/// should use `client.cancel_stream()` instead.
 ///
 /// ## Parameters
 ///
-/// - `request_id_string`: The request ID as a string
+/// - `request_id_string`: The request ID as a string (from `RequestId.id`)
+///
+/// ## Notes
+///
+/// - This function is used internally by `client.cancel_stream()`
+/// - Converts the string ID to the appropriate format for httpc
+/// - After cancellation, no more messages will be sent to the receiver process
 @external(erlang, "dream_httpc_shim", "cancel_stream_by_string")
 pub fn cancel_stream_by_string(request_id_string: String) -> Nil
 
 /// Receive the next stream message with timeout
 ///
-/// Blocks waiting for an httpc stream message and returns a clean tuple.
-/// This is for non-selector use cases.
+/// Low-level FFI function that blocks waiting for an httpc stream message from
+/// the process mailbox and returns a normalized tuple. This is used for direct
+/// message receiving without selector integration.
+///
+/// **Note:** This is an internal function. Most callers should use OTP selectors
+/// with `client.select_stream_messages()` instead.
 ///
 /// ## Parameters
 ///
-/// - `timeout_ms`: Timeout in milliseconds
+/// - `timeout_ms`: Timeout in milliseconds (0 for non-blocking, -1 for infinite)
 ///
 /// ## Returns
 ///
-/// A dynamic value that should be decoded into a stream message tuple
+/// A dynamic value containing a normalized stream message tuple:
+/// - `{Tag, RequestId, Data}` where Tag is an atom ("stream_start", "chunk", etc.)
+///
+/// ## Notes
+///
+/// - This function is used internally for non-selector message handling
+/// - Messages are normalized by the Erlang shim before being returned
+/// - Use `decode_stream_message_for_selector()` for selector integration
 @external(erlang, "dream_httpc_shim", "receive_stream_message")
 pub fn receive_stream_message(timeout_ms: Int) -> d.Dynamic
 
 /// Decode stream message for selector integration
 ///
-/// Erlang does the heavy lifting: pattern matches raw httpc messages,
-/// normalizes charlists to binaries, and returns a clean tuple.
+/// Low-level FFI function that processes raw httpc messages from OTP selectors.
+/// The Erlang shim handles pattern matching, normalizes charlists to binaries,
+/// and returns a clean tuple format that Gleam can easily decode.
+///
+/// **Note:** This is an internal function used by `client.select_stream_messages()`.
+/// Most callers should use the public selector API instead.
 ///
 /// ## Parameters
 ///
-/// - `message`: The inner tuple from {http, InnerTuple} extracted by selector
+/// - `message`: The inner tuple from `{http, InnerTuple}` extracted by the selector
 ///
 /// ## Returns
 ///
-/// A clean {Tag, RequestId, Data} tuple that Gleam can easily decode
+/// A clean `{Tag, RequestId, Data}` tuple where:
+/// - `Tag` is an atom ("stream_start", "chunk", "stream_end", "stream_error")
+/// - `RequestId` is a string identifier
+/// - `Data` varies by message type (headers, chunk data, error reason, etc.)
+///
+/// ## Notes
+///
+/// - This function is used internally by `client.select_stream_messages()`
+/// - Handles all message normalization and type conversion
+/// - Returns a format optimized for Gleam's dynamic decoder
 @external(erlang, "dream_httpc_shim", "decode_stream_message_for_selector")
 pub fn decode_stream_message_for_selector(message: d.Dynamic) -> d.Dynamic
