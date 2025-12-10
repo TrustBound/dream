@@ -348,13 +348,13 @@ fn encode_scheme(scheme: http.Scheme) -> json.Json {
 /// ## Examples
 ///
 /// ```gleam
-/// // Read JSON from file
-/// let assert Ok(json_content) = simplifile.read("mocks/recordings.json")
+/// // Read JSON from an individual recording file
+/// let assert Ok(json_content) = simplifile.read("mocks/GET_api.example.com_users_a3f5b2.json")
 ///
-/// // Decode to RecordingFile
+/// // Decode to RecordingFile (each file contains one entry)
 /// case recording.decode_recording_file(json_content) {
 ///   Ok(file) -> {
-///     io.println("Loaded " <> int.to_string(list.length(file.entries)) <> " recordings")
+///     io.println("Loaded " <> int.to_string(list.length(file.entries)) <> " recording(s)")
 ///   }
 ///   Error(reason) -> io.println_error("Failed to decode: " <> reason)
 /// }

@@ -5,6 +5,29 @@ All notable changes to `dream_http_client` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.0.1 - 2025-12-10
+
+### Added
+
+- **Per-File Recording Strategy** - Recordings now stored in individual files with format `{method}_{host}_{path}_{hash}.json`
+- Human-readable filenames with hash suffix for uniqueness
+- O(1) write performance (no more read-modify-write cycles)
+- Concurrent test recording support (no file contention)
+- `gleam_crypto` dependency for generating unique filename hashes
+
+### Changed
+
+- **Internal:** `storage.save_recordings()` and `storage.save_recording_immediately()` now require a `matching_config` parameter (not user-facing - users interact with `recorder` module)
+- Recordings are now organized as individual files instead of a single `recordings.json`
+- Better organization for large test suites - each recording is version controllable
+
+### Fixed
+
+- Eliminated O(n) read-modify-write performance issue
+- Concurrent tests can now record safely without file contention
+
+**Note:** Backward compatible - existing recordings still load correctly. User-facing `recorder` API unchanged.
+
 ## 3.0.0 - 2025-12-09
 
 ### Breaking Changes

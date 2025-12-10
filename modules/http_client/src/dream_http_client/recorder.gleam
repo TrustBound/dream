@@ -231,7 +231,7 @@ fn handle_recorder_message(
       // Save immediately if in Record mode
       case state.mode {
         Record(dir) -> {
-          case storage.save_recording_immediately(dir, rec) {
+          case storage.save_recording_immediately(dir, rec, state.matching) {
             Ok(_) -> actor.continue(new_state)
             Error(save_error) -> {
               // Log error but don't crash - keep in-memory recording

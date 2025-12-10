@@ -1,0 +1,1 @@
+{"version":"1.0","entries":[{"request":{"method":"GET","scheme":"http","host":"localhost","port":9876,"path":"/text","query":"page=2","headers":[],"body":""},"response":{"mode":"blocking","status":200,"headers":[],"body":"{}"}}]}

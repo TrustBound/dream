@@ -1,0 +1,1 @@
+{"version":"1.0","entries":[{"request":{"method":"GET","scheme":"http","host":"localhost","port":9876,"path":"/stream","query":null,"headers":[],"body":""},"response":{"mode":"streaming","status":200,"headers":[],"chunks":[{"data":"chunk1","delay_ms":0},{"data":"chunk2","delay_ms":0}]}}]}

@@ -8,9 +8,6 @@
   <a href="https://hex.pm/packages/dream_http_client">
     <img src="https://img.shields.io/hexpm/v/dream_http_client" alt="Hex Package">
   </a>
-  <a href="https://github.com/TrustBound/dream/releases">
-    <img src="https://img.shields.io/github/v/release/TrustBound/dream?label=Release" alt="Latest Release">
-  </a>
   <a href="https://hexdocs.pm/dream_http_client">
     <img src="https://img.shields.io/badge/hex-docs-lightgreen.svg" alt="HexDocs">
   </a>
@@ -259,9 +256,21 @@ let config = matching.MatchingConfig(
 
 <sub>🧪 [Tested source](test/snippets/matching_config.gleam)</sub>
 
-### Performance Note
+### Recording Storage
 
-Recording uses a read-modify-write approach (O(n) where n is existing recordings), prioritizing reliability over performance. This is suitable for typical use cases (record once, playback often). If you need high-performance recording, please create an issue at https://github.com/TrustBound/dream/issues.
+Recordings are stored as individual files (one per request) with human-readable filenames:
+
+```
+mocks/api/GET_api.example.com_users_a3f5b2.json
+mocks/api/POST_api.example.com_users_c7d8e9.json
+```
+
+**Benefits:**
+
+- **O(1) write performance** - No read-modify-write cycles
+- **Concurrent tests work** - No file contention between parallel tests
+- **Easy inspection** - Each recording is a separate, readable file
+- **Version control friendly** - Individual files show clear diffs
 
 ---
 
