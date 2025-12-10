@@ -1,0 +1,1 @@
+{"version":"1.0","entries":[{"request":{"method":"GET","scheme":"http","host":"localhost","port":9876,"path":"/api/v1/users/12345/profile/settings/notifications/preferences/details","query":null,"headers":[],"body":""},"response":{"mode":"blocking","status":200,"headers":[],"body":"{}"}}]}
