@@ -3,23 +3,43 @@
 -export([request_stream/6, fetch_next/2, request_stream_messages/6, cancel_stream/1,
          cancel_stream_by_string/1, receive_stream_message/1, decode_stream_message_for_selector/1,
          normalize_headers/1, request_sync/5, ets_table_exists/1, ets_new/2, ets_insert/6,
-         ets_lookup/2, ets_delete/2]).
+         ets_lookup/2, ets_delete/2, ensure_ref_mapping_table/0]).
 
-%% Start a streaming HTTP request
+%% @doc Start a streaming HTTP request with pull-based chunk retrieval
 %%
-%% Parameters:
-%%   Method - HTTP method atom (get, post, put, delete, etc.)
-%%   Url - Full URL as a string
-%%   Headers - List of {Key, Value} tuples
-%%   Body - Request body as binary
-%%   Receiver - Pid that will receive messages (unused, kept for compatibility)
-%%   TimeoutMs - Request timeout in milliseconds
+%% Initiates a streaming HTTP request using Erlang's `httpc` library in continuous
+%% streaming mode. Creates an owner process that manages the stream and services
+%% `fetch_next/2` requests. This function returns immediately; chunks are retrieved
+%% by calling `fetch_next/2` with the returned owner PID.
 %%
-%% Returns: {ok, OwnerPid} where OwnerPid is the process handling the stream
+%% ## Parameters
 %%
-%% Note: This returns immediately. HTTP errors are detected asynchronously
-%% and returned via fetch_next/2. The owner process will exit if the HTTP
-%% request fails to start, which will cause fetch_next/2 to return an error.
+%% - `Method`: HTTP method atom (`get`, `post`, `put`, `delete`, `patch`, `head`, etc.)
+%% - `Url`: Full request URL as a string (e.g., `"https://api.example.com/path"`)
+%% - `Headers`: List of `{Key, Value}` tuples where both are strings or binaries
+%% - `Body`: Request body as a binary (empty binary `<<>>` for requests without body)
+%% - `Receiver`: Process ID (unused, kept for API compatibility)
+%% - `TimeoutMs`: Request timeout in milliseconds
+%%
+%% ## Returns
+%%
+%% `{ok, OwnerPid}` where `OwnerPid` is the process handling the stream. Use this
+%% PID with `fetch_next/2` to retrieve chunks.
+%%
+%% ## Examples
+%%
+%% ```erlang
+%% {ok, Owner} = request_stream(get, "https://api.example.com/data", [], <<>>, self(), 30000),
+%% {chunk, Data} = fetch_next(Owner, 5000),
+%% ```
+%%
+%% ## Notes
+%%
+%% - Returns immediately; HTTP errors are detected asynchronously via `fetch_next/2`
+%% - The owner process will exit if the HTTP request fails to start
+%% - `fetch_next/2` will detect the dead process and return an error
+%% - Ensures `ssl` and `inets` applications are started before making requests
+%% - Configures httpc with streaming-optimized settings (no pipelining, high session cap)
 request_stream(Method, Url, Headers, Body, _Receiver, TimeoutMs) ->
     ok = ensure_started(ssl),
     ok = ensure_started(inets),
@@ -31,16 +51,42 @@ request_stream(Method, Url, Headers, Body, _Receiver, TimeoutMs) ->
     Owner = spawn(fun() -> stream_owner_loop(Method, Req, NUrl, TimeoutMs) end),
     {ok, Owner}.
 
-%% Fetch the next chunk from a streaming request
+%% @doc Fetch the next chunk from a streaming HTTP request
 %%
-%% Parameters:
-%%   OwnerPid - The owner process PID returned from request_stream/6
-%%   TimeoutMs - Timeout in milliseconds
+%% Retrieves the next chunk of data from an active streaming request. This function
+%% implements a pull-based model where chunks are requested on-demand rather than
+%% being pushed to a mailbox. The owner process buffers chunks internally and delivers
+%% them when requested.
 %%
-%% Returns:
-%%   {chunk, Bin} - Next chunk of data
-%%   {finished, Headers} - Stream completed with response headers
-%%   {error, Reason} - Error occurred (including if owner process died)
+%% ## Parameters
+%%
+%% - `OwnerPid`: The owner process PID returned from `request_stream/6`
+%% - `TimeoutMs`: Timeout in milliseconds (0 for non-blocking, -1 for infinite wait)
+%%
+%% ## Returns
+%%
+%% - `{chunk, Bin}`: Next chunk of response data as a binary
+%% - `{finished, Headers}`: Stream completed successfully with trailing headers
+%% - `{error, Reason}`: Error occurred (connection failure, timeout, owner process died, etc.)
+%%
+%% ## Examples
+%%
+%% ```erlang
+%% {ok, Owner} = request_stream(get, "https://api.example.com/stream", [], <<>>, self(), 30000),
+%% case fetch_next(Owner, 5000) of
+%%     {chunk, Data} -> process_chunk(Data);
+%%     {finished, Headers} -> process_complete(Headers);
+%%     {error, Reason} -> handle_error(Reason)
+%% end.
+%% ```
+%%
+%% ## Notes
+%%
+%% - Blocks until a chunk is available, timeout expires, or an error occurs
+%% - Monitors the owner process; returns error if owner dies
+%% - Owner process buffers chunks internally for efficient delivery
+%% - After `{finished, Headers}` or `{error, Reason}`, the stream is complete
+%% - Timeout errors are returned as `{error, timeout}`
 fetch_next(OwnerPid, TimeoutMs) ->
     MonitorRef = erlang:monitor(process, OwnerPid),
     OwnerPid ! {fetch_next, self()},
@@ -216,10 +262,42 @@ build_req(Url, Headers, Body) ->
 %% Message-Based Streaming (Thin Wrapper)
 %% ============================================================================
 
-%% Start a streaming HTTP request with direct message delivery
+%% @doc Start a message-based streaming HTTP request
 %%
-%% Returns {ok, StringId} where StringId is a string representation of the request
-%% Stores mapping: StringId -> HttpcRef for cancellation
+%% Initiates a streaming HTTP request where messages are sent directly to the caller's
+%% process mailbox. This is used for OTP actor integration where messages arrive
+%% asynchronously without needing to call `fetch_next/2`. The request ID is returned
+%% as a string for type-safe handling in Gleam.
+%%
+%% ## Parameters
+%%
+%% - `Method`: HTTP method atom (`get`, `post`, `put`, `delete`, etc.)
+%% - `Url`: Full request URL as a string
+%% - `Headers`: List of `{Key, Value}` tuples (both strings or binaries)
+%% - `Body`: Request body as a binary
+%% - `ReceiverPid`: Process ID that will receive stream messages (unused, kept for compatibility)
+%% - `TimeoutMs`: Request timeout in milliseconds
+%%
+%% ## Returns
+%%
+%% - `{ok, StringId}`: Stream started successfully, `StringId` is a string representation
+%%   of the httpc request ID (use with `cancel_stream_by_string/1`)
+%% - `{error, Reason}`: Failed to start stream (connection error, invalid URL, etc.)
+%%
+%% ## Examples
+%%
+%% ```erlang
+%% {ok, ReqId} = request_stream_messages(get, "https://api.example.com/stream", [], <<>>, self(), 30000),
+%% %% Messages will arrive as {http, {HttpcRef, stream_start, Headers}}, etc.
+%% ```
+%%
+%% ## Notes
+%%
+%% - Messages arrive as `{http, {HttpcRef, Tag, Data}}` tuples in the process mailbox
+%% - Use `decode_stream_message_for_selector/1` for OTP selector integration
+%% - Stores bidirectional mapping: `StringId <-> HttpcRef` for cancellation
+%% - String ID is derived from httpc ref's string representation (guaranteed unique)
+%% - Ensures `ssl` and `inets` applications are started before making requests
 request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
     ok = ensure_started(ssl),
     ok = ensure_started(inets),
@@ -245,13 +323,59 @@ request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
             {error, format_error(Reason)}
     end.
 
-%% Cancel a streaming request (legacy - takes httpc ref directly)
+%% @doc Cancel a streaming request using httpc ref directly
+%%
+%% Cancels an active streaming HTTP request using the httpc request reference directly.
+%% This is a legacy function that takes the raw httpc ref. For new code, use
+%% `cancel_stream_by_string/1` which works with the type-safe string IDs.
+%%
+%% ## Parameters
+%%
+%% - `RequestId`: The httpc request reference (returned from `httpc:request/4`)
+%%
+%% ## Returns
+%%
+%% `ok` - Always returns successfully (even if request doesn't exist)
+%%
+%% ## Notes
+%%
+%% - This function is kept for backward compatibility
+%% - Prefer `cancel_stream_by_string/1` for type-safe cancellation
+%% - After cancellation, no more messages will be sent to the receiver process
+%% - Safe to call multiple times on the same request ID
 cancel_stream(RequestId) ->
     httpc:cancel_request(RequestId),
     ok.
 
-%% Cancel a streaming request by string ID
-%% Looks up the httpc ref from our mapping table and cancels it
+%% @doc Cancel a streaming request by string ID
+%%
+%% Cancels an active streaming HTTP request using the string ID returned from
+%% `request_stream_messages/6`. Looks up the corresponding httpc reference from
+%% the internal mapping table and cancels the request.
+%%
+%% ## Parameters
+%%
+%% - `StringId`: The string request ID returned from `request_stream_messages/6`
+%%
+%% ## Returns
+%%
+%% `nil` - Always returns successfully (even if request doesn't exist or already ended)
+%%
+%% ## Examples
+%%
+%% ```erlang
+%% {ok, ReqId} = request_stream_messages(get, "https://api.example.com/stream", [], <<>>, self(), 30000),
+%% %% Later, cancel the stream
+%% cancel_stream_by_string(ReqId).
+%% ```
+%%
+%% ## Notes
+%%
+%% - Uses internal ETS table to map string IDs to httpc refs
+%% - Returns `nil` if the request ID is not found (stream already ended or never existed)
+%% - After cancellation, no more messages will be sent to the receiver process
+%% - Safe to call multiple times on the same request ID
+%% - Mapping is cleaned up automatically when stream ends normally or errors
 cancel_stream_by_string(StringId) ->
     case lookup_ref_by_string(StringId) of
         {some, HttpcRef} ->
@@ -263,20 +387,45 @@ cancel_stream_by_string(StringId) ->
             nil
     end.
 
-%% Receive and decode the next stream message
+%% @doc Receive and decode the next stream message from process mailbox
 %%
-%% This is a helper for non-selector use cases. It blocks waiting for
-%% an httpc stream message and returns a clean tuple that Gleam can decode.
+%% Blocks waiting for an httpc stream message in the process mailbox and returns
+%% a normalized tuple format that Gleam can easily decode. This is a helper function
+%% for non-selector use cases where you want to receive messages directly from the
+%% mailbox rather than using OTP selectors.
 %%
-%% Parameters:
-%%   TimeoutMs - Timeout in milliseconds
+%% ## Parameters
 %%
-%% Returns:
-%%   {stream_start, RequestId, Headers} - Stream started
-%%   {chunk, RequestId, Data} - Data chunk
-%%   {stream_end, RequestId, Headers} - Stream completed
-%%   {stream_error, RequestId, Reason} - Stream failed
-%%   timeout - No message received within timeout
+%% - `TimeoutMs`: Timeout in milliseconds (0 for non-blocking, -1 for infinite wait)
+%%
+%% ## Returns
+%%
+%% - `{stream_start, RequestId, Headers}`: Stream started, initial headers received
+%% - `{chunk, RequestId, Data}`: Data chunk received (binary)
+%% - `{stream_end, RequestId, Headers}`: Stream completed successfully with trailing headers
+%% - `{stream_error, RequestId, Reason}`: Stream failed with error (binary error message)
+%% - `timeout`: No message received within the timeout period
+%%
+%% ## Examples
+%%
+%% ```erlang
+%% {ok, _ReqId} = request_stream_messages(get, "https://api.example.com/stream", [], <<>>, self(), 30000),
+%% case receive_stream_message(5000) of
+%%     {stream_start, ReqId, Headers} -> process_start(ReqId, Headers);
+%%     {chunk, ReqId, Data} -> process_chunk(ReqId, Data);
+%%     {stream_end, ReqId, Headers} -> process_end(ReqId, Headers);
+%%     {stream_error, ReqId, Reason} -> handle_error(ReqId, Reason);
+%%     timeout -> handle_timeout()
+%% end.
+%% ```
+%%
+%% ## Notes
+%%
+%% - Blocks until a message arrives or timeout expires
+%% - Headers are normalized to binary tuples for consistent Gleam decoding
+%% - RequestId is the httpc reference (use `decode_stream_message_for_selector/1` for string IDs)
+%% - Handles both `{http, {Ref, stream_start, Headers}}` and `{http, {Ref, stream_start, Headers, Pid}}` formats
+%% - Error reasons are formatted as binaries for Gleam compatibility
 receive_stream_message(TimeoutMs) ->
     receive
         {http, {RequestId, stream_start, Headers}} ->
@@ -294,10 +443,49 @@ receive_stream_message(TimeoutMs) ->
         timeout
     end.
 
-%% Decode an httpc stream message for selector integration
+%% @doc Decode an httpc stream message for OTP selector integration
 %%
-%% Converts httpc refs to string IDs for type-safe Gleam API
-%% Returns {Tag, StringId, Data} tuple
+%% Processes raw httpc stream messages extracted by OTP selectors and converts them
+%% to a normalized format suitable for Gleam decoding. Converts httpc references to
+%% string IDs for type-safe handling in Gleam, normalizes headers to binary tuples,
+%% and formats error messages as binaries.
+%%
+%% ## Parameters
+%%
+%% - `{http, InnerMessage}`: The message tuple extracted by `process:select_record/4`
+%%   where `InnerMessage` is the inner tuple from httpc (e.g., `{Ref, stream_start, Headers}`)
+%%
+%% ## Returns
+%%
+%% A normalized tuple `{Tag, StringId, Data}` where:
+%% - `Tag`: Atom (`stream_start`, `chunk`, `stream_end`, `stream_error`)
+%% - `StringId`: String representation of the httpc request ID (for type-safe Gleam API)
+%% - `Data`: Varies by tag:
+%%   - `stream_start`: Normalized headers (list of `{Binary, Binary}` tuples)
+%%   - `chunk`: Binary data
+%%   - `stream_end`: Normalized trailing headers
+%%   - `stream_error`: Binary error message
+%%
+%% ## Examples
+%%
+%% ```erlang
+%% %% In selector callback
+%% case decode_stream_message_for_selector({http, {Ref, stream_start, Headers}}) of
+%%     {stream_start, StringId, NormalizedHeaders} -> process_start(StringId, NormalizedHeaders);
+%%     {chunk, StringId, Data} -> process_chunk(StringId, Data);
+%%     {stream_end, StringId, Headers} -> process_end(StringId, Headers);
+%%     {stream_error, StringId, Reason} -> handle_error(StringId, Reason)
+%% end.
+%% ```
+%%
+%% ## Notes
+%%
+%% - Used internally by `client.select_stream_messages()` for selector integration
+%% - Creates string ID mapping if it doesn't exist (handles messages arriving before mapping stored)
+%% - Cleans up ref mapping when stream ends (`stream_end`) or errors (`stream_error`)
+%% - Headers are normalized to binary tuples for consistent Gleam decoding
+%% - Handles both `{Ref, stream_start, Headers}` and `{Ref, stream_start, Headers, Pid}` formats
+%% - Error reasons are formatted as binaries for Gleam compatibility
 decode_stream_message_for_selector({http, InnerMessage}) ->
     case InnerMessage of
         {HttpcRef, stream_start, Headers} ->
@@ -336,7 +524,35 @@ get_or_create_string_id(HttpcRef) ->
             StringId
     end.
 
-%% Normalize headers to always be string tuples for easy Gleam decoding
+%% @doc Normalize HTTP headers to binary tuples for Gleam decoding
+%%
+%% Converts HTTP headers from various formats (charlists, binaries, mixed types)
+%% to a consistent format of `{Binary, Binary}` tuples that Gleam can easily decode.
+%% This ensures type safety and consistent handling regardless of how httpc returns headers.
+%%
+%% ## Parameters
+%%
+%% - `Headers`: List of header tuples in any format (charlists, binaries, mixed)
+%%
+%% ## Returns
+%%
+%% List of `{Binary, Binary}` tuples where both name and value are binaries.
+%%
+%% ## Examples
+%%
+%% ```erlang
+%% Headers = [{"content-type", "application/json"}, {"authorization", <<"Bearer token">>}],
+%% Normalized = normalize_headers(Headers),
+%% %% Returns: [{<<"content-type">>, <<"application/json">>}, {<<"authorization">>, <<"Bearer token">>}]
+%% ```
+%%
+%% ## Notes
+%%
+%% - Converts charlists to binaries using `unicode:characters_to_binary/1`
+%% - Leaves binaries unchanged
+%% - Converts other types to binaries using `io_lib:format/2`
+%% - Returns empty list `[]` if input is not a list
+%% - Invalid header tuples are converted to `{<<"">>, <<"">>}`
 normalize_headers(Headers) when is_list(Headers) ->
     lists:map(fun normalize_header_tuple/1, Headers);
 normalize_headers(_) ->
@@ -354,20 +570,41 @@ to_binary(List) when is_list(List) ->
 to_binary(Other) ->
     iolist_to_binary(io_lib:format("~p", [Other])).
 
-%% Synchronous HTTP request - for blocking send() calls
+%% @doc Make a synchronous (blocking) HTTP request
 %%
-%% This is the RIGHT way to do synchronous HTTP requests.
-%% Don't use streaming mode for non-streaming use cases.
+%% Sends an HTTP request and waits for the complete response body. This is the
+%% correct way to make non-streaming HTTP requests - it uses httpc's synchronous
+%% mode without streaming, which is more efficient than streaming mode for complete
+%% responses.
 %%
-%% Parameters:
-%%   Method - HTTP method atom (get, post, put, delete, etc.)
-%%   Url - Full URL as a string
-%%   Headers - List of {Key, Value} tuples
-%%   Body - Request body as binary
+%% ## Parameters
 %%
-%% Returns:
-%%   {ok, Body} - Response body as binary
-%%   {error, Reason} - Error string
+%% - `Method`: HTTP method atom (`get`, `post`, `put`, `delete`, `patch`, `head`, etc.)
+%% - `Url`: Full request URL as a string (e.g., `"https://api.example.com/users"`)
+%% - `Headers`: List of `{Key, Value}` tuples where both are strings or binaries
+%% - `Body`: Request body as a binary (empty binary `<<>>` for requests without body)
+%% - `TimeoutMs`: Request timeout in milliseconds
+%%
+%% ## Returns
+%%
+%% - `{ok, Body}`: Successfully received complete response body as a binary
+%% - `{error, Reason}`: Error occurred (connection failure, timeout, HTTP error, etc.)
+%%   where `Reason` is a binary error message
+%%
+%% ## Examples
+%%
+%% ```erlang
+%% {ok, ResponseBody} = request_sync(get, "https://api.example.com/users", [], <<>>, 30000),
+%% ```
+%%
+%% ## Notes
+%%
+%% - Uses httpc's synchronous mode (`{sync, true}`) - blocks until complete response received
+%% - Uses `{body_format, binary}` to get response as binary (not parsed)
+%% - More efficient than streaming mode for non-streaming use cases
+%% - Ensures `ssl` and `inets` applications are started before making requests
+%% - Configures httpc with appropriate timeout and redirect settings
+%% - Error reasons are formatted as binaries for Gleam compatibility
 request_sync(Method, Url, Headers, Body, TimeoutMs) ->
     ok = ensure_started(ssl),
     ok = ensure_started(inets),
@@ -409,7 +646,25 @@ format_exit_reason(Reason) ->
 %% ETS Functions for Stream Recorder State Management
 %% =============================================================================
 
-%% Check if ETS table exists
+%% @doc Check if an ETS table exists
+%%
+%% Determines whether a named ETS table exists by attempting to get its info.
+%% Used internally to check if tables need to be created before use.
+%%
+%% ## Parameters
+%%
+%% - `Name`: Table name as a binary (will be converted to atom)
+%%
+%% ## Returns
+%%
+%% - `true`: Table exists
+%% - `false`: Table does not exist or name is invalid
+%%
+%% ## Notes
+%%
+%% - Converts binary name to atom using `binary_to_atom/2`
+%% - Returns `false` if conversion fails or table doesn't exist
+%% - Used internally for idempotent table creation
 ets_table_exists(Name) ->
     try
         NameAtom = binary_to_atom(Name, utf8),
@@ -424,21 +679,97 @@ ets_table_exists(Name) ->
             false
     end.
 
-%% Create ETS table
+%% @doc Create a new ETS table
+%%
+%% Creates a new ETS (Erlang Term Storage) table with the specified name and options.
+%% Used internally for storing stream recorder state and request ID mappings.
+%%
+%% ## Parameters
+%%
+%% - `Name`: Table name as a binary (will be converted to atom)
+%% - `Options`: List of ETS table options (e.g., `[set, public, named_table]`)
+%%
+%% ## Returns
+%%
+%% The table reference (atom or integer) returned by `ets:new/2`.
+%%
+%% ## Examples
+%%
+%% ```erlang
+%% TableRef = ets_new(<<"my_table">>, [set, public, named_table]).
+%% ```
+%%
+%% ## Notes
+%%
+%% - Converts binary name to atom using `binary_to_atom/2`
+%% - Options should include `named_table` if you want to reference by name later
+%% - Used internally for creating recorder and ref mapping tables
 ets_new(Name, Options) ->
     NameAtom = binary_to_atom(Name, utf8),
     ets:new(NameAtom, Options).
 
-%% Insert recorder state into ETS table
-%% Stores as {Key, {Recorder, RecordedRequest, Chunks, LastChunkTime}}
+%% @doc Insert recorder state into ETS table
+%%
+%% Stores stream recorder state in an ETS table for message-based streaming recording.
+%% The state includes the recorder handle, recorded request, accumulated chunks, and
+%% timing information for recreating streaming behavior during playback.
+%%
+%% ## Parameters
+%%
+%% - `TableName`: Table name as a binary (will be converted to atom)
+%% - `Key`: String key identifying the stream (typically the request ID string)
+%% - `Recorder`: Gleam recorder handle (opaque term)
+%% - `RecordedRequest`: The recorded HTTP request structure
+%% - `Chunks`: List of accumulated chunks (in reverse order, will be reversed on completion)
+%% - `LastChunkTime`: Optional timestamp of the last chunk (for delay calculation)
+%%
+%% ## Returns
+%%
+%% `nil` - Always returns successfully
+%%
+%% ## Notes
+%%
+%% - Stores as `{Key, {Recorder, RecordedRequest, Chunks, LastChunkTime}}`
+%% - Overwrites existing entry if key already exists
+%% - Used internally by message-based streaming recorder
+%% - Chunks are stored in reverse order (prepended) and reversed when stream completes
 ets_insert(TableName, Key, Recorder, RecordedRequest, Chunks, LastChunkTime) ->
     TableAtom = binary_to_atom(TableName, utf8),
     Value = {Recorder, RecordedRequest, Chunks, LastChunkTime},
     ets:insert(TableAtom, {Key, Value}),
     nil.
 
-%% Lookup recorder state from ETS table
-%% Returns {some, State} or none
+%% @doc Lookup recorder state from ETS table
+%%
+%% Retrieves stream recorder state from an ETS table using the stream's request ID key.
+%% Returns the state in a format that Gleam can decode as `MessageStreamRecorderState`.
+%%
+%% ## Parameters
+%%
+%% - `TableName`: Table name as a binary (will be converted to atom)
+%% - `Key`: String key identifying the stream (typically the request ID string)
+%%
+%% ## Returns
+%%
+%% - `{some, State}`: State found, where `State` is a tuple matching Gleam's
+%%   `MessageStreamRecorderState` constructor format
+%% - `none`: No state found for the key (stream doesn't exist or already completed)
+%%
+%% ## Examples
+%%
+%% ```erlang
+%% case ets_lookup(<<"dream_http_client_stream_recorders">>, ReqId) of
+%%     {some, State} -> update_recorder_state(State);
+%%     none -> handle_missing_state()
+%% end.
+%% ```
+%%
+%% ## Notes
+%%
+%% - Returns `none` if table doesn't exist or key not found
+%% - State format: `{message_stream_recorder_state, Recorder, RecordedRequest, Chunks, LastChunkTime}`
+%% - Used internally by message-based streaming recorder to update state
+%% - Returns `none` if table conversion fails (safe error handling)
 ets_lookup(TableName, Key) ->
     try
         TableAtom = binary_to_atom(TableName, utf8),
@@ -460,7 +791,32 @@ ets_lookup(TableName, Key) ->
             none
     end.
 
-%% Delete a key from ETS table
+%% @doc Delete a key from an ETS table
+%%
+%% Removes an entry from an ETS table by key. Used for cleaning up stream recorder
+%% state when a stream completes or is cancelled.
+%%
+%% ## Parameters
+%%
+%% - `TableName`: Table name as a binary (will be converted to atom)
+%% - `Key`: String key identifying the entry to delete
+%%
+%% ## Returns
+%%
+%% - `true`: Key was deleted successfully
+%% - `false`: Key not found or table doesn't exist
+%%
+%% ## Examples
+%%
+%% ```erlang
+%% ets_delete(<<"dream_http_client_stream_recorders">>, ReqId).
+%% ```
+%%
+%% ## Notes
+%%
+%% - Returns `false` if table doesn't exist or conversion fails (safe error handling)
+%% - Used internally to clean up recorder state when streams end
+%% - Safe to call multiple times on the same key
 ets_delete(TableName, Key) ->
     try
         TableAtom = binary_to_atom(TableName, utf8),

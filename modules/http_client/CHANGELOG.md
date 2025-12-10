@@ -5,6 +5,97 @@ All notable changes to `dream_http_client` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.0.0 - 2025-12-09
+
+### Breaking Changes
+
+**Redesigned Streaming API**
+
+- Removed `stream_messages()` - replaced with `start_stream()` using callback-based API
+- Removed `select_stream_messages()` - no longer needed with new design
+- Streaming now uses dedicated processes with callbacks instead of selector boilerplate
+- `StreamMessage`, `RequestId` types still exist but are internal implementation details
+
+**New Streaming Functions:**
+
+- `start_stream(request) -> Result(StreamHandle, String)` - Spawn stream with callbacks
+- `await_stream(handle)` - Wait for stream completion
+- `cancel_stream_handle(handle)` - Cancel running stream
+- `is_stream_active(handle)` - Check if stream still running
+
+**Builder Functions for Callbacks:**
+
+- `on_stream_start(callback)` - Called when stream starts (optional)
+- `on_stream_chunk(callback)` - Called for each chunk (optional)
+- `on_stream_end(callback)` - Called when stream completes (optional)
+- `on_stream_error(callback)` - Called on error (optional)
+
+**Header Type Added**
+
+- Introduced `Header` type for type-safe header handling
+- `Header(name: String, value: String)` replaces raw tuples throughout
+- `get_headers()` now returns `List(Header)` instead of `List(#(String, String))`
+- `StreamStart` and `StreamEnd` use `List(Header)` for headers
+- `add_header(name, value)` still takes strings (builds Header internally)
+
+### Changed
+
+**Recordings Now Saved Immediately**
+
+- Recordings are now saved to disk immediately when captured, rather than waiting for `stop()` to be called
+- `recorder.stop()` is now optional - it only performs cleanup of the recorder process
+- This ensures recordings are never lost even if the process crashes or `stop()` is not called
+- Added `storage.save_recording_immediately()` function for immediate persistence
+
+**Performance Tradeoff:** Immediate saving uses a read-modify-write approach (O(n) where n is existing recordings), prioritizing reliability over performance. This is suitable for typical use cases (record once, playback often). If you need high-performance recording, please create an issue at https://github.com/TrustBound/dream/issues.
+
+### Documentation
+
+- Added comprehensive hexdocs for all public functions and types across all modules
+- Enhanced Erlang FFI documentation with detailed parameter and return value descriptions
+- Improved examples and usage notes throughout the codebase
+- Added tested code snippets following dream_ets pattern
+
+### Migration Guide
+
+**From 2.x stream_messages() to 3.0 start_stream():**
+
+Before (2.x):
+
+```gleam
+let selector = process.new_selector()
+  |> client.select_stream_messages(HttpStream)
+
+let assert Ok(req_id) = client.stream_messages(request)
+
+// Manual selector receive loop...
+```
+
+After (3.0):
+
+```gleam
+let assert Ok(stream) = client.new
+  |> client.on_stream_chunk(fn(data) { process_chunk(data) })
+  |> client.start_stream()
+
+client.await_stream(stream)  // Optional
+```
+
+**Header type:**
+
+Before (2.x):
+
+```gleam
+let headers: List(#(String, String)) = client.get_headers(req)
+```
+
+After (3.0):
+
+```gleam
+let headers: List(Header) = client.get_headers(req)
+// Access with header.name and header.value
+```
+
 ## 2.1.1 - 2025-11-29
 
 ### Fixed
