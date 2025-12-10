@@ -2,6 +2,7 @@ import dream_http_client/client
 import dream_http_client/matching
 import dream_http_client/recorder
 import dream_http_client/recording
+import dream_http_client/storage
 import dream_http_client_test
 import gleam/bit_array
 import gleam/bytes_tree
@@ -14,13 +15,9 @@ import gleam/result
 import gleam/string
 import gleam/yielder
 import gleeunit/should
-import simplifile
-
-@external(erlang, "erlang", "timestamp")
-fn get_timestamp() -> #(Int, Int, Int)
 
 fn test_recording_directory() -> String {
-  "build/test_recordings_" <> string.inspect(get_timestamp())
+  "test/fixtures/recordings/client_test"
 }
 
 fn mock_request(path: String) -> client.ClientRequest {
@@ -63,20 +60,16 @@ pub fn send_with_recorder_in_playback_mode_returns_recorded_response_test() {
   let test_request =
     recording.RecordedRequest(
       method: http.Get,
-      scheme: http.Https,
-      host: "api.example.com",
-      port: option.None,
-      path: "/users",
+      scheme: http.Http,
+      host: "localhost",
+      port: option.Some(9876),
+      path: "/text",
       query: option.None,
       headers: [],
       body: "",
     )
   let test_response =
-    recording.BlockingResponse(
-      status: 200,
-      headers: [],
-      body: "{\"users\": []}",
-    )
+    recording.BlockingResponse(status: 200, headers: [], body: "Hello, World!")
   let test_recording =
     recording.Recording(request: test_request, response: test_response)
   recorder.add_recording(rec, test_recording)
@@ -87,25 +80,15 @@ pub fn send_with_recorder_in_playback_mode_returns_recorded_response_test() {
   let assert Ok(playback_rec) = recorder.start(playback_mode, matching)
 
   let request =
-    client.new
-    |> client.host("api.example.com")
-    |> client.path("/users")
+    mock_request("/text")
     |> client.recorder(playback_rec)
 
   // Act
   let result = client.send(request)
 
   // Assert
-  case result {
-    Ok(body) -> {
-      string.contains(body, "users") |> should.be_true()
-    }
-    Error(reason) -> {
-      // Recording was added and saved, playback should work
-      io.println("Playback failed: " <> reason)
-      should.fail()
-    }
-  }
+  let assert Ok(body) = result
+  body |> should.equal("Hello, World!")
 
   // Cleanup
   recorder.stop(playback_rec) |> result.unwrap(Nil)
@@ -158,12 +141,27 @@ pub fn send_with_recorder_in_record_mode_records_response_test() {
   // Assert - Recording was created
   original_body |> should.equal("Hello, World!")
 
-  // Act - Load and modify the recording file
-  let assert Ok(file_content) = simplifile.read(directory <> "/recordings.json")
-  let modified_content =
-    string.replace(file_content, "Hello, World!", "MODIFIED_CONTENT")
+  // Act - Load and modify the recording
+  let assert Ok(recordings) = storage.load_recordings(directory)
+  let assert Ok(first_recording) = list.first(recordings)
+
+  // Modify the recording's response body
+  let modified_recording = case first_recording.response {
+    recording.BlockingResponse(status, headers, _body) ->
+      recording.Recording(
+        request: first_recording.request,
+        response: recording.BlockingResponse(
+          status,
+          headers,
+          "MODIFIED_CONTENT",
+        ),
+      )
+    _ -> first_recording
+  }
+
+  // Save the modified recording back
   let assert Ok(_) =
-    simplifile.write(directory <> "/recordings.json", modified_content)
+    storage.save_recordings(directory, [modified_recording], matching)
 
   // Act - Playback modified recording
   let playback_mode = recorder.Playback(directory: directory)
@@ -189,9 +187,9 @@ pub fn send_with_recorder_finding_streaming_response_returns_error_test() {
   let test_request =
     recording.RecordedRequest(
       method: http.Get,
-      scheme: http.Https,
-      host: "api.example.com",
-      port: option.None,
+      scheme: http.Http,
+      host: "localhost",
+      port: option.Some(9876),
       path: "/stream",
       query: option.None,
       headers: [],
@@ -204,11 +202,7 @@ pub fn send_with_recorder_finding_streaming_response_returns_error_test() {
     recording.Recording(request: test_request, response: test_response)
   recorder.add_recording(rec, test_recording)
 
-  let request =
-    client.new
-    |> client.host("api.example.com")
-    |> client.path("/stream")
-    |> client.recorder(rec)
+  let request = mock_request("/stream") |> client.recorder(rec)
 
   // Act
   let result = client.send(request)
@@ -231,9 +225,9 @@ pub fn stream_yielder_with_recorder_in_playback_mode_returns_recorded_chunks_tes
   let test_request =
     recording.RecordedRequest(
       method: http.Get,
-      scheme: http.Https,
-      host: "api.example.com",
-      port: option.None,
+      scheme: http.Http,
+      host: "localhost",
+      port: option.Some(9876),
       path: "/stream",
       query: option.None,
       headers: [],
@@ -255,11 +249,7 @@ pub fn stream_yielder_with_recorder_in_playback_mode_returns_recorded_chunks_tes
   let playback_mode = recorder.Playback(directory: directory)
   let assert Ok(playback_rec) = recorder.start(playback_mode, matching)
 
-  let request =
-    client.new
-    |> client.host("api.example.com")
-    |> client.path("/stream")
-    |> client.recorder(playback_rec)
+  let request = mock_request("/stream") |> client.recorder(playback_rec)
 
   // Act
   let yielder_result = client.stream_yielder(request)
@@ -298,29 +288,21 @@ pub fn stream_yielder_with_recorder_finding_blocking_response_returns_single_chu
   let test_request =
     recording.RecordedRequest(
       method: http.Get,
-      scheme: http.Https,
-      host: "api.example.com",
-      port: option.None,
-      path: "/users",
+      scheme: http.Http,
+      host: "localhost",
+      port: option.Some(9876),
+      path: "/text",
       query: option.None,
       headers: [],
       body: "",
     )
   let test_response =
-    recording.BlockingResponse(
-      status: 200,
-      headers: [],
-      body: "{\"users\": []}",
-    )
+    recording.BlockingResponse(status: 200, headers: [], body: "Hello, World!")
   let test_recording =
     recording.Recording(request: test_request, response: test_response)
   recorder.add_recording(rec, test_recording)
 
-  let request =
-    client.new
-    |> client.host("api.example.com")
-    |> client.path("/users")
-    |> client.recorder(rec)
+  let request = mock_request("/text") |> client.recorder(rec)
 
   // Act
   let yielder_result = client.stream_yielder(request)
@@ -361,7 +343,7 @@ pub fn stream_yielder_with_recorder_not_finding_recording_uses_real_stream_test(
 
 pub fn stream_yielder_records_real_streaming_request_test() {
   // Arrange - Start recorder in Record mode
-  let directory = test_recording_directory()
+  let directory = "test/fixtures/recordings/stream_yielder_records_test"
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -384,29 +366,35 @@ pub fn stream_yielder_records_real_streaming_request_test() {
   // Act - Stop recorder (saves to file)
   let assert Ok(_) = recorder.stop(rec)
 
-  // Assert - Recording file exists and contains streaming data
-  let assert Ok(file_content) = simplifile.read(directory <> "/recordings.json")
+  // Assert - Recording exists and contains streaming data
+  let assert Ok(recordings) = storage.load_recordings(directory)
+  let assert Ok(rec_entry) = list.first(recordings)
 
-  // Verify file contains "streaming" mode (not "blocking")
-  string.contains(file_content, "\"mode\":\"streaming\"")
-  |> should.be_true()
+  // Verify recording has streaming response (not blocking)
+  case rec_entry.response {
+    recording.StreamingResponse(_status, _headers, chunks) -> {
+      // Verify we have chunks
+      list.length(chunks) |> should.not_equal(0)
 
-  // Verify file contains "chunks" array
-  string.contains(file_content, "\"chunks\"")
-  |> should.be_true()
-
-  // Verify file contains chunk data
-  string.contains(file_content, "\"data\"")
-  |> should.be_true()
-
-  // Verify file contains delay information
-  string.contains(file_content, "\"delay_ms\"")
-  |> should.be_true()
+      // Verify chunks have data and delay
+      case list.first(chunks) {
+        Ok(chunk) -> {
+          // Chunk should have data (non-empty)
+          bit_array.byte_size(chunk.data) |> should.not_equal(0)
+        }
+        Error(_) -> should.fail()
+      }
+    }
+    recording.BlockingResponse(_, _, _) -> {
+      io.println("Expected StreamingResponse, got BlockingResponse")
+      should.fail()
+    }
+  }
 }
 
 pub fn stream_yielder_playback_matches_recorded_stream_test() {
   // Arrange - Record a real streaming request first
-  let directory = test_recording_directory()
+  let directory = "test/fixtures/recordings/stream_yielder_playback_test"
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -422,12 +410,34 @@ pub fn stream_yielder_playback_matches_recorded_stream_test() {
 
   let assert Ok(_) = recorder.stop(rec)
 
-  // Act - MODIFY the recording file to prove playback reads from file, not server
-  let assert Ok(file_content) = simplifile.read(directory <> "/recordings.json")
+  // Act - MODIFY the recording to prove playback reads from file, not server
+  let assert Ok(recordings) = storage.load_recordings(directory)
+  let assert Ok(rec_entry) = list.first(recordings)
+
   // Replace chunk content - mock server sends "Chunk 1\n", "Chunk 2\n", etc.
-  let modified_content = string.replace(file_content, "Chunk", "MODIFIED")
+  let modified_recording = case rec_entry.response {
+    recording.StreamingResponse(status, headers, chunks) -> {
+      let modified_chunks =
+        list.map(chunks, fn(chunk) {
+          let original_text =
+            bit_array.to_string(chunk.data) |> result.unwrap("")
+          let modified_text = string.replace(original_text, "Chunk", "MODIFIED")
+          recording.Chunk(
+            data: <<modified_text:utf8>>,
+            delay_ms: chunk.delay_ms,
+          )
+        })
+      recording.Recording(
+        request: rec_entry.request,
+        response: recording.StreamingResponse(status, headers, modified_chunks),
+      )
+    }
+    _ -> rec_entry
+  }
+
+  // Save the modified recording
   let assert Ok(_) =
-    simplifile.write(directory <> "/recordings.json", modified_content)
+    storage.save_recordings(directory, [modified_recording], matching)
 
   // Act - Playback the MODIFIED recording
   let playback_mode = recorder.Playback(directory: directory)
@@ -461,7 +471,7 @@ pub fn stream_yielder_playback_matches_recorded_stream_test() {
 
 pub fn start_stream_records_real_streaming_request_test() {
   // Arrange - Start recorder in Record mode
-  let directory = test_recording_directory()
+  let directory = "test/fixtures/recordings/start_stream_records_test"
   let mode = recorder.Record(directory: directory)
   let matching = matching.match_url_only()
   let assert Ok(rec) = recorder.start(mode, matching)
@@ -490,23 +500,54 @@ pub fn start_stream_records_real_streaming_request_test() {
   // Act - Stop recorder (saves to file)
   let assert Ok(_) = recorder.stop(rec)
 
-  // Assert - Recording file exists and contains streaming data
-  let assert Ok(file_content) = simplifile.read(directory <> "/recordings.json")
+  // Assert - Recording exists and contains streaming data
+  let assert Ok(recordings) = storage.load_recordings(directory)
+  let assert Ok(rec_entry) = list.first(recordings)
 
-  // Verify file contains "streaming" mode
-  string.contains(file_content, "\"mode\":\"streaming\"")
-  |> should.be_true()
+  // Verify recording has streaming response (not blocking)
+  case rec_entry.response {
+    recording.StreamingResponse(_status, _headers, chunks) -> {
+      // Verify we have chunks
+      list.length(chunks) |> should.not_equal(0)
 
-  // Verify file contains chunks
-  string.contains(file_content, "\"chunks\"")
-  |> should.be_true()
-
-  // Verify file has chunk data
-  string.contains(file_content, "\"data\"")
-  |> should.be_true()
+      // Verify chunks have data
+      case list.first(chunks) {
+        Ok(chunk) -> {
+          // Chunk should have data (non-empty)
+          bit_array.byte_size(chunk.data) |> should.not_equal(0)
+        }
+        Error(_) -> should.fail()
+      }
+    }
+    recording.BlockingResponse(_, _, _) -> {
+      io.println("Expected StreamingResponse, got BlockingResponse")
+      should.fail()
+    }
+  }
 }
 
 // Helper to collect chunks from subject mailbox
+pub fn playback_from_committed_fixtures_returns_recorded_response_test() {
+  // Arrange - Use committed fixtures directory (no mock server needed!)
+  let fixtures_dir = "test/fixtures/recordings"
+  let mode = recorder.Playback(directory: fixtures_dir)
+  let matching = matching.match_url_only()
+
+  let assert Ok(rec) = recorder.start(mode, matching)
+
+  // Act - Make request that matches committed fixture
+  let request = mock_request("/text") |> client.recorder(rec)
+
+  let assert Ok(body) = client.send(request)
+
+  // Assert - Should get FIXTURE response, not real mock server response
+  // Mock server returns "Hello, World!" but fixture has different content
+  body |> should.equal("FIXTURE_RESPONSE_NO_NETWORK")
+
+  // Cleanup
+  recorder.stop(rec) |> result.unwrap(Nil)
+}
+
 fn collect_chunks_from_mailbox(
   subject: process.Subject(BitArray),
   acc: List(BitArray),
