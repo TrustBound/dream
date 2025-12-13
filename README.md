@@ -74,6 +74,8 @@ Types are omitted here for brevity – Gleam can infer them. The
 [quickstart](https://github.com/TrustBound/dream/blob/main/docs/quickstart.md)
 walks through a fully-typed version line by line.
 
+Dream also includes **named HTTP status constants** (like `ok`, `not_found`, and `teapot`) so you can avoid magic numbers in responses.
+
 ## What Dream Can Do
 
 Dream is more than "Hello, world". Here are a few small examples of

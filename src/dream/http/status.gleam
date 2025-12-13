@@ -106,6 +106,12 @@ pub const method_not_allowed = 405
 /// updates, version conflicts, or duplicate resource creation.
 pub const conflict = 409
 
+/// 418 I'm a teapot - Coffee machine refuses the request
+///
+/// Server refuses to brew coffee because it is, in fact, a teapot.
+/// Defined in RFC 2324, part of the Hyper Text Coffee Pot Control Protocol (HTCPCP/1.0).
+pub const teapot = 418
+
 /// 422 Unprocessable Content - Semantic validation failed
 ///
 /// Request was well-formed but contains semantic errors. The data is valid
