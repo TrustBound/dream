@@ -195,7 +195,7 @@ fn detect_format_from_headers(request: Request) -> String {
 
 ## Working Example
 
-See [examples/tasks](../../examples/tasks/) for a complete application demonstrating:
+See [examples/tasks](https://github.com/TrustBound/dream/tree/main/examples/tasks/) for a complete application demonstrating:
 - Side-by-side JSON and HTML
 - HTMX for dynamic updates
 - Shared business logic

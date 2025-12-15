@@ -32,5 +32,5 @@ Scale your application logic. Learn the Operations pattern for complex business 
 Once you've completed the path, you'll have a solid understanding of Dream's core philosophy. From there, you can:
 
 - **Build something specific:** Check out the [Guides](../guides/) for task-based help.
-- **See real code:** Explore the [Examples](../../examples/) to see working applications.
+- **See real code:** Explore the [Examples](https://github.com/TrustBound/dream/tree/main/examples/) to see working applications.
 - **Deep dive:** Read the [Reference](../reference/) docs for API details.

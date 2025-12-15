@@ -317,7 +317,7 @@ This is by no means the only way to do server-side rendering, but we have found 
 
 ## Working Example
 
-See [examples/tasks](../../examples/tasks/) for a complete working example of this pattern, including:
+See [examples/tasks](https://github.com/TrustBound/dream/tree/main/examples/tasks/) for a complete working example of this pattern, including:
 - Element templates (button, input, checkbox, etc.)
 - Component functions (task_card, task_list, etc.)
 - Page templates (index, show, etc.)

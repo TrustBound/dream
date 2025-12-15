@@ -296,5 +296,5 @@ Continue to [Lesson 4: Advanced Patterns](04-advanced-patterns.md) to learn the 
 
 ---
 
-**Working example:** See [examples/custom_context/](../../examples/custom_context/) for the complete runnable code.
+**Working example:** See [examples/custom_context/](https://github.com/TrustBound/dream/tree/main/examples/custom_context/) for the complete runnable code.
 
