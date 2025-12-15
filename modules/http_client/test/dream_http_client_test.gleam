@@ -35,7 +35,7 @@ pub fn main() {
 
 fn test_server_ready(port: Int) -> Nil {
   let test_req =
-    client.new
+    client.new()
     |> client.method(http.Get)
     |> client.scheme(http.Http)
     |> client.host("localhost")

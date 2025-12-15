@@ -16,7 +16,7 @@ import gleam/string
 import gleeunit/should
 
 fn mock_request(path: String) -> client.ClientRequest {
-  client.new
+  client.new()
   |> client.method(http.Get)
   |> client.scheme(http.Http)
   |> client.host("localhost")
@@ -104,7 +104,7 @@ pub fn send_400_status_test() {
 pub fn send_connection_failure_test() {
   // Arrange - Use a port that won't have a server listening
   let req =
-    client.new
+    client.new()
     |> client.method(http.Get)
     |> client.scheme(http.Http)
     |> client.host("localhost")
@@ -178,7 +178,7 @@ pub fn send_empty_response_test() {
 pub fn error_messages_are_informative_test() {
   // Arrange - Connect to non-existent server
   let req =
-    client.new
+    client.new()
     |> client.method(http.Get)
     |> client.scheme(http.Http)
     |> client.host("localhost")

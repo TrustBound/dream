@@ -6,7 +6,7 @@
 //// code.
 ////
 //// This is an internal module. Use `dream_http_client/client`,
-//// `dream_http_client/fetch`, and `dream_http_client/stream` instead.
+//// `dream_http_client/recorder`, and `dream_http_client/matching` instead.
 
 import gleam/dynamic/decode as d
 import gleam/erlang/atom
@@ -187,7 +187,7 @@ fn convert_to_atom(dyn: d.Dynamic) -> Result(atom.Atom, e) {
 /// without buffering or an intermediate owner process.
 ///
 /// **Note:** This is an internal function used by the public API. Most callers
-/// should use `client.stream_messages()` instead.
+/// should use `client.start_stream()` instead.
 ///
 /// ## Parameters
 ///
@@ -206,7 +206,7 @@ fn convert_to_atom(dyn: d.Dynamic) -> Result(atom.Atom, e) {
 ///
 /// ## Notes
 ///
-/// - This function is used internally by `client.stream_messages()`
+/// - This function is used internally by `client.start_stream()`
 /// - Messages arrive as Erlang tuples that must be decoded
 /// - Use `decode_stream_message_for_selector()` for selector integration
 @external(erlang, "dream_httpc_shim", "request_stream_messages")
@@ -265,8 +265,9 @@ pub fn cancel_stream_by_string(request_id_string: String) -> Nil
 /// the process mailbox and returns a normalized tuple. This is used for direct
 /// message receiving without selector integration.
 ///
-/// **Note:** This is an internal function. Most callers should use OTP selectors
-/// with `client.select_stream_messages()` instead.
+/// **Note:** This is an internal function. Most callers should use the public
+/// streaming API (`client.start_stream()` or `client.stream_yielder()`), not
+/// raw httpc messages.
 ///
 /// ## Parameters
 ///
@@ -291,8 +292,8 @@ pub fn receive_stream_message(timeout_ms: Int) -> d.Dynamic
 /// The Erlang shim handles pattern matching, normalizes charlists to binaries,
 /// and returns a clean tuple format that Gleam can easily decode.
 ///
-/// **Note:** This is an internal function used by `client.select_stream_messages()`.
-/// Most callers should use the public selector API instead.
+/// **Note:** This is an internal function used by the client’s streaming
+/// machinery. Most callers should use `client.start_stream()` instead.
 ///
 /// ## Parameters
 ///
@@ -307,7 +308,7 @@ pub fn receive_stream_message(timeout_ms: Int) -> d.Dynamic
 ///
 /// ## Notes
 ///
-/// - This function is used internally by `client.select_stream_messages()`
+/// - This function is used internally by `client.start_stream()`
 /// - Handles all message normalization and type conversion
 /// - Returns a format optimized for Gleam's dynamic decoder
 @external(erlang, "dream_httpc_shim", "decode_stream_message_for_selector")

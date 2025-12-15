@@ -9,8 +9,8 @@
 %%
 %% Initiates a streaming HTTP request using Erlang's `httpc` library in continuous
 %% streaming mode. Creates an owner process that manages the stream and services
-%% `fetch_next/2` requests. This function returns immediately; chunks are retrieved
-%% by calling `fetch_next/2` with the returned owner PID.
+%% `fetch_next` requests. This function returns immediately; chunks are retrieved
+%% by calling `fetch_next` with the returned owner PID.
 %%
 %% ## Parameters
 %%
@@ -24,7 +24,7 @@
 %% ## Returns
 %%
 %% `{ok, OwnerPid}` where `OwnerPid` is the process handling the stream. Use this
-%% PID with `fetch_next/2` to retrieve chunks.
+%% PID with `fetch_next` to retrieve chunks.
 %%
 %% ## Examples
 %%
@@ -35,9 +35,9 @@
 %%
 %% ## Notes
 %%
-%% - Returns immediately; HTTP errors are detected asynchronously via `fetch_next/2`
+%% - Returns immediately; HTTP errors are detected asynchronously via `fetch_next`
 %% - The owner process will exit if the HTTP request fails to start
-%% - `fetch_next/2` will detect the dead process and return an error
+%% - `fetch_next` will detect the dead process and return an error
 %% - Ensures `ssl` and `inets` applications are started before making requests
 %% - Configures httpc with streaming-optimized settings (no pipelining, high session cap)
 request_stream(Method, Url, Headers, Body, _Receiver, TimeoutMs) ->
@@ -60,7 +60,7 @@ request_stream(Method, Url, Headers, Body, _Receiver, TimeoutMs) ->
 %%
 %% ## Parameters
 %%
-%% - `OwnerPid`: The owner process PID returned from `request_stream/6`
+%% - `OwnerPid`: The owner process PID returned from `request_stream`
 %% - `TimeoutMs`: Timeout in milliseconds (0 for non-blocking, -1 for infinite wait)
 %%
 %% ## Returns
@@ -266,7 +266,7 @@ build_req(Url, Headers, Body) ->
 %%
 %% Initiates a streaming HTTP request where messages are sent directly to the caller's
 %% process mailbox. This is used for OTP actor integration where messages arrive
-%% asynchronously without needing to call `fetch_next/2`. The request ID is returned
+%% asynchronously without needing to call `fetch_next`. The request ID is returned
 %% as a string for type-safe handling in Gleam.
 %%
 %% ## Parameters
@@ -281,7 +281,7 @@ build_req(Url, Headers, Body) ->
 %% ## Returns
 %%
 %% - `{ok, StringId}`: Stream started successfully, `StringId` is a string representation
-%%   of the httpc request ID (use with `cancel_stream_by_string/1`)
+%%   of the httpc request ID (use with `cancel_stream_by_string`)
 %% - `{error, Reason}`: Failed to start stream (connection error, invalid URL, etc.)
 %%
 %% ## Examples
@@ -294,7 +294,7 @@ build_req(Url, Headers, Body) ->
 %% ## Notes
 %%
 %% - Messages arrive as `{http, {HttpcRef, Tag, Data}}` tuples in the process mailbox
-%% - Use `decode_stream_message_for_selector/1` for OTP selector integration
+%% - Use `decode_stream_message_for_selector` for OTP selector integration
 %% - Stores bidirectional mapping: `StringId <-> HttpcRef` for cancellation
 %% - String ID is derived from httpc ref's string representation (guaranteed unique)
 %% - Ensures `ssl` and `inets` applications are started before making requests
@@ -327,7 +327,7 @@ request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
 %%
 %% Cancels an active streaming HTTP request using the httpc request reference directly.
 %% This is a legacy function that takes the raw httpc ref. For new code, use
-%% `cancel_stream_by_string/1` which works with the type-safe string IDs.
+%% `cancel_stream_by_string` which works with the type-safe string IDs.
 %%
 %% ## Parameters
 %%
@@ -340,7 +340,7 @@ request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
 %% ## Notes
 %%
 %% - This function is kept for backward compatibility
-%% - Prefer `cancel_stream_by_string/1` for type-safe cancellation
+%% - Prefer `cancel_stream_by_string` for type-safe cancellation
 %% - After cancellation, no more messages will be sent to the receiver process
 %% - Safe to call multiple times on the same request ID
 cancel_stream(RequestId) ->
@@ -350,12 +350,12 @@ cancel_stream(RequestId) ->
 %% @doc Cancel a streaming request by string ID
 %%
 %% Cancels an active streaming HTTP request using the string ID returned from
-%% `request_stream_messages/6`. Looks up the corresponding httpc reference from
+%% `request_stream_messages`. Looks up the corresponding httpc reference from
 %% the internal mapping table and cancels the request.
 %%
 %% ## Parameters
 %%
-%% - `StringId`: The string request ID returned from `request_stream_messages/6`
+%% - `StringId`: The string request ID returned from `request_stream_messages`
 %%
 %% ## Returns
 %%
@@ -423,7 +423,7 @@ cancel_stream_by_string(StringId) ->
 %%
 %% - Blocks until a message arrives or timeout expires
 %% - Headers are normalized to binary tuples for consistent Gleam decoding
-%% - RequestId is the httpc reference (use `decode_stream_message_for_selector/1` for string IDs)
+%% - RequestId is the httpc reference (use `decode_stream_message_for_selector` for string IDs)
 %% - Handles both `{http, {Ref, stream_start, Headers}}` and `{http, {Ref, stream_start, Headers, Pid}}` formats
 %% - Error reasons are formatted as binaries for Gleam compatibility
 receive_stream_message(TimeoutMs) ->
@@ -662,7 +662,7 @@ format_exit_reason(Reason) ->
 %%
 %% ## Notes
 %%
-%% - Converts binary name to atom using `binary_to_atom/2`
+%% - Converts binary name to atom using `binary_to_atom`
 %% - Returns `false` if conversion fails or table doesn't exist
 %% - Used internally for idempotent table creation
 ets_table_exists(Name) ->
@@ -701,7 +701,7 @@ ets_table_exists(Name) ->
 %%
 %% ## Notes
 %%
-%% - Converts binary name to atom using `binary_to_atom/2`
+%% - Converts binary name to atom using `binary_to_atom`
 %% - Options should include `named_table` if you want to reference by name later
 %% - Used internally for creating recorder and ref mapping tables
 ets_new(Name, Options) ->

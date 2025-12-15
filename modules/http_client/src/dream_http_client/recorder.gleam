@@ -8,6 +8,7 @@ import dream_http_client/recording
 import dream_http_client/storage
 import gleam/dict
 import gleam/erlang/process
+import gleam/int
 import gleam/io
 import gleam/list
 import gleam/option
@@ -29,21 +30,24 @@ import gleam/string
 ///
 /// ## Lifecycle
 ///
-/// 1. Create with `recorder.start(mode, matching)`
+/// 1. Build with `recorder.new() |> ... |> start()`
 /// 2. Attach to requests with `client.recorder(rec)`
 /// 3. Optionally cleanup with `recorder.stop(rec)` (recordings already saved)
 ///
 /// ## Examples
 ///
 /// ```gleam
+/// import dream_http_client/recorder.{directory, mode, start}
+///
 /// // Record mode
-/// let assert Ok(rec) = recorder.start(
-///   mode: recorder.Record(directory: "mocks"),
-///   matching: matching.match_url_only(),
-/// )
+/// let assert Ok(rec) =
+///   recorder.new()
+///   |> directory("mocks")
+///   |> mode("record")
+///   |> start()
 ///
 /// // Use recorder with requests
-/// client.new
+/// client.new()
 ///   |> client.host("api.example.com")
 ///   |> client.recorder(rec)
 ///   |> client.send()
@@ -55,45 +59,190 @@ pub opaque type Recorder {
   Recorder(subject: process.Subject(RecorderMessage))
 }
 
-/// Recorder operating mode
+/// A request transformer applied before keying and persistence.
 ///
-/// Determines how the recorder behaves when attached to HTTP requests.
+/// A transformer is a pure function `RecordedRequest -> RecordedRequest` that
+/// runs in two places:
 ///
-/// ## Variants
+/// - Before computing the match key (so matching uses the transformed request)
+/// - Before persisting recordings to disk (so secrets can be removed)
 ///
-/// - `Record(directory)`: Capture real HTTP requests/responses and save to disk
-/// - `Playback(directory)`: Return recorded responses without making network calls
-/// - `Passthrough`: Make real requests without recording or playback
+/// This is how you implement “scrub secrets and still match”: normalize the
+/// request (remove auth headers, drop query params, normalize paths, etc.),
+/// then choose a key that matches on the remaining stable fields.
 ///
-/// ## Examples
+/// ## Example (drop Authorization header)
 ///
 /// ```gleam
-/// // Record real API calls
-/// let record_mode = recorder.Record(directory: "mocks/api")
+/// import dream_http_client/recorder.{directory, mode, request_transformer}
+/// import dream_http_client/recording
+/// import gleam/list
 ///
-/// // Playback recorded responses
-/// let playback_mode = recorder.Playback(directory: "mocks/api")
+/// fn drop_auth_header(req: recording.RecordedRequest) -> recording.RecordedRequest {
+///   let headers =
+///     req.headers
+///     |> list.filter(fn(h) { h.0 != "Authorization" })
+///   recording.RecordedRequest(..req, headers: headers)
+/// }
 ///
-/// // No recording or playback
-/// let passthrough_mode = recorder.Passthrough
+/// let builder =
+///   recorder.new()
+///   |> mode("record")
+///   |> directory("mocks")
+///   |> request_transformer(drop_auth_header)
 /// ```
-pub type Mode {
-  Record(directory: String)
-  Playback(directory: String)
-  Passthrough
+pub type RequestTransformer =
+  fn(recording.RecordedRequest) -> recording.RecordedRequest
+
+/// A response transformer applied before persistence in Record mode.
+///
+/// This hook is for scrubbing secrets out of recorded responses (set-cookie,
+/// authorization echoes, PII, etc.) before they are written to disk.
+///
+/// **Order of operations in Record mode:**
+///
+/// 1. The request transformer runs (request normalization + request scrubbing)
+/// 2. The key is computed from the transformed request
+/// 3. The response transformer runs (response scrubbing)
+/// 4. The scrubbed recording is stored in memory and persisted to disk
+///
+/// Note: this transformer runs **only in Record mode**. Playback returns
+/// whatever is in the saved fixtures.
+pub type ResponseTransformer =
+  fn(recording.RecordedRequest, recording.RecordedResponse) ->
+    recording.RecordedResponse
+
+/// Builder for configuring and starting a recorder.
+///
+/// Recorder configuration uses a builder so options can evolve without adding a
+/// combinatorial set of `start_with_*` functions.
+///
+/// ```gleam
+/// import dream_http_client/recorder.{directory, mode}
+///
+/// let builder =
+///   recorder.new()
+///   |> directory("mocks/api")
+///   |> mode("playback")
+/// ```
+pub type RecorderBuilder {
+  RecorderBuilder(
+    mode: String,
+    directory: option.Option(String),
+    key: matching.MatchKey,
+    request_transformer: RequestTransformer,
+    response_transformer: ResponseTransformer,
+  )
+}
+
+/// Create a new recorder builder with safe defaults.
+///
+/// Defaults:
+/// - `mode`: `"passthrough"`
+/// - `directory`: unset
+/// - `key`: `matching.request_key(method: True, url: True, headers: False, body: False)`
+/// - `request_transformer`: identity
+/// - `response_transformer`: identity
+pub fn new() -> RecorderBuilder {
+  RecorderBuilder(
+    mode: "passthrough",
+    directory: option.None,
+    key: matching.request_key(
+      method: True,
+      url: True,
+      headers: False,
+      body: False,
+    ),
+    request_transformer: identity_request_transformer,
+    response_transformer: identity_response_transformer,
+  )
+}
+
+/// Set the recording directory used by `"record"` and `"playback"` modes.
+///
+/// The directory is **required** for `"record"` and `"playback"` (validated in
+/// `start()`), and ignored for `"passthrough"`.
+pub fn directory(builder: RecorderBuilder, directory: String) -> RecorderBuilder {
+  RecorderBuilder(..builder, directory: option.Some(directory))
+}
+
+/// Set the recorder mode string.
+///
+/// Valid modes (validated in `start()`):
+/// - `"record"`
+/// - `"playback"`
+/// - `"passthrough"`
+///
+/// Mode strings are case-sensitive.
+pub fn mode(builder: RecorderBuilder, mode: String) -> RecorderBuilder {
+  RecorderBuilder(..builder, mode: mode)
+}
+
+/// Set the match key function.
+///
+/// The key function determines how requests are grouped for playback lookup.
+/// Keys should be stable and should generally **not** include secrets.
+///
+/// If two different recordings produce the same key, playback lookup becomes
+/// ambiguous and `find_recording()` will return `Error(...)`.
+pub fn key(builder: RecorderBuilder, key: matching.MatchKey) -> RecorderBuilder {
+  RecorderBuilder(..builder, key: key)
+}
+
+/// Set the request transformer.
+///
+/// The transformer is applied before keying *and* before persistence, so it’s
+/// the right place to normalize requests and scrub secrets.
+pub fn request_transformer(
+  builder: RecorderBuilder,
+  request_transformer: RequestTransformer,
+) -> RecorderBuilder {
+  RecorderBuilder(..builder, request_transformer: request_transformer)
+}
+
+/// Set the response transformer.
+///
+/// This transformer is applied **only in Record mode** and runs before
+/// persistence so recorded fixtures can be safely committed/shared.
+pub fn response_transformer(
+  builder: RecorderBuilder,
+  response_transformer: ResponseTransformer,
+) -> RecorderBuilder {
+  RecorderBuilder(..builder, response_transformer: response_transformer)
+}
+
+fn identity_request_transformer(
+  request: recording.RecordedRequest,
+) -> recording.RecordedRequest {
+  request
+}
+
+fn identity_response_transformer(
+  _request: recording.RecordedRequest,
+  response: recording.RecordedResponse,
+) -> recording.RecordedResponse {
+  response
 }
 
 /// Recorder process state
 type RecorderState {
   RecorderState(
-    mode: Mode,
+    mode: RecorderMode,
     directory: String,
-    matching: matching.MatchingConfig,
-    recordings: dict.Dict(String, recording.Recording),
+    key: matching.MatchKey,
+    request_transformer: RequestTransformer,
+    response_transformer: ResponseTransformer,
+    recordings: dict.Dict(String, List(recording.Recording)),
   )
 }
 
-/// Start a new recorder in the specified mode
+type RecorderMode {
+  Record
+  Playback
+  Passthrough
+}
+
+/// Start a new recorder from a builder.
 ///
 /// Creates an OTP actor process to manage recorder state. The recorder handles
 /// saving recordings to disk (Record mode), loading them for playback (Playback mode),
@@ -101,8 +250,7 @@ type RecorderState {
 ///
 /// ## Parameters
 ///
-/// - `mode`: The operating mode (Record, Playback, or Passthrough)
-/// - `matching_config`: Configuration for matching requests to recordings
+/// - `builder`: Recorder configuration builder
 ///
 /// ## Returns
 ///
@@ -112,23 +260,13 @@ type RecorderState {
 /// ## Examples
 ///
 /// ```gleam
-/// // Record mode - captures and saves requests/responses
-/// let assert Ok(rec) = recorder.start(
-///   mode: recorder.Record(directory: "mocks/api"),
-///   matching: matching.match_url_only(),
-/// )
+/// import dream_http_client/recorder.{directory, mode, start}
 ///
-/// // Playback mode - returns recorded responses
-/// let assert Ok(playback_rec) = recorder.start(
-///   mode: recorder.Playback(directory: "mocks/api"),
-///   matching: matching.match_url_only(),
-/// )
-///
-/// // Passthrough mode - no recording or playback
-/// let assert Ok(passthrough_rec) = recorder.start(
-///   mode: recorder.Passthrough,
-///   matching: matching.match_url_only(),
-/// )
+/// let assert Ok(rec) =
+///   recorder.new()
+///   |> directory("mocks/api")
+///   |> mode("playback")
+///   |> start()
 /// ```
 ///
 /// ## Notes
@@ -137,49 +275,63 @@ type RecorderState {
 /// - In Record mode, recordings are saved immediately when captured (no need to call `stop()`)
 /// - Multiple requests can share the same recorder handle safely
 /// - The recorder process runs until `stop()` is called or the VM shuts down
-pub fn start(
-  mode: Mode,
-  matching_config: matching.MatchingConfig,
-) -> Result(Recorder, String) {
-  let directory = get_directory(mode)
-  let initial_state =
-    RecorderState(
-      mode: mode,
-      directory: directory,
-      matching: matching_config,
-      recordings: dict.new(),
-    )
+pub fn start(builder: RecorderBuilder) -> Result(Recorder, String) {
+  let mode = parse_mode(builder.mode)
+  let directory = resolve_directory(mode, builder.directory)
 
-  // Load existing recordings if in playback mode
-  case mode {
-    Playback(dir) -> {
-      case storage.load_recordings(dir) {
-        Ok(loaded) -> {
-          let recordings_map = build_recordings_map(loaded, matching_config)
-          let state_with_recordings =
-            RecorderState(
-              mode: mode,
-              directory: dir,
-              matching: matching_config,
-              recordings: recordings_map,
-            )
-          actor.new(state_with_recordings)
+  case mode, directory {
+    Error(e), _ -> Error(e)
+    _, Error(e) -> Error(e)
+    Ok(parsed_mode), Ok(dir) -> {
+      let initial_state =
+        RecorderState(
+          mode: parsed_mode,
+          directory: dir,
+          key: builder.key,
+          request_transformer: builder.request_transformer,
+          response_transformer: builder.response_transformer,
+          recordings: dict.new(),
+        )
+
+      case parsed_mode {
+        Playback -> {
+          case storage.load_recordings(dir) {
+            Ok(loaded) -> {
+              let recordings_map =
+                build_recordings_map(
+                  loaded,
+                  builder.key,
+                  builder.request_transformer,
+                )
+              let state_with_recordings =
+                RecorderState(
+                  mode: parsed_mode,
+                  directory: dir,
+                  key: builder.key,
+                  request_transformer: builder.request_transformer,
+                  response_transformer: builder.response_transformer,
+                  recordings: recordings_map,
+                )
+              actor.new(state_with_recordings)
+              |> actor.on_message(handle_recorder_message)
+              |> actor.start
+              |> result.map(wrap_recorder_subject)
+              |> result.map_error(convert_actor_error)
+            }
+            Error(load_error) ->
+              Error(
+                "Failed to load recordings in playback mode: " <> load_error,
+              )
+          }
+        }
+        _ -> {
+          actor.new(initial_state)
           |> actor.on_message(handle_recorder_message)
           |> actor.start
           |> result.map(wrap_recorder_subject)
           |> result.map_error(convert_actor_error)
         }
-        Error(load_error) -> {
-          Error("Failed to load recordings in playback mode: " <> load_error)
-        }
       }
-    }
-    _ -> {
-      actor.new(initial_state)
-      |> actor.on_message(handle_recorder_message)
-      |> actor.start
-      |> result.map(wrap_recorder_subject)
-      |> result.map_error(convert_actor_error)
     }
   }
 }
@@ -194,22 +346,70 @@ fn convert_actor_error(error: actor.StartError) -> String {
   "Failed to start recorder: " <> string.inspect(error)
 }
 
-fn get_directory(mode: Mode) -> String {
+fn build_recordings_map(
+  recordings: List(recording.Recording),
+  key: matching.MatchKey,
+  request_transformer: RequestTransformer,
+) -> dict.Dict(String, List(recording.Recording)) {
+  list.fold(recordings, dict.new(), fn(acc, rec) {
+    let transformed = transform_recording_request(rec, request_transformer)
+    let signature = key(transformed.request)
+    case dict.get(acc, signature) {
+      Ok(existing) -> dict.insert(acc, signature, [transformed, ..existing])
+      Error(_) -> dict.insert(acc, signature, [transformed])
+    }
+  })
+}
+
+fn transform_recording_request(
+  rec: recording.Recording,
+  request_transformer: RequestTransformer,
+) -> recording.Recording {
+  let recording.Recording(request, response) = rec
+  let request2 = request_transformer(request)
+  recording.Recording(request: request2, response: response)
+}
+
+fn transform_recording_for_persistence(
+  rec: recording.Recording,
+  request_transformer: RequestTransformer,
+  response_transformer: ResponseTransformer,
+) -> recording.Recording {
+  let recording.Recording(request, response) = rec
+  let request2 = request_transformer(request)
+  let response2 = response_transformer(request2, response)
+  recording.Recording(request: request2, response: response2)
+}
+
+fn parse_mode(mode: String) -> Result(RecorderMode, String) {
   case mode {
-    Record(dir) -> dir
-    Playback(dir) -> dir
-    Passthrough -> ""
+    "record" -> Ok(Record)
+    "playback" -> Ok(Playback)
+    "passthrough" -> Ok(Passthrough)
+    _ ->
+      Error(
+        "Unknown recorder mode: "
+        <> mode
+        <> ". Expected one of: record, playback, passthrough",
+      )
   }
 }
 
-fn build_recordings_map(
-  recordings: List(recording.Recording),
-  config: matching.MatchingConfig,
-) -> dict.Dict(String, recording.Recording) {
-  list.fold(recordings, dict.new(), fn(acc, rec) {
-    let signature = matching.build_signature(rec.request, config)
-    dict.insert(acc, signature, rec)
-  })
+fn resolve_directory(
+  mode: Result(RecorderMode, String),
+  directory: option.Option(String),
+) -> Result(String, String) {
+  case mode {
+    Error(e) -> Error(e)
+    Ok(Record) | Ok(Playback) -> {
+      case directory {
+        option.Some(dir) -> Ok(dir)
+        option.None ->
+          Error("Recorder directory is required for record/playback")
+      }
+    }
+    Ok(Passthrough) -> Ok("")
+  }
 }
 
 fn handle_recorder_message(
@@ -218,20 +418,40 @@ fn handle_recorder_message(
 ) -> Next(RecorderState, RecorderMessage) {
   case message {
     AddRecording(rec) -> {
-      let signature = matching.build_signature(rec.request, state.matching)
-      let new_recordings = dict.insert(state.recordings, signature, rec)
-      let new_state =
-        RecorderState(
-          mode: state.mode,
-          directory: state.directory,
-          matching: state.matching,
-          recordings: new_recordings,
-        )
-
-      // Save immediately if in Record mode
       case state.mode {
-        Record(dir) -> {
-          case storage.save_recording_immediately(dir, rec, state.matching) {
+        Record -> {
+          let transformed =
+            transform_recording_for_persistence(
+              rec,
+              state.request_transformer,
+              state.response_transformer,
+            )
+          let key = state.key(transformed.request)
+
+          let new_recordings = case dict.get(state.recordings, key) {
+            Ok(existing) ->
+              dict.insert(state.recordings, key, [transformed, ..existing])
+            Error(_) -> dict.insert(state.recordings, key, [transformed])
+          }
+
+          let new_state =
+            RecorderState(
+              mode: state.mode,
+              directory: state.directory,
+              key: state.key,
+              request_transformer: state.request_transformer,
+              response_transformer: state.response_transformer,
+              recordings: new_recordings,
+            )
+
+          // Save immediately if in Record mode
+          case
+            storage.save_recording_immediately(
+              state.directory,
+              transformed,
+              key,
+            )
+          {
             Ok(_) -> actor.continue(new_state)
             Error(save_error) -> {
               // Log error but don't crash - keep in-memory recording
@@ -240,33 +460,59 @@ fn handle_recorder_message(
             }
           }
         }
-        _ -> actor.continue(new_state)
+        _ -> actor.continue(state)
       }
     }
     FindRecording(request, reply_to) -> {
-      let signature = matching.build_signature(request, state.matching)
-      case dict.get(state.recordings, signature) {
-        Ok(recording_value) -> {
-          process.send(reply_to, FoundRecording(option.Some(recording_value)))
-          actor.continue(state)
+      case state.mode {
+        Playback -> {
+          let transformed_request = state.request_transformer(request)
+          let key = state.key(transformed_request)
+          case dict.get(state.recordings, key) {
+            Error(_) -> {
+              process.send(reply_to, FoundRecording(Ok(option.None)))
+              actor.continue(state)
+            }
+            Ok([]) -> {
+              // Should not happen, but treat as not found
+              process.send(reply_to, FoundRecording(Ok(option.None)))
+              actor.continue(state)
+            }
+            Ok([rec]) -> {
+              process.send(reply_to, FoundRecording(Ok(option.Some(rec))))
+              actor.continue(state)
+            }
+            Ok(records) -> {
+              let count = list.length(records)
+              process.send(
+                reply_to,
+                FoundRecording(Error(
+                  "Ambiguous recording match for key: "
+                  <> key
+                  <> " ("
+                  <> int.to_string(count)
+                  <> " recordings)",
+                )),
+              )
+              actor.continue(state)
+            }
+          }
         }
-        Error(not_found) -> {
-          // Recording not found in dict - this is normal in playback mode.
-          // Bind the error for clarity but do not treat it as a failure.
-          let _unused_not_found = not_found
-          process.send(reply_to, FoundRecording(option.None))
+        _ -> {
+          // Not in playback mode: never return recordings
+          process.send(reply_to, FoundRecording(Ok(option.None)))
           actor.continue(state)
         }
       }
     }
     GetRecordings(reply_to) -> {
-      let all_recordings = dict.values(state.recordings)
+      let all_recordings = flatten_recordings(dict.values(state.recordings))
       process.send(reply_to, GotRecordings(all_recordings))
       actor.continue(state)
     }
     CheckMode(reply_to) -> {
       let is_record = case state.mode {
-        Record(_) -> True
+        Record -> True
         _ -> False
       }
       process.send(reply_to, ModeIsRecord(is_record))
@@ -292,10 +538,20 @@ type RecorderMessage {
 }
 
 type RecorderResponse {
-  FoundRecording(option.Option(recording.Recording))
+  FoundRecording(Result(option.Option(recording.Recording), String))
   GotRecordings(List(recording.Recording))
   ModeIsRecord(Bool)
   Stopped(Result(Nil, String))
+}
+
+fn flatten_recordings(
+  lists: List(List(recording.Recording)),
+) -> List(recording.Recording) {
+  // Flatten while preserving order within each list as stored (newest-first).
+  list.fold(lists, [], fn(acc, recs) {
+    list.fold(recs, acc, fn(acc2, r) { [r, ..acc2] })
+  })
+  |> list.reverse
 }
 
 /// Add a recording to the recorder
@@ -319,10 +575,13 @@ type RecorderResponse {
 /// ## Examples
 ///
 /// ```gleam
-/// let assert Ok(rec) = recorder.start(
-///   mode: recorder.Record(directory: "mocks"),
-///   matching: matching.match_url_only(),
-/// )
+/// import dream_http_client/recorder.{directory, mode, start}
+///
+/// let assert Ok(rec) =
+///   recorder.new()
+///   |> directory("mocks")
+///   |> mode("record")
+///   |> start()
 ///
 /// // Manually add a recording
 /// let manual_recording = recording.Recording(
@@ -336,7 +595,8 @@ type RecorderResponse {
 ///
 /// - Recordings are saved immediately in Record mode (no need to call `stop()`)
 /// - If save fails, error is logged but recording remains in memory
-/// - Duplicate recordings (same signature) overwrite previous ones
+/// - If multiple recordings share the same match key, they are all stored
+///   (playback lookup will error if that makes the key ambiguous)
 pub fn add_recording(recorder: Recorder, rec: recording.Recording) -> Nil {
   let Recorder(subject) = recorder
   process.send(subject, AddRecording(rec))
@@ -359,10 +619,13 @@ pub fn add_recording(recorder: Recorder, rec: recording.Recording) -> Nil {
 /// ## Examples
 ///
 /// ```gleam
-/// let assert Ok(rec) = recorder.start(
-///   mode: recorder.Record(directory: "mocks"),
-///   matching: matching.match_url_only(),
-/// )
+/// import dream_http_client/recorder.{directory, mode, start}
+///
+/// let assert Ok(rec) =
+///   recorder.new()
+///   |> directory("mocks")
+///   |> mode("record")
+///   |> start()
 ///
 /// if recorder.is_record_mode(rec) {
 ///   io.println("Recording mode active")
@@ -412,8 +675,8 @@ fn identity_recorder_response(response: RecorderResponse) -> RecorderResponse {
 /// Find a matching recording for a request
 ///
 /// Searches for a recording that matches the given request based on the recorder's
-/// matching configuration. This is used internally by the HTTP client during playback,
-/// but can be called directly to check if a recording exists.
+/// configured match key and request transformer. This is used internally by the HTTP client
+/// during playback, but can be called directly to check if a recording exists.
 ///
 /// ## Parameters
 ///
@@ -422,16 +685,22 @@ fn identity_recorder_response(response: RecorderResponse) -> RecorderResponse {
 ///
 /// ## Returns
 ///
-/// - `Some(Recording)`: Matching recording found
-/// - `None`: No matching recording found (or not in Playback mode)
+/// - `Ok(Some(Recording))`: Matching recording found (unambiguous)
+/// - `Ok(None)`: No matching recording found (or not in Playback mode)
+/// - `Error(String)`: Playback lookup was ambiguous (multiple recordings share the same key)
 ///
 /// ## Examples
 ///
 /// ```gleam
-/// let assert Ok(rec) = recorder.start(
-///   mode: recorder.Playback(directory: "mocks"),
-///   matching: matching.match_url_only(),
-/// )
+/// import dream_http_client/recorder.{directory, mode, start}
+/// import gleam/http
+/// import gleam/option
+///
+/// let assert Ok(rec) =
+///   recorder.new()
+///   |> directory("mocks")
+///   |> mode("playback")
+///   |> start()
 ///
 /// let request = recording.RecordedRequest(
 ///   method: http.Get,
@@ -445,21 +714,22 @@ fn identity_recorder_response(response: RecorderResponse) -> RecorderResponse {
 /// )
 ///
 /// case recorder.find_recording(rec, request) {
-///   Some(recording) -> io.println("Found recording")
-///   None -> io.println("No recording found")
+///   Ok(option.Some(_recording)) -> io.println("Found recording")
+///   Ok(option.None) -> io.println("No recording found")
+///   Error(reason) -> io.println_error("Ambiguous match: " <> reason)
 /// }
 /// ```
 ///
 /// ## Notes
 ///
 /// - Only works in Playback mode (returns `None` in other modes)
-/// - Matching uses the recorder's `MatchingConfig` (method, URL, headers, body)
+/// - Matching uses the recorder's configured key + request transformer
 /// - Returns `None` if recorder doesn't respond (safe default)
 /// - Timeout is 1 second - recorder should respond quickly
 pub fn find_recording(
   recorder: Recorder,
   request: recording.RecordedRequest,
-) -> option.Option(recording.Recording) {
+) -> Result(option.Option(recording.Recording), String) {
   let Recorder(subject) = recorder
   let reply_subject = process.new_subject()
   process.send(subject, FindRecording(request, reply_subject))
@@ -469,7 +739,7 @@ pub fn find_recording(
     |> process.select_map(reply_subject, identity_recorder_response)
 
   case process.selector_receive(selector, 1000) {
-    Ok(FoundRecording(rec_opt)) -> rec_opt
+    Ok(FoundRecording(result)) -> result
     Ok(unexpected_message) -> {
       // Received wrong message type - recorder is broken. Log the
       // unexpected message and return None as a safe default.
@@ -477,7 +747,7 @@ pub fn find_recording(
         "Recorder returned unexpected response to FindRecording: "
         <> string.inspect(unexpected_message),
       )
-      option.None
+      Ok(option.None)
     }
     Error(timeout_error) -> {
       // Process timeout (1 second) - recorder is not responding. Log the
@@ -486,7 +756,7 @@ pub fn find_recording(
         "Recorder did not respond to FindRecording within 1 second: "
         <> string.inspect(timeout_error),
       )
-      option.None
+      Ok(option.None)
     }
   }
 }
@@ -508,10 +778,13 @@ pub fn find_recording(
 /// ## Examples
 ///
 /// ```gleam
-/// let assert Ok(rec) = recorder.start(
-///   mode: recorder.Record(directory: "mocks"),
-///   matching: matching.match_url_only(),
-/// )
+/// import dream_http_client/recorder.{directory, mode, start}
+///
+/// let assert Ok(rec) =
+///   recorder.new()
+///   |> directory("mocks")
+///   |> mode("record")
+///   |> start()
 ///
 /// // Make some requests...
 ///
@@ -575,10 +848,13 @@ pub fn get_recordings(recorder: Recorder) -> List(recording.Recording) {
 /// ## Examples
 ///
 /// ```gleam
-/// let assert Ok(rec) = recorder.start(
-///   mode: recorder.Record(directory: "mocks"),
-///   matching: matching.match_url_only(),
-/// )
+/// import dream_http_client/recorder.{directory, mode, start}
+///
+/// let assert Ok(rec) =
+///   recorder.new()
+///   |> directory("mocks")
+///   |> mode("record")
+///   |> start()
 ///
 /// // Use recorder...
 ///

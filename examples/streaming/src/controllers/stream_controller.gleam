@@ -35,7 +35,7 @@ pub fn show(
 ) -> Response {
   // Make a streaming request to mock server
   let req =
-    client.new
+    client.new()
     |> client.method(http.Get)
     |> client.scheme(http.Http)
     |> client.host("localhost")
@@ -71,7 +71,7 @@ pub fn new(
 ) -> Response {
   // Make a non-streaming request to mock server
   let req =
-    client.new
+    client.new()
     |> client.method(http.Get)
     |> client.scheme(http.Http)
     |> client.host("localhost")

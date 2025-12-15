@@ -1,6 +1,6 @@
 import dream_http_client/client
 import dream_http_client/matching
-import dream_http_client/recorder
+import dream_http_client/recorder.{directory, mode, start}
 import dream_http_client/recording
 import dream_http_client/storage
 import dream_http_client_test
@@ -16,12 +16,22 @@ import gleam/string
 import gleam/yielder
 import gleeunit/should
 
+@external(erlang, "erlang", "timestamp")
+fn get_timestamp() -> #(Int, Int, Int)
+
+fn temp_directory(label: String) -> String {
+  "/tmp/dream_http_client_recorder_client_"
+  <> label
+  <> "_"
+  <> string.inspect(get_timestamp())
+}
+
 fn test_recording_directory() -> String {
-  "test/fixtures/recordings/client_test"
+  temp_directory("client_test")
 }
 
 fn mock_request(path: String) -> client.ClientRequest {
-  client.new
+  client.new()
   |> client.method(http.Get)
   |> client.scheme(http.Http)
   |> client.host("localhost")
@@ -31,10 +41,12 @@ fn mock_request(path: String) -> client.ClientRequest {
 
 pub fn recorder_sets_request_recorder_test() {
   // Arrange
-  let request = client.new
-  let mode = recorder.Record(directory: "/tmp/test_mocks")
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let request = client.new()
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory("/tmp/test_mocks")
+    |> mode("record")
+    |> start()
 
   // Act
   let updated = client.recorder(request, rec)
@@ -51,10 +63,12 @@ pub fn recorder_sets_request_recorder_test() {
 
 pub fn send_with_recorder_in_playback_mode_returns_recorded_response_test() {
   // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let recordings_directory_path = test_recording_directory()
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
 
   // First, record a response
   let test_request =
@@ -76,8 +90,11 @@ pub fn send_with_recorder_in_playback_mode_returns_recorded_response_test() {
   recorder.stop(rec) |> result.unwrap(Nil)
 
   // Now start in playback mode
-  let playback_mode = recorder.Playback(directory: directory)
-  let assert Ok(playback_rec) = recorder.start(playback_mode, matching)
+  let assert Ok(playback_rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
 
   let request =
     mock_request("/text")
@@ -96,9 +113,10 @@ pub fn send_with_recorder_in_playback_mode_returns_recorded_response_test() {
 
 pub fn send_with_recorder_in_passthrough_mode_makes_real_request_test() {
   // Arrange
-  let mode = recorder.Passthrough
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let assert Ok(rec) =
+    recorder.new()
+    |> mode("passthrough")
+    |> start()
 
   let request = mock_request("/text") |> client.recorder(rec)
 
@@ -127,10 +145,12 @@ pub fn send_with_no_recorder_makes_real_request_test() {
 
 pub fn send_with_recorder_in_record_mode_records_response_test() {
   // Arrange
-  let directory = "test/fixtures/recordings/record_mode_test"
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let recordings_directory_path = temp_directory("record_mode_test")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
 
   let request = mock_request("/text") |> client.recorder(rec)
 
@@ -142,7 +162,7 @@ pub fn send_with_recorder_in_record_mode_records_response_test() {
   original_body |> should.equal("Hello, World!")
 
   // Act - Load and modify the recording
-  let assert Ok(recordings) = storage.load_recordings(directory)
+  let assert Ok(recordings) = storage.load_recordings(recordings_directory_path)
   let assert Ok(first_recording) = list.first(recordings)
 
   // Modify the recording's response body
@@ -160,12 +180,23 @@ pub fn send_with_recorder_in_record_mode_records_response_test() {
   }
 
   // Save the modified recording back
+  let modified_recordings_directory_path =
+    recordings_directory_path <> "_modified"
+  let key_fn =
+    matching.request_key(method: True, url: True, headers: False, body: False)
   let assert Ok(_) =
-    storage.save_recordings(directory, [modified_recording], matching)
+    storage.save_recordings(
+      modified_recordings_directory_path,
+      [modified_recording],
+      key_fn,
+    )
 
   // Act - Playback modified recording
-  let playback_mode = recorder.Playback(directory: directory)
-  let assert Ok(playback_rec) = recorder.start(playback_mode, matching)
+  let assert Ok(playback_rec) =
+    recorder.new()
+    |> directory(modified_recordings_directory_path)
+    |> mode("playback")
+    |> start()
   let playback_request = mock_request("/text") |> client.recorder(playback_rec)
   let assert Ok(playback_body) = client.send(playback_request)
 
@@ -178,10 +209,12 @@ pub fn send_with_recorder_in_record_mode_records_response_test() {
 
 pub fn send_with_recorder_finding_streaming_response_returns_error_test() {
   // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let recordings_directory_path = test_recording_directory()
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
 
   // Add a streaming response recording
   let test_request =
@@ -201,8 +234,15 @@ pub fn send_with_recorder_finding_streaming_response_returns_error_test() {
   let test_recording =
     recording.Recording(request: test_request, response: test_response)
   recorder.add_recording(rec, test_recording)
+  let _ = recorder.stop(rec)
 
-  let request = mock_request("/stream") |> client.recorder(rec)
+  let assert Ok(playback_rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
+
+  let request = mock_request("/stream") |> client.recorder(playback_rec)
 
   // Act
   let result = client.send(request)
@@ -211,17 +251,13 @@ pub fn send_with_recorder_finding_streaming_response_returns_error_test() {
   result |> should.be_error()
 
   // Cleanup
-  recorder.stop(rec) |> result.unwrap(Nil)
+  recorder.stop(playback_rec) |> result.unwrap(Nil)
 }
 
 pub fn stream_yielder_with_recorder_in_playback_mode_returns_recorded_chunks_test() {
-  // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  // Arrange - save a streaming response recording directly to disk
+  let recordings_directory_path = test_recording_directory()
 
-  // Record a streaming response
   let test_request =
     recording.RecordedRequest(
       method: http.Get,
@@ -242,23 +278,117 @@ pub fn stream_yielder_with_recorder_in_playback_mode_returns_recorded_chunks_tes
     ])
   let test_recording =
     recording.Recording(request: test_request, response: test_response)
-  recorder.add_recording(rec, test_recording)
-  recorder.stop(rec) |> result.unwrap(Nil)
+  let key_fn =
+    matching.request_key(method: True, url: True, headers: False, body: False)
+  let assert Ok(_) =
+    storage.save_recording_immediately(
+      recordings_directory_path,
+      test_recording,
+      key_fn(test_request),
+    )
 
   // Start in playback mode
-  let playback_mode = recorder.Playback(directory: directory)
-  let assert Ok(playback_rec) = recorder.start(playback_mode, matching)
+  let assert Ok(playback_rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
 
   let request = mock_request("/stream") |> client.recorder(playback_rec)
 
   // Act
   let yielder_result = client.stream_yielder(request)
-  let chunks = yielder.to_list(yielder_result)
+  let chunk_results = yielder.to_list(yielder_result)
 
   // Assert
-  // If file doesn't exist, yielder will be empty (that's ok for unit test)
-  // In real scenario with file, would have chunks
-  { list.length(chunks) >= 0 } |> should.be_true()
+  let chunk_text =
+    chunk_results
+    |> list.filter_map(fn(result) { result })
+    |> list.map(fn(chunk) {
+      chunk
+      |> bytes_tree.to_bit_array
+      |> bit_array.to_string
+      |> result.unwrap("")
+    })
+    |> string.join("")
+
+  chunk_text |> should.equal("chunk1chunk2")
+
+  // Cleanup
+  recorder.stop(playback_rec) |> result.unwrap(Nil)
+}
+
+pub fn send_with_recorder_in_playback_mode_with_ambiguous_key_returns_error_test() {
+  // Arrange - write two recordings with the same key
+  let recordings_directory_path = test_recording_directory()
+  let request_key_fn =
+    matching.request_key(method: True, url: True, headers: False, body: False)
+
+  let test_request =
+    recording.RecordedRequest(
+      method: http.Get,
+      scheme: http.Http,
+      host: "localhost",
+      port: option.Some(9876),
+      path: "/text",
+      query: option.None,
+      headers: [],
+      body: "",
+    )
+
+  let rec1 =
+    recording.Recording(
+      request: test_request,
+      response: recording.BlockingResponse(
+        status: 200,
+        headers: [],
+        body: "one",
+      ),
+    )
+
+  let rec2 =
+    recording.Recording(
+      request: test_request,
+      response: recording.BlockingResponse(
+        status: 200,
+        headers: [],
+        body: "two",
+      ),
+    )
+
+  let assert Ok(_) =
+    storage.save_recording_immediately(
+      recordings_directory_path,
+      rec1,
+      request_key_fn(test_request),
+    )
+  let assert Ok(_) =
+    storage.save_recording_immediately(
+      recordings_directory_path,
+      rec2,
+      request_key_fn(test_request),
+    )
+
+  let assert Ok(playback_rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
+
+  let request =
+    mock_request("/text")
+    |> client.recorder(playback_rec)
+
+  // Act
+  let result = client.send(request)
+
+  // Assert
+  result |> should.be_error()
+  case result {
+    Error(reason) ->
+      string.contains(reason, "Ambiguous recording match") |> should.be_true()
+    Ok(_) -> should.fail()
+  }
 
   // Cleanup
   recorder.stop(playback_rec) |> result.unwrap(Nil)
@@ -279,12 +409,9 @@ pub fn stream_yielder_with_no_recorder_returns_real_stream_test() {
 
 pub fn stream_yielder_with_recorder_finding_blocking_response_returns_single_chunk_test() {
   // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let recordings_directory_path = test_recording_directory()
 
-  // Add a blocking response recording
+  // Save a blocking response recording directly to disk
   let test_request =
     recording.RecordedRequest(
       method: http.Get,
@@ -300,9 +427,22 @@ pub fn stream_yielder_with_recorder_finding_blocking_response_returns_single_chu
     recording.BlockingResponse(status: 200, headers: [], body: "Hello, World!")
   let test_recording =
     recording.Recording(request: test_request, response: test_response)
-  recorder.add_recording(rec, test_recording)
+  let request_key_fn =
+    matching.request_key(method: True, url: True, headers: False, body: False)
+  let assert Ok(_) =
+    storage.save_recording_immediately(
+      recordings_directory_path,
+      test_recording,
+      request_key_fn(test_request),
+    )
 
-  let request = mock_request("/text") |> client.recorder(rec)
+  let assert Ok(playback_rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
+
+  let request = mock_request("/text") |> client.recorder(playback_rec)
 
   // Act
   let yielder_result = client.stream_yielder(request)
@@ -313,15 +453,17 @@ pub fn stream_yielder_with_recorder_finding_blocking_response_returns_single_chu
   list.length(chunks) |> should.equal(1)
 
   // Cleanup
-  recorder.stop(rec) |> result.unwrap(Nil)
+  recorder.stop(playback_rec) |> result.unwrap(Nil)
 }
 
 pub fn stream_yielder_with_recorder_not_finding_recording_uses_real_stream_test() {
   // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Playback(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let recordings_directory_path = test_recording_directory()
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
 
   let request = mock_request("/stream/fast") |> client.recorder(rec)
 
@@ -343,10 +485,12 @@ pub fn stream_yielder_with_recorder_not_finding_recording_uses_real_stream_test(
 
 pub fn stream_yielder_records_real_streaming_request_test() {
   // Arrange - Start recorder in Record mode
-  let directory = "test/fixtures/recordings/stream_yielder_records_test"
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let recordings_directory_path = temp_directory("stream_yielder_records_test")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
 
   let request = mock_request("/stream/fast") |> client.recorder(rec)
 
@@ -367,7 +511,7 @@ pub fn stream_yielder_records_real_streaming_request_test() {
   let assert Ok(_) = recorder.stop(rec)
 
   // Assert - Recording exists and contains streaming data
-  let assert Ok(recordings) = storage.load_recordings(directory)
+  let assert Ok(recordings) = storage.load_recordings(recordings_directory_path)
   let assert Ok(rec_entry) = list.first(recordings)
 
   // Verify recording has streaming response (not blocking)
@@ -394,10 +538,12 @@ pub fn stream_yielder_records_real_streaming_request_test() {
 
 pub fn stream_yielder_playback_matches_recorded_stream_test() {
   // Arrange - Record a real streaming request first
-  let directory = "test/fixtures/recordings/stream_yielder_playback_test"
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let recordings_directory_path = temp_directory("stream_yielder_playback_test")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
 
   let request = mock_request("/stream/fast") |> client.recorder(rec)
 
@@ -411,7 +557,7 @@ pub fn stream_yielder_playback_matches_recorded_stream_test() {
   let assert Ok(_) = recorder.stop(rec)
 
   // Act - MODIFY the recording to prove playback reads from file, not server
-  let assert Ok(recordings) = storage.load_recordings(directory)
+  let assert Ok(recordings) = storage.load_recordings(recordings_directory_path)
   let assert Ok(rec_entry) = list.first(recordings)
 
   // Replace chunk content - mock server sends "Chunk 1\n", "Chunk 2\n", etc.
@@ -436,12 +582,23 @@ pub fn stream_yielder_playback_matches_recorded_stream_test() {
   }
 
   // Save the modified recording
+  let modified_recordings_directory_path =
+    recordings_directory_path <> "_modified"
+  let request_key_fn =
+    matching.request_key(method: True, url: True, headers: False, body: False)
   let assert Ok(_) =
-    storage.save_recordings(directory, [modified_recording], matching)
+    storage.save_recordings(
+      modified_recordings_directory_path,
+      [modified_recording],
+      request_key_fn,
+    )
 
   // Act - Playback the MODIFIED recording
-  let playback_mode = recorder.Playback(directory: directory)
-  let assert Ok(playback_rec) = recorder.start(playback_mode, matching)
+  let assert Ok(playback_rec) =
+    recorder.new()
+    |> directory(modified_recordings_directory_path)
+    |> mode("playback")
+    |> start()
 
   let playback_request =
     mock_request("/stream/fast") |> client.recorder(playback_rec)
@@ -471,10 +628,12 @@ pub fn stream_yielder_playback_matches_recorded_stream_test() {
 
 pub fn start_stream_records_real_streaming_request_test() {
   // Arrange - Start recorder in Record mode
-  let directory = "test/fixtures/recordings/start_stream_records_test"
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let recordings_directory_path = temp_directory("start_stream_records_test")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
 
   // Track chunks received
   let chunks_subject = process.new_subject()
@@ -501,7 +660,7 @@ pub fn start_stream_records_real_streaming_request_test() {
   let assert Ok(_) = recorder.stop(rec)
 
   // Assert - Recording exists and contains streaming data
-  let assert Ok(recordings) = storage.load_recordings(directory)
+  let assert Ok(recordings) = storage.load_recordings(recordings_directory_path)
   let assert Ok(rec_entry) = list.first(recordings)
 
   // Verify recording has streaming response (not blocking)
@@ -530,10 +689,11 @@ pub fn start_stream_records_real_streaming_request_test() {
 pub fn playback_from_committed_fixtures_returns_recorded_response_test() {
   // Arrange - Use committed fixtures directory (no mock server needed!)
   let fixtures_dir = "test/fixtures/recordings"
-  let mode = recorder.Playback(directory: fixtures_dir)
-  let matching = matching.match_url_only()
-
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(fixtures_dir)
+    |> mode("playback")
+    |> start()
 
   // Act - Make request that matches committed fixture
   let request = mock_request("/text") |> client.recorder(rec)
