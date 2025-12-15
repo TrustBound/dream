@@ -16,6 +16,7 @@ import snippets/recording_playback
 import snippets/recording_response_transformer
 import snippets/recording_transformer
 import snippets/request_builder
+import snippets/stream_cancel
 import snippets/stream_messages_basic
 import snippets/stream_yielder_basic
 import snippets/timeout_config
@@ -121,4 +122,10 @@ pub fn recording_response_transformer_test() {
 pub fn stream_messages_basic_test() {
   stream_messages_basic.stream_and_print()
   |> should.be_ok()
+}
+
+pub fn stream_cancel_test() {
+  stream_cancel.cancel_stream()
+  |> should.be_ok()
+  |> should.equal(True)
 }

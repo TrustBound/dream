@@ -1,6 +1,8 @@
 import dream_http_client/client
 import dream_http_client/matching
-import dream_http_client/recorder.{directory, mode, start}
+import dream_http_client/recorder.{
+  directory, key, mode, request_transformer, response_transformer, start,
+}
 import dream_http_client/recording
 import dream_http_client/storage
 import dream_http_client_test
@@ -152,18 +154,32 @@ pub fn send_with_recorder_in_record_mode_records_response_test() {
     |> mode("record")
     |> start()
 
-  let request = mock_request("/text") |> client.recorder(rec)
+  let request = mock_request("/status/418") |> client.recorder(rec)
 
   // Act - Record real request
   let assert Ok(original_body) = client.send(request)
   recorder.stop(rec) |> result.unwrap(Nil)
 
   // Assert - Recording was created
-  original_body |> should.equal("Hello, World!")
+  { original_body != "" } |> should.be_true()
 
   // Act - Load and modify the recording
   let assert Ok(recordings) = storage.load_recordings(recordings_directory_path)
   let assert Ok(first_recording) = list.first(recordings)
+
+  // Assert - recording captured status + headers from the real response
+  case first_recording.response {
+    recording.BlockingResponse(status, headers, _body) -> {
+      status |> should.equal(418)
+      let has_json_content_type =
+        list.any(headers, fn(h) {
+          string.lowercase(h.0) == "content-type"
+          && string.contains(string.lowercase(h.1), "application/json")
+        })
+      has_json_content_type |> should.be_true()
+    }
+    _ -> should.fail()
+  }
 
   // Modify the recording's response body
   let modified_recording = case first_recording.response {
@@ -197,7 +213,8 @@ pub fn send_with_recorder_in_record_mode_records_response_test() {
     |> directory(modified_recordings_directory_path)
     |> mode("playback")
     |> start()
-  let playback_request = mock_request("/text") |> client.recorder(playback_rec)
+  let playback_request =
+    mock_request("/status/418") |> client.recorder(playback_rec)
   let assert Ok(playback_body) = client.send(playback_request)
 
   // Assert - Got MODIFIED content, not original (proves we read from file, not real request)
@@ -313,6 +330,123 @@ pub fn stream_yielder_with_recorder_in_playback_mode_returns_recorded_chunks_tes
     |> string.join("")
 
   chunk_text |> should.equal("chunk1chunk2")
+
+  // Cleanup
+  recorder.stop(playback_rec) |> result.unwrap(Nil)
+}
+
+fn scrub_recorded_response(
+  _request: recording.RecordedRequest,
+  response: recording.RecordedResponse,
+) -> recording.RecordedResponse {
+  case response {
+    recording.BlockingResponse(status, headers, _body) ->
+      recording.BlockingResponse(status: status, headers: headers, body: "")
+
+    recording.StreamingResponse(status, headers, chunks) ->
+      recording.StreamingResponse(
+        status: status,
+        headers: headers,
+        chunks: chunks,
+      )
+  }
+}
+
+pub fn response_transformer_scrubs_persisted_body_but_send_returns_original_test() {
+  // Arrange
+  let recordings_directory_path =
+    temp_directory("response_transformer_real_http_test")
+
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> response_transformer(scrub_recorded_response)
+    |> start()
+
+  let request = mock_request("/text") |> client.recorder(rec)
+
+  // Act - send returns the real body
+  let assert Ok(body) = client.send(request)
+  body |> should.equal("Hello, World!")
+
+  let assert Ok(_) = recorder.stop(rec)
+
+  // Assert - persisted recording is scrubbed
+  let assert Ok(recordings) = storage.load_recordings(recordings_directory_path)
+  let assert Ok(rec_entry) = list.first(recordings)
+
+  case rec_entry.response {
+    recording.BlockingResponse(_status, _headers, persisted_body) -> {
+      persisted_body |> should.equal("")
+    }
+    recording.StreamingResponse(_, _, _) -> should.fail()
+  }
+}
+
+fn drop_authorization_header(
+  request: recording.RecordedRequest,
+) -> recording.RecordedRequest {
+  let scrubbed_headers =
+    request.headers
+    |> list.filter(fn(h) { string.lowercase(h.0) != "authorization" })
+
+  recording.RecordedRequest(..request, headers: scrubbed_headers)
+}
+
+pub fn request_transformer_scrubs_persisted_headers_and_still_matches_playback_test() {
+  // Arrange
+  let recordings_directory_path =
+    temp_directory("request_transformer_real_http_test")
+
+  let request_key_fn =
+    matching.request_key(method: True, url: True, headers: True, body: False)
+
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> key(request_key_fn)
+    |> request_transformer(drop_authorization_header)
+    |> start()
+
+  let request_with_secret =
+    mock_request("/text")
+    |> client.add_header("Authorization", "Bearer SECRET_1")
+    |> client.recorder(rec)
+
+  // Act - record
+  let assert Ok(body) = client.send(request_with_secret)
+  body |> should.equal("Hello, World!")
+  let assert Ok(_) = recorder.stop(rec)
+
+  // Assert - persisted request has Authorization scrubbed
+  let assert Ok(recordings) = storage.load_recordings(recordings_directory_path)
+  let assert Ok(rec_entry) = list.first(recordings)
+
+  let persisted_has_auth =
+    list.any(rec_entry.request.headers, fn(h) {
+      string.lowercase(h.0) == "authorization"
+    })
+
+  persisted_has_auth |> should.be_false()
+
+  // Act - playback should still match even with a different secret
+  let assert Ok(playback_rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> key(request_key_fn)
+    |> request_transformer(drop_authorization_header)
+    |> start()
+
+  let request_with_different_secret =
+    mock_request("/text")
+    |> client.add_header("Authorization", "Bearer SECRET_2")
+    |> client.recorder(playback_rec)
+
+  let assert Ok(playback_body) = client.send(request_with_different_secret)
+  playback_body |> should.equal("Hello, World!")
 
   // Cleanup
   recorder.stop(playback_rec) |> result.unwrap(Nil)
@@ -516,7 +650,15 @@ pub fn stream_yielder_records_real_streaming_request_test() {
 
   // Verify recording has streaming response (not blocking)
   case rec_entry.response {
-    recording.StreamingResponse(_status, _headers, chunks) -> {
+    recording.StreamingResponse(_status, headers, chunks) -> {
+      // Verify we captured response headers from stream_start
+      let has_content_type =
+        list.any(headers, fn(h) {
+          string.lowercase(h.0) == "content-type"
+          && string.contains(string.lowercase(h.1), "text/plain")
+        })
+      has_content_type |> should.be_true()
+
       // Verify we have chunks
       list.length(chunks) |> should.not_equal(0)
 
@@ -665,7 +807,15 @@ pub fn start_stream_records_real_streaming_request_test() {
 
   // Verify recording has streaming response (not blocking)
   case rec_entry.response {
-    recording.StreamingResponse(_status, _headers, chunks) -> {
+    recording.StreamingResponse(_status, headers, chunks) -> {
+      // Verify we captured response headers from stream_start (callback streaming)
+      let has_content_type =
+        list.any(headers, fn(h) {
+          string.lowercase(h.0) == "content-type"
+          && string.contains(string.lowercase(h.1), "text/plain")
+        })
+      has_content_type |> should.be_true()
+
       // Verify we have chunks
       list.length(chunks) |> should.not_equal(0)
 

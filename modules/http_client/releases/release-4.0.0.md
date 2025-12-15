@@ -9,8 +9,10 @@ dream_http_client 4.0.0 redesigns recording/playback matching to support custom 
 - **Recorder builder API (BREAKING)**: configure record/playback via `recorder.new() |> ... |> recorder.start()`
 - **Key-function matching (BREAKING)**: request identity is a user-provided function `RecordedRequest -> String`
 - **Request transformer hook**: normalize/scrub requests before keying and before persistence
+- **Response transformer hook**: scrub recorded responses before writing fixtures (Record mode only)
 - **Ambiguous matches now error**: multiple recordings for the same key returns an explicit error
 - **Safer filenames**: filenames now include both a key hash and content hash
+- **More complete recorded responses**: recordings now persist response status + headers for blocking, and stream-start headers for streaming
 
 ## Breaking Changes
 
@@ -48,6 +50,7 @@ Modes are now strict strings validated in `start()`:
 `matching.MatchingConfig` and `matching.match_url_only()` are removed. Matching is now based on a key function:
 
 ```gleam
+import dream_http_client/matching
 import dream_http_client/recorder.{directory, key, mode, start}
 
 let request_key_fn =
@@ -96,6 +99,7 @@ client.new() |> client.host("example.com")
 You can normalize/scrub requests before matching and persistence:
 
 ```gleam
+import dream_http_client/recording
 import dream_http_client/recorder.{directory, mode, request_transformer, start}
 
 fn scrub(req: recording.RecordedRequest) -> recording.RecordedRequest {
@@ -123,6 +127,7 @@ If you need to scrub secrets from responses (cookies, tokens, PII) before fixtur
 are written to disk, you can attach a response transformer:
 
 ```gleam
+import dream_http_client/recording
 import dream_http_client/recorder.{directory, mode, response_transformer, start}
 
 fn scrub_response(
@@ -142,6 +147,14 @@ let assert Ok(rec) =
 ```
 
 Note: response transformers run **only in Record mode** (before writing to disk).
+
+## Recording Response Metadata
+
+Recordings now persist more response metadata so fixtures can be safely shared and
+so transformers have the information they need:
+
+- **Blocking** recordings persist the response **status code** and **headers**
+- **Streaming** recordings persist response **headers** captured from `stream_start`
 
 ## Storage Changes
 

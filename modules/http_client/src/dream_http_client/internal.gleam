@@ -15,6 +15,7 @@ import gleam/http
 import gleam/http/request.{type Request}
 import gleam/int
 import gleam/io
+import gleam/list
 import gleam/option
 import gleam/result
 import gleam/string
@@ -32,6 +33,9 @@ fn request_stream(
 
 @external(erlang, "dream_httpc_shim", "fetch_next")
 fn fetch_next(owner: d.Dynamic, timeout_ms: Int) -> d.Dynamic
+
+@external(erlang, "dream_httpc_shim", "fetch_start_headers")
+fn fetch_start_headers(owner: d.Dynamic, timeout_ms: Int) -> d.Dynamic
 
 /// Convert an HTTP method to an Erlang atom
 ///
@@ -169,6 +173,50 @@ pub fn receive_next(
       Error(reason)
     }
     _ -> Error("Unexpected stream message tag: " <> tag)
+  }
+}
+
+/// Get the initial response headers from a streaming request.
+///
+/// Returns the normalized header tuples captured from `stream_start`.
+pub fn get_stream_start_headers(
+  owner: d.Dynamic,
+  timeout_ms: Int,
+) -> Result(List(#(String, String)), String) {
+  let resp = fetch_start_headers(owner, timeout_ms)
+  let tag =
+    d.run(resp, d.at([0], d.dynamic))
+    |> result.try(convert_to_atom)
+    |> result.unwrap(atom.create(""))
+    |> atom.to_string
+
+  case tag {
+    "ok" -> {
+      let raw =
+        d.run(resp, d.at([1], d.list(d.dynamic)))
+        |> result.unwrap([])
+
+      raw
+      |> list.filter_map(fn(item) {
+        case
+          d.run(item, d.at([0], d.string)),
+          d.run(item, d.at([1], d.string))
+        {
+          Ok(name), Ok(value) -> Ok(#(name, value))
+          _, _ -> Error(Nil)
+        }
+      })
+      |> Ok
+    }
+
+    "error" -> {
+      let reason =
+        d.run(resp, d.at([1], d.string))
+        |> result.unwrap("Unknown stream_start header error")
+      Error(reason)
+    }
+
+    _ -> Error("Unexpected fetch_start_headers response: " <> tag)
   }
 }
 

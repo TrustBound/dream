@@ -22,6 +22,26 @@ import gleam/order
 import gleam/string
 
 /// A function that produces a stable match key for a request.
+///
+/// A `MatchKey` is the core of playback matching: it maps a `RecordedRequest` to a
+/// deterministic string. Requests that produce the same key are considered the
+/// “same request” for playback lookup.
+///
+/// **Tip:** If your requests contain secrets (Authorization headers, tokens) or
+/// volatile fields (timestamps, request IDs), use a `recorder.request_transformer`
+/// to normalize/scrub the request before the key is computed.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/matching
+/// import dream_http_client/recorder.{key}
+///
+/// let key_fn =
+///   matching.request_key(method: True, url: True, headers: False, body: False)
+///
+/// let builder = recorder.new() |> key(key_fn)
+/// ```
 pub type MatchKey =
   fn(recording.RecordedRequest) -> String
 
@@ -46,7 +66,6 @@ pub type MatchKey =
 ///
 /// ```gleam
 /// import dream_http_client/matching
-/// import dream_http_client/recorder
 /// import dream_http_client/recording
 /// import dream_http_client/recorder.{directory, key, mode, request_transformer, start}
 /// import gleam/list

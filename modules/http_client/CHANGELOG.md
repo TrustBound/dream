@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Recording filenames now include both a **key hash** and a **content hash** to avoid overwriting when multiple recordings share a key:
   - `{method}_{host}_{path}_{key_hash}_{content_hash}.json`
+- Recorded responses now persist more metadata for safer fixtures:
+  - **Blocking** recordings persist the response **status code** and **headers**
+  - **Streaming** recordings persist response **headers** captured from `stream_start` (and trailing headers when available)
 
 ## 3.0.1 - 2025-12-10
 

@@ -533,6 +533,7 @@ All examples are tested and verified. See [test/snippets/](test/snippets/) for c
 
 - [Yielder streaming](test/snippets/stream_yielder_basic.gleam) - Sequential processing
 - [Process-based streaming](test/snippets/stream_messages_basic.gleam) - Callback-driven streaming
+- [Stream cancellation](test/snippets/stream_cancel.gleam) - Cancel via `StreamHandle`
 
 **Recording:**
 

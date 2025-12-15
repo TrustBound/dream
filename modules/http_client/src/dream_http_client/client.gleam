@@ -7,7 +7,6 @@
 //// ## Quick Example — blocking request
 ////
 //// ```gleam
-//// import dream_http_client/client
 //// import dream_http_client/client.{add_header, host, path, send}
 ////
 //// pub fn call_api(token: String) -> Result(String, String) {
@@ -40,15 +39,14 @@
 //// to play back recordings without network calls.
 ////
 //// ```gleam
-//// import dream_http_client/client
 //// import dream_http_client/client.{host, path, recorder, send}
-//// import dream_http_client/recorder as http_recorder
+//// import dream_http_client/recorder.{directory, mode, start}
 ////
 //// let assert Ok(rec) =
-////   http_recorder.new()
-////   |> http_recorder.directory("mocks/api")
-////   |> http_recorder.mode("record")
-////   |> http_recorder.start()
+////   recorder.new()
+////   |> directory("mocks/api")
+////   |> mode("record")
+////   |> start()
 ////
 //// let assert Ok(body) =
 ////   client.new()
@@ -64,7 +62,6 @@
 //// functions for logging/testing.
 ////
 //// ```gleam
-//// import dream_http_client/client
 //// import dream_http_client/client.{get_host, get_path, host, path}
 //// import gleam/io
 ////
@@ -459,13 +456,13 @@ pub fn body(client_request: ClientRequest, body_value: String) -> ClientRequest 
 /// ```gleam
 /// import dream_http_client/client
 /// import dream_http_client/client.{host, recorder}
-/// import dream_http_client/recorder as http_recorder
+/// import dream_http_client/recorder.{directory, mode, start}
 ///
 /// let assert Ok(rec) =
-///   http_recorder.new()
-///   |> http_recorder.directory("mocks")
-///   |> http_recorder.mode("record")
-///   |> http_recorder.start()
+///   recorder.new()
+///   |> directory("mocks")
+///   |> mode("record")
+///   |> start()
 ///
 /// client.new() |> host("api.example.com") |> recorder(rec)
 /// ```
@@ -814,13 +811,13 @@ pub fn get_timeout(client_request: ClientRequest) -> Option(Int) {
 ///
 /// ```gleam
 /// import dream_http_client/client
-/// import dream_http_client/recorder as http_recorder
+/// import dream_http_client/recorder.{directory, mode, start}
 ///
 /// let assert Ok(rec) =
-///   http_recorder.new()
-///   |> http_recorder.directory("mocks")
-///   |> http_recorder.mode("record")
-///   |> http_recorder.start()
+///   recorder.new()
+///   |> directory("mocks")
+///   |> mode("record")
+///   |> start()
 /// let req = client.new() |> client.recorder(rec)
 /// let recorder_opt = client.get_recorder(req)
 /// // recorder_opt == Some(rec)
@@ -1036,11 +1033,13 @@ fn send_and_maybe_record(
   recorder_instance: recorder.Recorder,
   recorded_request: recording.RecordedRequest,
 ) -> Result(String, String) {
-  case send_client_request_to_httpc(client_request) {
-    Ok(body) -> {
+  case send_client_request_to_httpc_with_meta(client_request) {
+    Ok(#(status, headers, body)) -> {
       record_blocking_response_if_needed(
         recorder_instance,
         recorded_request,
+        status,
+        headers,
         body,
       )
       Ok(body)
@@ -1052,17 +1051,14 @@ fn send_and_maybe_record(
 fn record_blocking_response_if_needed(
   recorder_instance: recorder.Recorder,
   recorded_request: recording.RecordedRequest,
+  status: Int,
+  headers: List(#(String, String)),
   body: String,
 ) -> Nil {
   case recorder.is_record_mode(recorder_instance) {
     True -> {
       let recorded_response =
-        recording.BlockingResponse(
-          status: 200,
-          // TODO: get actual status from response
-          headers: [],
-          body: body,
-        )
+        recording.BlockingResponse(status: status, headers: headers, body: body)
       let recorder_entry =
         recording.Recording(
           request: recorded_request,
@@ -1077,6 +1073,13 @@ fn record_blocking_response_if_needed(
 fn send_client_request_to_httpc(
   client_request: ClientRequest,
 ) -> Result(String, String) {
+  send_client_request_to_httpc_with_meta(client_request)
+  |> result.map(fn(meta) { meta.2 })
+}
+
+fn send_client_request_to_httpc_with_meta(
+  client_request: ClientRequest,
+) -> Result(#(Int, List(#(String, String)), String), String) {
   let http_request = to_http_request(client_request)
   let url = build_url(http_request)
   let method_atom = internal.atomize_method(http_request.method)
@@ -1087,10 +1090,11 @@ fn send_client_request_to_httpc(
   case
     send_sync(method_dynamic, url, http_request.headers, body, timeout_value)
   {
-    Ok(response_body) -> {
+    Ok(#(status, headers, response_body)) -> {
       response_body
       |> bit_array.to_string
       |> result.map_error(convert_string_error)
+      |> result.map(fn(body_str) { #(status, headers, body_str) })
     }
     Error(error_message) -> Error(error_message)
   }
@@ -1131,7 +1135,7 @@ fn send_sync(
   headers: List(#(String, String)),
   body: BitArray,
   timeout_ms: Int,
-) -> Result(BitArray, String)
+) -> Result(#(Int, List(#(String, String)), BitArray), String)
 
 /// Stream HTTP response chunks using a yielder
 ///
@@ -1301,6 +1305,7 @@ fn stream_yielder_with_record_mode(
           timeout_ms: timeout_value,
           recorder: recorder_instance,
           recorded_request: recorded_request,
+          start_headers: [],
           chunks: [],
           last_chunk_time: None,
         )
@@ -1352,6 +1357,7 @@ type RecordingYielderState {
     timeout_ms: Int,
     recorder: recorder.Recorder,
     recorded_request: recording.RecordedRequest,
+    start_headers: List(#(String, String)),
     chunks: List(recording.Chunk),
     last_chunk_time: Option(Int),
   )
@@ -1445,6 +1451,17 @@ fn handle_recording_yielder_start(
   let request_result =
     internal.start_httpc_stream(state.http_req, state.timeout_ms)
   let owner = internal.extract_owner_pid(request_result)
+  let start_headers = case
+    internal.get_stream_start_headers(owner, state.timeout_ms)
+  {
+    Ok(headers) -> headers
+    Error(reason) -> {
+      io.println_error(
+        "Failed to fetch stream_start headers for recording: " <> reason,
+      )
+      []
+    }
+  }
   let now = get_time_ms()
 
   case internal.receive_next(owner, state.timeout_ms) {
@@ -1455,6 +1472,7 @@ fn handle_recording_yielder_start(
         RecordingYielderState(
           ..state,
           owner: Some(owner),
+          start_headers: start_headers,
           chunks: [chunk],
           last_chunk_time: Some(now),
         )
@@ -1462,7 +1480,10 @@ fn handle_recording_yielder_start(
     }
     Ok(option.None) -> {
       // Empty stream - save recording with no chunks
-      save_streaming_recording(state, [])
+      save_streaming_recording(
+        RecordingYielderState(..state, start_headers: start_headers),
+        [],
+      )
       yielder.Done
     }
     Error(error_reason) -> {
@@ -1516,11 +1537,21 @@ fn save_streaming_recording(
   // Reverse chunks to get correct order (we prepended them)
   let ordered_chunks = list.reverse(chunks)
 
+  // httpc only streams body chunks for successful responses (200/206). We
+  // infer 206 if Content-Range is present; otherwise default to 200.
+  let status = case
+    list.any(state.start_headers, fn(h) {
+      string.lowercase(h.0) == "content-range"
+    })
+  {
+    True -> 206
+    False -> 200
+  }
+
   let response =
     recording.StreamingResponse(
-      status: 200,
-      // TODO: capture actual status and headers
-      headers: [],
+      status: status,
+      headers: state.start_headers,
       chunks: ordered_chunks,
     )
 
@@ -2193,6 +2224,7 @@ type MessageStreamRecorderState {
   MessageStreamRecorderState(
     recorder: recorder.Recorder,
     recorded_request: recording.RecordedRequest,
+    headers: List(#(String, String)),
     chunks: List(recording.Chunk),
     last_chunk_time: Option(Int),
   )
@@ -2228,6 +2260,7 @@ fn ets_insert(
   key: String,
   recorder: recorder.Recorder,
   recorded_request: recording.RecordedRequest,
+  headers: List(#(String, String)),
   chunks: List(recording.Chunk),
   last_chunk_time: Option(Int),
 ) -> Nil
@@ -2245,7 +2278,7 @@ fn store_message_stream_recorder(
 ) -> Nil {
   ensure_recorder_table()
   let RequestId(id) = request_id
-  ets_insert(recorder_table_name, id, rec, recorded_req, [], None)
+  ets_insert(recorder_table_name, id, rec, recorded_req, [], [], None)
 }
 
 fn get_message_stream_recorder(
@@ -2265,6 +2298,7 @@ fn update_message_stream_recorder(
     id,
     state.recorder,
     state.recorded_request,
+    state.headers,
     state.chunks,
     state.last_chunk_time,
   )
@@ -2292,6 +2326,7 @@ fn record_stream_message(message: StreamMessage) -> Nil {
             MessageStreamRecorderState(
               recorder: state.recorder,
               recorded_request: state.recorded_request,
+              headers: state.headers,
               chunks: [chunk, ..state.chunks],
               last_chunk_time: Some(now),
             )
@@ -2300,10 +2335,18 @@ fn record_stream_message(message: StreamMessage) -> Nil {
         option.None -> Nil
       }
     }
-    StreamEnd(request_id, _headers) -> {
+    StreamEnd(request_id, headers) -> {
       case get_message_stream_recorder(request_id) {
         option.Some(state) -> {
-          finish_message_stream_recording(request_id, state)
+          // Capture final (trailing) headers from stream_end when present.
+          let header_tuples = headers_to_tuples(headers)
+          let final_headers = case header_tuples == [] {
+            True -> state.headers
+            False -> header_tuples
+          }
+          let updated =
+            MessageStreamRecorderState(..state, headers: final_headers)
+          finish_message_stream_recording(request_id, updated)
         }
         option.None -> Nil
       }
@@ -2323,7 +2366,17 @@ fn record_stream_message(message: StreamMessage) -> Nil {
         option.None -> Nil
       }
     }
-    StreamStart(_request_id, _headers) -> Nil
+    StreamStart(request_id, headers) -> {
+      case get_message_stream_recorder(request_id) {
+        option.Some(state) -> {
+          let header_tuples = headers_to_tuples(headers)
+          let new_state =
+            MessageStreamRecorderState(..state, headers: header_tuples)
+          update_message_stream_recorder(request_id, new_state)
+        }
+        option.None -> Nil
+      }
+    }
     DecodeError(error_reason) -> {
       // DecodeError indicates a serious FFI problem at the FFI boundary.
       io.println_error(
@@ -2340,11 +2393,17 @@ fn finish_message_stream_recording(
 ) -> Nil {
   let ordered_chunks = list.reverse(state.chunks)
 
+  let status = case
+    list.any(state.headers, fn(h) { string.lowercase(h.0) == "content-range" })
+  {
+    True -> 206
+    False -> 200
+  }
+
   let response =
     recording.StreamingResponse(
-      status: 200,
-      // TODO: capture actual status and headers from StreamStart
-      headers: [],
+      status: status,
+      headers: state.headers,
       chunks: ordered_chunks,
     )
 

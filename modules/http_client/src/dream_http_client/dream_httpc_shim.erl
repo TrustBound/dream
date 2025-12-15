@@ -1,9 +1,10 @@
 -module(dream_httpc_shim).
 
--export([request_stream/6, fetch_next/2, request_stream_messages/6, cancel_stream/1,
-         cancel_stream_by_string/1, receive_stream_message/1, decode_stream_message_for_selector/1,
-         normalize_headers/1, request_sync/5, ets_table_exists/1, ets_new/2, ets_insert/6,
-         ets_lookup/2, ets_delete/2, ensure_ref_mapping_table/0]).
+-export([request_stream/6, fetch_next/2, fetch_start_headers/2, request_stream_messages/6,
+         cancel_stream/1, cancel_stream_by_string/1, receive_stream_message/1,
+         decode_stream_message_for_selector/1, normalize_headers/1, request_sync/5,
+         ets_table_exists/1, ets_new/2, ets_insert/7, ets_lookup/2, ets_delete/2,
+         ensure_ref_mapping_table/0]).
 
 %% @doc Start a streaming HTTP request with pull-based chunk retrieval
 %%
@@ -108,13 +109,33 @@ fetch_next(OwnerPid, TimeoutMs) ->
         {error, timeout}
     end.
 
+%% @doc Fetch the response headers from stream_start
+%%
+%% Returns the normalized headers received in the initial `stream_start` message.
+%% This is used by the recorder to persist response headers for streaming recordings.
+%%
+%% Note: httpc's streamed response status code is not included in stream_start.
+fetch_start_headers(OwnerPid, TimeoutMs) ->
+    MonitorRef = erlang:monitor(process, OwnerPid),
+    OwnerPid ! {fetch_start_headers, self()},
+    receive
+        {stream_start_headers, Headers} ->
+            erlang:demonitor(MonitorRef, [flush]),
+            {ok, Headers};
+        {'DOWN', MonitorRef, process, OwnerPid, Reason} ->
+            {error, format_exit_reason(Reason)}
+    after TimeoutMs ->
+        erlang:demonitor(MonitorRef, [flush]),
+        {error, timeout}
+    end.
+
 %% Stream owner process: starts httpc in continuous mode and services fetch_next requests
 stream_owner_loop(Method, Req, _Url, TimeoutMs) ->
     HttpOpts = [{timeout, TimeoutMs}, {connect_timeout, 15000}, {autoredirect, true}],
     Opts = [{stream, self}, {sync, false}],
     case httpc:request(Method, Req, HttpOpts, Opts) of
         {ok, RequestId} ->
-            stream_owner_wait(RequestId, []);
+            stream_owner_wait(RequestId, [], undefined, []);
         Error ->
             %% HTTP request failed to start - exit with error
             %% fetch_next will detect the dead process and return an error
@@ -124,48 +145,71 @@ stream_owner_loop(Method, Req, _Url, TimeoutMs) ->
 %% Wait for either a fetch_next request or internal http messages (buffered)
 %% State:
 %%   Buffer - queued {chunk, Bin}/{finished, Headers}/{error, Reason}
-stream_owner_wait(RequestId, Buffer) ->
+%%   StartHeaders - normalized headers from stream_start (or undefined)
+%%   StartWaiters - callers waiting for stream_start headers
+stream_owner_wait(RequestId, Buffer, StartHeaders, StartWaiters) ->
     receive
         {fetch_next, From} ->
-            handle_fetch_next(From, RequestId, Buffer);
-        {http, {RequestId, stream_start, _Headers}} ->
-            %% Headers received
-            stream_owner_wait(RequestId, Buffer);
-        {http, {RequestId, stream_start, _Headers, _NewPid}} ->
-            %% Some httpc versions send stream_start with an extra pid argument
-            stream_owner_wait(RequestId, Buffer);
+            handle_fetch_next(From, RequestId, Buffer, StartHeaders, StartWaiters);
+        {fetch_start_headers, From} ->
+            case StartHeaders of
+                undefined ->
+                    %% Don't respond until we actually have stream_start headers.
+                    %% This makes fetch_start_headers a reliable way to capture
+                    %% response headers for recording.
+                    stream_owner_wait(RequestId, Buffer, StartHeaders, [From | StartWaiters]);
+                _ ->
+                    From ! {stream_start_headers, normalize_headers_default(StartHeaders)},
+                    stream_owner_wait(RequestId, Buffer, StartHeaders, StartWaiters)
+            end;
         {http, {RequestId, stream, Bin}} ->
             %% Buffer the chunk; we only emit on fetch_next to maintain pull model
-            stream_owner_wait(RequestId, Buffer ++ [{chunk, Bin}]);
+            stream_owner_wait(RequestId, Buffer ++ [{chunk, Bin}], StartHeaders, StartWaiters);
+        {http, {RequestId, stream_start, Headers}} ->
+            %% Record initial headers (normalized) for recorder usage
+            Norm = normalize_headers(Headers),
+            lists:foreach(fun(W) -> W ! {stream_start_headers, Norm} end, StartWaiters),
+            stream_owner_wait(RequestId, Buffer, Norm, []);
+        {http, {RequestId, stream_start, Headers, _Pid}} ->
+            %% Some httpc versions include pid
+            Norm = normalize_headers(Headers),
+            lists:foreach(fun(W) -> W ! {stream_start_headers, Norm} end, StartWaiters),
+            stream_owner_wait(RequestId, Buffer, Norm, []);
         {http, {RequestId, stream_end, Headers}} ->
-            stream_owner_wait(RequestId, Buffer ++ [{finished, Headers}]);
+            stream_owner_wait(RequestId,
+                              Buffer ++ [{finished, normalize_headers(Headers)}],
+                              StartHeaders,
+                              StartWaiters);
         {http, {RequestId, {error, Reason}}} ->
-            stream_owner_wait(RequestId, Buffer ++ [{error, Reason}]);
+            stream_owner_wait(RequestId, Buffer ++ [{error, Reason}], StartHeaders, StartWaiters);
         _Other ->
-            stream_owner_wait(RequestId, Buffer)
+            stream_owner_wait(RequestId, Buffer, StartHeaders, StartWaiters)
     end.
 
 %% Handle a fetch_next request from the client
-handle_fetch_next(From, RequestId, []) ->
+handle_fetch_next(From, RequestId, [], StartHeaders, StartWaiters) ->
     %% Buffer empty - fetch next message from stream
     case stream_owner_next_message(RequestId) of
         {start, _Hs} ->
             %% Got headers, skip and fetch actual data
-            handle_fetch_next_after_start(From, RequestId);
+            %% Ensure StartHeaders is set even when stream_start is consumed here.
+            Norm = normalize_headers(_Hs),
+            lists:foreach(fun(W) -> W ! {stream_start_headers, Norm} end, StartWaiters),
+            handle_fetch_next_after_start(From, RequestId, Norm, []);
         Msg ->
             %% Got chunk/finished/error - deliver it
-            deliver_message(From, Msg, RequestId)
+            deliver_message(From, Msg, RequestId, StartHeaders, StartWaiters)
     end;
-handle_fetch_next(From, RequestId, [Item | Rest]) ->
+handle_fetch_next(From, RequestId, [Item | Rest], StartHeaders, StartWaiters) ->
     %% Buffer has items - deliver first one
-    deliver_message(From, Item, RequestId, Rest).
+    deliver_message(From, Item, RequestId, Rest, StartHeaders, StartWaiters).
 
 %% Handle fetch_next after receiving stream_start (headers)
-handle_fetch_next_after_start(From, RequestId) ->
+handle_fetch_next_after_start(From, RequestId, StartHeaders, StartWaiters) ->
     case stream_owner_next_message(RequestId) of
         {chunk, Bin} ->
             From ! {stream_chunk, Bin},
-            stream_owner_wait(RequestId, []);
+            stream_owner_wait(RequestId, [], StartHeaders, StartWaiters);
         {finished, Headers} ->
             From ! {stream_end, Headers},
             ok;
@@ -175,31 +219,44 @@ handle_fetch_next_after_start(From, RequestId) ->
     end.
 
 %% Deliver a message to the client (from live stream)
-deliver_message(From, {chunk, Bin}, RequestId) ->
+deliver_message(From, {chunk, Bin}, RequestId, StartHeaders, StartWaiters) ->
     From ! {stream_chunk, Bin},
-    stream_owner_wait(RequestId, []);
-deliver_message(From, {finished, Headers}, _RequestId) ->
+    stream_owner_wait(RequestId, [], StartHeaders, StartWaiters);
+deliver_message(From, {finished, Headers}, _RequestId, _StartHeaders, _StartWaiters) ->
     From ! {stream_end, Headers},
     ok;
-deliver_message(From, {error, Reason}, _RequestId) ->
+deliver_message(From, {error, Reason}, _RequestId, _StartHeaders, _StartWaiters) ->
     From ! {stream_error, Reason},
     ok.
 
 %% Deliver a message to the client (from buffer)
-deliver_message(From, {chunk, Bin}, RequestId, Rest) ->
+deliver_message(From, {chunk, Bin}, RequestId, Rest, StartHeaders, StartWaiters) ->
     From ! {stream_chunk, Bin},
-    stream_owner_wait(RequestId, Rest);
-deliver_message(From, {finished, Headers}, _RequestId, _Rest) ->
+    stream_owner_wait(RequestId, Rest, StartHeaders, StartWaiters);
+deliver_message(From,
+                {finished, Headers},
+                _RequestId,
+                _Rest,
+                _StartHeaders,
+                _StartWaiters) ->
     From ! {stream_end, Headers},
     ok;
-deliver_message(From, {error, Reason}, _RequestId, _Rest) ->
+deliver_message(From, {error, Reason}, _RequestId, _Rest, _StartHeaders, _StartWaiters) ->
     From ! {stream_error, Reason},
     ok.
+
+normalize_headers_default(undefined) ->
+    [];
+normalize_headers_default(Headers) ->
+    Headers.
 
 %% Wait for the next HTTP message from httpc
 stream_owner_next_message(RequestId) ->
     receive
         {http, {RequestId, stream_start, Headers}} ->
+            {start, Headers};
+        {http, {RequestId, stream_start, Headers, _Pid}} ->
+            %% Some httpc versions include pid
             {start, Headers};
         {http, {RequestId, stream, Bin}} ->
             {chunk, Bin};
@@ -587,14 +644,17 @@ to_binary(Other) ->
 %%
 %% ## Returns
 %%
-%% - `{ok, Body}`: Successfully received complete response body as a binary
-%% - `{error, Reason}`: Error occurred (connection failure, timeout, HTTP error, etc.)
+%% - `{ok, {StatusCode, ResponseHeaders, Body}}`:
+%%     - `StatusCode` is an integer HTTP status code (e.g. 200, 404)
+%%     - `ResponseHeaders` is a list of `{Name, Value}` tuples as binaries
+%%     - `Body` is the complete response body as a binary
+%% - `{error, Reason}`: Error occurred (connection failure, timeout, etc.)
 %%   where `Reason` is a binary error message
 %%
 %% ## Examples
 %%
 %% ```erlang
-%% {ok, ResponseBody} = request_sync(get, "https://api.example.com/users", [], <<>>, 30000),
+%% {ok, {Status, Headers, Body}} = request_sync(get, "https://api.example.com/users", [], <<>>, 30000),
 %% ```
 %%
 %% ## Notes
@@ -619,8 +679,8 @@ request_sync(Method, Url, Headers, Body, TimeoutMs) ->
     Opts = [{sync, true}, {body_format, binary}],
 
     case httpc:request(Method, Req, HttpOpts, Opts) of
-        {ok, {{_Version, _StatusCode, _ReasonPhrase}, _Headers, ResponseBody}} ->
-            {ok, ResponseBody};
+        {ok, {{_Version, StatusCode, _ReasonPhrase}, ResponseHeaders, ResponseBody}} ->
+            {ok, {StatusCode, normalize_headers(ResponseHeaders), ResponseBody}};
         {error, Reason} ->
             {error, format_error(Reason)}
     end.
@@ -733,9 +793,9 @@ ets_new(Name, Options) ->
 %% - Overwrites existing entry if key already exists
 %% - Used internally by message-based streaming recorder
 %% - Chunks are stored in reverse order (prepended) and reversed when stream completes
-ets_insert(TableName, Key, Recorder, RecordedRequest, Chunks, LastChunkTime) ->
+ets_insert(TableName, Key, Recorder, RecordedRequest, Headers, Chunks, LastChunkTime) ->
     TableAtom = binary_to_atom(TableName, utf8),
-    Value = {Recorder, RecordedRequest, Chunks, LastChunkTime},
+    Value = {Recorder, RecordedRequest, Headers, Chunks, LastChunkTime},
     ets:insert(TableAtom, {Key, Value}),
     nil.
 
@@ -774,12 +834,13 @@ ets_lookup(TableName, Key) ->
     try
         TableAtom = binary_to_atom(TableName, utf8),
         case ets:lookup(TableAtom, Key) of
-            [{Key, {Recorder, RecordedRequest, Chunks, LastChunkTime}}] ->
+            [{Key, {Recorder, RecordedRequest, Headers, Chunks, LastChunkTime}}] ->
                 %% Return as Gleam MessageStreamRecorderState constructor
                 State =
                     {message_stream_recorder_state,
                      Recorder,
                      RecordedRequest,
+                     Headers,
                      Chunks,
                      LastChunkTime},
                 {some, State};
