@@ -43,7 +43,7 @@ Actions orchestrate the request → response flow. They parse parameters, call m
 
 Use controllers for simple CRUD operations, single-model operations, or any direct request → model → view flow. Most of your endpoints will be controller actions.
 
-**See:** [examples/database/src/controllers/](../examples/database/src/controllers/)
+**See:** [examples/database/src/controllers/](https://github.com/TrustBound/dream/tree/main/examples/database/src/controllers/)
 
 ---
 
@@ -68,7 +68,7 @@ The router is generic over your Context and Services types. This means the compi
 
 **Router Performance:** Dream uses a radix trie for O(path depth) route matching. Benchmarks show consistent ~1.3-1.5μs lookup times whether you have 100 or 1000 routes. The router is fast enough that it won't be your bottleneck.
 
-**See:** [examples/simple/src/router.gleam](../examples/simple/src/router.gleam)
+**See:** [examples/simple/src/router.gleam](https://github.com/TrustBound/dream/tree/main/examples/simple/src/router.gleam)
 
 ---
 
@@ -108,7 +108,7 @@ Now every controller action gets the same Services instance. Need to add a new s
 
 Yes, Services is a "god object" that holds multiple dependencies. We're okay with that tradeoff because it makes adding cross-cutting concerns easy, keeps controller action signatures consistent, and the alternative—threading dependencies through every function—is worse.
 
-**See:** [examples/database/src/services.gleam](../examples/database/src/services.gleam)
+**See:** [examples/database/src/services.gleam](https://github.com/TrustBound/dream/tree/main/examples/database/src/services.gleam)
 
 ---
 
@@ -176,7 +176,7 @@ The controller action receives the enriched context and can access `context.user
 | User, request ID | Database, cache, config |
 | Middleware can modify | Initialized once at startup |
 
-**See:** [examples/custom_context/](../examples/custom_context/)
+**See:** [examples/custom_context/](https://github.com/TrustBound/dream/tree/main/examples/custom_context/)
 
 ---
 
@@ -238,7 +238,7 @@ Response
 
 Use middleware for cross-cutting concerns like logging and auth, or for request/response modification. Don't put business logic in middleware—that belongs in operations or controller actions.
 
-**See:** [examples/custom_context/src/middleware/](../examples/custom_context/src/middleware/)
+**See:** [examples/custom_context/src/middleware/](https://github.com/TrustBound/dream/tree/main/examples/custom_context/src/middleware/)
 
 ---
 
@@ -324,7 +324,7 @@ pub fn publish_post_with_wrong_user_returns_forbidden_test() {
 
 Use operations when you're coordinating 2+ models, have complex business rules spanning entities, or need side effects like events, emails, or search indexing. Don't use them for simple CRUD—most controller actions don't need operations. Only extract when complexity demands it.
 
-**See:** [examples/cms/src/operations/](../examples/cms/src/operations/)
+**See:** [examples/cms/src/operations/](https://github.com/TrustBound/dream/tree/main/examples/cms/src/operations/)
 
 ---
 
@@ -363,7 +363,7 @@ fn row_to_user(row: sql.GetUserRow) -> User {
 
 Models take connections as parameters, return domain types (not DB types), and handle the DB ↔ Domain conversion internally. Your controller actions stay clean—they just call `user.get(db, id)` and get a `User`, not a database row.
 
-**See:** [examples/database/src/models/](../examples/database/src/models/)
+**See:** [examples/database/src/models/](https://github.com/TrustBound/dream/tree/main/examples/database/src/models/)
 
 ---
 
@@ -393,7 +393,7 @@ pub fn to_json(user: User) -> String {
 
 Views are testable in isolation. Give them a `User`, get back JSON. No database, no HTTP, no mocks. Just formatting.
 
-**See:** [examples/multi_format/src/views/](../examples/multi_format/src/views/)
+**See:** [examples/multi_format/src/views/](https://github.com/TrustBound/dream/tree/main/examples/multi_format/src/views/)
 
 ### Template Composition for HTML
 
@@ -406,7 +406,7 @@ For server-side rendering with full type safety, Dream recommends a layered temp
 
 This pattern eliminates markup duplication, keeps styling consistent, and provides full type safety through Gleam. See [Template Composition](guides/templates.md) for a complete guide.
 
-**See:** [examples/tasks/src/templates/](../examples/tasks/src/templates/) for a working example
+**See:** [examples/tasks/src/templates/](https://github.com/TrustBound/dream/tree/main/examples/tasks/src/templates/) for a working example
 
 ---
 

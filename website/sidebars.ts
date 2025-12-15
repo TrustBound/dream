@@ -17,6 +17,7 @@ const sidebars: SidebarsConfig = {
   tutorialSidebar: [
     "index",
     "quickstart",
+    "examples",
     {
       type: "category",
       label: "Learn",
