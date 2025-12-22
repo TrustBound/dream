@@ -1,5 +1,4 @@
-import dream_http_client/matching
-import dream_http_client/recorder
+import dream_http_client/recorder.{directory, mode, start}
 import dream_http_client/recording
 import dream_http_client/storage
 import gleam/erlang/process
@@ -14,8 +13,11 @@ import gleeunit/should
 @external(erlang, "erlang", "timestamp")
 fn get_timestamp() -> #(Int, Int, Int)
 
-fn test_recording_directory() -> String {
-  "test/fixtures/recordings/recorder_test"
+fn temp_directory(label: String) -> String {
+  "/tmp/dream_http_client_recorder_"
+  <> label
+  <> "_"
+  <> string.inspect(get_timestamp())
 }
 
 fn create_test_recording() -> recording.Recording {
@@ -36,18 +38,16 @@ fn create_test_recording() -> recording.Recording {
 }
 
 pub fn start_with_record_mode_returns_recorder_test() {
-  // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
+  let recordings_directory_path = temp_directory("start_record")
 
-  // Act
-  let result = recorder.start(mode, matching)
+  let start_result =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
 
-  // Assert
-  case result {
+  case start_result {
     Ok(rec) -> {
-      // Cleanup
       recorder.stop(rec) |> result.unwrap(Nil)
       Nil
     }
@@ -59,18 +59,16 @@ pub fn start_with_record_mode_returns_recorder_test() {
 }
 
 pub fn start_with_playback_mode_returns_recorder_test() {
-  // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Playback(directory: directory)
-  let matching = matching.match_url_only()
+  let recordings_directory_path = temp_directory("start_playback")
 
-  // Act
-  let result = recorder.start(mode, matching)
+  let start_result =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
 
-  // Assert
-  case result {
+  case start_result {
     Ok(rec) -> {
-      // Cleanup
       recorder.stop(rec) |> result.unwrap(Nil)
       Nil
     }
@@ -82,17 +80,13 @@ pub fn start_with_playback_mode_returns_recorder_test() {
 }
 
 pub fn start_with_passthrough_mode_returns_recorder_test() {
-  // Arrange
-  let mode = recorder.Passthrough
-  let matching = matching.match_url_only()
+  let start_result =
+    recorder.new()
+    |> mode("passthrough")
+    |> start()
 
-  // Act
-  let result = recorder.start(mode, matching)
-
-  // Assert
-  case result {
+  case start_result {
     Ok(rec) -> {
-      // Cleanup
       recorder.stop(rec) |> result.unwrap(Nil)
       Nil
     }
@@ -103,108 +97,154 @@ pub fn start_with_passthrough_mode_returns_recorder_test() {
   }
 }
 
+pub fn start_validates_mode_and_directory_test() {
+  // Unknown mode
+  let unknown = recorder.new() |> mode("foo") |> start()
+  unknown |> should.be_error()
+
+  // Strict parsing
+  let strict = recorder.new() |> mode("RECORD") |> start()
+  strict |> should.be_error()
+
+  // Record/playback require a directory
+  let record_no_dir = recorder.new() |> mode("record") |> start()
+  record_no_dir |> should.be_error()
+
+  let playback_no_dir = recorder.new() |> mode("playback") |> start()
+  playback_no_dir |> should.be_error()
+
+  // Passthrough does not
+  let passthrough_ok = recorder.new() |> mode("passthrough") |> start()
+  passthrough_ok |> should.be_ok()
+}
+
 pub fn is_record_mode_with_record_mode_returns_true_test() {
-  // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let recordings_directory_path = temp_directory("is_record_true")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
 
-  // Act
-  let result = recorder.is_record_mode(rec)
-
-  // Assert
-  result |> should.equal(True)
-
-  // Cleanup
+  recorder.is_record_mode(rec) |> should.equal(True)
   recorder.stop(rec) |> result.unwrap(Nil)
 }
 
 pub fn is_record_mode_with_playback_mode_returns_false_test() {
-  // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Playback(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let recordings_directory_path = temp_directory("is_record_false_playback")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
 
-  // Act
-  let result = recorder.is_record_mode(rec)
-
-  // Assert
-  result |> should.equal(False)
-
-  // Cleanup
+  recorder.is_record_mode(rec) |> should.equal(False)
   recorder.stop(rec) |> result.unwrap(Nil)
 }
 
 pub fn is_record_mode_with_passthrough_mode_returns_false_test() {
-  // Arrange
-  let mode = recorder.Passthrough
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let assert Ok(rec) =
+    recorder.new()
+    |> mode("passthrough")
+    |> start()
 
-  // Act
-  let result = recorder.is_record_mode(rec)
-
-  // Assert
-  result |> should.equal(False)
-
-  // Cleanup
+  recorder.is_record_mode(rec) |> should.equal(False)
   recorder.stop(rec) |> result.unwrap(Nil)
 }
 
 pub fn add_recording_in_record_mode_stores_recording_test() {
-  // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let recordings_directory_path = temp_directory("store")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
+
   let test_recording = create_test_recording()
-
-  // Act
   recorder.add_recording(rec, test_recording)
-  let recordings = recorder.get_recordings(rec)
 
-  // Assert
+  let recordings = recorder.get_recordings(rec)
   list.length(recordings) |> should.equal(1)
 
-  // Cleanup
+  recorder.stop(rec) |> result.unwrap(Nil)
+}
+
+pub fn find_recording_in_playback_mode_with_no_file_returns_none_test() {
+  let recordings_directory_path = temp_directory("nonexistent")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
+
+  let test_request = create_test_recording().request
+
+  let found = recorder.find_recording(rec, test_request)
+  found |> should.equal(Ok(option.None))
+
   recorder.stop(rec) |> result.unwrap(Nil)
 }
 
 pub fn find_recording_with_matching_request_returns_recording_test() {
-  // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let recordings_directory_path = temp_directory("find")
   let test_recording = create_test_recording()
-  recorder.add_recording(rec, test_recording)
 
-  // Act
-  let result = recorder.find_recording(rec, test_recording.request)
+  // Record first
+  let assert Ok(recorder_rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
 
-  // Assert
-  case result {
-    option.Some(found) -> {
-      found.request.host |> should.equal("localhost")
-      found.request.path |> should.equal("/text")
+  recorder.add_recording(recorder_rec, test_recording)
+
+  // Wait for actor to process message and file write to complete
+  process.sleep(100)
+  recorder.stop(recorder_rec) |> result.unwrap(Nil)
+
+  // Playback
+  let assert Ok(playback) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
+
+  let found = recorder.find_recording(playback, test_recording.request)
+
+  case found {
+    Ok(option.Some(r)) -> {
+      r.request.host |> should.equal("localhost")
+      r.request.path |> should.equal("/text")
     }
-    option.None -> should.fail()
+    Ok(option.None) -> should.fail()
+    Error(reason) -> {
+      io.println("Unexpected error: " <> reason)
+      should.fail()
+    }
   }
 
-  // Cleanup
-  recorder.stop(rec) |> result.unwrap(Nil)
+  recorder.stop(playback) |> result.unwrap(Nil)
 }
 
 pub fn find_recording_with_non_matching_request_returns_none_test() {
-  // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let recordings_directory_path = temp_directory("find_non_match")
   let test_recording = create_test_recording()
-  recorder.add_recording(rec, test_recording)
+
+  let assert Ok(recorder_rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
+
+  recorder.add_recording(recorder_rec, test_recording)
+  process.sleep(100)
+  recorder.stop(recorder_rec) |> result.unwrap(Nil)
+
+  let assert Ok(playback) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
 
   let different_request =
     recording.RecordedRequest(
@@ -218,25 +258,19 @@ pub fn find_recording_with_non_matching_request_returns_none_test() {
       body: "",
     )
 
-  // Act
-  let result = recorder.find_recording(rec, different_request)
+  recorder.find_recording(playback, different_request)
+  |> should.equal(Ok(option.None))
 
-  // Assert
-  case result {
-    option.Some(_) -> should.fail()
-    option.None -> Nil
-  }
-
-  // Cleanup
-  recorder.stop(rec) |> result.unwrap(Nil)
+  recorder.stop(playback) |> result.unwrap(Nil)
 }
 
 pub fn get_recordings_with_multiple_recordings_returns_all_test() {
-  // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
+  let recordings_directory_path = temp_directory("multi")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
 
   let recording1 = create_test_recording()
   let recording2 =
@@ -261,158 +295,101 @@ pub fn get_recordings_with_multiple_recordings_returns_all_test() {
   recorder.add_recording(rec, recording1)
   recorder.add_recording(rec, recording2)
 
-  // Act
   let recordings = recorder.get_recordings(rec)
-
-  // Assert
   list.length(recordings) |> should.equal(2)
 
-  // Cleanup
-  recorder.stop(rec) |> result.unwrap(Nil)
-}
-
-pub fn stop_with_record_mode_saves_recordings_test() {
-  // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
-  let test_recording = create_test_recording()
-  recorder.add_recording(rec, test_recording)
-
-  // Act
-  let result = recorder.stop(rec)
-
-  // Assert
-  result |> should.be_ok()
-}
-
-pub fn stop_with_playback_mode_does_not_save_test() {
-  // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Playback(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
-
-  // Act
-  let result = recorder.stop(rec)
-
-  // Assert
-  result |> should.be_ok()
-}
-
-pub fn stop_with_passthrough_mode_does_not_save_test() {
-  // Arrange
-  let mode = recorder.Passthrough
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
-
-  // Act
-  let result = recorder.stop(rec)
-
-  // Assert
-  result |> should.be_ok()
-}
-
-pub fn find_recording_in_playback_mode_with_no_file_returns_none_test() {
-  // Arrange
-  let directory =
-    "/tmp/test_mocks_nonexistent_" <> string.inspect(get_timestamp())
-  let mode = recorder.Playback(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
-
-  let test_request =
-    recording.RecordedRequest(
-      method: http.Get,
-      scheme: http.Http,
-      host: "localhost",
-      port: option.Some(9876),
-      path: "/text",
-      query: option.None,
-      headers: [],
-      body: "",
-    )
-
-  // Act
-  let result = recorder.find_recording(rec, test_request)
-
-  // Assert
-  case result {
-    option.Some(_) -> should.fail()
-    option.None -> Nil
-  }
-
-  // Cleanup
-  recorder.stop(rec) |> result.unwrap(Nil)
-}
-
-pub fn add_recording_then_find_recording_returns_same_recording_test() {
-  // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
-  let test_recording = create_test_recording()
-
-  // Act
-  recorder.add_recording(rec, test_recording)
-  let found = recorder.find_recording(rec, test_recording.request)
-
-  // Assert
-  case found {
-    option.Some(found_recording) -> {
-      found_recording.request.host |> should.equal(test_recording.request.host)
-      found_recording.request.path |> should.equal(test_recording.request.path)
-    }
-    option.None -> should.fail()
-  }
-
-  // Cleanup
-  recorder.stop(rec) |> result.unwrap(Nil)
-}
-
-pub fn get_recordings_with_no_recordings_returns_empty_list_test() {
-  // Arrange
-  let directory = test_recording_directory()
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
-
-  // Act
-  let recordings = recorder.get_recordings(rec)
-
-  // Assert
-  list.length(recordings) |> should.equal(0)
-
-  // Cleanup
   recorder.stop(rec) |> result.unwrap(Nil)
 }
 
 pub fn add_recording_in_record_mode_saves_immediately_test() {
-  // Arrange
-  let directory = "test/fixtures/recordings/add_recording_immediately_test"
-  let mode = recorder.Record(directory: directory)
-  let matching = matching.match_url_only()
-  let assert Ok(rec) = recorder.start(mode, matching)
-  let test_recording = create_test_recording()
+  let recordings_directory_path = temp_directory("save_immediately")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
 
-  // Act
+  let test_recording = create_test_recording()
   recorder.add_recording(rec, test_recording)
 
   // Wait for actor to process message and file write to complete
   process.sleep(100)
 
-  // Assert - Load directly from file without calling stop()
-  let assert Ok(recordings) = storage.load_recordings(directory)
+  let assert Ok(recordings) = storage.load_recordings(recordings_directory_path)
 
-  // Verify our specific recording exists
   let found =
-    list.any(recordings, fn(rec) {
-      rec.request.host == "localhost" && rec.request.path == "/text"
+    list.any(recordings, fn(r) {
+      r.request.host == "localhost" && r.request.path == "/text"
     })
   found |> should.be_true()
 
-  // Cleanup
   recorder.stop(rec) |> result.unwrap(Nil)
+}
+
+pub fn stop_with_record_mode_returns_ok_test() {
+  let recordings_directory_path = temp_directory("stop_record")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
+
+  recorder.stop(rec) |> should.be_ok()
+}
+
+pub fn stop_with_playback_mode_returns_ok_test() {
+  let recordings_directory_path = temp_directory("stop_playback")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
+
+  recorder.stop(rec) |> should.be_ok()
+}
+
+pub fn stop_with_passthrough_mode_returns_ok_test() {
+  let assert Ok(rec) =
+    recorder.new()
+    |> mode("passthrough")
+    |> start()
+
+  recorder.stop(rec) |> should.be_ok()
+}
+
+pub fn playback_errors_on_ambiguous_key_collision_test() {
+  let recordings_directory_path = temp_directory("ambiguous")
+
+  let base = create_test_recording()
+  let rec1 = base
+  let rec2 =
+    recording.Recording(
+      request: base.request,
+      response: recording.BlockingResponse(
+        status: 200,
+        headers: [],
+        body: "Different",
+      ),
+    )
+
+  let assert Ok(recorder_rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
+
+  recorder.add_recording(recorder_rec, rec1)
+  recorder.add_recording(recorder_rec, rec2)
+  process.sleep(100)
+  recorder.stop(recorder_rec) |> result.unwrap(Nil)
+
+  let assert Ok(playback) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
+
+  recorder.find_recording(playback, base.request) |> should.be_error()
+
+  recorder.stop(playback) |> result.unwrap(Nil)
 }

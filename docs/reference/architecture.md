@@ -205,7 +205,7 @@ dream.new() |> router(...) |> bind(...) |> listen(3000)
 router() |> route(...) |> route(...)
 
 // HTTP Client
-client.new |> method(...) |> host(...) |> path(...)
+client.new() |> method(...) |> host(...) |> path(...)
 ```
 
 Same pattern. Predictable API. Easy to learn.
@@ -516,7 +516,7 @@ document.index(opensearch, "logs", "doc-id-123", json_string)
 **`dream_http_client`** - HTTP client with three execution modes
 - **Blocking** (`send`) - Complete response at once (JSON APIs)
 - **Yielder streaming** (`stream_yielder`) - Sequential chunks (AI responses, file downloads)
-- **Message-based streaming** (`stream_messages`) - OTP-compatible concurrent streams
+- **Process-based streaming** (`start_stream`) - Non-blocking streams with callbacks
 - HTTPS support, configurable timeouts, builder pattern
 - Built on Erlang's battle-tested `httpc`
 
@@ -525,7 +525,7 @@ import dream_http_client/client
 import gleam/http
 
 // Blocking request
-let response = client.new
+let response = client.new()
   |> client.method(http.Get)
   |> client.scheme(http.Https)
   |> client.host("api.example.com")
@@ -533,7 +533,7 @@ let response = client.new
   |> client.timeout(5000)  // 5 second timeout
   |> client.send()
 
-// Streaming request (see module docs for stream_yielder and stream_messages)
+// Streaming request (see module docs for stream_yielder and start_stream)
 ```
 
 **`dream_config`** - Configuration management

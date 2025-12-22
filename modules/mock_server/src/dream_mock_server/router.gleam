@@ -9,6 +9,7 @@
 //// - `POST /post` - Echoes request body as JSON
 //// - `PUT /put` - Echoes request body as JSON
 //// - `DELETE /delete` - Returns success response
+//// - `POST /content-type` - Echoes request Content-Type as plain text
 //// - `GET /json` - Returns simple JSON object
 //// - `GET /text` - Returns plain text
 //// - `GET /uuid` - Returns UUID-like string
@@ -57,6 +58,12 @@ pub fn create_router() -> Router(EmptyContext, EmptyServices) {
     method: Post,
     path: "/post",
     controller: api_controller.post,
+    middleware: [],
+  )
+  |> route(
+    method: Post,
+    path: "/content-type",
+    controller: api_controller.content_type,
     middleware: [],
   )
   |> route(

@@ -10,6 +10,7 @@ import dream/http/status
 import dream/router.{type EmptyServices}
 import dream_mock_server/views/api_view
 import gleam/erlang/process
+import gleam/option
 import gleam/string
 
 /// GET /get - Returns JSON with request info
@@ -121,4 +122,14 @@ pub fn slow(
   // Wait 5 seconds before responding
   process.sleep(5000)
   text_response(status.ok, "Slow response")
+}
+
+/// POST /content-type - Echoes the request Content-Type header value as plain text
+pub fn content_type(
+  request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  let content_type = option.unwrap(request.content_type, "")
+  text_response(status.ok, content_type)
 }

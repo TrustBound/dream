@@ -63,22 +63,22 @@ The `fetch` and `stream` modules have been consolidated into a unified `client` 
 import dream_http_client/fetch
 import dream_http_client/stream
 
-let body = client.new
+let body = client.new()
   |> client.host("api.example.com")
   |> fetch.request()
 
-let chunks = client.new
+let chunks = client.new()
   |> client.host("cdn.example.com")
   |> stream.stream_request()
 
 // After (v2.0)
 import dream_http_client/client
 
-let body = client.new
+let body = client.new()
   |> client.host("api.example.com")
   |> client.send()
 
-let chunks = client.new
+let chunks = client.new()
   |> client.host("cdn.example.com")
   |> client.stream_yielder()
 ```
@@ -90,7 +90,7 @@ The `stream_yielder()` function now returns `Result` values to properly surface 
 **Migration:**
 ```gleam
 // Before (v1.x)
-client.new
+client.new()
   |> host("api.example.com")
   |> stream.stream_request()
   |> yielder.each(fn(chunk) {
@@ -98,7 +98,7 @@ client.new
   })
 
 // After (v2.0)
-client.new
+client.new()
   |> host("api.example.com")
   |> client.stream_yielder()
   |> yielder.each(fn(result) {
@@ -180,7 +180,7 @@ All HTTP requests now support configurable timeouts.
 ```gleam
 import dream_http_client/client.{timeout}
 
-client.new
+client.new()
   |> host("slow-api.example.com")
   |> timeout(5000)  // 5 second timeout
   |> send()

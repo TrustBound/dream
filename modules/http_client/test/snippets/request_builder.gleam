@@ -4,7 +4,9 @@
 ////
 //// Note: README shows api.example.com, but tests use localhost:9876
 
-import dream_http_client/client
+import dream_http_client/client.{
+  add_header, body, host, method, path, port, query, scheme, send, timeout,
+}
 import gleam/http
 import gleam/json
 
@@ -14,16 +16,16 @@ pub fn build_complex_request() -> Result(String, String) {
 
   let token = "secret_token"
 
-  client.new
-  |> client.method(http.Post)
-  |> client.scheme(http.Http)
-  |> client.host("localhost")
-  |> client.port(9876)
-  |> client.path("/post")
-  |> client.query("page=1&limit=10")
-  |> client.add_header("Content-Type", "application/json")
-  |> client.add_header("Authorization", "Bearer " <> token)
-  |> client.body(json.to_string(json_body))
-  |> client.timeout(60_000)
-  |> client.send()
+  client.new()
+  |> method(http.Post)
+  |> scheme(http.Http)
+  |> host("localhost")
+  |> port(9876)
+  |> path("/post")
+  |> query("page=1&limit=10")
+  |> add_header("Content-Type", "application/json")
+  |> add_header("Authorization", "Bearer " <> token)
+  |> body(json.to_string(json_body))
+  |> timeout(60_000)
+  |> send()
 }

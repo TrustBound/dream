@@ -6,7 +6,7 @@ import gleeunit/should
 
 pub fn method_sets_request_method_test() {
   // Arrange
-  let request = client.new
+  let request = client.new()
 
   // Act
   let updated = client.method(request, http.Post)
@@ -17,7 +17,7 @@ pub fn method_sets_request_method_test() {
 
 pub fn scheme_sets_request_scheme_test() {
   // Arrange
-  let request = client.new
+  let request = client.new()
 
   // Act
   let updated = client.scheme(request, http.Http)
@@ -28,7 +28,7 @@ pub fn scheme_sets_request_scheme_test() {
 
 pub fn host_sets_request_host_test() {
   // Arrange
-  let request = client.new
+  let request = client.new()
   let host_value = "example.com"
 
   // Act
@@ -40,7 +40,7 @@ pub fn host_sets_request_host_test() {
 
 pub fn port_sets_request_port_test() {
   // Arrange
-  let request = client.new
+  let request = client.new()
   let port_value = 8080
 
   // Act
@@ -52,7 +52,7 @@ pub fn port_sets_request_port_test() {
 
 pub fn path_sets_request_path_test() {
   // Arrange
-  let request = client.new
+  let request = client.new()
   let path_value = "/api/users"
 
   // Act
@@ -64,7 +64,7 @@ pub fn path_sets_request_path_test() {
 
 pub fn query_sets_request_query_test() {
   // Arrange
-  let request = client.new
+  let request = client.new()
   let query_value = "name=value"
 
   // Act
@@ -76,7 +76,7 @@ pub fn query_sets_request_query_test() {
 
 pub fn headers_sets_request_headers_test() {
   // Arrange
-  let request = client.new
+  let request = client.new()
   let headers_value = [Header("Authorization", "Bearer token")]
 
   // Act
@@ -88,7 +88,7 @@ pub fn headers_sets_request_headers_test() {
 
 pub fn body_sets_request_body_test() {
   // Arrange
-  let request = client.new
+  let request = client.new()
   let body_value = "{\"key\":\"value\"}"
 
   // Act
@@ -100,7 +100,7 @@ pub fn body_sets_request_body_test() {
 
 pub fn timeout_sets_request_timeout_test() {
   // Arrange
-  let request = client.new
+  let request = client.new()
   let timeout_value = 60_000
 
   // Act
@@ -112,7 +112,7 @@ pub fn timeout_sets_request_timeout_test() {
 
 pub fn add_header_adds_header_to_request_test() {
   // Arrange
-  let request = client.new
+  let request = client.new()
 
   // Act
   let updated = client.add_header(request, "X-Custom", "value")

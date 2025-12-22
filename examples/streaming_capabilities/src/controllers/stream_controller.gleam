@@ -69,7 +69,7 @@ pub fn proxy(
 ) -> Response {
   // Use dream_http_client to stream from mock server
   let req =
-    client.new
+    client.new()
     |> client.method(http.Get)
     |> client.scheme(http.Http)
     |> client.host("localhost")

@@ -8,7 +8,7 @@ import gleam/list
 import gleeunit/should
 
 fn mock_request(path: String) -> client.ClientRequest {
-  client.new
+  client.new()
   |> client.method(http.Get)
   |> client.scheme(http.Http)
   |> client.host("localhost")
@@ -96,7 +96,7 @@ pub fn start_stream_calls_on_error_for_network_failure_test() {
   let error_subject = process.new_subject()
 
   let request =
-    client.new
+    client.new()
     |> client.scheme(http.Http)
     |> client.host("localhost")
     |> client.port(19_999)

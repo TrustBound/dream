@@ -4,15 +4,15 @@
 ////
 //// Note: README shows api.example.com, but tests use localhost:9876 (mock server)
 
-import dream_http_client/client
+import dream_http_client/client.{host, method, path, port, scheme, send}
 import gleam/http
 
 pub fn simple_get() -> Result(String, String) {
-  client.new
-  |> client.method(http.Get)
-  |> client.scheme(http.Http)
-  |> client.host("localhost")
-  |> client.port(9876)
-  |> client.path("/text")
-  |> client.send()
+  client.new()
+  |> method(http.Get)
+  |> scheme(http.Http)
+  |> host("localhost")
+  |> port(9876)
+  |> path("/text")
+  |> send()
 }

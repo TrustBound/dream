@@ -29,7 +29,7 @@ pub fn upload(request: Request, context: AppContext, services: Services) -> Resp
 fn save_file(file_data: FileData) -> Response {
   let filename = generate_filename(file_data.original_name)
   let path = "uploads/" <> filename
-  
+
   case simplifile.write_bits(path, file_data.content) {
     Ok(_) -> json_response(created, success_json(filename))
     Error(_) -> json_response(internal_server_error, "{\"error\": \"Save failed\"}")
@@ -112,7 +112,7 @@ import youid
 fn generate_filename(original_name: String) -> String {
   let extension = get_extension(original_name)
   let unique_id = youid.v4()
-  
+
   unique_id <> extension
 }
 
@@ -145,22 +145,30 @@ fn save_to_disk(path: String, content: BitArray) -> Result(String, Error) {
 ### S3 (or Compatible)
 
 ```gleam
-import dream_http_client/client.{method, url, header, body_bits, fetch}
-import gleam/http.{Put}
+import dream_http_client/client
+import dream_http_client/client.{add_header, body, host, method, path, scheme, send}
+import gleam/http
+import gleam/result
 
 fn save_to_s3(
   filename: String,
-  content: BitArray,
-  http_client: client.Client,
+  content: String,
 ) -> Result(String, FileError) {
-  let s3_url = "https://s3.amazonaws.com/bucket/" <> filename
-  
-  http_client
-  |> method(Put)
-  |> url(s3_url)
-  |> header("Content-Type", "application/octet-stream")
-  |> body_bits(content)
-  |> fetch()
+  // For clarity, we build the URL parts directly.
+  // If you need true binary uploads, consider base64 encoding the payload or
+  // using a client that supports binary request bodies.
+  let s3_host = "s3.amazonaws.com"
+  let s3_path = "/bucket/" <> filename
+
+  client.new()
+  |> method(http.Put)
+  |> scheme(http.Https)
+  |> host(s3_host)
+  |> path(s3_path)
+  |> add_header("Content-Type", "application/octet-stream")
+  |> body(content)
+  |> send()
+  |> result.map(fn(_body) { filename })
 }
 ```
 
@@ -187,7 +195,7 @@ pub fn upload_multiple(
 
 fn save_all_files(files: List(FileData)) -> Response {
   let results = map(files, save_file_result)
-  
+
   case all(results, is_ok) {
     True -> create_success_response(results)
     False -> json_response(internal_server_error, "{\"error\": \"Some files failed\"}")
@@ -230,7 +238,7 @@ pub fn download(request: Request, context: AppContext, services: Services) -> Re
     use content <- result.try(simplifile.read_bits(path))
     Ok(#(content, filename))
   }
-  
+
   case result {
     Ok(#(content, filename)) -> file_response(ok, content, filename)
     Error(err) -> response_helpers.handle_error(err)
@@ -293,4 +301,3 @@ fn save_file_data(file_data: FileData, content: BitArray) -> Response {
 
 - [Streaming](streaming.md) - Stream large files
 - [REST API](rest-api.md) - File upload endpoints in APIs
-
