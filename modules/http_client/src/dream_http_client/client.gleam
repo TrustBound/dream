@@ -2027,6 +2027,8 @@ fn run_stream_process(request: ClientRequest) -> Nil {
     process.new_selector()
     |> select_stream_messages(fn(msg) { msg })
 
+  let timeout_ms = resolve_timeout(request)
+
   // Start the stream using internal API
   case stream_messages(request) {
     Error(reason) -> {
@@ -2038,7 +2040,7 @@ fn run_stream_process(request: ClientRequest) -> Nil {
     }
     Ok(req_id) -> {
       // Process messages until stream completes
-      process_stream_loop(selector, req_id, request)
+      process_stream_loop(selector, req_id, request, timeout_ms)
     }
   }
 }
@@ -2047,10 +2049,11 @@ fn process_stream_loop(
   selector: process.Selector(StreamMessage),
   req_id: RequestId,
   request: ClientRequest,
+  timeout_ms: Int,
 ) -> Nil {
-  case process.selector_receive(selector, 30_000) {
+  case process.selector_receive(selector, timeout_ms) {
     Ok(message) -> {
-      handle_stream_message(message, req_id, request, selector)
+      handle_stream_message(message, req_id, request, selector, timeout_ms)
     }
     Error(Nil) -> {
       // Timeout waiting for messages
@@ -2067,6 +2070,7 @@ fn handle_stream_message(
   req_id: RequestId,
   request: ClientRequest,
   selector: process.Selector(StreamMessage),
+  timeout_ms: Int,
 ) -> Nil {
   case message {
     StreamStart(stream_req_id, headers) -> {
@@ -2076,9 +2080,9 @@ fn handle_stream_message(
             Some(on_start) -> on_start(headers)
             None -> Nil
           }
-          process_stream_loop(selector, req_id, request)
+          process_stream_loop(selector, req_id, request, timeout_ms)
         }
-        False -> process_stream_loop(selector, req_id, request)
+        False -> process_stream_loop(selector, req_id, request, timeout_ms)
       }
     }
 
@@ -2089,9 +2093,9 @@ fn handle_stream_message(
             Some(on_chunk) -> on_chunk(data)
             None -> Nil
           }
-          process_stream_loop(selector, req_id, request)
+          process_stream_loop(selector, req_id, request, timeout_ms)
         }
-        False -> process_stream_loop(selector, req_id, request)
+        False -> process_stream_loop(selector, req_id, request, timeout_ms)
       }
     }
 
@@ -2104,7 +2108,7 @@ fn handle_stream_message(
           }
           Nil
         }
-        False -> process_stream_loop(selector, req_id, request)
+        False -> process_stream_loop(selector, req_id, request, timeout_ms)
       }
     }
 
@@ -2117,7 +2121,7 @@ fn handle_stream_message(
           }
           Nil
         }
-        False -> process_stream_loop(selector, req_id, request)
+        False -> process_stream_loop(selector, req_id, request, timeout_ms)
       }
     }
 

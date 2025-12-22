@@ -307,13 +307,43 @@ to_headers(Hs) when is_list(Hs) ->
 to_headers(Other) ->
     Other.
 
+%% Extract Content-Type header value (case-insensitive) and strip it from headers.
+%%
+%% httpc's request tuple for entity-body requests is `{Url, Headers, ContentType, Body}`.
+%% If we leave a `content-type` header in `Headers` while also providing `ContentType`,
+%% we can end up sending duplicate/conflicting headers. We therefore:
+%% - Prefer an explicitly provided Content-Type header value (last one wins)
+%% - Remove all Content-Type headers from the outgoing Headers list
+extract_content_type_and_strip_headers(Headers) when is_list(Headers) ->
+    {ContentType, RevHeaders} =
+        lists:foldl(fun({K, V}, {Ct0, Acc}) ->
+                       KeyLower = string:lowercase(to_list(K)),
+                       case KeyLower of
+                           "content-type" -> {to_list(V), Acc};
+                           _ -> {Ct0, [{to_list(K), to_list(V)} | Acc]}
+                       end
+                    end,
+                    {undefined, []},
+                    Headers),
+    {ContentType, lists:reverse(RevHeaders)};
+extract_content_type_and_strip_headers(Other) ->
+    {undefined, Other}.
+
 %% Build the request tuple for httpc
 build_req(Url, Headers, Body) when is_binary(Body), byte_size(Body) =:= 0 ->
     {Url, Headers};
 build_req(Url, Headers, Body) when Body =:= undefined; Body =:= <<>> ->
     {Url, Headers};
 build_req(Url, Headers, Body) ->
-    {Url, Headers, to_list("application/json"), Body}.
+    {HeaderContentType, StrippedHeaders} = extract_content_type_and_strip_headers(Headers),
+    ContentType =
+        case HeaderContentType of
+            undefined ->
+                to_list("application/octet-stream");
+            _ ->
+                HeaderContentType
+        end,
+    {Url, StrippedHeaders, ContentType, Body}.
 
 %% ============================================================================
 %% Message-Based Streaming (Thin Wrapper)

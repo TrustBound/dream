@@ -124,6 +124,36 @@ pub fn send_connection_failure_test() {
   }
 }
 
+/// Test: requests with body do not hardcode Content-Type
+///
+/// Regression test for the Erlang httpc shim: it must respect the caller's
+/// `Content-Type` header when building the `{Url, Headers, ContentType, Body}`
+/// request tuple (and never force `application/json`).
+pub fn send_respects_explicit_request_content_type_test() {
+  let req =
+    client.new()
+    |> client.method(http.Post)
+    |> client.scheme(http.Http)
+    |> client.host("localhost")
+    |> client.port(dream_http_client_test.get_test_port())
+    |> client.path("/content-type")
+    |> client.add_header("Content-Type", "text/plain")
+    |> client.body("hello")
+
+  case client.send(req) {
+    Ok(body) -> body |> should.equal("text/plain")
+    Error(error_reason) -> {
+      io.println(
+        "send_respects_explicit_request_content_type_test failed: "
+        <> error_reason,
+      )
+      // This should not be a flaky test: failing here means either the mock server
+      // is down or the request tuple is invalid.
+      False |> should.be_true()
+    }
+  }
+}
+
 /// Test: send() handles large responses correctly
 pub fn send_large_response_test() {
   // Arrange - ~1MB response
