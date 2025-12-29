@@ -37,3 +37,7 @@ node_modules/
 # Temporary POC files
 tmp/
 
+# dream_rangefinder outputs (only COMPATIBILITY.md should be checked in)
+modules/**/COMPATIBILITY_REPORT.md
+modules/**/CONSTRAINT_ANALYSIS.md
+

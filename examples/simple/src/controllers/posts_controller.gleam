@@ -43,7 +43,7 @@ pub fn show(
 
 fn make_request_and_respond(user_id: String, post_id: String) -> Response {
   let req =
-    client.new
+    client.new()
     |> client.method(http_lib.Get)
     |> client.scheme(http_lib.Https)
     |> client.host("jsonplaceholder.typicode.com")

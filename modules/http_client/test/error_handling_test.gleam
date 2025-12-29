@@ -16,7 +16,7 @@ import gleam/string
 import gleeunit/should
 
 fn mock_request(path: String) -> client.ClientRequest {
-  client.new
+  client.new()
   |> client.method(http.Get)
   |> client.scheme(http.Http)
   |> client.host("localhost")
@@ -104,7 +104,7 @@ pub fn send_400_status_test() {
 pub fn send_connection_failure_test() {
   // Arrange - Use a port that won't have a server listening
   let req =
-    client.new
+    client.new()
     |> client.method(http.Get)
     |> client.scheme(http.Http)
     |> client.host("localhost")
@@ -121,6 +121,36 @@ pub fn send_connection_failure_test() {
       string.length(error_msg) |> should.not_equal(0)
     }
     Ok(_) -> should.fail()
+  }
+}
+
+/// Test: requests with body do not hardcode Content-Type
+///
+/// Regression test for the Erlang httpc shim: it must respect the caller's
+/// `Content-Type` header when building the `{Url, Headers, ContentType, Body}`
+/// request tuple (and never force `application/json`).
+pub fn send_respects_explicit_request_content_type_test() {
+  let req =
+    client.new()
+    |> client.method(http.Post)
+    |> client.scheme(http.Http)
+    |> client.host("localhost")
+    |> client.port(dream_http_client_test.get_test_port())
+    |> client.path("/content-type")
+    |> client.add_header("Content-Type", "text/plain")
+    |> client.body("hello")
+
+  case client.send(req) {
+    Ok(body) -> body |> should.equal("text/plain")
+    Error(error_reason) -> {
+      io.println(
+        "send_respects_explicit_request_content_type_test failed: "
+        <> error_reason,
+      )
+      // This should not be a flaky test: failing here means either the mock server
+      // is down or the request tuple is invalid.
+      False |> should.be_true()
+    }
   }
 }
 
@@ -178,7 +208,7 @@ pub fn send_empty_response_test() {
 pub fn error_messages_are_informative_test() {
   // Arrange - Connect to non-existent server
   let req =
-    client.new
+    client.new()
     |> client.method(http.Get)
     |> client.scheme(http.Http)
     |> client.host("localhost")

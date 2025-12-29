@@ -5,6 +5,34 @@ All notable changes to `dream_http_client` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 4.0.0 - 2025-12-29
+
+### Breaking Changes
+
+- **Recorder API redesigned**: `recorder.start(mode, matching_config)` replaced by a builder API:
+  - `recorder.new() |> directory(dir) |> mode("record"|"playback"|"passthrough") |> start()` (import `dream_http_client/recorder.{directory, mode, start}`)
+- **Client request builder updated**:
+  - `client.new` is now `client.new()` (function) for consistency with other builders
+- **Matching API redesigned**:
+  - Removed `matching.MatchingConfig`, `matching.match_url_only()`, and signature/match helpers
+  - Added `matching.MatchKey` and `matching.request_key(method:, url:, headers:, body:)`
+- **Ambiguous playback now errors**: if multiple recordings share the same computed key, lookup returns an error (indicates the key/transformer is too coarse).
+- `recorder.find_recording(...)` now returns `Result(Option(Recording), String)` to surface ambiguity errors.
+
+### Added
+
+- **Custom match keys** via `recorder.key(...)` (any `RecordedRequest -> String`).
+- **Request transformer hook** via `recorder.request_transformer(...)` to normalize/scrub requests before keying and persistence.
+- **Response transformer hook** via `recorder.response_transformer(...)` to scrub recorded responses before they are written to disk (Record mode only).
+
+### Changed
+
+- Recording filenames now include both a **key hash** and a **content hash** to avoid overwriting when multiple recordings share a key:
+  - `{method}_{host}_{path}_{key_hash}_{content_hash}.json`
+- Recorded responses now persist more metadata for safer fixtures:
+  - **Blocking** recordings persist the response **status code** and **headers**
+  - **Streaming** recordings persist response **headers** captured from `stream_start` (and trailing headers when available)
+
 ## 3.0.1 - 2025-12-10
 
 ### Added
@@ -97,7 +125,7 @@ let assert Ok(req_id) = client.stream_messages(request)
 After (3.0):
 
 ```gleam
-let assert Ok(stream) = client.new
+let assert Ok(stream) = client.new()
   |> client.on_stream_chunk(fn(data) { process_chunk(data) })
   |> client.start_stream()
 
@@ -194,7 +222,7 @@ let headers: List(Header) = client.get_headers(req)
 
 - **Breaking (for direct constructor usage only)**: `ClientRequest` type is now opaque
   - The constructor can no longer be used directly for pattern matching
-  - Use builder pattern (`client.new` + setters) and getter functions instead
+- Use builder pattern (`client.new()` + setters) and getter functions instead
   - This change only affects code that was directly constructing or pattern matching `ClientRequest`
   - The builder pattern (documented public API) remains unchanged and non-breaking
 

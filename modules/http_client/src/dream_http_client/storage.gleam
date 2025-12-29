@@ -101,14 +101,17 @@ pub fn load_recordings(
 
 /// Save a single recording immediately to its own file
 ///
-/// Writes a single recording to an individual file based on the request signature.
-/// The filename is generated from the request method, host, path, and a hash for uniqueness.
+/// Writes a single recording to an individual file.
+///
+/// The filename includes human-readable parts (method/host/path) plus a short
+/// hash of the **match key** and a short hash of the **file content**. This
+/// avoids overwriting when multiple recordings share the same key.
 ///
 /// ## Parameters
 ///
 /// - `directory`: The directory where the recording file will be written
 /// - `rec`: The recording to save
-/// - `matching_config`: The matching configuration used to generate the filename signature
+/// - `key`: The match key string for this request (should match the recorder's key function)
 ///
 /// ## Returns
 ///
@@ -119,8 +122,12 @@ pub fn load_recordings(
 ///
 /// ```gleam
 /// let rec = recording.Recording(request: req, response: resp)
-/// let config = matching.match_url_only()
-/// case storage.save_recording_immediately("mocks/api", rec, config) {
+///
+/// // Compute a key string using the same key policy you use for playback:
+/// let key_fn = matching.request_key(method: True, url: True, headers: False, body: False)
+/// let key = key_fn(rec.request)
+///
+/// case storage.save_recording_immediately("mocks/api", rec, key) {
 ///   Ok(_) -> io.println("Saved recording")
 ///   Error(reason) -> io.println_error("Failed to save: " <> reason)
 /// }
@@ -134,11 +141,8 @@ pub fn load_recordings(
 pub fn save_recording_immediately(
   directory: String,
   rec: recording.Recording,
-  matching_config: matching.MatchingConfig,
+  key: String,
 ) -> Result(Nil, String) {
-  let filename = build_filename(rec.request, matching_config)
-  let file_path = directory <> "/" <> filename
-
   // Create directory if it doesn't exist
   case simplifile.create_directory_all(directory) {
     Ok(Nil) -> Ok(Nil)
@@ -162,6 +166,12 @@ pub fn save_recording_immediately(
     // Encode to JSON
     let json_value = recording.encode_recording_file(recording_file)
     let json_string = json.to_string(json_value)
+
+    // Build filename from the key + content to avoid overwriting when multiple
+    // recordings share the same key (which will later be treated as ambiguous
+    // during playback).
+    let filename = build_filename(rec.request, key, json_string)
+    let file_path = directory <> "/" <> filename
 
     // Write to file
     case simplifile.write(file_path, json_string) {
@@ -187,7 +197,7 @@ pub fn save_recording_immediately(
 ///
 /// - `directory`: The directory where recording files will be written
 /// - `recordings`: List of recordings to save
-/// - `matching_config`: The matching configuration used to generate filenames
+/// - `key_fn`: Match key function used to compute each recording's key string
 ///
 /// ## Returns
 ///
@@ -201,9 +211,9 @@ pub fn save_recording_immediately(
 ///   create_test_recording(),
 ///   create_another_recording(),
 /// ]
-/// let config = matching.match_url_only()
+/// let key_fn = matching.request_key(method: True, url: True, headers: False, body: False)
 ///
-/// case storage.save_recordings("mocks/api", recordings, config) {
+/// case storage.save_recordings("mocks/api", recordings, key_fn) {
 ///   Ok(_) -> io.println("Saved recordings successfully")
 ///   Error(reason) -> io.println_error("Failed to save: " <> reason)
 /// }
@@ -217,7 +227,7 @@ pub fn save_recording_immediately(
 pub fn save_recordings(
   directory: String,
   recordings: List(recording.Recording),
-  matching_config: matching.MatchingConfig,
+  key_fn: matching.MatchKey,
 ) -> Result(Nil, String) {
   // Create directory if it doesn't exist
   case simplifile.create_directory_all(directory) {
@@ -239,20 +249,26 @@ pub fn save_recordings(
     // Save each recording to its own file
     recordings
     |> list.try_each(fn(rec) {
-      save_recording_immediately(directory, rec, matching_config)
+      let key = key_fn(rec.request)
+      save_recording_immediately(directory, rec, key)
     })
   })
 }
 
 /// Build a unique filename for a recording based on the request
 ///
-/// Creates a filename with the format: `{method}_{host}_{path}_{hash}.json`
-/// The hash ensures uniqueness even for requests with different query params, headers, or body.
+/// Creates a filename with the format:
+///
+/// `{method}_{host}_{path}_{key_hash}_{content_hash}.json`
+///
+/// - `key_hash` groups recordings by match key
+/// - `content_hash` prevents overwrites when multiple recordings share the same key
 ///
 /// ## Parameters
 ///
 /// - `request`: The request to generate a filename for
-/// - `matching_config`: The matching configuration used to build the signature
+/// - `key`: The match key string used for grouping
+/// - `content`: The JSON file content (used for the content hash)
 ///
 /// ## Returns
 ///
@@ -265,7 +281,8 @@ pub fn save_recordings(
 /// - `GET_localhost_text_f1a2b3.json`
 fn build_filename(
   request: recording.RecordedRequest,
-  matching_config: matching.MatchingConfig,
+  key: String,
+  content: String,
 ) -> String {
   // Build human-readable part from method + host + path
   let method_part = sanitize_for_filename(method_to_string(request.method))
@@ -276,10 +293,11 @@ fn build_filename(
     |> sanitize_for_filename()
     |> truncate_string(50)
 
-  // Generate hash from full signature for uniqueness
-  let signature = matching.build_signature(request, matching_config)
-  let hash = generate_hash(signature)
-  let hash_short = string.slice(hash, 0, 6)
+  // Generate hashes for uniqueness.
+  // - key hash groups requests by matching key
+  // - content hash differentiates multiple recordings with the same key
+  let key_hash_short = string.slice(generate_hash(key), 0, 6)
+  let content_hash_short = string.slice(generate_hash(content), 0, 6)
 
   // Combine parts
   method_part
@@ -288,7 +306,9 @@ fn build_filename(
   <> "_"
   <> path_part
   <> "_"
-  <> hash_short
+  <> key_hash_short
+  <> "_"
+  <> content_hash_short
   <> ".json"
 }
 

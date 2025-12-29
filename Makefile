@@ -1,7 +1,7 @@
 # Dream Library Development Makefile
 # For example-specific commands, see individual example directories
 
-.PHONY: test test-dream test-unit test-integration clean build format docs check
+.PHONY: test test-dream test-unit test-integration clean build format docs check install-hooks
 
 # Run all tests (unit + integration)
 test:
@@ -50,6 +50,14 @@ check:
 	@gleam format --check
 	@gleam build
 	@gleam test
+
+# Install repo-managed git hooks into .git/hooks/
+# (Git does not version-control .git/hooks, so this must be run per-clone.)
+install-hooks:
+	@mkdir -p .git/hooks
+	@chmod +x .githooks/* 2>/dev/null || true
+	@cp -f .githooks/* .git/hooks/
+	@echo "✅ Installed git hooks into .git/hooks/"
 
 # Run all integration tests (modules + examples, requires PostgreSQL on port 5435)
 test-integration:

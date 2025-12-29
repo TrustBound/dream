@@ -1,0 +1,109 @@
+#!/bin/bash
+# Pre-commit hook to verify code formatting and build all components
+#
+# NOTE:
+# - Gleam warnings can come from transitive dependencies as well as our own code.
+# - We cannot fix warnings in third-party packages, so this hook only fails if
+#   any warning points at a file outside `*/build/packages/*`.
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo "🔍 Running pre-commit checks..."
+echo ""
+
+# Step 1: Check code formatting
+echo "📝 Checking code formatting..."
+if ! gleam format --check; then
+  echo ""
+  echo -e "${RED}❌ Code is not formatted. Run 'gleam format' to fix.${NC}"
+  exit 1
+fi
+echo -e "${GREEN}✅ All files are properly formatted${NC}"
+echo ""
+
+# Function to build a component and check for warnings
+build_component() {
+  local name=$1
+  local dir=$2
+
+  echo "🔨 Building $name..."
+
+  # Change to directory if specified
+  if [ -n "$dir" ]; then
+    cd "$dir"
+  fi
+
+  # Capture build output
+  if ! build_output=$(gleam build 2>&1); then
+    echo -e "${RED}❌ Build failed for $name${NC}"
+    echo "$build_output"
+    exit 1
+  fi
+
+  # Check for warnings in output.
+  if echo "$build_output" | grep -i "warning" > /dev/null; then
+    warning_paths=$(echo "$build_output" | grep -Eo "/[^[:space:]]+\\.gleam:[0-9]+:[0-9]+" || true)
+
+    has_non_dependency_warning=0
+    for path in $warning_paths; do
+      case "$path" in
+        */build/packages/*) ;;
+        *) has_non_dependency_warning=1 ;;
+      esac
+    done
+
+    if [ "$has_non_dependency_warning" -eq 1 ]; then
+      echo -e "${YELLOW}⚠️  Warnings detected in $name:${NC}"
+      echo "$build_output" | grep -i "warning"
+      echo -e "${RED}❌ Build failed: warnings must be fixed before committing${NC}"
+      exit 1
+    else
+      echo -e "${YELLOW}⚠️  Warnings detected in $name (dependency warnings ignored):${NC}"
+      echo "$build_output" | grep -i "warning"
+    fi
+  fi
+
+  echo -e "${GREEN}✅ $name built successfully (no warnings)${NC}"
+
+  # Return to root directory
+  if [ -n "$dir" ]; then
+    cd - > /dev/null
+  fi
+}
+
+# Step 2: Build Dream core
+echo "🎯 Building Dream core..."
+build_component "Dream core" ""
+echo ""
+
+# Step 3: Build all modules
+echo "📦 Building modules..."
+for module_dir in modules/*/; do
+  module_name=$(basename "$module_dir")
+  if [ -f "$module_dir/Makefile" ] || [ -f "$module_dir/gleam.toml" ]; then
+    build_component "module: $module_name" "$module_dir"
+  fi
+done
+echo ""
+
+# Step 4: Build all examples
+echo "📚 Building examples..."
+for example_dir in examples/*/; do
+  example_name=$(basename "$example_dir")
+  # Skip examples without gleam.toml (like the README directory)
+  if [ -f "$example_dir/gleam.toml" ]; then
+    build_component "example: $example_name" "$example_dir"
+  fi
+done
+echo ""
+
+echo -e "${GREEN}🎉 All pre-commit checks passed!${NC}"
+echo ""
+exit 0
+

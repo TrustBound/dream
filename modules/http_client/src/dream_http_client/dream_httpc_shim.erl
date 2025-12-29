@@ -1,16 +1,17 @@
 -module(dream_httpc_shim).
 
--export([request_stream/6, fetch_next/2, request_stream_messages/6, cancel_stream/1,
-         cancel_stream_by_string/1, receive_stream_message/1, decode_stream_message_for_selector/1,
-         normalize_headers/1, request_sync/5, ets_table_exists/1, ets_new/2, ets_insert/6,
-         ets_lookup/2, ets_delete/2, ensure_ref_mapping_table/0]).
+-export([request_stream/6, fetch_next/2, fetch_start_headers/2, request_stream_messages/6,
+         cancel_stream/1, cancel_stream_by_string/1, receive_stream_message/1,
+         decode_stream_message_for_selector/1, normalize_headers/1, request_sync/5,
+         ets_table_exists/1, ets_new/2, ets_insert/7, ets_lookup/2, ets_delete/2,
+         ensure_ref_mapping_table/0]).
 
 %% @doc Start a streaming HTTP request with pull-based chunk retrieval
 %%
 %% Initiates a streaming HTTP request using Erlang's `httpc` library in continuous
 %% streaming mode. Creates an owner process that manages the stream and services
-%% `fetch_next/2` requests. This function returns immediately; chunks are retrieved
-%% by calling `fetch_next/2` with the returned owner PID.
+%% `fetch_next` requests. This function returns immediately; chunks are retrieved
+%% by calling `fetch_next` with the returned owner PID.
 %%
 %% ## Parameters
 %%
@@ -24,7 +25,7 @@
 %% ## Returns
 %%
 %% `{ok, OwnerPid}` where `OwnerPid` is the process handling the stream. Use this
-%% PID with `fetch_next/2` to retrieve chunks.
+%% PID with `fetch_next` to retrieve chunks.
 %%
 %% ## Examples
 %%
@@ -35,9 +36,9 @@
 %%
 %% ## Notes
 %%
-%% - Returns immediately; HTTP errors are detected asynchronously via `fetch_next/2`
+%% - Returns immediately; HTTP errors are detected asynchronously via `fetch_next`
 %% - The owner process will exit if the HTTP request fails to start
-%% - `fetch_next/2` will detect the dead process and return an error
+%% - `fetch_next` will detect the dead process and return an error
 %% - Ensures `ssl` and `inets` applications are started before making requests
 %% - Configures httpc with streaming-optimized settings (no pipelining, high session cap)
 request_stream(Method, Url, Headers, Body, _Receiver, TimeoutMs) ->
@@ -60,7 +61,7 @@ request_stream(Method, Url, Headers, Body, _Receiver, TimeoutMs) ->
 %%
 %% ## Parameters
 %%
-%% - `OwnerPid`: The owner process PID returned from `request_stream/6`
+%% - `OwnerPid`: The owner process PID returned from `request_stream`
 %% - `TimeoutMs`: Timeout in milliseconds (0 for non-blocking, -1 for infinite wait)
 %%
 %% ## Returns
@@ -108,13 +109,33 @@ fetch_next(OwnerPid, TimeoutMs) ->
         {error, timeout}
     end.
 
+%% @doc Fetch the response headers from stream_start
+%%
+%% Returns the normalized headers received in the initial `stream_start` message.
+%% This is used by the recorder to persist response headers for streaming recordings.
+%%
+%% Note: httpc's streamed response status code is not included in stream_start.
+fetch_start_headers(OwnerPid, TimeoutMs) ->
+    MonitorRef = erlang:monitor(process, OwnerPid),
+    OwnerPid ! {fetch_start_headers, self()},
+    receive
+        {stream_start_headers, Headers} ->
+            erlang:demonitor(MonitorRef, [flush]),
+            {ok, Headers};
+        {'DOWN', MonitorRef, process, OwnerPid, Reason} ->
+            {error, format_exit_reason(Reason)}
+    after TimeoutMs ->
+        erlang:demonitor(MonitorRef, [flush]),
+        {error, timeout}
+    end.
+
 %% Stream owner process: starts httpc in continuous mode and services fetch_next requests
 stream_owner_loop(Method, Req, _Url, TimeoutMs) ->
     HttpOpts = [{timeout, TimeoutMs}, {connect_timeout, 15000}, {autoredirect, true}],
     Opts = [{stream, self}, {sync, false}],
     case httpc:request(Method, Req, HttpOpts, Opts) of
         {ok, RequestId} ->
-            stream_owner_wait(RequestId, []);
+            stream_owner_wait(RequestId, [], undefined, []);
         Error ->
             %% HTTP request failed to start - exit with error
             %% fetch_next will detect the dead process and return an error
@@ -124,48 +145,71 @@ stream_owner_loop(Method, Req, _Url, TimeoutMs) ->
 %% Wait for either a fetch_next request or internal http messages (buffered)
 %% State:
 %%   Buffer - queued {chunk, Bin}/{finished, Headers}/{error, Reason}
-stream_owner_wait(RequestId, Buffer) ->
+%%   StartHeaders - normalized headers from stream_start (or undefined)
+%%   StartWaiters - callers waiting for stream_start headers
+stream_owner_wait(RequestId, Buffer, StartHeaders, StartWaiters) ->
     receive
         {fetch_next, From} ->
-            handle_fetch_next(From, RequestId, Buffer);
-        {http, {RequestId, stream_start, _Headers}} ->
-            %% Headers received
-            stream_owner_wait(RequestId, Buffer);
-        {http, {RequestId, stream_start, _Headers, _NewPid}} ->
-            %% Some httpc versions send stream_start with an extra pid argument
-            stream_owner_wait(RequestId, Buffer);
+            handle_fetch_next(From, RequestId, Buffer, StartHeaders, StartWaiters);
+        {fetch_start_headers, From} ->
+            case StartHeaders of
+                undefined ->
+                    %% Don't respond until we actually have stream_start headers.
+                    %% This makes fetch_start_headers a reliable way to capture
+                    %% response headers for recording.
+                    stream_owner_wait(RequestId, Buffer, StartHeaders, [From | StartWaiters]);
+                _ ->
+                    From ! {stream_start_headers, normalize_headers_default(StartHeaders)},
+                    stream_owner_wait(RequestId, Buffer, StartHeaders, StartWaiters)
+            end;
         {http, {RequestId, stream, Bin}} ->
             %% Buffer the chunk; we only emit on fetch_next to maintain pull model
-            stream_owner_wait(RequestId, Buffer ++ [{chunk, Bin}]);
+            stream_owner_wait(RequestId, Buffer ++ [{chunk, Bin}], StartHeaders, StartWaiters);
+        {http, {RequestId, stream_start, Headers}} ->
+            %% Record initial headers (normalized) for recorder usage
+            Norm = normalize_headers(Headers),
+            lists:foreach(fun(W) -> W ! {stream_start_headers, Norm} end, StartWaiters),
+            stream_owner_wait(RequestId, Buffer, Norm, []);
+        {http, {RequestId, stream_start, Headers, _Pid}} ->
+            %% Some httpc versions include pid
+            Norm = normalize_headers(Headers),
+            lists:foreach(fun(W) -> W ! {stream_start_headers, Norm} end, StartWaiters),
+            stream_owner_wait(RequestId, Buffer, Norm, []);
         {http, {RequestId, stream_end, Headers}} ->
-            stream_owner_wait(RequestId, Buffer ++ [{finished, Headers}]);
+            stream_owner_wait(RequestId,
+                              Buffer ++ [{finished, normalize_headers(Headers)}],
+                              StartHeaders,
+                              StartWaiters);
         {http, {RequestId, {error, Reason}}} ->
-            stream_owner_wait(RequestId, Buffer ++ [{error, Reason}]);
+            stream_owner_wait(RequestId, Buffer ++ [{error, Reason}], StartHeaders, StartWaiters);
         _Other ->
-            stream_owner_wait(RequestId, Buffer)
+            stream_owner_wait(RequestId, Buffer, StartHeaders, StartWaiters)
     end.
 
 %% Handle a fetch_next request from the client
-handle_fetch_next(From, RequestId, []) ->
+handle_fetch_next(From, RequestId, [], StartHeaders, StartWaiters) ->
     %% Buffer empty - fetch next message from stream
     case stream_owner_next_message(RequestId) of
         {start, _Hs} ->
             %% Got headers, skip and fetch actual data
-            handle_fetch_next_after_start(From, RequestId);
+            %% Ensure StartHeaders is set even when stream_start is consumed here.
+            Norm = normalize_headers(_Hs),
+            lists:foreach(fun(W) -> W ! {stream_start_headers, Norm} end, StartWaiters),
+            handle_fetch_next_after_start(From, RequestId, Norm, []);
         Msg ->
             %% Got chunk/finished/error - deliver it
-            deliver_message(From, Msg, RequestId)
+            deliver_message(From, Msg, RequestId, StartHeaders, StartWaiters)
     end;
-handle_fetch_next(From, RequestId, [Item | Rest]) ->
+handle_fetch_next(From, RequestId, [Item | Rest], StartHeaders, StartWaiters) ->
     %% Buffer has items - deliver first one
-    deliver_message(From, Item, RequestId, Rest).
+    deliver_message(From, Item, RequestId, Rest, StartHeaders, StartWaiters).
 
 %% Handle fetch_next after receiving stream_start (headers)
-handle_fetch_next_after_start(From, RequestId) ->
+handle_fetch_next_after_start(From, RequestId, StartHeaders, StartWaiters) ->
     case stream_owner_next_message(RequestId) of
         {chunk, Bin} ->
             From ! {stream_chunk, Bin},
-            stream_owner_wait(RequestId, []);
+            stream_owner_wait(RequestId, [], StartHeaders, StartWaiters);
         {finished, Headers} ->
             From ! {stream_end, Headers},
             ok;
@@ -175,31 +219,44 @@ handle_fetch_next_after_start(From, RequestId) ->
     end.
 
 %% Deliver a message to the client (from live stream)
-deliver_message(From, {chunk, Bin}, RequestId) ->
+deliver_message(From, {chunk, Bin}, RequestId, StartHeaders, StartWaiters) ->
     From ! {stream_chunk, Bin},
-    stream_owner_wait(RequestId, []);
-deliver_message(From, {finished, Headers}, _RequestId) ->
+    stream_owner_wait(RequestId, [], StartHeaders, StartWaiters);
+deliver_message(From, {finished, Headers}, _RequestId, _StartHeaders, _StartWaiters) ->
     From ! {stream_end, Headers},
     ok;
-deliver_message(From, {error, Reason}, _RequestId) ->
+deliver_message(From, {error, Reason}, _RequestId, _StartHeaders, _StartWaiters) ->
     From ! {stream_error, Reason},
     ok.
 
 %% Deliver a message to the client (from buffer)
-deliver_message(From, {chunk, Bin}, RequestId, Rest) ->
+deliver_message(From, {chunk, Bin}, RequestId, Rest, StartHeaders, StartWaiters) ->
     From ! {stream_chunk, Bin},
-    stream_owner_wait(RequestId, Rest);
-deliver_message(From, {finished, Headers}, _RequestId, _Rest) ->
+    stream_owner_wait(RequestId, Rest, StartHeaders, StartWaiters);
+deliver_message(From,
+                {finished, Headers},
+                _RequestId,
+                _Rest,
+                _StartHeaders,
+                _StartWaiters) ->
     From ! {stream_end, Headers},
     ok;
-deliver_message(From, {error, Reason}, _RequestId, _Rest) ->
+deliver_message(From, {error, Reason}, _RequestId, _Rest, _StartHeaders, _StartWaiters) ->
     From ! {stream_error, Reason},
     ok.
+
+normalize_headers_default(undefined) ->
+    [];
+normalize_headers_default(Headers) ->
+    Headers.
 
 %% Wait for the next HTTP message from httpc
 stream_owner_next_message(RequestId) ->
     receive
         {http, {RequestId, stream_start, Headers}} ->
+            {start, Headers};
+        {http, {RequestId, stream_start, Headers, _Pid}} ->
+            %% Some httpc versions include pid
             {start, Headers};
         {http, {RequestId, stream, Bin}} ->
             {chunk, Bin};
@@ -250,13 +307,43 @@ to_headers(Hs) when is_list(Hs) ->
 to_headers(Other) ->
     Other.
 
+%% Extract Content-Type header value (case-insensitive) and strip it from headers.
+%%
+%% httpc's request tuple for entity-body requests is `{Url, Headers, ContentType, Body}`.
+%% If we leave a `content-type` header in `Headers` while also providing `ContentType`,
+%% we can end up sending duplicate/conflicting headers. We therefore:
+%% - Prefer an explicitly provided Content-Type header value (last one wins)
+%% - Remove all Content-Type headers from the outgoing Headers list
+extract_content_type_and_strip_headers(Headers) when is_list(Headers) ->
+    {ContentType, RevHeaders} =
+        lists:foldl(fun({K, V}, {Ct0, Acc}) ->
+                       KeyLower = string:lowercase(to_list(K)),
+                       case KeyLower of
+                           "content-type" -> {to_list(V), Acc};
+                           _ -> {Ct0, [{to_list(K), to_list(V)} | Acc]}
+                       end
+                    end,
+                    {undefined, []},
+                    Headers),
+    {ContentType, lists:reverse(RevHeaders)};
+extract_content_type_and_strip_headers(Other) ->
+    {undefined, Other}.
+
 %% Build the request tuple for httpc
 build_req(Url, Headers, Body) when is_binary(Body), byte_size(Body) =:= 0 ->
     {Url, Headers};
 build_req(Url, Headers, Body) when Body =:= undefined; Body =:= <<>> ->
     {Url, Headers};
 build_req(Url, Headers, Body) ->
-    {Url, Headers, to_list("application/json"), Body}.
+    {HeaderContentType, StrippedHeaders} = extract_content_type_and_strip_headers(Headers),
+    ContentType =
+        case HeaderContentType of
+            undefined ->
+                to_list("application/octet-stream");
+            _ ->
+                HeaderContentType
+        end,
+    {Url, StrippedHeaders, ContentType, Body}.
 
 %% ============================================================================
 %% Message-Based Streaming (Thin Wrapper)
@@ -266,7 +353,7 @@ build_req(Url, Headers, Body) ->
 %%
 %% Initiates a streaming HTTP request where messages are sent directly to the caller's
 %% process mailbox. This is used for OTP actor integration where messages arrive
-%% asynchronously without needing to call `fetch_next/2`. The request ID is returned
+%% asynchronously without needing to call `fetch_next`. The request ID is returned
 %% as a string for type-safe handling in Gleam.
 %%
 %% ## Parameters
@@ -281,7 +368,7 @@ build_req(Url, Headers, Body) ->
 %% ## Returns
 %%
 %% - `{ok, StringId}`: Stream started successfully, `StringId` is a string representation
-%%   of the httpc request ID (use with `cancel_stream_by_string/1`)
+%%   of the httpc request ID (use with `cancel_stream_by_string`)
 %% - `{error, Reason}`: Failed to start stream (connection error, invalid URL, etc.)
 %%
 %% ## Examples
@@ -294,7 +381,7 @@ build_req(Url, Headers, Body) ->
 %% ## Notes
 %%
 %% - Messages arrive as `{http, {HttpcRef, Tag, Data}}` tuples in the process mailbox
-%% - Use `decode_stream_message_for_selector/1` for OTP selector integration
+%% - Use `decode_stream_message_for_selector` for OTP selector integration
 %% - Stores bidirectional mapping: `StringId <-> HttpcRef` for cancellation
 %% - String ID is derived from httpc ref's string representation (guaranteed unique)
 %% - Ensures `ssl` and `inets` applications are started before making requests
@@ -327,7 +414,7 @@ request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
 %%
 %% Cancels an active streaming HTTP request using the httpc request reference directly.
 %% This is a legacy function that takes the raw httpc ref. For new code, use
-%% `cancel_stream_by_string/1` which works with the type-safe string IDs.
+%% `cancel_stream_by_string` which works with the type-safe string IDs.
 %%
 %% ## Parameters
 %%
@@ -340,7 +427,7 @@ request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
 %% ## Notes
 %%
 %% - This function is kept for backward compatibility
-%% - Prefer `cancel_stream_by_string/1` for type-safe cancellation
+%% - Prefer `cancel_stream_by_string` for type-safe cancellation
 %% - After cancellation, no more messages will be sent to the receiver process
 %% - Safe to call multiple times on the same request ID
 cancel_stream(RequestId) ->
@@ -350,12 +437,12 @@ cancel_stream(RequestId) ->
 %% @doc Cancel a streaming request by string ID
 %%
 %% Cancels an active streaming HTTP request using the string ID returned from
-%% `request_stream_messages/6`. Looks up the corresponding httpc reference from
+%% `request_stream_messages`. Looks up the corresponding httpc reference from
 %% the internal mapping table and cancels the request.
 %%
 %% ## Parameters
 %%
-%% - `StringId`: The string request ID returned from `request_stream_messages/6`
+%% - `StringId`: The string request ID returned from `request_stream_messages`
 %%
 %% ## Returns
 %%
@@ -423,7 +510,7 @@ cancel_stream_by_string(StringId) ->
 %%
 %% - Blocks until a message arrives or timeout expires
 %% - Headers are normalized to binary tuples for consistent Gleam decoding
-%% - RequestId is the httpc reference (use `decode_stream_message_for_selector/1` for string IDs)
+%% - RequestId is the httpc reference (use `decode_stream_message_for_selector` for string IDs)
 %% - Handles both `{http, {Ref, stream_start, Headers}}` and `{http, {Ref, stream_start, Headers, Pid}}` formats
 %% - Error reasons are formatted as binaries for Gleam compatibility
 receive_stream_message(TimeoutMs) ->
@@ -587,14 +674,17 @@ to_binary(Other) ->
 %%
 %% ## Returns
 %%
-%% - `{ok, Body}`: Successfully received complete response body as a binary
-%% - `{error, Reason}`: Error occurred (connection failure, timeout, HTTP error, etc.)
+%% - `{ok, {StatusCode, ResponseHeaders, Body}}`:
+%%     - `StatusCode` is an integer HTTP status code (e.g. 200, 404)
+%%     - `ResponseHeaders` is a list of `{Name, Value}` tuples as binaries
+%%     - `Body` is the complete response body as a binary
+%% - `{error, Reason}`: Error occurred (connection failure, timeout, etc.)
 %%   where `Reason` is a binary error message
 %%
 %% ## Examples
 %%
 %% ```erlang
-%% {ok, ResponseBody} = request_sync(get, "https://api.example.com/users", [], <<>>, 30000),
+%% {ok, {Status, Headers, Body}} = request_sync(get, "https://api.example.com/users", [], <<>>, 30000),
 %% ```
 %%
 %% ## Notes
@@ -619,8 +709,8 @@ request_sync(Method, Url, Headers, Body, TimeoutMs) ->
     Opts = [{sync, true}, {body_format, binary}],
 
     case httpc:request(Method, Req, HttpOpts, Opts) of
-        {ok, {{_Version, _StatusCode, _ReasonPhrase}, _Headers, ResponseBody}} ->
-            {ok, ResponseBody};
+        {ok, {{_Version, StatusCode, _ReasonPhrase}, ResponseHeaders, ResponseBody}} ->
+            {ok, {StatusCode, normalize_headers(ResponseHeaders), ResponseBody}};
         {error, Reason} ->
             {error, format_error(Reason)}
     end.
@@ -662,7 +752,7 @@ format_exit_reason(Reason) ->
 %%
 %% ## Notes
 %%
-%% - Converts binary name to atom using `binary_to_atom/2`
+%% - Converts binary name to atom using `binary_to_atom`
 %% - Returns `false` if conversion fails or table doesn't exist
 %% - Used internally for idempotent table creation
 ets_table_exists(Name) ->
@@ -701,7 +791,7 @@ ets_table_exists(Name) ->
 %%
 %% ## Notes
 %%
-%% - Converts binary name to atom using `binary_to_atom/2`
+%% - Converts binary name to atom using `binary_to_atom`
 %% - Options should include `named_table` if you want to reference by name later
 %% - Used internally for creating recorder and ref mapping tables
 ets_new(Name, Options) ->
@@ -733,9 +823,9 @@ ets_new(Name, Options) ->
 %% - Overwrites existing entry if key already exists
 %% - Used internally by message-based streaming recorder
 %% - Chunks are stored in reverse order (prepended) and reversed when stream completes
-ets_insert(TableName, Key, Recorder, RecordedRequest, Chunks, LastChunkTime) ->
+ets_insert(TableName, Key, Recorder, RecordedRequest, Headers, Chunks, LastChunkTime) ->
     TableAtom = binary_to_atom(TableName, utf8),
-    Value = {Recorder, RecordedRequest, Chunks, LastChunkTime},
+    Value = {Recorder, RecordedRequest, Headers, Chunks, LastChunkTime},
     ets:insert(TableAtom, {Key, Value}),
     nil.
 
@@ -774,12 +864,13 @@ ets_lookup(TableName, Key) ->
     try
         TableAtom = binary_to_atom(TableName, utf8),
         case ets:lookup(TableAtom, Key) of
-            [{Key, {Recorder, RecordedRequest, Chunks, LastChunkTime}}] ->
+            [{Key, {Recorder, RecordedRequest, Headers, Chunks, LastChunkTime}}] ->
                 %% Return as Gleam MessageStreamRecorderState constructor
                 State =
                     {message_stream_recorder_state,
                      Recorder,
                      RecordedRequest,
+                     Headers,
                      Chunks,
                      LastChunkTime},
                 {some, State};

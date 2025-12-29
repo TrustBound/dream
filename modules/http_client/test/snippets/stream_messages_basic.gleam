@@ -3,7 +3,10 @@
 //// Example showing how to handle HTTP streaming with the callback-based API.
 //// This demonstrates processing chunks as they arrive in a dedicated process.
 
-import dream_http_client/client
+import dream_http_client/client.{
+  await_stream, host, on_stream_chunk, on_stream_end, on_stream_error,
+  on_stream_start, path, port, scheme, start_stream,
+}
 import gleam/bit_array
 import gleam/http
 import gleam/io
@@ -11,29 +14,29 @@ import gleam/io
 pub fn stream_and_print() -> Result(Nil, String) {
   // Start the stream with callbacks
   let stream_result =
-    client.new
-    |> client.scheme(http.Http)
-    |> client.host("localhost")
-    |> client.port(9876)
-    |> client.path("/stream/fast")
-    |> client.on_stream_start(fn(_headers) { io.println("Stream started") })
-    |> client.on_stream_chunk(fn(data) {
+    client.new()
+    |> scheme(http.Http)
+    |> host("localhost")
+    |> port(9876)
+    |> path("/stream/fast")
+    |> on_stream_start(fn(_headers) { io.println("Stream started") })
+    |> on_stream_chunk(fn(data) {
       case bit_array.to_string(data) {
         Ok(text) -> io.print(text)
         Error(_) -> io.print("<binary>")
       }
     })
-    |> client.on_stream_end(fn(_headers) { io.println("\nStream completed") })
-    |> client.on_stream_error(fn(reason) {
+    |> on_stream_end(fn(_headers) { io.println("\nStream completed") })
+    |> on_stream_error(fn(reason) {
       io.println_error("Stream error: " <> reason)
     })
-    |> client.start_stream()
+    |> start_stream()
 
   case stream_result {
     Error(reason) -> Error(reason)
     Ok(stream_handle) -> {
       // Wait for stream to complete
-      client.await_stream(stream_handle)
+      await_stream(stream_handle)
       Ok(Nil)
     }
   }
