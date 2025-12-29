@@ -8,6 +8,20 @@ import gleam/string
 import gleeunit/should
 import simplifile
 
+@external(erlang, "erlang", "timestamp")
+fn get_timestamp() -> #(Int, Int, Int)
+
+fn temp_directory(label: String) -> String {
+  "/tmp/dream_http_client_storage_"
+  <> label
+  <> "_"
+  <> string.inspect(get_timestamp())
+}
+
+fn default_key() -> matching.MatchKey {
+  matching.request_key(method: True, url: True, headers: False, body: False)
+}
+
 fn create_test_recording() -> recording.Recording {
   let request =
     recording.RecordedRequest(
@@ -48,7 +62,7 @@ fn create_second_test_recording() -> recording.Recording {
 
 pub fn load_recordings_with_nonexistent_directory_returns_empty_list_test() {
   // Arrange
-  let directory = "test/fixtures/recordings/nonexistent_directory"
+  let directory = temp_directory("nonexistent")
 
   // Act
   let assert Ok(recordings) = storage.load_recordings(directory)
@@ -59,13 +73,13 @@ pub fn load_recordings_with_nonexistent_directory_returns_empty_list_test() {
 
 pub fn save_recordings_creates_file_and_load_recordings_loads_it_test() {
   // Arrange
-  let directory = "test/fixtures/recordings/save_test"
+  let directory = temp_directory("save_test")
   let test_recording = create_test_recording()
-  let matching_config = matching.match_url_only()
+  let key_fn = default_key()
 
   // Act - Save
   let assert Ok(_) =
-    storage.save_recordings(directory, [test_recording], matching_config)
+    storage.save_recordings(directory, [test_recording], key_fn)
 
   // Act - Load
   let assert Ok(loaded) = storage.load_recordings(directory)
@@ -80,18 +94,14 @@ pub fn save_recordings_creates_file_and_load_recordings_loads_it_test() {
 
 pub fn save_recordings_with_multiple_recordings_saves_all_test() {
   // Arrange
-  let directory = "test/fixtures/recordings/multi_test"
+  let directory = temp_directory("multi_test")
   let recording1 = create_test_recording()
   let recording2 = create_second_test_recording()
-  let matching_config = matching.match_url_only()
+  let key_fn = default_key()
 
   // Act
   let assert Ok(_) =
-    storage.save_recordings(
-      directory,
-      [recording1, recording2],
-      matching_config,
-    )
+    storage.save_recordings(directory, [recording1, recording2], key_fn)
 
   // Assert
   let assert Ok(loaded) = storage.load_recordings(directory)
@@ -100,18 +110,21 @@ pub fn save_recordings_with_multiple_recordings_saves_all_test() {
 
 pub fn save_recording_immediately_appends_to_existing_test() {
   // Arrange
-  let directory = "test/fixtures/recordings/immediate_test"
+  let directory = temp_directory("immediate_test")
   let recording1 = create_test_recording()
   let recording2 = create_second_test_recording()
-  let matching_config = matching.match_url_only()
+  let key_fn = default_key()
 
   // Save first recording
-  let assert Ok(_) =
-    storage.save_recordings(directory, [recording1], matching_config)
+  let assert Ok(_) = storage.save_recordings(directory, [recording1], key_fn)
 
   // Act - Save second recording immediately
   let result =
-    storage.save_recording_immediately(directory, recording2, matching_config)
+    storage.save_recording_immediately(
+      directory,
+      recording2,
+      key_fn(recording2.request),
+    )
 
   // Assert
   result |> should.be_ok()
@@ -122,8 +135,8 @@ pub fn save_recording_immediately_appends_to_existing_test() {
 
 pub fn different_query_params_create_different_files_test() {
   // Arrange
-  let directory = "test/fixtures/recordings/query_test"
-  let matching_config = matching.match_url_only()
+  let directory = temp_directory("query_test")
+  let key_fn = default_key()
 
   let request1 =
     recording.RecordedRequest(
@@ -157,11 +170,7 @@ pub fn different_query_params_create_different_files_test() {
 
   // Act - Save both recordings
   let assert Ok(_) =
-    storage.save_recordings(
-      directory,
-      [recording1, recording2],
-      matching_config,
-    )
+    storage.save_recordings(directory, [recording1, recording2], key_fn)
 
   // Assert - Should have 2 different files
   let assert Ok(files) = simplifile.read_directory(directory)
@@ -176,8 +185,8 @@ pub fn different_query_params_create_different_files_test() {
 
 pub fn same_request_overwrites_same_file_test() {
   // Arrange
-  let directory = "test/fixtures/recordings/overwrite_test"
-  let matching_config = matching.match_url_only()
+  let directory = temp_directory("overwrite_test")
+  let key_fn = default_key()
 
   let request =
     recording.RecordedRequest(
@@ -201,29 +210,25 @@ pub fn same_request_overwrites_same_file_test() {
 
   // Act - Save same request twice
   let assert Ok(_) =
-    storage.save_recording_immediately(directory, recording1, matching_config)
+    storage.save_recording_immediately(directory, recording1, key_fn(request))
   let assert Ok(_) =
-    storage.save_recording_immediately(directory, recording2, matching_config)
+    storage.save_recording_immediately(directory, recording2, key_fn(request))
 
-  // Assert - Should only have 1 file (overwritten)
+  // Assert - Should have 2 files (different content hash)
   let assert Ok(files) = simplifile.read_directory(directory)
   let json_files = list.filter(files, fn(f) { string.ends_with(f, ".json") })
 
-  list.length(json_files) |> should.equal(1)
+  list.length(json_files) |> should.equal(2)
 
-  // Content should be second recording
+  // Content should include both recordings
   let assert Ok(loaded) = storage.load_recordings(directory)
-  list.length(loaded) |> should.equal(1)
-
-  let assert Ok(rec) = list.first(loaded)
-  let assert recording.BlockingResponse(_, _, body) = rec.response
-  body |> should.equal("second")
+  list.length(loaded) |> should.equal(2)
 }
 
 pub fn special_characters_in_path_are_sanitized_test() {
   // Arrange
-  let directory = "test/fixtures/recordings/sanitize_test"
-  let matching_config = matching.match_url_only()
+  let directory = temp_directory("sanitize_test")
+  let key_fn = default_key()
 
   let request =
     recording.RecordedRequest(
@@ -244,7 +249,7 @@ pub fn special_characters_in_path_are_sanitized_test() {
 
   // Act
   let assert Ok(_) =
-    storage.save_recording_immediately(directory, rec, matching_config)
+    storage.save_recording_immediately(directory, rec, key_fn(request))
 
   // Assert - File should exist and be readable
   let assert Ok(files) = simplifile.read_directory(directory)
@@ -259,8 +264,8 @@ pub fn special_characters_in_path_are_sanitized_test() {
 
 pub fn each_recording_saved_as_separate_file_test() {
   // Arrange
-  let directory = "test/fixtures/recordings/separate_test"
-  let matching_config = matching.match_url_only()
+  let directory = temp_directory("separate_test")
+  let key_fn = default_key()
 
   let recordings = [
     create_test_recording(),
@@ -268,8 +273,7 @@ pub fn each_recording_saved_as_separate_file_test() {
   ]
 
   // Act
-  let assert Ok(_) =
-    storage.save_recordings(directory, recordings, matching_config)
+  let assert Ok(_) = storage.save_recordings(directory, recordings, key_fn)
 
   // Assert - Should have 2 files, not 1 combined file
   let assert Ok(files) = simplifile.read_directory(directory)
@@ -304,8 +308,8 @@ pub fn load_recordings_from_committed_fixtures_test() {
 
 pub fn filename_format_matches_expected_pattern_test() {
   // Arrange
-  let directory = "test/fixtures/recordings/filename_test"
-  let matching_config = matching.match_url_only()
+  let directory = temp_directory("filename_test")
+  let key_fn = default_key()
 
   let request =
     recording.RecordedRequest(
@@ -326,9 +330,10 @@ pub fn filename_format_matches_expected_pattern_test() {
 
   // Act
   let assert Ok(_) =
-    storage.save_recording_immediately(directory, rec, matching_config)
+    storage.save_recording_immediately(directory, rec, key_fn(request))
 
-  // Assert - Verify filename format: {method}_{host}_{path}_{hash}.json
+  // Assert - Verify filename format:
+  // {method}_{host}_{path}_{key_hash}_{content_hash}.json
   let assert Ok(files) = simplifile.read_directory(directory)
   let assert [filename] =
     list.filter(files, fn(f) { string.ends_with(f, ".json") })
@@ -341,15 +346,15 @@ pub fn filename_format_matches_expected_pattern_test() {
   string.ends_with(filename, ".json")
   |> should.be_true()
 
-  // Should contain hash (6 chars before .json)
+  // Should contain hashes
   let parts = string.split(filename, "_")
-  list.length(parts) |> should.not_equal(0)
+  { list.length(parts) >= 5 } |> should.be_true()
 }
 
 pub fn very_long_path_is_truncated_safely_test() {
   // Arrange
-  let directory = "test/fixtures/recordings/long_path_test"
-  let matching_config = matching.match_url_only()
+  let directory = temp_directory("long_path_test")
+  let key_fn = default_key()
 
   // Create a very long path (over 50 chars)
   let long_path =
@@ -374,7 +379,7 @@ pub fn very_long_path_is_truncated_safely_test() {
 
   // Act - Should not fail despite long path
   let result =
-    storage.save_recording_immediately(directory, rec, matching_config)
+    storage.save_recording_immediately(directory, rec, key_fn(request))
 
   // Assert - Save should succeed
   result |> should.be_ok()
@@ -390,8 +395,8 @@ pub fn very_long_path_is_truncated_safely_test() {
 
 pub fn different_matching_configs_create_different_filenames_test() {
   // Arrange
-  let directory1 = "test/fixtures/recordings/match_config1_test"
-  let directory2 = "test/fixtures/recordings/match_config2_test"
+  let directory1 = temp_directory("match_key1")
+  let directory2 = temp_directory("match_key2")
 
   // Same request, different matching configs
   let request =
@@ -411,23 +416,19 @@ pub fn different_matching_configs_create_different_filenames_test() {
 
   let rec = recording.Recording(request: request, response: response)
 
-  // Config 1: Match URL only
-  let config1 = matching.match_url_only()
+  // Key 1: method + url only
+  let key1 =
+    matching.request_key(method: True, url: True, headers: False, body: False)
 
-  // Config 2: Match URL + headers + body
-  let config2 =
-    matching.MatchingConfig(
-      match_method: True,
-      match_url: True,
-      match_headers: True,
-      match_body: True,
-    )
+  // Key 2: method + url + headers + body
+  let key2 =
+    matching.request_key(method: True, url: True, headers: True, body: True)
 
-  // Act - Save with both configs
+  // Act - Save with both keys
   let assert Ok(_) =
-    storage.save_recording_immediately(directory1, rec, config1)
+    storage.save_recording_immediately(directory1, rec, key1(request))
   let assert Ok(_) =
-    storage.save_recording_immediately(directory2, rec, config2)
+    storage.save_recording_immediately(directory2, rec, key2(request))
 
   // Assert - Should have different filenames due to different signatures
   let assert Ok(files1) = simplifile.read_directory(directory1)

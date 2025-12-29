@@ -17,7 +17,7 @@ import gleam/yielder
 import gleeunit/should
 
 fn mock_request(path: String) -> client.ClientRequest {
-  client.new
+  client.new()
   |> client.method(http.Get)
   |> client.scheme(http.Http)
   |> client.host("localhost")

@@ -2,7 +2,7 @@
 # You typically do not need to edit this file
 
 packages = [
-  { name = "dream", version = "2.3.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_time", "gleam_yielder", "marceau", "mist", "simplifile"], source = "local", path = "../.." },
+  { name = "dream", version = "2.3.1", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_time", "gleam_yielder", "marceau", "mist", "simplifile"], source = "local", path = "../.." },
   { name = "dream_mock_server", version = "1.0.0", build_tools = ["gleam"], requirements = ["dream", "gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_yielder"], source = "local", path = "../mock_server" },
   { name = "exception", version = "2.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "exception", source = "hex", outer_checksum = "329D269D5C2A314F7364BD2711372B6F2C58FA6F39981572E5CA68624D291F8C" },
   { name = "filepath", version = "1.1.2", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "filepath", source = "hex", outer_checksum = "B06A9AF0BF10E51401D64B98E4B627F1D2E48C154967DA7AF4D0914780A6D40A" },
@@ -23,20 +23,20 @@ packages = [
   { name = "meck", version = "1.0.0", build_tools = ["rebar3"], requirements = [], otp_app = "meck", source = "hex", outer_checksum = "680A9BCFE52764350BEB9FB0335FB75FEE8E7329821416CEE0A19FEC35433882" },
   { name = "mist", version = "5.0.3", build_tools = ["gleam"], requirements = ["exception", "gleam_erlang", "gleam_http", "gleam_otp", "gleam_stdlib", "gleam_yielder", "glisten", "gramps", "hpack_erl", "logging"], otp_app = "mist", source = "hex", outer_checksum = "7C4BE717A81305323C47C8A591E6B9BA4AC7F56354BF70B4D3DF08CC01192668" },
   { name = "mockth", version = "2.0.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_stdlib", "gleeunit", "meck"], source = "git", repo = "https://github.com/bondiano/mockth.git", commit = "bacecbc7cd7ffac806d84154b07360c627d235ec" },
-  { name = "simplifile", version = "2.3.1", build_tools = ["gleam"], requirements = ["filepath", "gleam_stdlib"], otp_app = "simplifile", source = "hex", outer_checksum = "957E0E5B75927659F1D2A1B7B75D7B9BA96FAA8D0C53EA71C4AD9CD0C6B848F6" },
+  { name = "simplifile", version = "2.3.2", build_tools = ["gleam"], requirements = ["filepath", "gleam_stdlib"], otp_app = "simplifile", source = "hex", outer_checksum = "E049B4DACD4D206D87843BCF4C775A50AE0F50A52031A2FFB40C9ED07D6EC70A" },
   { name = "telemetry", version = "1.3.0", build_tools = ["rebar3"], requirements = [], otp_app = "telemetry", source = "hex", outer_checksum = "7015FC8919DBE63764F4B4B87A95B7C0996BD539E0D499BE6EC9D7F3875B79E6" },
 ]
 
 [requirements]
 dream = { path = "../.." }
 dream_mock_server = { path = "../mock_server" }
-gleam_crypto = { version = ">= 1.5.1 and < 2.0.0" }
-gleam_erlang = { version = ">= 0.30.0 and < 2.0.0" }
+gleam_crypto = { version = ">= 1.3.0 and < 2.0.0" }
+gleam_erlang = { version = ">= 1.1.0 and < 2.0.0" }
 gleam_http = { version = ">= 4.3.0 and < 5.0.0" }
-gleam_json = { version = ">= 2.2.0 and < 4.0.0" }
+gleam_json = { version = ">= 3.0.1 and < 4.0.0" }
 gleam_otp = { version = ">= 1.2.0 and < 2.0.0" }
-gleam_stdlib = { version = ">= 0.44.0 and < 2.0.0" }
-gleam_yielder = { version = ">= 1.0.0 and < 2.0.0" }
+gleam_stdlib = { version = ">= 0.60.0 and < 1.0.0" }
+gleam_yielder = { version = ">= 1.1.0 and < 2.0.0" }
 gleeunit = { version = ">= 1.0.0 and < 2.0.0" }
 mockth = { git = "https://github.com/bondiano/mockth.git", ref = "master" }
-simplifile = { version = ">= 2.0.0 and < 3.0.0" }
+simplifile = { version = ">= 2.3.0 and < 3.0.0" }
