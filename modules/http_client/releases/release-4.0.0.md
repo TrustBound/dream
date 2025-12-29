@@ -1,6 +1,6 @@
 # dream_http_client 4.0.0 Release Notes
 
-**Release Date:** December 14, 2025
+**Release Date:** December 29, 2025
 
 dream_http_client 4.0.0 redesigns recording/playback matching to support custom match keys and request transformers (for scrubbing/normalization) while preserving fast lookup and per-file storage.
 
