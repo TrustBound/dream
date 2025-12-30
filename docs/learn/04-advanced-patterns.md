@@ -283,11 +283,11 @@ You now understand:
 - [Architecture](../reference/architecture.md) - How it all fits together
 
 **Examples:**
-- [CMS Example](../../examples/cms/) - Full application with operations
-- [Multi-Format Example](../../examples/multi_format/) - JSON, HTML, CSV responses
-- [All Examples](../../examples/) - Complete working applications
+- [CMS Example](https://github.com/TrustBound/dream/tree/main/examples/cms/) - Full application with operations
+- [Multi-Format Example](https://github.com/TrustBound/dream/tree/main/examples/multi_format/) - JSON, HTML, CSV responses
+- [All Examples](https://github.com/TrustBound/dream/tree/main/examples/) - Complete working applications
 
 ---
 
-**Working example:** See [examples/cms/](../../examples/cms/) for the complete runnable code with operations.
+**Working example:** See [examples/cms/](https://github.com/TrustBound/dream/tree/main/examples/cms/) for the complete runnable code with operations.
 

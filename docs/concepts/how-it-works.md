@@ -95,7 +95,7 @@ The response flows back through middleware (which can modify it), then back to t
 
 ## Next Steps
 
-- [Components](components.md) - Detailed explanation of routers, controllers, middleware
-- [Request Flow Example](../examples/simple/) - See it in action
+- Components - Detailed explanation of routers, controllers, middleware
+- [Request Flow Example](https://github.com/TrustBound/dream/tree/main/examples/simple/) - See it in action
 - [Architecture Reference](../reference/architecture.md) - Deep technical dive
 

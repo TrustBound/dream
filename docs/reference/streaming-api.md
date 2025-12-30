@@ -449,5 +449,5 @@ fn format_total_bytes_message(total: Int) -> String {
 - [Streaming Guide](../guides/streaming.md) - Complete streaming guide
 - [Multiple Formats Guide](../guides/multiple-formats.md) - CSV streaming
 - [File Uploads Guide](../guides/file-uploads.md) - Multipart forms
-- [Streaming Example](../../examples/streaming_capabilities/) - Working code
+- [Streaming Example](https://github.com/TrustBound/dream/tree/main/examples/streaming_capabilities/) - Working code
 

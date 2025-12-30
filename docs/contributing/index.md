@@ -2,7 +2,7 @@
 
 **Writing docs?** Read the [Tone Guide](tone-guide.md) first.
 
-**Writing code?** See [Contributing Guide](contributing.md)
+**Writing code?** See [Contributing Guide](contributing-guide.md)
 
 **Running tests?** See [Testing Guide](testing.md)
 

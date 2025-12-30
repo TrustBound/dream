@@ -1,0 +1,37 @@
+name: Deploy to GitHub Pages
+descrition: Build and deploy website to github pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - "docs/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install & Build
+        run: |
+          cd website
+          bun install
+          bun run build
+
+      - name: Prepare deployment
+        run: |
+          mkdir -p deploy
+          cp -r website/build/* deploy/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./deploy
+          enable_jekyll: false

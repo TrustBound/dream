@@ -191,10 +191,10 @@ that it won’t be your bottleneck for typical apps.
 
 ### Explore Examples
 
-- [`examples/database`](../examples/database/) - Full CRUD API with PostgreSQL
-- [`examples/streaming_capabilities`](../examples/streaming_capabilities/) - Advanced streaming
-- [`examples/multi_format`](../examples/multi_format/) - JSON/HTML/CSV/HTMX
-- [All Examples](../examples/) - Multiple working applications with extensive integration tests
+- [`examples/database`](https://github.com/TrustBound/dream/tree/main/examples/database/) - Full CRUD API with PostgreSQL
+- [`examples/streaming_capabilities`](https://github.com/TrustBound/dream/tree/main/examples/streaming_capabilities/) - Advanced streaming
+- [`examples/multi_format`](https://github.com/TrustBound/dream/tree/main/examples/multi_format/) - JSON/HTML/CSV/HTMX
+- [All Examples](https://github.com/TrustBound/dream/tree/main/examples/) - Multiple working applications with extensive integration tests
 
 **Want to understand this code?** Start with [Hello World](learn/01-hello-world.md) in the learning path.
 
