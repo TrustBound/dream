@@ -1035,35 +1035,43 @@ fn send_and_maybe_record(
 ) -> Result(String, String) {
   case send_client_request_to_httpc_with_meta(client_request) {
     Ok(#(status, headers, body)) -> {
-      record_blocking_response_if_needed(
+      let recorded_response =
+        recording.BlockingResponse(status: status, headers: headers, body: body)
+      let response_for_use = case recorder.is_record_mode(recorder_instance) {
+        True ->
+          recorder.transform_response(
+            recorder_instance,
+            recorded_request,
+            recorded_response,
+          )
+        False -> recorded_response
+      }
+
+      record_response_if_needed(
         recorder_instance,
         recorded_request,
-        status,
-        headers,
-        body,
+        response_for_use,
       )
-      Ok(body)
+
+      case response_for_use {
+        recording.BlockingResponse(_, _, response_body) -> Ok(response_body)
+        recording.StreamingResponse(_, _, _) ->
+          Error("Unexpected streaming response in blocking client")
+      }
     }
     Error(error_message) -> Error(error_message)
   }
 }
 
-fn record_blocking_response_if_needed(
+fn record_response_if_needed(
   recorder_instance: recorder.Recorder,
   recorded_request: recording.RecordedRequest,
-  status: Int,
-  headers: List(#(String, String)),
-  body: String,
+  response: recording.RecordedResponse,
 ) -> Nil {
   case recorder.is_record_mode(recorder_instance) {
     True -> {
-      let recorded_response =
-        recording.BlockingResponse(status: status, headers: headers, body: body)
       let recorder_entry =
-        recording.Recording(
-          request: recorded_request,
-          response: recorded_response,
-        )
+        recording.Recording(request: recorded_request, response: response)
       recorder.add_recording(recorder_instance, recorder_entry)
     }
     False -> Nil
