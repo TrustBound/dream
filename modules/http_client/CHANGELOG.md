@@ -5,6 +5,16 @@ All notable changes to `dream_http_client` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 4.1.0 - 2026-01-28
+
+### Changed
+
+- Recording fixtures are written atomically to prevent partial reads during capture.
+
+### Added
+
+- Storage test coverage for atomic fixture writes and cleanup.
+
 ## 4.0.0 - 2025-12-29
 
 ### Breaking Changes

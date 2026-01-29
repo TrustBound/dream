@@ -133,6 +133,29 @@ pub fn save_recording_immediately_appends_to_existing_test() {
   list.length(loaded) |> should.equal(2)
 }
 
+pub fn save_recording_immediately_writes_atomically_without_temp_files_test() {
+  // Arrange
+  let directory = temp_directory("atomic_write")
+  let rec = create_test_recording()
+  let key_fn = default_key()
+
+  // Act
+  let assert Ok(_) =
+    storage.save_recording_immediately(directory, rec, key_fn(rec.request))
+
+  // Assert - no temp files left behind
+  let assert Ok(files) = simplifile.read_directory(directory)
+  let temp_files =
+    list.filter(files, fn(file) { string.contains(file, ".tmp.") })
+  list.length(temp_files) |> should.equal(0)
+
+  // Assert - final JSON file is readable and complete
+  let json_files = list.filter(files, fn(f) { string.ends_with(f, ".json") })
+  let assert [filename] = json_files
+  let assert Ok(content) = simplifile.read(directory <> "/" <> filename)
+  recording.decode_recording_file(content) |> should.be_ok()
+}
+
 pub fn different_query_params_create_different_files_test() {
   // Arrange
   let directory = temp_directory("query_test")

@@ -432,6 +432,7 @@ mocks/api/POST_localhost__text_c7d8e9_4f22bc.json
 **Benefits:**
 
 - **O(1) write performance** - No read-modify-write cycles
+- **Atomic fixture writes** - Readers never see partial recordings
 - **Concurrent tests work** - No file contention between parallel tests
 - **Easy inspection** - Each recording is a separate, readable file
 - **Version control friendly** - Individual files show clear diffs
