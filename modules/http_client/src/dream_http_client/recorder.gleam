@@ -428,10 +428,31 @@ fn handle_recorder_message(
             )
           let key = state.key(transformed.request)
 
-          let new_recordings = case dict.get(state.recordings, key) {
-            Ok(existing) ->
-              dict.insert(state.recordings, key, [transformed, ..existing])
-            Error(_) -> dict.insert(state.recordings, key, [transformed])
+          let should_save = case dict.get(state.recordings, key) {
+            Error(_) -> True
+            Ok(existing) -> {
+              let duplicate =
+                existing
+                |> list.any(fn(rec) {
+                  let recording.Recording(_, response) = rec
+                  responses_equal(response, transformed.response)
+                })
+              case duplicate {
+                True -> False
+                False -> True
+              }
+            }
+          }
+
+          let new_recordings = case should_save {
+            True -> {
+              case dict.get(state.recordings, key) {
+                Ok(existing) ->
+                  dict.insert(state.recordings, key, [transformed, ..existing])
+                Error(_) -> dict.insert(state.recordings, key, [transformed])
+              }
+            }
+            False -> state.recordings
           }
 
           let new_state =
@@ -444,20 +465,24 @@ fn handle_recorder_message(
               recordings: new_recordings,
             )
 
-          // Save immediately if in Record mode
-          case
-            storage.save_recording_immediately(
-              state.directory,
-              transformed,
-              key,
-            )
-          {
-            Ok(_) -> actor.continue(new_state)
-            Error(save_error) -> {
-              // Log error but don't crash - keep in-memory recording
-              io.println_error("Failed to save recording: " <> save_error)
-              actor.continue(new_state)
-            }
+          case should_save {
+            False -> actor.continue(new_state)
+            True ->
+              // Save immediately if in Record mode
+              case
+                storage.save_recording_immediately(
+                  state.directory,
+                  transformed,
+                  key,
+                )
+              {
+                Ok(_) -> actor.continue(new_state)
+                Error(save_error) -> {
+                  // Log error but don't crash - keep in-memory recording
+                  io.println_error("Failed to save recording: " <> save_error)
+                  actor.continue(new_state)
+                }
+              }
           }
         }
         _ -> actor.continue(state)
@@ -484,17 +509,26 @@ fn handle_recorder_message(
             }
             Ok(records) -> {
               let count = list.length(records)
-              process.send(
-                reply_to,
-                FoundRecording(Error(
-                  "Ambiguous recording match for key: "
-                  <> key
-                  <> " ("
-                  <> int.to_string(count)
-                  <> " recordings)",
-                )),
-              )
-              actor.continue(state)
+              let resolved = resolve_ambiguous_recordings(records)
+              case resolved {
+                Ok(option.Some(rec)) -> {
+                  process.send(reply_to, FoundRecording(Ok(option.Some(rec))))
+                  actor.continue(state)
+                }
+                _ -> {
+                  process.send(
+                    reply_to,
+                    FoundRecording(Error(
+                      "Ambiguous recording match for key: "
+                      <> key
+                      <> " ("
+                      <> int.to_string(count)
+                      <> " recordings)",
+                    )),
+                  )
+                  actor.continue(state)
+                }
+              }
             }
           }
         }
@@ -518,6 +552,13 @@ fn handle_recorder_message(
       process.send(reply_to, ModeIsRecord(is_record))
       actor.continue(state)
     }
+    TransformResponse(request, response, reply_to) -> {
+      let transformed_request = state.request_transformer(request)
+      let transformed =
+        state.response_transformer(transformed_request, response)
+      process.send(reply_to, TransformedResponse(transformed))
+      actor.continue(state)
+    }
     Stop(reply_to) -> {
       // No need to save - recordings already saved immediately
       process.send(reply_to, Stopped(Ok(Nil)))
@@ -534,6 +575,11 @@ type RecorderMessage {
   )
   GetRecordings(reply_to: process.Subject(RecorderResponse))
   CheckMode(reply_to: process.Subject(RecorderResponse))
+  TransformResponse(
+    request: recording.RecordedRequest,
+    response: recording.RecordedResponse,
+    reply_to: process.Subject(RecorderResponse),
+  )
   Stop(reply_to: process.Subject(RecorderResponse))
 }
 
@@ -541,6 +587,7 @@ type RecorderResponse {
   FoundRecording(Result(option.Option(recording.Recording), String))
   GotRecordings(List(recording.Recording))
   ModeIsRecord(Bool)
+  TransformedResponse(recording.RecordedResponse)
   Stopped(Result(Nil, String))
 }
 
@@ -552,6 +599,88 @@ fn flatten_recordings(
     list.fold(recs, acc, fn(acc2, r) { [r, ..acc2] })
   })
   |> list.reverse
+}
+
+fn resolve_ambiguous_recordings(
+  records: List(recording.Recording),
+) -> Result(option.Option(recording.Recording), Nil) {
+  case records {
+    [] -> Ok(option.None)
+    [first, ..rest] -> {
+      let recording.Recording(_, first_response) = first
+      let all_equal =
+        rest
+        |> list.all(fn(rec) {
+          let recording.Recording(_, response) = rec
+          responses_equal(first_response, response)
+        })
+      case all_equal {
+        True -> Ok(option.Some(first))
+        False -> Ok(option.None)
+      }
+    }
+  }
+}
+
+fn responses_equal(
+  left: recording.RecordedResponse,
+  right: recording.RecordedResponse,
+) -> Bool {
+  case left, right {
+    recording.BlockingResponse(status_a, headers_a, body_a),
+      recording.BlockingResponse(status_b, headers_b, body_b)
+    ->
+      status_a == status_b
+      && headers_a == headers_b
+      && normalize_body_for_compare(body_a)
+      == normalize_body_for_compare(body_b)
+    _, _ -> False
+  }
+}
+
+fn normalize_body_for_compare(body: String) -> String {
+  case response_kind(body) {
+    "auth_result" -> normalize_auth_result_body(body)
+    _ -> body
+  }
+}
+
+fn response_kind(body: String) -> String {
+  case string.contains(body, "AuthenticationResult") {
+    True -> "auth_result"
+    False -> "other"
+  }
+}
+
+fn normalize_auth_result_body(body: String) -> String {
+  body
+  |> replace_json_string_value("AccessToken", "<REDACTED_TOKEN>")
+  |> replace_json_string_value("IdToken", "<REDACTED_TOKEN>")
+  |> replace_json_string_value("RefreshToken", "<REDACTED_TOKEN>")
+}
+
+fn replace_json_string_value(
+  body: String,
+  key: String,
+  replacement: String,
+) -> String {
+  let marker = "\"" <> key <> "\":\""
+  case string.contains(body, marker) {
+    False -> body
+    True -> {
+      let parts = string.split(body, marker)
+      case list.first(parts), list.drop(parts, 1) |> list.first() {
+        Ok(prefix), Ok(rest) -> {
+          case string.split(rest, "\"") {
+            [_, ..tail] ->
+              prefix <> marker <> replacement <> "\"" <> string.join(tail, "\"")
+            _ -> body
+          }
+        }
+        _, _ -> body
+      }
+    }
+  }
 }
 
 /// Add a recording to the recorder
@@ -664,6 +793,39 @@ pub fn is_record_mode(recorder: Recorder) -> Bool {
         <> string.inspect(timeout_error),
       )
       False
+    }
+  }
+}
+
+/// Apply the recorder's response transformer to a response.
+pub fn transform_response(
+  recorder: Recorder,
+  request: recording.RecordedRequest,
+  response: recording.RecordedResponse,
+) -> recording.RecordedResponse {
+  let Recorder(subject) = recorder
+  let reply_subject = process.new_subject()
+  process.send(subject, TransformResponse(request, response, reply_subject))
+
+  let selector =
+    process.new_selector()
+    |> process.select_map(reply_subject, identity_recorder_response)
+
+  case process.selector_receive(selector, 1000) {
+    Ok(TransformedResponse(transformed)) -> transformed
+    Ok(unexpected_message) -> {
+      io.println_error(
+        "Recorder returned unexpected response to TransformResponse: "
+        <> string.inspect(unexpected_message),
+      )
+      response
+    }
+    Error(timeout_error) -> {
+      io.println_error(
+        "Recorder did not respond to TransformResponse within 1 second: "
+        <> string.inspect(timeout_error),
+      )
+      response
     }
   }
 }

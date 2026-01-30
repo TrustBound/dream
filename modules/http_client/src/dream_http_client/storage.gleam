@@ -173,8 +173,8 @@ pub fn save_recording_immediately(
     let filename = build_filename(rec.request, key, json_string)
     let file_path = directory <> "/" <> filename
 
-    // Write to file
-    case simplifile.write(file_path, json_string) {
+    // Write to file atomically so readers never see partial content
+    case atomic_write(file_path, json_string) {
       Ok(Nil) -> Ok(Nil)
       Error(write_error) -> {
         Error(
@@ -411,3 +411,6 @@ fn generate_hash(input: String) -> String {
   bit_array.base16_encode(hash_bits)
   |> string.lowercase()
 }
+
+@external(erlang, "dream_http_client_fs_shim", "atomic_write")
+fn atomic_write(file_path: String, content: String) -> Result(Nil, String)
