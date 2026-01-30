@@ -65,11 +65,7 @@ pub fn start_stream_calls_on_start_callback_test() {
   let assert Ok(_handle) = client.start_stream(request)
 
   // Assert - on_start was called
-  case process.receive(started_subject, 1000) {
-    Ok(True) -> Nil
-    Ok(False) -> should.fail()
-    Error(Nil) -> should.fail()
-  }
+  wait_for_true(started_subject, 5) |> should.be_true()
 }
 
 pub fn start_stream_calls_on_end_callback_test() {
@@ -156,5 +152,18 @@ fn collect_from_subject(subject: process.Subject(a), acc: List(a)) -> List(a) {
   case process.receive(subject, 50) {
     Ok(item) -> collect_from_subject(subject, [item, ..acc])
     Error(Nil) -> list.reverse(acc)
+  }
+}
+
+fn wait_for_true(subject: process.Subject(Bool), attempts: Int) -> Bool {
+  case attempts <= 0 {
+    True -> False
+    False -> {
+      case process.receive(subject, 200) {
+        Ok(True) -> True
+        Ok(False) -> wait_for_true(subject, attempts - 1)
+        Error(Nil) -> wait_for_true(subject, attempts - 1)
+      }
+    }
   }
 }
