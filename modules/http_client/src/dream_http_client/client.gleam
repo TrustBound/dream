@@ -1037,7 +1037,9 @@ fn send_and_maybe_record(
     Ok(#(status, headers, body)) -> {
       let recorded_response =
         recording.BlockingResponse(status: status, headers: headers, body: body)
-      let response_for_use = case recorder.is_record_mode(recorder_instance) {
+      let response_for_recording = case
+        recorder.is_record_mode(recorder_instance)
+      {
         True ->
           recorder.transform_response(
             recorder_instance,
@@ -1050,14 +1052,10 @@ fn send_and_maybe_record(
       record_response_if_needed(
         recorder_instance,
         recorded_request,
-        response_for_use,
+        response_for_recording,
       )
 
-      case response_for_use {
-        recording.BlockingResponse(_, _, response_body) -> Ok(response_body)
-        recording.StreamingResponse(_, _, _) ->
-          Error("Unexpected streaming response in blocking client")
-      }
+      Ok(body)
     }
     Error(error_message) -> Error(error_message)
   }

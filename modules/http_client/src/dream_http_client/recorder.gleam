@@ -439,20 +439,19 @@ fn handle_recorder_message(
                 })
               case duplicate {
                 True -> False
-                False -> {
-                  io.println_error(
-                    "Recording conflict for key: "
-                    <> key
-                    <> ". Keeping existing recording and skipping new response.",
-                  )
-                  False
-                }
+                False -> True
               }
             }
           }
 
           let new_recordings = case should_save {
-            True -> dict.insert(state.recordings, key, [transformed])
+            True -> {
+              case dict.get(state.recordings, key) {
+                Ok(existing) ->
+                  dict.insert(state.recordings, key, [transformed, ..existing])
+                Error(_) -> dict.insert(state.recordings, key, [transformed])
+              }
+            }
             False -> state.recordings
           }
 
