@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.2] - 2026-02-04
+
+### Added
+
+- Added `setup-integration-dbs` Makefile target to mirror CI database setup locally
+
+### Fixed
+
+- Server startup now fails fast with a clear error when the port is already in use
+- Thanks to [daniellionel01](https://github.com/daniellionel01) for reporting the issue
+
 ## [2.3.1] - 2025-12-13
 
 ### Added
@@ -464,7 +475,8 @@ Special thanks to [Louis Pilfold](https://github.com/lpil) for suggesting the ra
 - All code examples now include proper imports
 - Improved documentation tone and consistency
 
-[Unreleased]: https://github.com/TrustBound/dream/compare/v2.3.1...HEAD
+[Unreleased]: https://github.com/TrustBound/dream/compare/v2.3.2...HEAD
+[2.3.2]: https://github.com/TrustBound/dream/compare/v2.3.1...v2.3.2
 [2.3.1]: https://github.com/TrustBound/dream/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/TrustBound/dream/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/TrustBound/dream/compare/v2.1.0...v2.2.0

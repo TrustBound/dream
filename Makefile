@@ -1,7 +1,7 @@
 # Dream Library Development Makefile
 # For example-specific commands, see individual example directories
 
-.PHONY: test test-dream test-unit test-integration clean build format docs check install-hooks
+.PHONY: test test-dream test-unit test-integration setup-integration-dbs clean build format docs check install-hooks
 
 # Run all tests (unit + integration)
 test:
@@ -75,4 +75,15 @@ test-integration:
 	done
 	@echo ""
 	@echo "✅ All integration tests passed!"
+
+# Set up local PostgreSQL and migrations for examples that require it
+setup-integration-dbs:
+	@echo "=== Setting up PostgreSQL for integration tests ==="
+	@cd examples/database && make db-up
+	@cd examples/database && docker-compose exec -T postgres psql -U postgres -c "DROP DATABASE IF EXISTS dream_example_database_db;" > /dev/null 2>&1
+	@cd examples/database && docker-compose exec -T postgres psql -U postgres -c "CREATE DATABASE dream_example_database_db;" > /dev/null 2>&1
+	@cd examples/database && docker-compose exec -T postgres psql -U postgres -c "DROP DATABASE IF EXISTS dream_example_multi_format_db;" > /dev/null 2>&1
+	@cd examples/database && docker-compose exec -T postgres psql -U postgres -c "CREATE DATABASE dream_example_multi_format_db;" > /dev/null 2>&1
+	@cd examples/database && export DATABASE_URL=postgres://postgres:postgres@localhost:5435/dream_example_database_db && gleam run -m cigogne all
+	@cd examples/multi_format && export DATABASE_URL=postgres://postgres:postgres@localhost:5435/dream_example_multi_format_db && gleam run -m cigogne all
 
