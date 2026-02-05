@@ -9,6 +9,7 @@ pub fn render_tree() -> StringTree {
       tree,
       "<div class=\"messages\" id=\"messages\"></div>
 
+
 ",
     )
 
