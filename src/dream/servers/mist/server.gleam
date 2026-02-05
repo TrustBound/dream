@@ -46,11 +46,16 @@ import dream/context.{type EmptyContext, EmptyContext}
 import dream/dream
 import dream/router.{type EmptyServices, type Router, EmptyServices}
 import dream/servers/mist/handler
+import dream/servers/mist/port_probe
 import gleam/bytes_tree
 import gleam/erlang/process
+import gleam/http/request as http_request
 import gleam/http/response as http_response
+import gleam/int
 import gleam/option
 import gleam/otp/actor
+import gleam/result
+import gleam/string
 import mist.{type Connection, type ResponseData, Bytes, start}
 
 /// Handle to a running server process
@@ -310,16 +315,6 @@ pub fn max_body_size(
   )
 }
 
-/// Helper function to update context with request_id
-/// This is a simple implementation that just returns the template context
-/// Most applications don't need request_id in their context
-/// If you need request_id, consider using middleware or logging
-fn update_context_with_request_id(ctx: context, _request_id: String) -> context {
-  // Just return the template context as-is
-  // Applications that need request_id can provide custom middleware
-  ctx
-}
-
 /// Start the server and listen for requests
 ///
 /// Starts the server on the specified port and blocks forever. This is what you call
@@ -349,57 +344,8 @@ pub fn listen(
   ),
   port: Int,
 ) -> Nil {
-  let _ = listen_internal(dream_instance, port, True)
-  Nil
-}
-
-/// Internal function to start the server with configurable blocking behavior
-/// Returns Result with Started info on success, or Error with StartError on failure
-fn listen_internal(
-  dream_instance: dream.Dream(
-    mist.Builder(Connection, ResponseData),
-    context,
-    services,
-  ),
-  port: Int,
-  block_forever: Bool,
-) -> Result(actor.Started(_), actor.StartError) {
-  // Extract router and services - panic if not set
-  let assert option.Some(router_instance) = dream.get_router(dream_instance)
-  let assert option.Some(services_instance) = dream.get_services(dream_instance)
-
-  // Create the handler with the router, context, and services
-  let handler_fn =
-    handler.create(
-      router_instance,
-      dream.get_max_body_size(dream_instance),
-      dream.get_context(dream_instance),
-      services_instance,
-      update_context_with_request_id,
-    )
-
-  // Create mist server with the handler
-  let server_with_handler = mist.new(handler_fn)
-
-  // Apply bind interface if configured
-  let server_with_interface = case dream.get_bind_interface(dream_instance) {
-    option.Some(interface) -> mist.bind(server_with_handler, interface)
-    option.None -> server_with_handler
-  }
-
-  // Set the port
-  let server_with_port = mist.port(server_with_interface, port)
-
-  case start(server_with_port) {
-    Ok(started) -> {
-      case block_forever {
-        True -> process.sleep_forever()
-        False -> Nil
-      }
-      Ok(started)
-    }
-    Error(err) -> Error(err)
-  }
+  listen_internal(dream_instance, port, True)
+  |> panic_on_start_error
 }
 
 /// Start the server and return a handle for stopping it
@@ -473,6 +419,127 @@ pub fn stop(handle: ServerHandle) -> Nil {
       // This allows the supervisor to clean up gracefully
       process.send_exit(process_pid)
       Nil
+    }
+  }
+}
+
+/// Helper function to update context with request_id
+/// This is a simple implementation that just returns the template context
+/// Most applications don't need request_id in their context
+/// If you need request_id, consider using middleware or logging
+fn update_context_with_request_id(ctx: context, _request_id: String) -> context {
+  // Just return the template context as-is
+  // Applications that need request_id can provide custom middleware
+  ctx
+}
+
+fn bind_label(interface: option.Option(String)) -> String {
+  option.unwrap(interface, "localhost")
+}
+
+fn port_in_use_error(port: Int, bind_label: String) -> actor.StartError {
+  let message =
+    "Port "
+    <> int.to_string(port)
+    <> " already in use on "
+    <> bind_label
+    <> ". Stop the process using that port or choose a different one."
+  actor.InitFailed(message)
+}
+
+fn build_handler(
+  dream_instance: dream.Dream(
+    mist.Builder(Connection, ResponseData),
+    context,
+    services,
+  ),
+  router_instance: Router(context, services),
+  services_instance: services,
+) -> fn(http_request.Request(Connection)) ->
+  http_response.Response(ResponseData) {
+  handler.create(
+    router_instance,
+    dream.get_max_body_size(dream_instance),
+    dream.get_context(dream_instance),
+    services_instance,
+    update_context_with_request_id,
+  )
+}
+
+fn build_server(
+  dream_instance: dream.Dream(
+    mist.Builder(Connection, ResponseData),
+    context,
+    services,
+  ),
+  handler_fn: fn(http_request.Request(Connection)) ->
+    http_response.Response(ResponseData),
+  port: Int,
+) -> mist.Builder(Connection, ResponseData) {
+  let server_with_handler = mist.new(handler_fn)
+  let server_with_interface = case dream.get_bind_interface(dream_instance) {
+    option.Some(interface) -> mist.bind(server_with_handler, interface)
+    option.None -> server_with_handler
+  }
+  mist.port(server_with_interface, port)
+}
+
+fn handle_blocking(block_forever: Bool) -> Nil {
+  case block_forever {
+    True -> process.sleep_forever()
+    False -> Nil
+  }
+}
+
+fn start_server(
+  server_with_port: mist.Builder(Connection, ResponseData),
+  block_forever: Bool,
+) -> Result(actor.Started(_), actor.StartError) {
+  start(server_with_port)
+  |> result.map(fn(started) {
+    handle_blocking(block_forever)
+    started
+  })
+}
+
+fn panic_on_start_error(result: Result(a, actor.StartError)) -> Nil {
+  case result {
+    Ok(_) -> Nil
+    Error(actor.InitFailed(message)) -> panic as message
+    Error(err) -> {
+      let message = "Failed to start server: " <> string.inspect(err)
+      panic as message
+    }
+  }
+}
+
+/// Internal function to start the server with configurable blocking behavior
+/// Returns Result with Started info on success, or Error with StartError on failure
+fn listen_internal(
+  dream_instance: dream.Dream(
+    mist.Builder(Connection, ResponseData),
+    context,
+    services,
+  ),
+  port: Int,
+  block_forever: Bool,
+) -> Result(actor.Started(_), actor.StartError) {
+  let bind_interface = dream.get_bind_interface(dream_instance)
+  let bind_interface_label = bind_label(bind_interface)
+
+  case port_probe.is_in_use(bind_interface, port) {
+    True -> Error(port_in_use_error(port, bind_interface_label))
+    False -> {
+      // Extract router and services - panic if not set
+      let assert option.Some(router_instance) = dream.get_router(dream_instance)
+      let assert option.Some(services_instance) =
+        dream.get_services(dream_instance)
+
+      let handler_fn =
+        build_handler(dream_instance, router_instance, services_instance)
+      let server_with_port = build_server(dream_instance, handler_fn, port)
+
+      start_server(server_with_port, block_forever)
     }
   }
 }

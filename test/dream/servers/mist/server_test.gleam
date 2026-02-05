@@ -9,6 +9,7 @@ import dream_test/unit.{type UnitTest, after_each, before_each, describe, it}
 import fixtures/hooks.{start_server, stop_server, test_server_port}
 import gleam/erlang/process
 import gleam/option.{None}
+import gleam/otp/actor
 import gleam/string
 
 // ============================================================================
@@ -125,6 +126,59 @@ fn lifecycle_tests() -> UnitTest {
           AssertionFailed(AssertionFailure(
             operator: "listen_with_handle",
             message: "Server failed to start on port 19990: "
+              <> string.inspect(start_error),
+            payload: None,
+          ))
+      }
+    }),
+    it("listen_with_handle fails when port is already in use", fn() {
+      // Arrange
+      let dream_instance =
+        server.new()
+        |> server.router(router())
+      let port = 19_996
+
+      // Act
+      let first_result = server.listen_with_handle(dream_instance, port)
+
+      // Assert
+      case first_result {
+        Ok(handle) -> {
+          let second_result = server.listen_with_handle(dream_instance, port)
+          server.stop(handle)
+
+          case second_result {
+            Error(actor.InitFailed(message)) -> {
+              case string.contains(message, "already in use") {
+                True -> AssertionOk
+                False ->
+                  AssertionFailed(AssertionFailure(
+                    operator: "listen_with_handle_port_in_use",
+                    message: "Expected clear port-in-use message, got: "
+                      <> message,
+                    payload: None,
+                  ))
+              }
+            }
+            Error(start_error) ->
+              AssertionFailed(AssertionFailure(
+                operator: "listen_with_handle_port_in_use",
+                message: "Unexpected start error: "
+                  <> string.inspect(start_error),
+                payload: None,
+              ))
+            Ok(_) ->
+              AssertionFailed(AssertionFailure(
+                operator: "listen_with_handle_port_in_use",
+                message: "Expected second server start to fail on same port",
+                payload: None,
+              ))
+          }
+        }
+        Error(start_error) ->
+          AssertionFailed(AssertionFailure(
+            operator: "listen_with_handle_port_in_use",
+            message: "Failed to start first server: "
               <> string.inspect(start_error),
             payload: None,
           ))
