@@ -86,4 +86,3 @@ setup-integration-dbs:
 	@cd examples/database && docker-compose exec -T postgres psql -U postgres -c "CREATE DATABASE dream_example_multi_format_db;" > /dev/null 2>&1
 	@cd examples/database && export DATABASE_URL=postgres://postgres:postgres@localhost:5435/dream_example_database_db && gleam run -m cigogne all
 	@cd examples/multi_format && export DATABASE_URL=postgres://postgres:postgres@localhost:5435/dream_example_multi_format_db && gleam run -m cigogne all
-

@@ -1,5 +1,5 @@
 name = "dream_mock_server"
-version = "1.0.0"
+version = "1.1.0"
 description = "General-purpose HTTP mock server developed by Dream - provides both streaming and non-streaming endpoints for testing HTTP clients"
 licences = ["MIT"]
 repository = { type = "github", user = "TrustBound", repo = "dream" }
