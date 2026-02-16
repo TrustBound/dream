@@ -29,9 +29,11 @@
 //// - `GET /stream/binary` - Binary data stream
 
 import dream/context.{type EmptyContext}
-import dream/http/request.{Delete, Get, Post, Put}
+import dream/http/request.{Delete, Get, Patch, Post, Put}
 import dream/router.{type EmptyServices, type Router, route, router}
+import dream_mock_server/config.{type MockConfigContext}
 import dream_mock_server/controllers/api_controller
+import dream_mock_server/controllers/config_controller
 import dream_mock_server/controllers/stream_controller
 
 /// Create a router with all mock endpoints (streaming and non-streaming)
@@ -161,6 +163,46 @@ pub fn create_router() -> Router(EmptyContext, EmptyServices) {
     method: Get,
     path: "/stream/binary",
     controller: stream_controller.stream_binary,
+    middleware: [],
+  )
+}
+
+/// Create a router for config mode: a single catch-all route per method
+/// that delegates to the config controller. Used when starting with
+/// `server.start_with_config(port, config)`.
+///
+/// This router intentionally contains no built-in demo endpoints. All response
+/// behavior comes from the caller-provided `MockRoute` list held in context.
+pub fn create_config_router() -> Router(MockConfigContext, EmptyServices) {
+  router()
+  |> route(
+    method: Get,
+    path: "/**path",
+    controller: config_controller.handle,
+    middleware: [],
+  )
+  |> route(
+    method: Post,
+    path: "/**path",
+    controller: config_controller.handle,
+    middleware: [],
+  )
+  |> route(
+    method: Put,
+    path: "/**path",
+    controller: config_controller.handle,
+    middleware: [],
+  )
+  |> route(
+    method: Delete,
+    path: "/**path",
+    controller: config_controller.handle,
+    middleware: [],
+  )
+  |> route(
+    method: Patch,
+    path: "/**path",
+    controller: config_controller.handle,
     middleware: [],
   )
 }

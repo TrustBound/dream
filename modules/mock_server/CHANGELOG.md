@@ -5,6 +5,14 @@ All notable changes to `dream_mock_server` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+## 1.1.0 - 2026-02-15
+
+### Added
+
+- **Config mode:** `start_with_config(port, config)` starts the mock with a caller-provided list of routes (path, optional method, status, body). No built-in provider logic; first matching route wins; no match returns 404. Use for proxy tests or any deterministic upstream. New types: `dream_mock_server/config.{MockRoute, PathMatch, Exact, Prefix}`.
+
 ## 1.0.0 - 2025-11-24
 
 ### Added

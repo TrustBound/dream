@@ -6,6 +6,11 @@ on:
       - main
       - develop
 
+env:
+  OTP_VERSION: "28"
+  GLEAM_VERSION: "1.14.0"
+  REBAR3_VERSION: "3"
+
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
@@ -17,9 +22,9 @@ jobs:
       - name: Install Erlang and Gleam
         uses: erlef/setup-beam@v1
         with:
-          otp-version: "28"
-          gleam-version: "1.13.0"
-          rebar3-version: "3"
+          otp-version: ${{ env.OTP_VERSION }}
+          gleam-version: ${{ env.GLEAM_VERSION }}
+          rebar3-version: ${{ env.REBAR3_VERSION }}
 
       - name: Download dependencies
         run: gleam deps download
@@ -82,9 +87,9 @@ jobs:
       - name: Install Erlang and Gleam
         uses: erlef/setup-beam@v1
         with:
-          otp-version: "28"
-          gleam-version: "1.13.0"
-          rebar3-version: "3"
+          otp-version: ${{ env.OTP_VERSION }}
+          gleam-version: ${{ env.GLEAM_VERSION }}
+          rebar3-version: ${{ env.REBAR3_VERSION }}
           elixir-version: "1.18"
 
       - name: Download dependencies

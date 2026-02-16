@@ -50,8 +50,9 @@
 //// - `GET /stream/json` - JSON object stream
 //// - `GET /stream/binary` - Binary data stream
 
-import dream/servers/mist/server.{bind, listen_with_handle, router} as dream_server
-import dream_mock_server/router.{create_router}
+import dream/servers/mist/server.{bind, context, listen_with_handle, router} as dream_server
+import dream_mock_server/config.{type MockRoute, MockConfigContext}
+import dream_mock_server/router.{create_config_router, create_router}
 import gleam/otp/actor
 
 /// Start the mock server on a specific port
@@ -86,6 +87,53 @@ import gleam/otp/actor
 pub fn start(port: Int) -> Result(dream_server.ServerHandle, actor.StartError) {
   dream_server.new()
   |> router(create_router())
+  |> bind("localhost")
+  |> listen_with_handle(port)
+}
+
+/// Start the mock server with caller-provided routes.
+///
+/// In this mode, the server uses only the supplied config list and does not
+/// expose the built-in demo endpoints from `start(port)`.
+///
+/// ## Matching semantics
+///
+/// - Routes are evaluated in list order.
+/// - First matching route wins.
+/// - A route matches when both are true:
+///   - Path matches according to `path_match` (`Exact` or `Prefix`)
+///   - Method matches (`Some(method)`) or the route method is `None`
+/// - If no route matches, response is `404` with body `"Not found"`.
+///
+/// Returns a `ServerHandle` that can be used to stop the server later.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_mock_server/config.{MockRoute, Prefix}
+/// import dream_mock_server/server
+/// import gleam/option.{None}
+///
+/// let config = [
+///   MockRoute("/v1/chat/completions", Prefix, None, 200, "{\"ok\":true}"),
+/// ]
+/// let assert Ok(handle) = server.start_with_config(3004, config)
+/// // ... make requests to localhost:3004 ...
+/// server.stop(handle)
+/// ```
+///
+/// ## Typical use cases
+///
+/// - Deterministic proxy/adaptor tests
+/// - Verifying status and payload handling branches
+/// - Simulating external API behavior without provider-specific stubs
+pub fn start_with_config(
+  port: Int,
+  config: List(MockRoute),
+) -> Result(dream_server.ServerHandle, actor.StartError) {
+  dream_server.new()
+  |> context(MockConfigContext(routes: config))
+  |> router(create_config_router())
   |> bind("localhost")
   |> listen_with_handle(port)
 }
