@@ -2,6 +2,8 @@
 
 A general-purpose HTTP mock server developed by Dream that provides both streaming and non-streaming endpoints for testing HTTP clients.
 
+**Current module version:** `1.1.0`
+
 ## Overview
 
 This module provides a comprehensive set of endpoints for testing HTTP clients:
@@ -43,6 +45,78 @@ pub fn my_test() {
   server.stop(handle)
 }
 ```
+<sub>🧪 [Tested source](test/snippets/programmatic_mode.gleam)</sub>
+
+### Config mode
+
+For proxy tests or any test that needs a **deterministic upstream** with specific status and body per path, start the server with a config list. The mock has no built-in provider logic (no OpenAI, Google, AWS, etc.); the caller supplies all path → (status, body) mappings. First matching route in the list wins.
+
+```gleam
+import dream_mock_server/config.{MockRoute, Prefix}
+import dream_mock_server/server
+import gleam/option.{None}
+
+// One route: path /v1/chat/completions (prefix match), any method, 200 + JSON body
+let config = [
+  MockRoute(
+    path: "/v1/chat/completions",
+    path_match: Prefix,
+    method: None,
+    status: 200,
+    body: "{\"choices\":[{\"message\":{\"content\":\"\"}}]}",
+  ),
+]
+let assert Ok(handle) = server.start_with_config(3004, config)
+// Point your proxy or client at http://127.0.0.1:3004 ...
+server.stop(handle)
+```
+<sub>🧪 [Tested source](test/snippets/config_mode_prefix.gleam)</sub>
+
+#### How matching works
+
+- Matching is **first route wins** in list order.
+- `Exact` means request path must equal `path`.
+- `Prefix` means request path must start with `path`.
+- `method: Some(Get)` (or Post/Put/Delete/Patch) restricts by method.
+- `method: None` matches any method.
+- No match returns `404` with body `"Not found"`.
+
+#### Exact + method-specific example
+
+```gleam
+import dream/http/request.{Get, Post}
+import dream_mock_server/config.{Exact, MockRoute}
+import dream_mock_server/server
+import gleam/option.{Some}
+
+let config = [
+  MockRoute("/resource", Exact, Some(Get), 200, "{\"ok\":true}"),
+  MockRoute("/resource", Exact, Some(Post), 201, "{\"created\":true}"),
+]
+let assert Ok(handle) = server.start_with_config(3004, config)
+// GET /resource  -> 200 {"ok":true}
+// POST /resource -> 201 {"created":true}
+server.stop(handle)
+```
+<sub>🧪 [Tested source](test/snippets/config_mode_method_specific.gleam)</sub>
+
+#### Ordering gotcha (important)
+
+If you mix broad prefixes and specific routes, put specific routes first:
+
+```gleam
+// Good: specific before broad prefix
+[
+  MockRoute("/api/special", Exact, None, 200, "special"),
+  MockRoute("/api", Prefix, None, 200, "general"),
+]
+```
+<sub>🧪 [Tested source](test/snippets/config_mode_ordering.gleam)</sub>
+
+- **Path match:** `Exact` (path must equal) or `Prefix` (path must start with).
+- **Method:** `Some(Get)` etc. to restrict; `None` for any method.
+- **Order:** Put more specific routes before broader prefix routes so they match first.
+- **No match:** Returns 404 with body `"Not found"`.
 
 ## Non-Streaming Endpoints
 
@@ -333,6 +407,18 @@ src/
 - **gleam_erlang** - Process control (sleep)
 - **gleam_json** - JSON encoding
 - **gleam_yielder** - Stream generation
+
+## All Examples Are Tested
+
+The core usage examples in this README are backed by runnable snippet tests
+under `test/snippets/` and executed by `test/snippets_test.gleam`.
+
+Run them with:
+
+```bash
+cd modules/mock_server
+gleam test
+```
 
 ## See Also
 

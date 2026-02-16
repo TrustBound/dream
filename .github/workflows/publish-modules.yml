@@ -11,6 +11,11 @@ on:
   workflow_dispatch:
     # Allows manual triggering for testing
 
+env:
+  OTP_VERSION: "28"
+  GLEAM_VERSION: "1.14.0"
+  REBAR3_VERSION: "3"
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
@@ -129,9 +134,9 @@ jobs:
         if: steps.version_check.outputs.should_publish == 'true'
         uses: erlef/setup-beam@v1
         with:
-          otp-version: "28"
-          gleam-version: "1.13.0"
-          rebar3-version: "3"
+          otp-version: ${{ env.OTP_VERSION }}
+          gleam-version: ${{ env.GLEAM_VERSION }}
+          rebar3-version: ${{ env.REBAR3_VERSION }}
 
       - name: Download dependencies
         if: steps.version_check.outputs.should_publish == 'true'
@@ -225,9 +230,9 @@ jobs:
       - name: Install Erlang and Gleam
         uses: erlef/setup-beam@v1
         with:
-          otp-version: "28"
-          gleam-version: "1.13.0"
-          rebar3-version: "3"
+          otp-version: ${{ env.OTP_VERSION }}
+          gleam-version: ${{ env.GLEAM_VERSION }}
+          rebar3-version: ${{ env.REBAR3_VERSION }}
 
       - name: Build and test module
         uses: ./.github/actions/test-module
@@ -272,9 +277,9 @@ jobs:
       - name: Install Erlang and Gleam
         uses: erlef/setup-beam@v1
         with:
-          otp-version: "28"
-          gleam-version: "1.13.0"
-          rebar3-version: "3"
+          otp-version: ${{ env.OTP_VERSION }}
+          gleam-version: ${{ env.GLEAM_VERSION }}
+          rebar3-version: ${{ env.REBAR3_VERSION }}
 
       - name: Build and test module (with local Dream dependencies)
         uses: ./.github/actions/test-module
