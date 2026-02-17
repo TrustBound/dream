@@ -1,4 +1,4 @@
-import dream_http_client/recorder.{directory, mode, start}
+import dream_http_client/recorder.{directory, mode, response_transformer, start}
 import dream_http_client/recording
 import dream_http_client/storage
 import gleam/erlang/process
@@ -392,4 +392,101 @@ pub fn playback_errors_on_ambiguous_key_collision_test() {
   recorder.find_recording(playback, base.request) |> should.be_error()
 
   recorder.stop(playback) |> result.unwrap(Nil)
+}
+
+pub fn transform_response_applies_transformer_function_test() {
+  // Arrange - Create a recorder with a response transformer that scrubs the body
+  let recordings_directory_path = temp_directory("transform_response_direct")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> response_transformer(
+      fn(
+        _request: recording.RecordedRequest,
+        response: recording.RecordedResponse,
+      ) -> recording.RecordedResponse {
+        case response {
+          recording.BlockingResponse(status, headers, _body) ->
+            recording.BlockingResponse(
+              status: status,
+              headers: headers,
+              body: "SCRUBBED",
+            )
+          other -> other
+        }
+      },
+    )
+    |> start()
+
+  let test_request =
+    recording.RecordedRequest(
+      method: http.Get,
+      scheme: http.Http,
+      host: "localhost",
+      port: option.Some(9876),
+      path: "/text",
+      query: option.None,
+      headers: [],
+      body: "",
+    )
+  let original_response =
+    recording.BlockingResponse(
+      status: 200,
+      headers: [#("Content-Type", "text/plain")],
+      body: "secret data",
+    )
+
+  // Act - Call transform_response directly
+  let transformed =
+    recorder.transform_response(rec, test_request, original_response)
+
+  // Assert - Body was scrubbed by the transformer
+  case transformed {
+    recording.BlockingResponse(_status, _headers, body) ->
+      body |> should.equal("SCRUBBED")
+    _ -> should.fail()
+  }
+
+  // Cleanup
+  recorder.stop(rec) |> result.unwrap(Nil)
+}
+
+pub fn transform_response_without_transformer_returns_original_test() {
+  // Arrange - Create a recorder with NO response transformer
+  let recordings_directory_path =
+    temp_directory("transform_response_no_transformer")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
+
+  let test_request =
+    recording.RecordedRequest(
+      method: http.Get,
+      scheme: http.Http,
+      host: "localhost",
+      port: option.Some(9876),
+      path: "/text",
+      query: option.None,
+      headers: [],
+      body: "",
+    )
+  let original_response =
+    recording.BlockingResponse(status: 200, headers: [], body: "untouched data")
+
+  // Act - Call transform_response directly (no transformer configured)
+  let transformed =
+    recorder.transform_response(rec, test_request, original_response)
+
+  // Assert - Response is returned unchanged
+  case transformed {
+    recording.BlockingResponse(_status, _headers, body) ->
+      body |> should.equal("untouched data")
+    _ -> should.fail()
+  }
+
+  // Cleanup
+  recorder.stop(rec) |> result.unwrap(Nil)
 }

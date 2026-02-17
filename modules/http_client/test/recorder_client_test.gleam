@@ -106,7 +106,7 @@ pub fn send_with_recorder_in_playback_mode_returns_recorded_response_test() {
   let result = client.send(request)
 
   // Assert
-  let assert Ok(body) = result
+  let assert Ok(client.HttpResponse(body: body, ..)) = result
   body |> should.equal("Hello, World!")
 
   // Cleanup
@@ -156,8 +156,11 @@ pub fn send_with_recorder_in_record_mode_records_response_test() {
 
   let request = mock_request("/status/418") |> client.recorder(rec)
 
-  // Act - Record real request
-  let assert Ok(original_body) = client.send(request)
+  // Act - Record real request (418 is a client error, so it comes back as ResponseError)
+  let assert Error(client.ResponseError(response: client.HttpResponse(
+    body: original_body,
+    ..,
+  ))) = client.send(request)
   recorder.stop(rec) |> result.unwrap(Nil)
 
   // Assert - Recording was created
@@ -215,7 +218,10 @@ pub fn send_with_recorder_in_record_mode_records_response_test() {
     |> start()
   let playback_request =
     mock_request("/status/418") |> client.recorder(playback_rec)
-  let assert Ok(playback_body) = client.send(playback_request)
+  let assert Error(client.ResponseError(response: client.HttpResponse(
+    body: playback_body,
+    ..,
+  ))) = client.send(playback_request)
 
   // Assert - Got MODIFIED content, not original (proves we read from file, not real request)
   playback_body |> should.equal("MODIFIED_CONTENT")
@@ -264,8 +270,19 @@ pub fn send_with_recorder_finding_streaming_response_returns_error_test() {
   // Act
   let result = client.send(request)
 
-  // Assert
-  result |> should.be_error()
+  // Assert - should be RequestError, not ResponseError
+  case result {
+    Error(client.RequestError(message: msg)) ->
+      string.contains(msg, "streaming response") |> should.be_true()
+    Error(client.ResponseError(_)) -> {
+      io.println("Expected RequestError, got ResponseError")
+      should.fail()
+    }
+    Ok(_) -> {
+      io.println("Expected error, got Ok")
+      should.fail()
+    }
+  }
 
   // Cleanup
   recorder.stop(playback_rec) |> result.unwrap(Nil)
@@ -367,7 +384,7 @@ pub fn response_transformer_scrubs_persisted_body_but_send_returns_original_test
   let request = mock_request("/text") |> client.recorder(rec)
 
   // Act - send returns the real body
-  let assert Ok(body) = client.send(request)
+  let assert Ok(client.HttpResponse(body: body, ..)) = client.send(request)
   body |> should.equal("Hello, World!")
 
   let assert Ok(_) = recorder.stop(rec)
@@ -416,7 +433,8 @@ pub fn request_transformer_scrubs_persisted_headers_and_still_matches_playback_t
     |> client.recorder(rec)
 
   // Act - record
-  let assert Ok(body) = client.send(request_with_secret)
+  let assert Ok(client.HttpResponse(body: body, ..)) =
+    client.send(request_with_secret)
   body |> should.equal("Hello, World!")
   let assert Ok(_) = recorder.stop(rec)
 
@@ -445,7 +463,8 @@ pub fn request_transformer_scrubs_persisted_headers_and_still_matches_playback_t
     |> client.add_header("Authorization", "Bearer SECRET_2")
     |> client.recorder(playback_rec)
 
-  let assert Ok(playback_body) = client.send(request_with_different_secret)
+  let assert Ok(client.HttpResponse(body: playback_body, ..)) =
+    client.send(request_with_different_secret)
   playback_body |> should.equal("Hello, World!")
 
   // Cleanup
@@ -519,10 +538,153 @@ pub fn send_with_recorder_in_playback_mode_with_ambiguous_key_returns_error_test
   // Assert
   result |> should.be_error()
   case result {
-    Error(reason) ->
+    Error(client.RequestError(message: reason)) ->
       string.contains(reason, "Ambiguous recording match") |> should.be_true()
+    Error(client.ResponseError(_)) -> should.fail()
     Ok(_) -> should.fail()
   }
+
+  // Cleanup
+  recorder.stop(playback_rec) |> result.unwrap(Nil)
+}
+
+pub fn playback_of_error_recording_preserves_status_and_headers_test() {
+  // Arrange - Create a recording with error status and headers
+  let recordings_directory_path = test_recording_directory()
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
+
+  let test_request =
+    recording.RecordedRequest(
+      method: http.Get,
+      scheme: http.Http,
+      host: "localhost",
+      port: option.Some(9876),
+      path: "/not-found",
+      query: option.None,
+      headers: [],
+      body: "",
+    )
+  let test_response =
+    recording.BlockingResponse(
+      status: 404,
+      headers: [#("Content-Type", "application/json"), #("X-Custom", "test")],
+      body: "not found",
+    )
+  let test_recording =
+    recording.Recording(request: test_request, response: test_response)
+  recorder.add_recording(rec, test_recording)
+  recorder.stop(rec) |> result.unwrap(Nil)
+
+  // Start playback
+  let assert Ok(playback_rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
+
+  let request =
+    mock_request("/not-found")
+    |> client.recorder(playback_rec)
+
+  // Act
+  let result = client.send(request)
+
+  // Assert - Error with correct status, headers converted to Header type, and body
+  case result {
+    Error(client.ResponseError(response: client.HttpResponse(
+      status: status,
+      headers: headers,
+      body: body,
+    ))) -> {
+      status |> should.equal(404)
+      body |> should.equal("not found")
+      // Headers should be converted from tuples to Header type
+      let has_content_type =
+        list.any(headers, fn(h: client.Header) {
+          h.name == "Content-Type" && h.value == "application/json"
+        })
+      has_content_type |> should.be_true()
+      let has_custom =
+        list.any(headers, fn(h: client.Header) {
+          h.name == "X-Custom" && h.value == "test"
+        })
+      has_custom |> should.be_true()
+    }
+    Error(client.RequestError(message: msg)) -> {
+      io.println("Expected ResponseError, got RequestError: " <> msg)
+      should.fail()
+    }
+    Ok(_) -> {
+      io.println("Expected error for 404 playback, got Ok")
+      should.fail()
+    }
+  }
+
+  // Cleanup
+  recorder.stop(playback_rec) |> result.unwrap(Nil)
+}
+
+pub fn playback_of_success_recording_preserves_status_and_headers_test() {
+  // Arrange - Create a recording with success status and headers
+  let recordings_directory_path = test_recording_directory()
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
+
+  let test_request =
+    recording.RecordedRequest(
+      method: http.Get,
+      scheme: http.Http,
+      host: "localhost",
+      port: option.Some(9876),
+      path: "/api",
+      query: option.None,
+      headers: [],
+      body: "",
+    )
+  let test_response =
+    recording.BlockingResponse(
+      status: 200,
+      headers: [#("Content-Type", "text/plain"), #("X-Request-Id", "abc123")],
+      body: "ok",
+    )
+  let test_recording =
+    recording.Recording(request: test_request, response: test_response)
+  recorder.add_recording(rec, test_recording)
+  recorder.stop(rec) |> result.unwrap(Nil)
+
+  // Start playback
+  let assert Ok(playback_rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
+
+  let request =
+    mock_request("/api")
+    |> client.recorder(playback_rec)
+
+  // Act
+  let assert Ok(client.HttpResponse(
+    status: status,
+    headers: headers,
+    body: body,
+  )) = client.send(request)
+
+  // Assert - All fields preserved
+  status |> should.equal(200)
+  body |> should.equal("ok")
+  let has_request_id =
+    list.any(headers, fn(h: client.Header) {
+      h.name == "X-Request-Id" && h.value == "abc123"
+    })
+  has_request_id |> should.be_true()
 
   // Cleanup
   recorder.stop(playback_rec) |> result.unwrap(Nil)
@@ -848,11 +1010,191 @@ pub fn playback_from_committed_fixtures_returns_recorded_response_test() {
   // Act - Make request that matches committed fixture
   let request = mock_request("/text") |> client.recorder(rec)
 
-  let assert Ok(body) = client.send(request)
+  let assert Ok(client.HttpResponse(body: body, ..)) = client.send(request)
 
   // Assert - Should get FIXTURE response, not real mock server response
   // Mock server returns "Hello, World!" but fixture has different content
   body |> should.equal("FIXTURE_RESPONSE_NO_NETWORK")
+
+  // Cleanup
+  recorder.stop(rec) |> result.unwrap(Nil)
+}
+
+pub fn start_stream_playback_with_streaming_response_calls_callbacks_test() {
+  // Arrange - save a streaming response recording directly to disk
+  let recordings_directory_path =
+    temp_directory("start_stream_playback_streaming")
+
+  let test_request =
+    recording.RecordedRequest(
+      method: http.Get,
+      scheme: http.Http,
+      host: "localhost",
+      port: option.Some(9876),
+      path: "/stream",
+      query: option.None,
+      headers: [],
+      body: "",
+    )
+  let chunk1 = recording.Chunk(data: <<"hello ":utf8>>, delay_ms: 0)
+  let chunk2 = recording.Chunk(data: <<"world":utf8>>, delay_ms: 0)
+  let test_response =
+    recording.StreamingResponse(
+      status: 200,
+      headers: [#("Content-Type", "text/event-stream")],
+      chunks: [chunk1, chunk2],
+    )
+  let test_recording =
+    recording.Recording(request: test_request, response: test_response)
+  let key_fn =
+    matching.request_key(method: True, url: True, headers: False, body: False)
+  let assert Ok(_) =
+    storage.save_recording_immediately(
+      recordings_directory_path,
+      test_recording,
+      key_fn(test_request),
+    )
+
+  // Start in playback mode
+  let assert Ok(playback_rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
+
+  // Set up subjects to collect callback data
+  let start_subject = process.new_subject()
+  let chunks_subject = process.new_subject()
+  let end_subject = process.new_subject()
+
+  let request =
+    mock_request("/stream")
+    |> client.recorder(playback_rec)
+    |> client.on_stream_start(fn(headers) {
+      process.send(start_subject, headers)
+    })
+    |> client.on_stream_chunk(fn(data) { process.send(chunks_subject, data) })
+    |> client.on_stream_end(fn(_headers) { process.send(end_subject, True) })
+
+  // Act
+  let assert Ok(handle) = client.start_stream(request)
+  client.await_stream(handle)
+
+  // Assert - on_stream_start was called with headers
+  let assert Ok(start_headers) = process.receive(start_subject, 1000)
+  let has_content_type =
+    list.any(start_headers, fn(h: client.Header) {
+      h.name == "Content-Type" && h.value == "text/event-stream"
+    })
+  has_content_type |> should.be_true()
+
+  // Assert - on_stream_chunk was called with correct data
+  let chunk_data = collect_chunks_from_mailbox(chunks_subject, [])
+  let combined =
+    chunk_data
+    |> list.map(fn(d) { bit_array.to_string(d) |> result.unwrap("") })
+    |> string.join("")
+  combined |> should.equal("hello world")
+
+  // Assert - on_stream_end was called
+  let assert Ok(True) = process.receive(end_subject, 1000)
+
+  // Cleanup
+  recorder.stop(playback_rec) |> result.unwrap(Nil)
+}
+
+pub fn start_stream_playback_with_blocking_response_sends_body_as_single_chunk_test() {
+  // Arrange - save a blocking response recording directly to disk
+  let recordings_directory_path =
+    temp_directory("start_stream_playback_blocking")
+
+  let test_request =
+    recording.RecordedRequest(
+      method: http.Get,
+      scheme: http.Http,
+      host: "localhost",
+      port: option.Some(9876),
+      path: "/text",
+      query: option.None,
+      headers: [],
+      body: "",
+    )
+  let test_response =
+    recording.BlockingResponse(
+      status: 200,
+      headers: [#("Content-Type", "text/plain")],
+      body: "Hello, World!",
+    )
+  let test_recording =
+    recording.Recording(request: test_request, response: test_response)
+  let key_fn =
+    matching.request_key(method: True, url: True, headers: False, body: False)
+  let assert Ok(_) =
+    storage.save_recording_immediately(
+      recordings_directory_path,
+      test_recording,
+      key_fn(test_request),
+    )
+
+  // Start in playback mode
+  let assert Ok(playback_rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
+
+  // Set up subjects to collect callback data
+  let chunks_subject = process.new_subject()
+  let end_subject = process.new_subject()
+
+  let request =
+    mock_request("/text")
+    |> client.recorder(playback_rec)
+    |> client.on_stream_chunk(fn(data) { process.send(chunks_subject, data) })
+    |> client.on_stream_end(fn(_headers) { process.send(end_subject, True) })
+
+  // Act
+  let assert Ok(handle) = client.start_stream(request)
+  client.await_stream(handle)
+
+  // Assert - on_stream_chunk was called with the full body
+  let chunk_data = collect_chunks_from_mailbox(chunks_subject, [])
+  let combined =
+    chunk_data
+    |> list.map(fn(d) { bit_array.to_string(d) |> result.unwrap("") })
+    |> string.join("")
+  combined |> should.equal("Hello, World!")
+
+  // Assert - on_stream_end was called
+  let assert Ok(True) = process.receive(end_subject, 1000)
+
+  // Cleanup
+  recorder.stop(playback_rec) |> result.unwrap(Nil)
+}
+
+pub fn start_stream_with_recorder_not_finding_recording_uses_real_stream_test() {
+  // Arrange - empty playback directory (no recordings)
+  let recordings_directory_path = temp_directory("start_stream_playback_miss")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
+
+  let chunks_subject = process.new_subject()
+
+  let request =
+    mock_request("/stream/fast")
+    |> client.recorder(rec)
+    |> client.on_stream_chunk(fn(data) { process.send(chunks_subject, data) })
+
+  // Act
+  let assert Ok(handle) = client.start_stream(request)
+  client.await_stream(handle)
+
+  // Assert - should fall back to real request when no recording found
+  let chunks = collect_chunks_from_mailbox(chunks_subject, [])
+  { chunks != [] } |> should.be_true()
 
   // Cleanup
   recorder.stop(rec) |> result.unwrap(Nil)

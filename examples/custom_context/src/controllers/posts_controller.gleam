@@ -52,9 +52,11 @@ fn make_request_and_respond(user_id: String, post_id: String) -> Response {
     |> client.add_header("User-Agent", "Dream-Custom-Context-Example")
 
   case client.send(req) {
-    Ok(body) ->
+    Ok(client.HttpResponse(body: body, ..)) ->
       text_response(status.ok, post_view.format_show(user_id, post_id, body))
-    Error(error) ->
+    Error(client.ResponseError(response: client.HttpResponse(body: body, ..))) ->
+      text_response(status.internal_server_error, post_view.format_error(body))
+    Error(client.RequestError(message: error)) ->
       text_response(status.internal_server_error, post_view.format_error(error))
   }
 }
