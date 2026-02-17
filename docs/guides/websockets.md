@@ -376,7 +376,7 @@ without opening real connections.
   full API (`Message`, `Action`, `send_text`, `send_binary`, etc.).
 - Explore `src/dream/services/broadcaster.gleam` for the pub/sub
   implementation.
-- Run and modify the [`examples/websocket_chat/`](../../examples/websocket_chat/)
+- Run and modify the [`examples/websocket_chat/`](https://github.com/TrustBound/dream/tree/main/examples/websocket_chat/)
   example to fit your own use case.
 - Revisit the [Streaming Guide](streaming.md) to compare WebSockets with
   HTTP streaming and SSE.

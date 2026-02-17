@@ -1,0 +1,23 @@
+.example_code {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 2rem;
+}
+
+.example_code img {
+  width: 100%;
+  max-width: 720px;
+  min-width: 320px;
+  border-radius: 1rem;
+  height: auto;
+  image-rendering: auto;
+}
+
+@media (max-width: 768px) {
+  .example_code {
+    display: none;
+  }
+}

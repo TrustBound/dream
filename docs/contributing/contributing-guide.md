@@ -1,4 +1,4 @@
-# Contributing to Dream
+# Contributing Guide
 
 Thanks for your interest in contributing! Dream is a community project and we welcome contributions.
 

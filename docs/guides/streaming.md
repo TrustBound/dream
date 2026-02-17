@@ -655,11 +655,11 @@ fn map_validation_result_to_response(result: Result(String, Error)) -> Response 
 
 ### Simple Streaming
 
-See [`examples/streaming/`](../../examples/streaming/) for HTTP client streaming.
+See [`examples/streaming/`](https://github.com/TrustBound/dream/tree/main/examples/streaming/) for HTTP client streaming.
 
 ### Advanced Streaming
 
-See [`examples/streaming_capabilities/`](../../examples/streaming_capabilities/) for:
+See [`examples/streaming_capabilities/`](https://github.com/TrustBound/dream/tree/main/examples/streaming_capabilities/) for:
 - **Ingress streaming**: File uploads with byte counting
 - **Egress streaming**: Generate and stream 1000 lines
 - **Bi-directional streaming**: Transform data both ways
@@ -668,7 +668,7 @@ See [`examples/streaming_capabilities/`](../../examples/streaming_capabilities/)
 
 ### Multi-Format Streaming
 
-See [`examples/multi_format/`](../../examples/multi_format/) for:
+See [`examples/multi_format/`](https://github.com/TrustBound/dream/tree/main/examples/multi_format/) for:
 - CSV export as a stream
 - Different formats from same data
 - Streaming with database queries
@@ -859,6 +859,6 @@ type ResponseBody {
 
 - [Multiple Formats Guide](multiple-formats.md) - Different response formats
 - [File Uploads Guide](file-uploads.md) - Multipart form handling
-- [Streaming Example](../../examples/streaming/) - HTTP client streaming
-- [Streaming Capabilities Example](../../examples/streaming_capabilities/) - Advanced streaming
-- [Multi-Format Example](../../examples/multi_format/) - CSV streaming with database
+- [Streaming Example](https://github.com/TrustBound/dream/tree/main/examples/streaming/) - HTTP client streaming
+- [Streaming Capabilities Example](https://github.com/TrustBound/dream/tree/main/examples/streaming_capabilities/) - Advanced streaming
+- [Multi-Format Example](https://github.com/TrustBound/dream/tree/main/examples/multi_format/) - CSV streaming with database
