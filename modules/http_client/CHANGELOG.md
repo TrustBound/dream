@@ -17,14 +17,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - HTTP error responses (status >= 400) are now routed to `Error(ResponseError(...))` instead of `Ok(body)`.
   - Successful responses (status < 400) are `Ok(HttpResponse(...))`.
 
+### Fixed
+
+- **HTTP 4xx/5xx responses no longer silently succeed.** In 4.x, a 404 or 500 response
+  came back as `Ok(body)`, identical to a 200. Callers had no way to detect failure without
+  parsing the body. Now 4xx/5xx responses are routed to `Error(ResponseError(response))`
+  with the full `HttpResponse` available for inspection — status code, headers, and body.
+- **`start_stream()` playback no longer errors.** In 4.x, `start_stream()` with a recorder
+  in playback mode returned `Error("Message-based streaming does not support playback mode")`.
+  Callback-based streaming could record but never play back, forcing tests to hit real endpoints
+  every run. Now `start_stream()` replays recorded chunks directly via your callbacks.
+- **`dream_opensearch` adapted to `client.new()`.** The opensearch client was still using the
+  pre-4.0 `client.new` (without parentheses), which worked by accident in 4.x but was
+  technically incorrect per the 4.0 migration guide.
+
 ### Added
 
-- **`start_stream()` now supports playback from recorded fixtures.** Previously, callback-based
-  streaming could record but not play back, returning an error in playback mode. Now when a
-  recorder is attached and a matching recording exists, `start_stream()` replays recorded chunks
-  directly via your `on_stream_start`, `on_stream_chunk`, and `on_stream_end` callbacks — no
-  network calls required. All three execution modes (`send()`, `stream_yielder()`, `start_stream()`)
-  now fully support both recording and playback.
+- **`HttpResponse` type** — carries `status: Int`, `headers: List(Header)`, and `body: String`
+  for complete HTTP response inspection.
+- **`SendError` type** — typed error variants distinguishing HTTP errors (`ResponseError`) from
+  transport failures (`RequestError`), replacing opaque `Error(String)`.
+- **`start_stream()` playback support.** When a recorder is attached and a matching recording
+  exists, `start_stream()` replays recorded chunks directly via your `on_stream_start`,
+  `on_stream_chunk`, and `on_stream_end` callbacks — no network calls required. All three
+  execution modes (`send()`, `stream_yielder()`, `start_stream()`) now fully support both
+  recording and playback.
 
 ### Migration Guide
 

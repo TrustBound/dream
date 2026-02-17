@@ -92,6 +92,61 @@ All three execution modes now fully support recording and playback:
 | `stream_yielder()` | ✓      | ✓        |
 | `start_stream()`   | ✓      | ✓ (new)  |
 
+## Bug Fixes
+
+### 1) HTTP 4xx/5xx responses no longer silently succeed
+
+In 4.x, a 404 or 500 response came back as `Ok(body)`, identical to a 200. This
+was the root cause of several downstream bugs: callers had no way to detect
+failure without parsing the body, and error-handling code paths were never
+triggered for server errors.
+
+**Before (4.x) — silent failure:**
+
+```gleam
+let assert Ok(body) = client.send(request)
+// body could be "Hello, World!" OR '{"error":"not found"}' — no way to tell
+```
+
+**After (5.0.0) — failure is explicit:**
+
+```gleam
+case client.send(request) {
+  Ok(HttpResponse(body: body, ..)) ->
+    // Guaranteed status < 400
+    Ok(body)
+  Error(ResponseError(response: response)) ->
+    // HTTP 4xx/5xx — status, headers, and error body available
+    Error(response.body)
+  Error(RequestError(message: msg)) ->
+    // Transport failure
+    Error(msg)
+}
+```
+
+### 2) `start_stream()` playback no longer errors
+
+In 4.x, calling `start_stream()` with a recorder in playback mode returned:
+
+```
+Error("Message-based streaming does not support playback mode. Use stream_yielder() instead.")
+```
+
+This meant callback-based streaming could **record** responses but could never
+**play them back**. Tests using `start_stream()` had to hit real endpoints on
+every run, making CI unreliable and slow.
+
+5.0.0 replays recorded chunks directly via your callbacks — `on_stream_start`,
+`on_stream_chunk`, and `on_stream_end` are called in sequence with the recorded
+data. No network calls, no workarounds needed.
+
+### 3) `dream_opensearch` used pre-4.0 `client.new` syntax
+
+The opensearch client was using `client.new` (without parentheses), which was the
+pre-4.0 syntax. This worked by accident in 4.x because Gleam treats a zero-arg
+function reference as callable, but it was technically incorrect per the 4.0
+migration guide. Updated to `client.new()`.
+
 ## Breaking Changes
 
 ### 1) `send()` return type changed
