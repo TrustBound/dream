@@ -5,12 +5,13 @@
 //// Note: README shows api.example.com, but tests use localhost:9876 (mock server)
 
 import dream_http_client/client.{
-  add_header, body, host, method, path, port, scheme, send,
+  type HttpResponse, type SendError, add_header, body, host, method, path, port,
+  scheme, send,
 }
 import gleam/http
 import gleam/json
 
-pub fn post_user() -> Result(String, String) {
+pub fn post_user() -> Result(HttpResponse, SendError) {
   let user_json =
     json.object([
       #("name", json.string("Alice")),

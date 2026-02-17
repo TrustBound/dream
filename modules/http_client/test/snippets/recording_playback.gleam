@@ -3,7 +3,8 @@
 //// Example showing how to use playback mode for testing without external dependencies.
 
 import dream_http_client/client.{
-  host, path, port, recorder as with_recorder, scheme, send,
+  type HttpResponse, type SendError, host, path, port, recorder as with_recorder,
+  scheme, send,
 }
 import dream_http_client/recorder.{directory, mode, start}
 import dream_http_client/recording
@@ -12,7 +13,7 @@ import gleam/option
 import gleam/result
 import simplifile
 
-pub fn test_with_playback() -> Result(String, String) {
+pub fn test_with_playback() -> Result(HttpResponse, SendError) {
   // First record a request to create the fixture
   let recordings_directory_path = "build/test_playback_snippet"
 
@@ -43,7 +44,8 @@ pub fn test_with_playback() -> Result(String, String) {
     recorder.new()
     |> directory(recordings_directory_path)
     |> mode("record")
-    |> start(),
+    |> start()
+    |> result.map_error(fn(e) { client.RequestError(message: e) }),
   )
 
   recorder.add_recording(rec, test_recording)
@@ -54,7 +56,8 @@ pub fn test_with_playback() -> Result(String, String) {
     recorder.new()
     |> directory(recordings_directory_path)
     |> mode("playback")
-    |> start(),
+    |> start()
+    |> result.map_error(fn(e) { client.RequestError(message: e) }),
   )
 
   // Make request - returns recorded response without network call

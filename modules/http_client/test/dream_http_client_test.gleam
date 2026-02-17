@@ -43,7 +43,7 @@ fn test_server_ready(port: Int) -> Nil {
     |> client.path("/text")
 
   case client.send(test_req) {
-    Ok(body) -> {
+    Ok(client.HttpResponse(body: body, ..)) -> {
       case string.length(body) > 0 {
         True -> Nil
         False -> {
@@ -52,8 +52,8 @@ fn test_server_ready(port: Int) -> Nil {
         }
       }
     }
-    Error(error_msg) -> {
-      io.println("Server not responding: " <> error_msg)
+    Error(error) -> {
+      io.println("Server not responding: " <> string.inspect(error))
       exit_with_error()
     }
   }

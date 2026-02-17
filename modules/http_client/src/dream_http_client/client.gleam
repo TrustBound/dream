@@ -36,7 +36,9 @@
 //// ## Recording and playback
 ////
 //// Attach a recorder with `recorder()` to record real HTTP traffic to disk, or
-//// to play back recordings without network calls.
+//// to play back recordings without network calls. All three execution modes
+//// (`send()`, `stream_yielder()`, `start_stream()`) fully support both
+//// recording and playback.
 ////
 //// ```gleam
 //// import dream_http_client/client.{host, path, recorder, send}
@@ -119,6 +121,70 @@ import gleam/yielder
 /// - Headers are stored in the order they were added
 pub type Header {
   Header(name: String, value: String)
+}
+
+/// Complete HTTP response with status code, headers, and body.
+///
+/// Returned by `send()` for successful HTTP responses (status < 400).
+/// Also available inside `ResponseError` for HTTP error responses (status >= 400).
+///
+/// ## Fields
+///
+/// - `status`: HTTP status code (e.g. 200, 301, 404, 500)
+/// - `headers`: Response headers as `List(Header)` — includes Content-Type,
+///   Content-Length, Set-Cookie, and any other headers the server sent
+/// - `body`: Complete response body as a UTF-8 string
+///
+/// ## Example
+///
+/// ```gleam
+/// case client.send(request) {
+///   Ok(HttpResponse(status: 200, headers: headers, body: body)) ->
+///     process_success(headers, body)
+///   Ok(HttpResponse(status: status, body: body, ..)) ->
+///     handle_redirect(status, body)
+///   Error(_) -> handle_error()
+/// }
+/// ```
+pub type HttpResponse {
+  HttpResponse(status: Int, headers: List(Header), body: String)
+}
+
+/// Error types returned by `send()`.
+///
+/// ## Variants
+///
+/// - `ResponseError(response: HttpResponse)` — the server responded with a
+///   4xx or 5xx status code. The full `HttpResponse` is available with status,
+///   headers, and body. The body typically contains error details (e.g. JSON
+///   error messages from an API, or HTML error pages).
+///
+/// - `RequestError(message: String)` — the request could not be completed.
+///   The `message` describes what went wrong. Common causes:
+///   - Connection refused (server not running)
+///   - DNS resolution failure (hostname not found)
+///   - Timeout (server did not respond in time)
+///   - Recorder errors (ambiguous recording match, missing fixture)
+///   - Streaming response found when blocking response expected
+///
+/// ## Example
+///
+/// ```gleam
+/// case client.send(request) {
+///   Ok(response) ->
+///     // Guaranteed status < 400
+///     io.println("Got " <> int.to_string(response.status))
+///   Error(ResponseError(response: response)) ->
+///     // HTTP error — inspect response.status, response.body
+///     io.println("HTTP " <> int.to_string(response.status))
+///   Error(RequestError(message: message)) ->
+///     // Transport failure — no HTTP response at all
+///     io.println("Failed: " <> message)
+/// }
+/// ```
+pub type SendError {
+  ResponseError(response: HttpResponse)
+  RequestError(message: String)
 }
 
 /// HTTP client request configuration
@@ -946,7 +1012,7 @@ pub opaque type StreamHandle {
 /// Make a blocking HTTP request and get the complete response
 ///
 /// Sends an HTTP request and collects all response chunks, returning the
-/// complete response body as a string. This is ideal for:
+/// complete response with status code, headers, and body. This is ideal for:
 ///
 /// - JSON API responses
 /// - Small files or documents
@@ -955,20 +1021,30 @@ pub opaque type StreamHandle {
 /// For large responses or when you need non-blocking streaming, use
 /// `stream_yielder()` or `start_stream()` instead.
 ///
+/// ## Recording and Playback
+///
+/// When a recorder is attached (via `recorder()`), this function fully supports
+/// both recording and playback. In record mode, the real response is persisted
+/// to disk. In playback mode, the recorded response is returned without making
+/// a network call.
+///
 /// ## Parameters
 ///
 /// - `client_request`: The configured HTTP request
 ///
 /// ## Returns
 ///
-/// - `Ok(String)`: The complete response body as a string
-/// - `Error(String)`: An error message if the request failed
+/// - `Ok(HttpResponse)`: Successful response (status < 400) with status, headers, and body
+/// - `Error(ResponseError(response))`: HTTP error response (status >= 400) with full response
+/// - `Error(RequestError(message))`: Connection failure, timeout, or other transport error
 ///
 /// ## Example
 ///
 /// ```gleam
-/// import dream_http_client/client.{host, path, add_header, send}
-/// import gleam/json.{decode}
+/// import dream_http_client/client.{
+///   HttpResponse, RequestError, ResponseError,
+///   host, path, add_header, send,
+/// }
 ///
 /// let result = client.new()
 ///   |> host("api.example.com")
@@ -977,17 +1053,20 @@ pub opaque type StreamHandle {
 ///   |> send()
 ///
 /// case result {
-///   Ok(body) -> {
-///     case decode(body, user_decoder) {
+///   Ok(HttpResponse(body: body, ..)) -> {
+///     case json.decode(body, user_decoder) {
 ///       Ok(user) -> Ok(user)
 ///       Error(json_error) ->
-///         Error("Invalid JSON response: " <> string.inspect(json_error))
+///         Error("Invalid JSON: " <> string.inspect(json_error))
 ///     }
 ///   }
-///   Error(error_message) -> Error("Request failed: " <> error_message)
+///   Error(ResponseError(response)) ->
+///     Error("HTTP " <> int.to_string(response.status) <> ": " <> response.body)
+///   Error(RequestError(message)) ->
+///     Error("Request failed: " <> message)
 /// }
 /// ```
-pub fn send(client_request: ClientRequest) -> Result(String, String) {
+pub fn send(client_request: ClientRequest) -> Result(HttpResponse, SendError) {
   case client_request.recorder {
     option.Some(recorder_instance) ->
       send_with_recorder(client_request, recorder_instance)
@@ -997,14 +1076,14 @@ pub fn send(client_request: ClientRequest) -> Result(String, String) {
 
 fn send_without_recorder(
   client_request: ClientRequest,
-) -> Result(String, String) {
+) -> Result(HttpResponse, SendError) {
   send_client_request_to_httpc(client_request)
 }
 
 fn send_with_recorder(
   client_request: ClientRequest,
   recorder_instance: recorder.Recorder,
-) -> Result(String, String) {
+) -> Result(HttpResponse, SendError) {
   let recorded_request = client_request_to_recorded_request(client_request)
 
   case recorder.find_recording(recorder_instance, recorded_request) {
@@ -1012,19 +1091,20 @@ fn send_with_recorder(
       handle_recorded_blocking_response(response)
     Ok(option.None) ->
       send_and_maybe_record(client_request, recorder_instance, recorded_request)
-    Error(reason) -> Error(reason)
+    Error(reason) -> Error(RequestError(message: reason))
   }
 }
 
 fn handle_recorded_blocking_response(
   response: recording.RecordedResponse,
-) -> Result(String, String) {
+) -> Result(HttpResponse, SendError) {
   case response {
-    recording.BlockingResponse(_, _, body) -> Ok(body)
+    recording.BlockingResponse(status, headers, body) ->
+      response_result(status, headers, body)
     recording.StreamingResponse(_, _, _) ->
-      Error(
-        "Recording contains streaming response, use stream_yielder() instead",
-      )
+      Error(RequestError(
+        message: "Recording contains streaming response, use stream_yielder() instead",
+      ))
   }
 }
 
@@ -1032,7 +1112,7 @@ fn send_and_maybe_record(
   client_request: ClientRequest,
   recorder_instance: recorder.Recorder,
   recorded_request: recording.RecordedRequest,
-) -> Result(String, String) {
+) -> Result(HttpResponse, SendError) {
   case send_client_request_to_httpc_with_meta(client_request) {
     Ok(#(status, headers, body)) -> {
       let recorded_response =
@@ -1055,9 +1135,9 @@ fn send_and_maybe_record(
         response_for_recording,
       )
 
-      Ok(body)
+      response_result(status, headers, body)
     }
-    Error(error_message) -> Error(error_message)
+    Error(error_message) -> Error(RequestError(message: error_message))
   }
 }
 
@@ -1078,9 +1158,11 @@ fn record_response_if_needed(
 
 fn send_client_request_to_httpc(
   client_request: ClientRequest,
-) -> Result(String, String) {
-  send_client_request_to_httpc_with_meta(client_request)
-  |> result.map(fn(meta) { meta.2 })
+) -> Result(HttpResponse, SendError) {
+  case send_client_request_to_httpc_with_meta(client_request) {
+    Ok(#(status, headers, body)) -> response_result(status, headers, body)
+    Error(error_message) -> Error(RequestError(message: error_message))
+  }
 }
 
 fn send_client_request_to_httpc_with_meta(
@@ -1155,6 +1237,19 @@ fn send_sync(
 /// - Scripts or one-off operations
 ///
 /// **For OTP actors with concurrency, use `start_stream()` instead.**
+///
+/// ## Recording and Playback
+///
+/// When a recorder is attached (via `recorder()`), this function fully supports
+/// both recording and playback:
+///
+/// - **Record mode**: Streams from the real server and records chunks to disk,
+///   capturing timing information between chunks for realistic replay.
+/// - **Playback mode**: Yields recorded chunks from the fixture file. No network
+///   calls are made.
+///
+/// The same `StreamingResponse` fixture format is shared with `start_stream()`,
+/// so recordings made with either function can be played back by both.
 ///
 /// ## Error Semantics
 ///
@@ -1399,6 +1494,23 @@ fn tuples_to_headers(tuples: List(#(String, String))) -> List(Header) {
   list.map(tuples, fn(t) { Header(name: t.0, value: t.1) })
 }
 
+fn response_result(
+  status: Int,
+  headers: List(#(String, String)),
+  body: String,
+) -> Result(HttpResponse, SendError) {
+  let response =
+    HttpResponse(
+      status: status,
+      headers: tuples_to_headers(headers),
+      body: body,
+    )
+  case status >= 400 {
+    True -> Error(ResponseError(response: response))
+    False -> Ok(response)
+  }
+}
+
 fn handle_yielder_start_with_state(
   state: YielderState,
 ) -> yielder.Step(Result(bytes_tree.BytesTree, String), YielderState) {
@@ -1568,9 +1680,10 @@ fn save_streaming_recording(
 }
 
 // Internal: Start a message-based streaming HTTP request
-// Used by start_stream() to initiate the HTTP stream
+// Used by start_stream() to initiate the low-level HTTP stream via httpc.
+// Note: start_stream() already handles playback via maybe_replay_from_recording()
+// before reaching this function. This path is for live HTTP requests only.
 fn stream_messages(client_request: ClientRequest) -> Result(RequestId, String) {
-  // Check for recorder - if in Record mode, check playback first
   case client_request.recorder {
     option.Some(recorder_instance) ->
       stream_messages_with_recorder(client_request, recorder_instance)
@@ -1586,10 +1699,11 @@ fn stream_messages_with_recorder(
 
   case recorder.find_recording(recorder_instance, recorded_request) {
     Ok(option.Some(_recording)) ->
-      // Found recording - message streaming doesn't support playback
-      // because we can't inject messages into user's mailbox
+      // Safety net: start_stream() replays via maybe_replay_from_recording()
+      // before reaching here. If we land here anyway, it means the low-level
+      // httpc message path cannot replay recordings.
       Error(
-        "Message-based streaming does not support playback mode. Use stream_yielder() instead.",
+        "Unexpected: recording found in stream_messages path. This should have been handled by start_stream() playback.",
       )
     Ok(option.None) ->
       send_stream_messages_to_httpc(
@@ -1974,10 +2088,25 @@ fn pair_with_name(value: String, name: String) -> #(String, String) {
 /// Start an HTTP stream with callback handlers
 ///
 /// Spawns a dedicated process to handle HTTP streaming and calls your callbacks
-/// as messages arrive. This is the recommended API for streaming.
+/// as messages arrive. This is the recommended API for streaming in OTP
+/// applications and concurrent contexts.
 ///
 /// Returns a `StreamHandle` immediately (non-blocking). The stream runs in a
 /// separate process, and your callbacks execute in that process.
+///
+/// ## Recording and Playback
+///
+/// When a recorder is attached (via `recorder()`), this function fully supports
+/// both recording and playback:
+///
+/// - **Record mode**: Streams from the real server and records chunks to disk.
+///   The recorded fixture captures each chunk along with timing information.
+/// - **Playback mode**: Replays recorded chunks directly via your callbacks —
+///   `on_stream_start`, `on_stream_chunk`, and `on_stream_end` are called in
+///   sequence with the recorded data. No network calls are made.
+///
+/// The same `StreamingResponse` fixture format is shared with `stream_yielder()`,
+/// so recordings made with either function can be played back by both.
 ///
 /// ## Parameters
 ///
@@ -2028,25 +2157,91 @@ fn ensure_ets_tables() -> Nil {
 fn ensure_ref_mapping_table_wrapper() -> Nil
 
 fn run_stream_process(request: ClientRequest) -> Nil {
-  // Build selector for HTTP messages
-  let selector =
-    process.new_selector()
-    |> select_stream_messages(fn(msg) { msg })
+  // Try playback from recording first
+  case maybe_replay_from_recording(request) {
+    True -> Nil
+    False -> {
+      // Build selector for HTTP messages
+      let selector =
+        process.new_selector()
+        |> select_stream_messages(fn(msg) { msg })
 
-  let timeout_ms = resolve_timeout(request)
+      let timeout_ms = resolve_timeout(request)
 
-  // Start the stream using internal API
-  case stream_messages(request) {
-    Error(reason) -> {
-      // Call error callback if set
-      case request.on_stream_error {
-        Some(on_error) -> on_error(reason)
+      // Start the stream using internal API
+      case stream_messages(request) {
+        Error(reason) -> {
+          // Call error callback if set
+          case request.on_stream_error {
+            Some(on_error) -> on_error(reason)
+            None -> Nil
+          }
+        }
+        Ok(req_id) -> {
+          // Process messages until stream completes
+          process_stream_loop(selector, req_id, request, timeout_ms)
+        }
+      }
+    }
+  }
+}
+
+/// Check if a matching recording exists and replay it via callbacks.
+/// Returns True if playback was handled, False if the caller should
+/// proceed with a real HTTP stream.
+fn maybe_replay_from_recording(request: ClientRequest) -> Bool {
+  case request.recorder {
+    Some(rec) -> {
+      let recorded_request = client_request_to_recorded_request(request)
+      case recorder.find_recording(rec, recorded_request) {
+        Ok(Some(recording.Recording(_, response))) -> {
+          replay_recorded_stream(request, response)
+          True
+        }
+        _ -> False
+      }
+    }
+    None -> False
+  }
+}
+
+/// Replay a recorded response by directly invoking the stream callbacks.
+/// Handles both StreamingResponse (multiple chunks) and BlockingResponse
+/// (body delivered as a single chunk).
+fn replay_recorded_stream(
+  request: ClientRequest,
+  response: recording.RecordedResponse,
+) -> Nil {
+  case response {
+    recording.StreamingResponse(_, headers, chunks) -> {
+      case request.on_stream_start {
+        Some(cb) -> cb(list.map(headers, fn(h) { Header(h.0, h.1) }))
+        None -> Nil
+      }
+      list.each(chunks, fn(chunk) {
+        case request.on_stream_chunk {
+          Some(cb) -> cb(chunk.data)
+          None -> Nil
+        }
+      })
+      case request.on_stream_end {
+        Some(cb) -> cb([])
         None -> Nil
       }
     }
-    Ok(req_id) -> {
-      // Process messages until stream completes
-      process_stream_loop(selector, req_id, request, timeout_ms)
+    recording.BlockingResponse(_, headers, body) -> {
+      case request.on_stream_start {
+        Some(cb) -> cb(list.map(headers, fn(h) { Header(h.0, h.1) }))
+        None -> Nil
+      }
+      case request.on_stream_chunk {
+        Some(cb) -> cb(<<body:utf8>>)
+        None -> Nil
+      }
+      case request.on_stream_end {
+        Some(cb) -> cb([])
+        None -> Nil
+      }
     }
   }
 }

@@ -81,8 +81,14 @@ pub fn new(
     |> client.timeout(5000)
 
   case client.send(req) {
-    Ok(body) -> text_response(status.ok, stream_view.format_fetch(body))
-    Error(error) ->
+    Ok(client.HttpResponse(body: body, ..)) ->
+      text_response(status.ok, stream_view.format_fetch(body))
+    Error(client.ResponseError(response: client.HttpResponse(body: body, ..))) ->
+      text_response(
+        status.internal_server_error,
+        stream_view.format_error(body),
+      )
+    Error(client.RequestError(message: error)) ->
       text_response(
         status.internal_server_error,
         stream_view.format_error(error),

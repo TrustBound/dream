@@ -5,12 +5,13 @@
 //// Note: README shows api.example.com, but tests use localhost:9876
 
 import dream_http_client/client.{
-  add_header, body, host, method, path, port, query, scheme, send, timeout,
+  type HttpResponse, type SendError, add_header, body, host, method, path, port,
+  query, scheme, send, timeout,
 }
 import gleam/http
 import gleam/json
 
-pub fn build_complex_request() -> Result(String, String) {
+pub fn build_complex_request() -> Result(HttpResponse, SendError) {
   let json_body =
     json.object([#("query", json.string("test")), #("limit", json.int(10))])
 

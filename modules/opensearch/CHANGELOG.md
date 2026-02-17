@@ -5,6 +5,20 @@ All notable changes to `dream_opensearch` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.1.0 - 2026-02-16
+
+### Changed
+
+- Updated to `dream_http_client` 5.0.0.
+- `send_request` now properly routes HTTP error responses (4xx/5xx) to `Error(body)` instead of `Ok(body)`. The error string contains the response body, which typically includes error details from OpenSearch.
+- Updated dependency constraint: `dream_http_client >= 5.0.0 and < 6.0.0`.
+
+## 2.0.0
+
+### Breaking Changes
+
+- Bumped to match dream_http_client 4.x API changes.
+
 ## 1.0.2 - 2025-11-21
 
 ### Changed

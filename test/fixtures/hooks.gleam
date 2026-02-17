@@ -54,8 +54,8 @@ fn is_server_responding() -> Bool {
 
   case result {
     Ok(_response) -> True
-    // Connection refused or timeout expected during startup polling
-    Error(_connection_error) -> False
+    // Connection refused, timeout, or HTTP error expected during startup polling
+    Error(_error) -> False
   }
 }
 
