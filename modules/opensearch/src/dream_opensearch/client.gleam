@@ -92,8 +92,8 @@ pub fn new(base_url: String) -> Client {
 ///
 /// ## Returns
 ///
-/// - `Ok(String)`: The response body as a string
-/// - `Error(String)`: An error message if the request failed
+/// - `Ok(String)`: The response body as a string (status < 400)
+/// - `Error(String)`: The error response body (status >= 400) or an error message for connection failures
 ///
 /// ## Example
 ///
@@ -119,7 +119,7 @@ pub fn send_request(
   let #(scheme, host, port, path_part) = parse_url(url)
 
   let base_request =
-    http_client.new
+    http_client.new()
     |> http_client.method(method)
     |> http_client.scheme(scheme)
     |> http_client.host(host)
@@ -132,7 +132,14 @@ pub fn send_request(
     None -> base_request
   }
 
-  http_client.send(request)
+  case http_client.send(request) {
+    Ok(http_client.HttpResponse(body: body, ..)) -> Ok(body)
+    Error(http_client.ResponseError(response: http_client.HttpResponse(
+      body: body,
+      ..,
+    ))) -> Error(body)
+    Error(http_client.RequestError(message: message)) -> Error(message)
+  }
 }
 
 fn parse_url(url: String) -> #(http.Scheme, String, Option(Int), String) {

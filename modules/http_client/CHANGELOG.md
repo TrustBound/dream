@@ -5,6 +5,57 @@ All notable changes to `dream_http_client` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.0.0 - 2026-02-16
+
+### Breaking Changes
+
+- **`send()` now returns `Result(HttpResponse, SendError)`** instead of `Result(String, String)`.
+  - `HttpResponse` carries `status: Int`, `headers: List(Header)`, and `body: String`.
+  - `SendError` has two variants:
+    - `ResponseError(response: HttpResponse)` — server returned 4xx/5xx (full response available)
+    - `RequestError(message: String)` — connection failure, timeout, DNS error, or recorder error
+  - HTTP error responses (status >= 400) are now routed to `Error(ResponseError(...))` instead of `Ok(body)`.
+  - Successful responses (status < 400) are `Ok(HttpResponse(...))`.
+
+### Added
+
+- **`start_stream()` now supports playback from recorded fixtures.** Previously, callback-based
+  streaming could record but not play back, returning an error in playback mode. Now when a
+  recorder is attached and a matching recording exists, `start_stream()` replays recorded chunks
+  directly via your `on_stream_start`, `on_stream_chunk`, and `on_stream_end` callbacks — no
+  network calls required. All three execution modes (`send()`, `stream_yielder()`, `start_stream()`)
+  now fully support both recording and playback.
+
+### Migration Guide
+
+**Before (4.x):**
+
+```gleam
+case client.send(request) {
+  Ok(body) -> use_body(body)
+  Error(message) -> handle_error(message)
+}
+```
+
+**After (5.0):**
+
+```gleam
+case client.send(request) {
+  Ok(client.HttpResponse(status: status, headers: headers, body: body)) ->
+    use_response(status, headers, body)
+  Error(client.ResponseError(response: client.HttpResponse(body: body, ..))) ->
+    handle_http_error(body)
+  Error(client.RequestError(message: message)) ->
+    handle_connection_error(message)
+}
+```
+
+**Quick migration** — if you only need the body:
+
+```gleam
+let assert Ok(client.HttpResponse(body: body, ..)) = client.send(request)
+```
+
 ## 4.1.0 - 2026-01-28
 
 ### Changed

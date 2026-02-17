@@ -5,7 +5,7 @@
 //// Note: Tests use localhost:9876 (mock server) instead of external APIs
 
 import dream_http_client/client.{
-  host, path, port, recorder as with_recorder, scheme, send,
+  HttpResponse, host, path, port, recorder as with_recorder, scheme, send,
 }
 import dream_http_client/recorder.{directory, mode, start}
 import gleam/http
@@ -38,7 +38,9 @@ pub fn record_and_playback() -> Result(Bool, String) {
   // Recording is saved immediately, stop is optional
   let _ = recorder.stop(rec)
 
-  use original_body <- result.try(request_result)
+  use HttpResponse(body: original_body, ..) <- result.try(
+    request_result |> result.map_error(fn(_) { "Request failed" }),
+  )
 
   // 2. Playback from recording (no network call)
   use playback_rec <- result.try(
@@ -59,7 +61,9 @@ pub fn record_and_playback() -> Result(Bool, String) {
 
   let _ = recorder.stop(playback_rec)
 
-  use playback_body <- result.try(playback_result)
+  use HttpResponse(body: playback_body, ..) <- result.try(
+    playback_result |> result.map_error(fn(_) { "Playback failed" }),
+  )
 
   // Cleanup
   let _ = simplifile.delete(recordings_directory_path)

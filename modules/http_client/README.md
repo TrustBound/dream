@@ -70,10 +70,12 @@ gleam add dream_http_client
 Make a simple HTTP request:
 
 ```gleam
-import dream_http_client/client.{host, method, path, port, scheme, send}
+import dream_http_client/client.{
+  type HttpResponse, type SendError, host, method, path, port, scheme, send,
+}
 import gleam/http
 
-pub fn simple_get() -> Result(String, String) {
+pub fn simple_get() -> Result(HttpResponse, SendError) {
   client.new()
   |> method(http.Get)
   |> scheme(http.Http)
@@ -97,7 +99,10 @@ dream_http_client provides three execution modes. Choose based on your use case:
 **Best for:** JSON APIs, small responses
 
 ```gleam
-import dream_http_client/client.{host, path, port, scheme, send}
+import dream_http_client/client.{
+  HttpResponse, RequestError, ResponseError,
+  host, path, port, scheme, send,
+}
 import gleam/http
 
 let result =
@@ -109,8 +114,9 @@ let result =
   |> send()
 
 case result {
-  Ok(body) -> Ok(body)
-  Error(msg) -> Error(msg)
+  Ok(HttpResponse(body: body, ..)) -> Ok(body)
+  Error(ResponseError(response: response)) -> Error(response.body)
+  Error(RequestError(message: msg)) -> Error(msg)
 }
 ```
 
@@ -207,6 +213,17 @@ pub fn stream_and_print() -> Result(Nil, String) {
 ## Recording & Playback
 
 Record HTTP requests/responses for testing, debugging, and offline development.
+All three execution modes fully support both recording and playback:
+
+| Mode               | Record | Playback |
+|:-------------------|:------:|:--------:|
+| `send()`           | ✓      | ✓        |
+| `stream_yielder()` | ✓      | ✓        |
+| `start_stream()`   | ✓      | ✓        |
+
+Streaming recordings capture each chunk along with timing information.
+The same fixture format is shared between `stream_yielder()` and `start_stream()`,
+so recordings made with one can be played back by either.
 
 ### Quick Example
 
@@ -470,7 +487,7 @@ client.new()
 
 **Blocking:**
 
-- `send(req) -> Result(String, String)` - Returns complete response body
+- `send(req) -> Result(HttpResponse, SendError)` - Returns complete response (status, headers, body)
 
 **Yielder Streaming:**
 
@@ -484,6 +501,14 @@ client.new()
 
 ### Types
 
+**`Header`** - HTTP header with `name: String` and `value: String`
+
+**`HttpResponse`** - Complete HTTP response with `status: Int`, `headers: List(Header)`, and `body: String`
+
+**`SendError`** - Error from `send()`:
+- `ResponseError(response: HttpResponse)` — HTTP error (4xx/5xx) with full response
+- `RequestError(message: String)` — Transport failure (connection, timeout, DNS)
+
 **`StreamHandle`** - Opaque identifier for process-based streams
 
 ### Error Handling
@@ -491,7 +516,10 @@ client.new()
 All modes use `Result` types for explicit error handling:
 
 ```gleam
-import dream_http_client/client.{host, path, port, scheme, send, timeout}
+import dream_http_client/client.{
+  HttpResponse, RequestError, ResponseError,
+  host, path, port, scheme, send, timeout,
+}
 import gleam/http
 import gleam/io
 
@@ -504,11 +532,15 @@ let request =
   |> timeout(5000)
 
 case send(request) {
-  Ok(body) -> {
+  Ok(HttpResponse(body: body, ..)) -> {
     io.println(body)
     Ok(body)
   }
-  Error(msg) -> {
+  Error(ResponseError(response: response)) -> {
+    io.println_error("HTTP error " <> int.to_string(response.status))
+    Error(response.body)
+  }
+  Error(RequestError(message: msg)) -> {
     io.println_error("Request failed: " <> msg)
     Error(msg)
   }
@@ -540,6 +572,8 @@ All examples are tested and verified. See [test/snippets/](test/snippets/) for c
 
 - [Record and playback](test/snippets/recording_basic.gleam) - Testing without network
 - [Playback-only testing](test/snippets/recording_playback.gleam) - Test fixtures without network
+- [Recording with stream_yielder()](test/snippets/recording_stream_yielder.gleam) - Record and playback yielder streams
+- [Recording with start_stream()](test/snippets/recording_start_stream.gleam) - Record and playback callback streams
 - [Custom request keys](test/snippets/matching_config.gleam) - Configure request matching
 - [Request transformers](test/snippets/recording_transformer.gleam) - Scrub secrets before keying/persistence
 - [Response transformers](test/snippets/recording_response_transformer.gleam) - Scrub secrets from recorded responses

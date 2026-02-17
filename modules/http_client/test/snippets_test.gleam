@@ -3,6 +3,7 @@
 //// This ensures the snippet code examples are valid and work correctly.
 //// We use dream_mock_server (localhost:9876) to avoid external dependencies.
 
+import dream_http_client/client
 import dream_http_client/recording
 import gleam/http
 import gleam/option
@@ -14,6 +15,8 @@ import snippets/recording_ambiguous_match
 import snippets/recording_basic
 import snippets/recording_playback
 import snippets/recording_response_transformer
+import snippets/recording_start_stream
+import snippets/recording_stream_yielder
 import snippets/recording_transformer
 import snippets/request_builder
 import snippets/stream_cancel
@@ -96,9 +99,9 @@ pub fn matching_config_custom_test() {
 }
 
 pub fn recording_playback_test() {
-  recording_playback.test_with_playback()
-  |> should.be_ok()
-  |> should.equal("Test data")
+  let assert Ok(client.HttpResponse(body: body, ..)) =
+    recording_playback.test_with_playback()
+  body |> should.equal("Test data")
 }
 
 pub fn recording_transformer_test() {
@@ -126,6 +129,18 @@ pub fn stream_messages_basic_test() {
 
 pub fn stream_cancel_test() {
   stream_cancel.cancel_stream()
+  |> should.be_ok()
+  |> should.equal(True)
+}
+
+pub fn recording_stream_yielder_test() {
+  recording_stream_yielder.record_and_playback_stream_yielder()
+  |> should.be_ok()
+  |> should.equal(True)
+}
+
+pub fn recording_start_stream_test() {
+  recording_start_stream.record_and_playback_start_stream()
   |> should.be_ok()
   |> should.equal(True)
 }
