@@ -5,6 +5,50 @@ All notable changes to `dream_http_client` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.1.0 - 2026-02-28
+
+### Added
+
+- **Transparent gzip/deflate decompression for all HTTP client modes.** The client now
+  automatically sends `Accept-Encoding: gzip, deflate` and decompresses response bodies
+  when the server returns `Content-Encoding: gzip` or `Content-Encoding: deflate`.
+  This works across all three execution modes:
+  - `send()` — synchronous responses are decompressed before returning
+  - `start_stream()` — streamed chunks are decompressed on-the-fly via zlib inflate
+  - `stream_yielder()` — streamed chunks are decompressed on-the-fly via zlib inflate
+- **User-set `Accept-Encoding` headers are preserved.** If you explicitly set an
+  `Accept-Encoding` header on a request, the client will not inject its own — your
+  header takes precedence.
+- **Unrecognized encodings are passed through with a warning.** If a server returns
+  an encoding the client does not support (e.g., `br`, `zstd`), the raw bytes are
+  passed through unchanged and a warning is logged. The client does not crash.
+- **Corrupted compressed data is handled gracefully.** If decompression fails (e.g.,
+  corrupted gzip data), the raw bytes are passed through with a warning instead of
+  crashing the process.
+- **24 new compression tests** covering the full permutation matrix of encoding type
+  (gzip, deflate, identity, none, unknown, corrupted) x request mode (send, start_stream,
+  stream_yielder), header injection behavior, and zlib lifecycle cleanup.
+- **10 new streaming regression tests** for the non-streaming response bug fix (see Fixed below).
+
+### Fixed
+
+- **Streaming requests no longer crash when upstream returns a non-streaming error response.**
+  When a streaming HTTP request (`start_stream()` / `stream_yielder()`) hit an endpoint that
+  returned a complete HTTP error (e.g., 401, 403, 429, 500 with a JSON body) instead of starting
+  an SSE stream, Erlang's `httpc` sent a complete response message that was unhandled.
+  `decode_stream_message_for_selector` crashed with `error(badarg)`, killing the stream process
+  and causing a 504 timeout. The `on_stream_error` callback was never invoked, and the upstream
+  error details (status code, response body) were lost entirely.
+- **All four streaming code paths now handle complete response messages:**
+  - `decode_stream_message_for_selector/1` — was crashing with `error(badarg)`, now routes to `stream_error`
+  - `receive_stream_message/1` — was timing out silently, now returns `stream_error` with status and body
+  - `stream_owner_wait/5` — was silently discarding the message via `_Other` catchall, now buffers the error
+  - `stream_owner_next_message/2` — was recursing forever via `_Other` catchall, now returns the error
+- **Error messages include HTTP status code and response body.** The `on_stream_error` callback
+  (and `stream_yielder` `Error` results) now receive a formatted message like
+  `"HTTP 401 Unauthorized: {\"error\":{\"message\":\"Invalid API key\"}}"` instead of crashing
+  or timing out.
+
 ## 5.0.0 - 2026-02-16
 
 ### Breaking Changes
