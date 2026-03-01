@@ -4,16 +4,19 @@
 //// Each endpoint demonstrates different streaming behaviors and patterns.
 
 import dream/context.{type EmptyContext}
+import dream/http/header.{Header}
 import dream/http/request.{type Request}
 import dream/http/response.{type Response, stream_response, text_response}
 import dream/http/status
 import dream/router.{type EmptyServices}
+import dream_mock_server/compression
 import dream_mock_server/views/index_view
 import gleam/bit_array
 import gleam/erlang/process
 import gleam/int
 import gleam/json
 import gleam/list
+import gleam/option
 import gleam/yielder
 
 /// Index action - displays available endpoints (streaming and non-streaming)
@@ -185,6 +188,98 @@ pub fn stream_binary(
 
 fn create_binary_chunk(n: Int) -> BitArray {
   process.sleep(10)
-  // Create a binary chunk with repeating byte pattern
   <<n:8, n:8, n:8, n:8>>
+}
+
+/// Gzip-compressed streaming - 5 chunks, gzip-compressed as one stream
+pub fn stream_gzip(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  let plain_chunks =
+    yielder.range(1, 5)
+    |> yielder.map(fn(n) {
+      bit_array.from_string("Chunk " <> int.to_string(n) <> "\n")
+    })
+    |> yielder.to_list
+
+  let compressed_chunks = compression.gzip_compress_chunks(plain_chunks)
+
+  let stream =
+    yielder.from_list(compressed_chunks)
+    |> yielder.map(fn(chunk) {
+      process.sleep(50)
+      chunk
+    })
+
+  response.Response(
+    status: status.ok,
+    body: response.Stream(stream),
+    headers: [
+      Header("Content-Type", "text/plain"),
+      Header("Content-Encoding", "gzip"),
+    ],
+    cookies: [],
+    content_type: option.Some("text/plain"),
+  )
+}
+
+/// Deflate-compressed streaming - 5 chunks, deflate-compressed as one stream
+pub fn stream_deflate(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  let plain_chunks =
+    yielder.range(1, 5)
+    |> yielder.map(fn(n) {
+      bit_array.from_string("Chunk " <> int.to_string(n) <> "\n")
+    })
+    |> yielder.to_list
+
+  let compressed_chunks = compression.deflate_compress_chunks(plain_chunks)
+
+  let stream =
+    yielder.from_list(compressed_chunks)
+    |> yielder.map(fn(chunk) {
+      process.sleep(50)
+      chunk
+    })
+
+  response.Response(
+    status: status.ok,
+    body: response.Stream(stream),
+    headers: [
+      Header("Content-Type", "text/plain"),
+      Header("Content-Encoding", "deflate"),
+    ],
+    cookies: [],
+    content_type: option.Some("text/plain"),
+  )
+}
+
+/// Streaming with unknown Content-Encoding: br (raw passthrough)
+pub fn stream_unknown_encoding(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  let stream =
+    yielder.range(1, 5)
+    |> yielder.map(fn(n) {
+      process.sleep(50)
+      bit_array.from_string("Raw " <> int.to_string(n) <> "\n")
+    })
+
+  response.Response(
+    status: status.ok,
+    body: response.Stream(stream),
+    headers: [
+      Header("Content-Type", "text/plain"),
+      Header("Content-Encoding", "br"),
+    ],
+    cookies: [],
+    content_type: option.Some("text/plain"),
+  )
 }

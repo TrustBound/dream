@@ -4,12 +4,15 @@
 //// All formatting is delegated to the view layer.
 
 import dream/context.{type EmptyContext}
+import dream/http/header.{Header}
 import dream/http/request.{type Request, get_int_param}
 import dream/http/response.{type Response, json_response, text_response}
 import dream/http/status
 import dream/router.{type EmptyServices}
+import dream_mock_server/compression
 import dream_mock_server/views/api_view
 import gleam/erlang/process
+import gleam/list
 import gleam/option
 import gleam/string
 
@@ -132,4 +135,113 @@ pub fn content_type(
 ) -> Response {
   let content_type = option.unwrap(request.content_type, "")
   text_response(status.ok, content_type)
+}
+
+/// GET /gzip - Returns "Hello, World!" gzip-compressed
+pub fn gzip(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  let body = compression.gzip_compress(<<"Hello, World!":utf8>>)
+  response.Response(
+    status: status.ok,
+    body: response.Bytes(body),
+    headers: [
+      Header("Content-Type", "text/plain"),
+      Header("Content-Encoding", "gzip"),
+    ],
+    cookies: [],
+    content_type: option.Some("text/plain"),
+  )
+}
+
+/// GET /deflate - Returns "Hello, World!" deflate-compressed
+pub fn deflate(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  let body = compression.deflate_compress(<<"Hello, World!":utf8>>)
+  response.Response(
+    status: status.ok,
+    body: response.Bytes(body),
+    headers: [
+      Header("Content-Type", "text/plain"),
+      Header("Content-Encoding", "deflate"),
+    ],
+    cookies: [],
+    content_type: option.Some("text/plain"),
+  )
+}
+
+/// GET /identity - Returns "Hello, World!" with Content-Encoding: identity
+pub fn identity(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  response.Response(
+    status: status.ok,
+    body: response.Text("Hello, World!"),
+    headers: [
+      Header("Content-Type", "text/plain; charset=utf-8"),
+      Header("Content-Encoding", "identity"),
+    ],
+    cookies: [],
+    content_type: option.Some("text/plain; charset=utf-8"),
+  )
+}
+
+/// GET /unknown-encoding - Returns raw bytes with Content-Encoding: br
+pub fn unknown_encoding(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  response.Response(
+    status: status.ok,
+    body: response.Text("raw-uncompressed-bytes"),
+    headers: [
+      Header("Content-Type", "text/plain; charset=utf-8"),
+      Header("Content-Encoding", "br"),
+    ],
+    cookies: [],
+    content_type: option.Some("text/plain; charset=utf-8"),
+  )
+}
+
+/// GET /corrupted-gzip - Returns garbage bytes with Content-Encoding: gzip
+pub fn corrupted_gzip(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  response.Response(
+    status: status.ok,
+    body: response.Bytes(<<"this is not valid gzip data at all":utf8>>),
+    headers: [
+      Header("Content-Type", "text/plain"),
+      Header("Content-Encoding", "gzip"),
+    ],
+    cookies: [],
+    content_type: option.Some("text/plain"),
+  )
+}
+
+/// GET /echo-accept-encoding - Echoes the request's Accept-Encoding header
+pub fn echo_accept_encoding(
+  request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  let accept_encoding =
+    list.find(request.headers, fn(h) {
+      string.lowercase(h.name) == "accept-encoding"
+    })
+  let value = case accept_encoding {
+    Ok(found) -> found.value
+    Error(Nil) -> ""
+  }
+  text_response(status.ok, value)
 }
