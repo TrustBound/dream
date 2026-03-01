@@ -122,6 +122,43 @@ pub fn create_router() -> Router(EmptyContext, EmptyServices) {
     controller: api_controller.slow,
     middleware: [],
   )
+  // Compression endpoints
+  |> route(
+    method: Get,
+    path: "/gzip",
+    controller: api_controller.gzip,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/deflate",
+    controller: api_controller.deflate,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/identity",
+    controller: api_controller.identity,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/unknown-encoding",
+    controller: api_controller.unknown_encoding,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/corrupted-gzip",
+    controller: api_controller.corrupted_gzip,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/echo-accept-encoding",
+    controller: api_controller.echo_accept_encoding,
+    middleware: [],
+  )
   // Streaming endpoints
   |> route(
     method: Get,
@@ -163,6 +200,25 @@ pub fn create_router() -> Router(EmptyContext, EmptyServices) {
     method: Get,
     path: "/stream/binary",
     controller: stream_controller.stream_binary,
+    middleware: [],
+  )
+  // Compressed streaming endpoints
+  |> route(
+    method: Get,
+    path: "/stream/gzip",
+    controller: stream_controller.stream_gzip,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/stream/deflate",
+    controller: stream_controller.stream_deflate,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/stream/unknown-encoding",
+    controller: stream_controller.stream_unknown_encoding,
     middleware: [],
   )
 }
