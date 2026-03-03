@@ -5,6 +5,27 @@ All notable changes to `dream_http_client` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.1.2 - 2026-03-03
+
+### Fixed
+
+- **Query parameters are now included in HTTP requests.** `build_url` in
+  `client.gleam` constructed the URL from scheme, host, port, and path but
+  never appended the query string. Any caller using `.query("key=value")`
+  silently sent requests without query parameters. Affects `send()` and
+  `start_stream()`.
+- **`stream_yielder()` also dropped query parameters.** `start_httpc_stream`
+  in `internal.gleam` had its own URL construction that independently omitted
+  the query string — a separate code path from the `build_url` fix above.
+
+### Added
+
+- **8 regression tests** covering query parameter delivery across all three
+  execution modes (`send`, `stream_yielder`, `start_stream`), recorder
+  integration (record + playback round-trip), URL-encoded special characters,
+  and the empty query string edge case. All assertions parse the JSON `query`
+  field from the mock server's response for exact matching.
+
 ## 5.1.1 - 2026-03-01
 
 ### Fixed

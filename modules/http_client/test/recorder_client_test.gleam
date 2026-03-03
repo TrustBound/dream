@@ -8,9 +8,11 @@ import dream_http_client/storage
 import dream_http_client_test
 import gleam/bit_array
 import gleam/bytes_tree
+import gleam/dynamic/decode
 import gleam/erlang/process
 import gleam/http
 import gleam/io
+import gleam/json
 import gleam/list
 import gleam/option
 import gleam/result
@@ -1208,4 +1210,197 @@ fn collect_chunks_from_mailbox(
     Ok(data) -> collect_chunks_from_mailbox(subject, [data, ..acc])
     Error(Nil) -> list.reverse(acc)
   }
+}
+
+// ---------------------------------------------------------------------------
+// Regression tests: query parameters must survive through to the HTTP request
+//
+// The mock server's GET /get endpoint echoes the received query string back
+// in a JSON response: {"method":"GET","url":"/get","query":"...","headers":[]}
+// We parse that JSON field for exact assertions rather than substring matching.
+// ---------------------------------------------------------------------------
+
+fn extract_query_from_get_response(body: String) -> String {
+  let decoder = {
+    use query <- decode.field("query", decode.string)
+    decode.success(query)
+  }
+  let assert Ok(query) = json.parse(body, decoder)
+  query
+}
+
+fn stream_chunks_to_string(
+  chunks: List(Result(bytes_tree.BytesTree, String)),
+) -> String {
+  chunks
+  |> list.filter_map(fn(chunk) { chunk })
+  |> list.map(fn(bt) {
+    bt |> bytes_tree.to_bit_array |> bit_array.to_string |> result.unwrap("")
+  })
+  |> string.join("")
+}
+
+// -- send() -----------------------------------------------------------------
+
+pub fn send_includes_query_params_in_request_test() {
+  // Arrange
+  let request =
+    mock_request("/get")
+    |> client.query("page=1&limit=10")
+
+  // Act
+  let assert Ok(client.HttpResponse(body: body, ..)) = client.send(request)
+
+  // Assert - exact match on the echoed query field
+  extract_query_from_get_response(body) |> should.equal("page=1&limit=10")
+}
+
+pub fn send_without_query_params_sends_empty_query_test() {
+  // Arrange
+  let request = mock_request("/get")
+
+  // Act
+  let assert Ok(client.HttpResponse(body: body, ..)) = client.send(request)
+
+  // Assert - query field should be empty when none was set
+  extract_query_from_get_response(body) |> should.equal("")
+}
+
+pub fn send_with_special_characters_in_query_test() {
+  // Arrange - URL-encoded spaces, ampersands, equals signs
+  let request =
+    mock_request("/get")
+    |> client.query("name=hello%20world&tag=a%26b&eq=1%3D1")
+
+  // Act
+  let assert Ok(client.HttpResponse(body: body, ..)) = client.send(request)
+
+  // Assert - query string arrives verbatim (no double-encoding)
+  extract_query_from_get_response(body)
+  |> should.equal("name=hello%20world&tag=a%26b&eq=1%3D1")
+}
+
+pub fn send_with_empty_query_string_test() {
+  // Arrange - explicitly set query to empty string
+  let request =
+    mock_request("/get")
+    |> client.query("")
+
+  // Act
+  let assert Ok(client.HttpResponse(body: body, ..)) = client.send(request)
+
+  // Assert - empty query should still arrive (as empty string, not omitted)
+  extract_query_from_get_response(body) |> should.equal("")
+}
+
+// -- stream_yielder() -------------------------------------------------------
+
+pub fn stream_yielder_includes_query_params_in_request_test() {
+  // Arrange
+  let request =
+    mock_request("/get")
+    |> client.query("format=json")
+
+  // Act
+  let body =
+    client.stream_yielder(request)
+    |> yielder.to_list()
+    |> stream_chunks_to_string()
+
+  // Assert - exact match on the echoed query field
+  extract_query_from_get_response(body) |> should.equal("format=json")
+}
+
+// -- start_stream() (callback-based) ----------------------------------------
+
+pub fn start_stream_includes_query_params_in_request_test() {
+  // Arrange
+  let chunks_subject = process.new_subject()
+
+  let request =
+    mock_request("/get")
+    |> client.query("stream_key=abc")
+    |> client.on_stream_chunk(fn(data) { process.send(chunks_subject, data) })
+
+  // Act
+  let assert Ok(handle) = client.start_stream(request)
+  client.await_stream(handle)
+
+  // Assert - reassemble body from callback chunks and check exact query
+  let body =
+    collect_chunks_from_mailbox(chunks_subject, [])
+    |> list.map(fn(d) { bit_array.to_string(d) |> result.unwrap("") })
+    |> string.join("")
+  extract_query_from_get_response(body) |> should.equal("stream_key=abc")
+}
+
+// -- recorder integration ---------------------------------------------------
+
+pub fn send_with_query_and_recorder_record_mode_preserves_query_test() {
+  // Arrange
+  let recordings_directory_path = temp_directory("query_record_test")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
+
+  let request =
+    mock_request("/get")
+    |> client.query("search=hello")
+    |> client.recorder(rec)
+
+  // Act
+  let assert Ok(client.HttpResponse(body: body, ..)) = client.send(request)
+
+  // Assert - query string arrived at the server (exact match)
+  extract_query_from_get_response(body) |> should.equal("search=hello")
+
+  // Flush recordings to disk
+  recorder.stop(rec) |> result.unwrap(Nil)
+
+  // Verify the recording captured the query
+  let assert Ok(recordings) = storage.load_recordings(recordings_directory_path)
+  let assert [first_recording, ..] = recordings
+  first_recording.request.query |> should.equal(option.Some("search=hello"))
+}
+
+pub fn send_with_query_and_recorder_playback_mode_matches_query_test() {
+  // Arrange - record a request with a specific query
+  let recordings_directory_path = temp_directory("query_playback_test")
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("record")
+    |> start()
+
+  let request =
+    mock_request("/get")
+    |> client.query("id=42")
+    |> client.recorder(rec)
+
+  let assert Ok(_) = client.send(request)
+  recorder.stop(rec) |> result.unwrap(Nil)
+
+  // Replay with the same query
+  let assert Ok(playback_rec) =
+    recorder.new()
+    |> directory(recordings_directory_path)
+    |> mode("playback")
+    |> start()
+
+  let playback_request =
+    mock_request("/get")
+    |> client.query("id=42")
+    |> client.recorder(playback_rec)
+
+  // Act
+  let assert Ok(client.HttpResponse(body: body, ..)) =
+    client.send(playback_request)
+
+  // Assert - playback returns the original recorded body (exact match)
+  extract_query_from_get_response(body) |> should.equal("id=42")
+
+  // Cleanup
+  recorder.stop(playback_rec) |> result.unwrap(Nil)
 }

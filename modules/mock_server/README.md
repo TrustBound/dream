@@ -2,7 +2,7 @@
 
 A general-purpose HTTP mock server developed by Dream that provides both streaming and non-streaming endpoints for testing HTTP clients.
 
-**Current module version:** `1.1.0`
+**Current module version:** `1.1.1`
 
 ## Overview
 

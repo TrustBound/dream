@@ -1783,11 +1783,16 @@ fn build_url(request: request.Request(String)) -> String {
     option.Some(port) -> ":" <> int.to_string(port)
     option.None -> ""
   }
+  let query_string = case request.query {
+    option.Some(query) -> "?" <> query
+    option.None -> ""
+  }
   http.scheme_to_string(request.scheme)
   <> "://"
   <> request.host
   <> port_string
   <> request.path
+  <> query_string
 }
 
 fn parse_stream_start_result(result: d.Dynamic) -> Result(RequestId, String) {
