@@ -2055,13 +2055,15 @@ fn decode_error_reason(
 ) -> StreamMessage {
   case d.run(reason_dyn, d.string) {
     Ok(reason) -> StreamError(req_id, reason)
-    Error(decode_error) -> {
-      let error_msg =
-        "Stream error (failed to decode error string: "
-        <> string.inspect(decode_error)
-        <> ")"
-      StreamError(req_id, error_msg)
-    }
+    Error(_) ->
+      case d.run(reason_dyn, d.bit_array) {
+        Ok(bytes) ->
+          case bit_array.to_string(bytes) {
+            Ok(s) -> StreamError(req_id, s)
+            Error(_) -> StreamError(req_id, string.inspect(reason_dyn))
+          }
+        Error(_) -> StreamError(req_id, string.inspect(reason_dyn))
+      }
   }
 }
 

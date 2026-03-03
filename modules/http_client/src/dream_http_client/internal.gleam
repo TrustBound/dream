@@ -8,6 +8,7 @@
 //// This is an internal module. Use `dream_http_client/client`,
 //// `dream_http_client/recorder`, and `dream_http_client/matching` instead.
 
+import gleam/bit_array
 import gleam/dynamic/decode as d
 import gleam/erlang/atom
 import gleam/erlang/process
@@ -167,9 +168,18 @@ pub fn receive_next(
     }
     "finished" -> Ok(option.None)
     "error" -> {
-      let reason =
-        d.run(resp, d.at([1], d.string))
-        |> result.unwrap("Unknown stream error")
+      let reason = case d.run(resp, d.at([1], d.string)) {
+        Ok(s) -> s
+        Error(_) ->
+          case d.run(resp, d.at([1], d.bit_array)) {
+            Ok(bytes) ->
+              case bit_array.to_string(bytes) {
+                Ok(s) -> s
+                Error(_) -> string.inspect(resp)
+              }
+            Error(_) -> string.inspect(resp)
+          }
+      }
       Error(reason)
     }
     _ -> Error("Unexpected stream message tag: " <> tag)

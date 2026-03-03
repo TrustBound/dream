@@ -229,6 +229,27 @@ pub fn corrupted_gzip(
   )
 }
 
+/// GET /non-utf8-error - Returns HTTP 400 with a body containing non-UTF-8 bytes
+///
+/// The body is "Error: " followed by bytes 0xC0, 0xC1, 0xFE, 0xFF which are
+/// invalid in UTF-8 encoding. Used to test that the HTTP client can handle
+/// error responses whose bodies are not valid UTF-8.
+pub fn non_utf8_error(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  // "Error: " as ASCII + invalid UTF-8 bytes (0xC0, 0xC1, 0xFE, 0xFF)
+  let body = <<69, 114, 114, 111, 114, 58, 32, 192, 193, 254, 255>>
+  response.Response(
+    status: status.bad_request,
+    body: response.Bytes(body),
+    headers: [Header("Content-Type", "text/plain")],
+    cookies: [],
+    content_type: option.Some("text/plain"),
+  )
+}
+
 /// GET /echo-accept-encoding - Echoes the request's Accept-Encoding header
 pub fn echo_accept_encoding(
   request: Request,
