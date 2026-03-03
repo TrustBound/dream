@@ -183,7 +183,7 @@ stream_owner_wait(RequestId, Buffer, StartHeaders, StartWaiters, ZlibCtx) ->
                               undefined);
         {http, {RequestId, {error, Reason}}} ->
             cleanup_zlib(ZlibCtx),
-            stream_owner_wait(RequestId, Buffer ++ [{error, Reason}], StartHeaders, StartWaiters, undefined);
+            stream_owner_wait(RequestId, Buffer ++ [{error, format_error(Reason)}], StartHeaders, StartWaiters, undefined);
         {http, {RequestId, {{_HttpVersion, StatusCode, ReasonPhrase}, _Headers, Body}}} ->
             cleanup_zlib(ZlibCtx),
             ErrorMsg = format_complete_response_error(StatusCode, ReasonPhrase, Body),
@@ -274,7 +274,7 @@ stream_owner_next_message(RequestId, ZlibCtx) ->
             {{finished, normalize_headers(Headers)}, undefined};
         {http, {RequestId, {error, Reason}}} ->
             cleanup_zlib(ZlibCtx),
-            {{error, Reason}, undefined};
+            {{error, format_error(Reason)}, undefined};
         {http, {RequestId, {{_HttpVersion, StatusCode, ReasonPhrase}, _Headers, Body}}} ->
             cleanup_zlib(ZlibCtx),
             {{error, format_complete_response_error(StatusCode, ReasonPhrase, Body)}, undefined};
@@ -789,7 +789,27 @@ to_binary(Bin) when is_binary(Bin) ->
 to_binary(List) when is_list(List) ->
     unicode:characters_to_binary(List);
 to_binary(Other) ->
-    iolist_to_binary(io_lib:format("~p", [Other])).
+    ensure_utf8_binary(io_lib:format("~p", [Other])).
+
+%% Guarantee a valid UTF-8 binary from any input.
+%% Handles binaries (validates UTF-8, falls back to Latin-1 reinterpretation),
+%% charlists from io_lib:format (unicode codepoints), and arbitrary terms.
+ensure_utf8_binary(Bin) when is_binary(Bin) ->
+    case unicode:characters_to_binary(Bin, utf8, utf8) of
+        Result when is_binary(Result) -> Result;
+        _ ->
+            case unicode:characters_to_binary(Bin, latin1, utf8) of
+                Result2 when is_binary(Result2) -> Result2;
+                _ -> iolist_to_binary(io_lib:format("~w", [Bin]))
+            end
+    end;
+ensure_utf8_binary(List) when is_list(List) ->
+    case unicode:characters_to_binary(List) of
+        Result when is_binary(Result) -> Result;
+        _ -> iolist_to_binary(io_lib:format("~w", [List]))
+    end;
+ensure_utf8_binary(Other) ->
+    iolist_to_binary(io_lib:format("~w", [Other])).
 
 %% @doc Make a synchronous (blocking) HTTP request
 %%
@@ -852,20 +872,18 @@ request_sync(Method, Url, Headers, Body, TimeoutMs) ->
     end.
 
 format_error(Reason) ->
-    iolist_to_binary(io_lib:format("~p", [Reason])).
+    ensure_utf8_binary(io_lib:format("~p", [Reason])).
 
 %% Format error for a complete (non-streaming) HTTP response from httpc.
 %% httpc sends this instead of stream_start/stream/stream_end when the upstream
 %% returns a non-streaming response (typically 4xx/5xx errors).
 format_complete_response_error(StatusCode, ReasonPhrase, Body) ->
-    iolist_to_binary([
-        <<"HTTP ">>,
-        integer_to_binary(StatusCode),
-        <<" ">>,
-        to_binary(ReasonPhrase),
-        <<": ">>,
-        to_binary(Body)
-    ]).
+    <<(<<"HTTP ">>)/binary,
+      (integer_to_binary(StatusCode))/binary,
+      (<<" ">>)/binary,
+      (ensure_utf8_binary(ReasonPhrase))/binary,
+      (<<": ">>)/binary,
+      (ensure_utf8_binary(Body))/binary>>.
 
 %% Format exit reason from owner process death
 %%
@@ -879,7 +897,7 @@ format_exit_reason(normal) ->
     <<"Stream process exited normally">>;
 format_exit_reason(Reason) ->
     %% Some other exit reason - format it for debugging
-    iolist_to_binary(io_lib:format("Stream process died: ~p", [Reason])).
+    ensure_utf8_binary(io_lib:format("Stream process died: ~p", [Reason])).
 
 %% =============================================================================
 %% ETS Functions for Stream Recorder State Management
@@ -1086,7 +1104,7 @@ ensure_ref_mapping_table() ->
 %% Convert httpc ref to unique string ID
 %% Uses the ref's string representation which is guaranteed unique
 ref_to_string(Ref) ->
-    list_to_binary(io_lib:format("~p", [Ref])).
+    ensure_utf8_binary(io_lib:format("~p", [Ref])).
 
 %% Store bidirectional mapping: string <-> ref
 store_ref_mapping(StringId, HttpcRef) ->
