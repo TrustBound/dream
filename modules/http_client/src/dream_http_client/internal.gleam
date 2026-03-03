@@ -90,12 +90,17 @@ pub fn start_httpc_stream(
     option.Some(port) -> ":" <> int.to_string(port)
     option.None -> ""
   }
+  let query_string = case request.query {
+    option.Some(query) -> "?" <> query
+    option.None -> ""
+  }
   let url =
     http.scheme_to_string(request.scheme)
     <> "://"
     <> request.host
     <> port_string
     <> request.path
+    <> query_string
   let method_atom = atomize_method(request.method)
   let body = <<request.body:utf8>>
   let receiver = process.self()

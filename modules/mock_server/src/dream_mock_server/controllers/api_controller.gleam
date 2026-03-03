@@ -16,13 +16,13 @@ import gleam/list
 import gleam/option
 import gleam/string
 
-/// GET /get - Returns JSON with request info
+/// GET /get - Returns JSON with request info including query parameters
 pub fn get(
   request: Request,
   _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
-  json_response(status.ok, api_view.get_to_json(request.path))
+  json_response(status.ok, api_view.get_to_json(request.path, request.query))
 }
 
 /// POST /post - Echoes request body as JSON
