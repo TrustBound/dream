@@ -6,8 +6,8 @@
 import gleam/json
 
 /// Format GET request info as JSON string
-pub fn get_to_json(path: String) -> String {
-  get_to_json_object(path)
+pub fn get_to_json(path: String, query: String) -> String {
+  get_to_json_object(path, query)
   |> json.to_string()
 }
 
@@ -60,10 +60,11 @@ pub fn error_to_json(message: String) -> String {
 
 // Private helpers - all named functions
 
-fn get_to_json_object(path: String) -> json.Json {
+fn get_to_json_object(path: String, query: String) -> json.Json {
   json.object([
     #("method", json.string("GET")),
     #("url", json.string(path)),
+    #("query", json.string(query)),
     #("headers", json.array(from: [], of: json.string)),
   ])
 }

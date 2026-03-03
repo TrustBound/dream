@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 1.1.1 - 2026-03-03
+
+### Fixed
+
+- **`GET /get` now actually echoes query parameters.** The endpoint was
+  documented as echoing query parameters since 1.0.0, but the implementation
+  only passed `request.path` to the view layer. Now passes `request.query` as
+  well, and the JSON response includes a `"query"` field with the raw query
+  string.
+
 ## 1.1.0 - 2026-02-15
 
 ### Added
