@@ -123,6 +123,33 @@ fn create_error_chunk(n: Int) -> BitArray {
   bit_array.from_string(line)
 }
 
+/// Drop streaming - sends 2 chunks then crashes to close the socket
+///
+/// Simulates a server that drops the connection mid-stream. The yielder
+/// sends 2 valid chunks then panics, which kills the handler process and
+/// abruptly closes the TCP socket. This triggers httpc's {error, Reason}
+/// path (e.g., socket_closed_remotely) instead of the normal stream_end path.
+pub fn stream_drop(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  let stream =
+    yielder.range(1, 5)
+    |> yielder.map(fn(n) {
+      case n > 2 {
+        True -> panic as "intentional crash to drop connection"
+        False -> {
+          process.sleep(50)
+          let line = "Drop chunk " <> int.to_string(n) <> "\n"
+          bit_array.from_string(line)
+        }
+      }
+    })
+
+  stream_response(status.ok, stream, "text/plain")
+}
+
 /// Huge streaming - 100 chunks for memory/performance testing
 ///
 /// Demonstrates large response streaming.

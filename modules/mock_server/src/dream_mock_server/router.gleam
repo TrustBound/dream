@@ -159,6 +159,12 @@ pub fn create_router() -> Router(EmptyContext, EmptyServices) {
     controller: api_controller.echo_accept_encoding,
     middleware: [],
   )
+  |> route(
+    method: Get,
+    path: "/non-utf8-error",
+    controller: api_controller.non_utf8_error,
+    middleware: [],
+  )
   // Streaming endpoints
   |> route(
     method: Get,
@@ -188,6 +194,12 @@ pub fn create_router() -> Router(EmptyContext, EmptyServices) {
     method: Get,
     path: "/stream/huge",
     controller: stream_controller.stream_huge,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/stream/drop",
+    controller: stream_controller.stream_drop,
     middleware: [],
   )
   |> route(

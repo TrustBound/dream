@@ -5,6 +5,33 @@ All notable changes to `dream_http_client` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.1.1 - 2026-03-01
+
+### Fixed
+
+- **Stream error reasons are now always decodable as Gleam strings.** Previously,
+  transport-level errors from Erlang's `httpc` (e.g., `socket_closed_remotely`,
+  `{failed_connect, ...}`) were passed through as raw Erlang atoms/tuples in the
+  pull-based streaming path (`stream_yielder`), causing `d.string` decode failures
+  and hiding the real error behind "Unknown stream error". Additionally,
+  `format_error` could produce non-UTF-8 binaries (Latin-1 from `io_lib:format`),
+  which Gleam's string decoder rejected with `DecodeError("String", "String", [])`.
+- **All error formatting functions now guarantee valid UTF-8 output.** Added
+  `ensure_utf8_binary/1` helper that validates UTF-8, falls back to Latin-1
+  reinterpretation for binaries, and uses `~w` (pure ASCII) as a last resort.
+  Updated `format_error`, `format_complete_response_error`, `format_exit_reason`,
+  `to_binary`, and `ref_to_string` to use it.
+- **Pull-based streaming path now formats error reasons.** `stream_owner_wait`
+  and `stream_owner_next_message` now call `format_error(Reason)` on httpc error
+  reasons instead of passing raw Erlang terms through to the Gleam decoder.
+- **Gleam-side decoders have robust fallbacks.** Both `decode_error_reason` in
+  `client.gleam` and `receive_next` in `internal.gleam` now use a three-tier
+  fallback: try `d.string`, try `d.bit_array` with UTF-8 conversion, fall back
+  to `string.inspect`. Error reasons are never silently swallowed.
+- **9 new tests** covering transport-level errors (connection refused, connection
+  drop mid-stream), non-UTF-8 response bodies, and error string quality across
+  all three execution modes (`send`, `start_stream`, `stream_yielder`).
+
 ## 5.1.0 - 2026-02-28
 
 ### Added
