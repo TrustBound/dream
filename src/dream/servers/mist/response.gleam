@@ -25,7 +25,7 @@ import mist.{type ResponseData, Bytes as MistBytes, Chunked}
 ///
 /// - Status code (Int remains Int)
 /// - Headers (Dream Header to Mist tuple format)
-/// - Cookies (formatted as Set-Cookie headers)
+/// - Cookies (each cookie becomes its own `Set-Cookie` header per RFC 6265)
 /// - Body (Text/Bytes/Stream to Mist ResponseData)
 ///
 /// The conversion handles all three body types:
@@ -103,7 +103,10 @@ fn add_header(
   acc: http_response.Response(ResponseData),
   header: #(String, String),
 ) -> http_response.Response(ResponseData) {
-  http_response.set_header(acc, header.0, header.1)
+  case header.0 {
+    "set-cookie" -> http_response.prepend_header(acc, header.0, header.1)
+    _ -> http_response.set_header(acc, header.0, header.1)
+  }
 }
 
 fn set_all_headers(

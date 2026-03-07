@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.3] - 2026-03-07
+
+### Fixed
+
+- Fixed multiple `Set-Cookie` headers being collapsed into a single header during mist response conversion
+- `set_header` (which replaces) was used for all headers including `Set-Cookie`, but RFC 6265 requires each cookie to be sent as a separate `Set-Cookie` header
+- `add_header` now uses `prepend_header` (which allows duplicates) for `set-cookie` headers, matching the Gleam standard library's own `set_cookie` convention
+- Browsers that received responses with multiple cookies now correctly receive all cookies instead of only the last one
+
+### Added
+
+- Added `count_mist_headers` test matcher for verifying header counts by name
+- Added `extract_all_mist_header_values` test matcher for extracting all values of a header
+- Added 7 tests covering multiple `Set-Cookie` header behavior (RFC 6265 compliance)
+
 ## [2.3.2] - 2026-02-04
 
 ### Added
@@ -475,7 +490,8 @@ Special thanks to [Louis Pilfold](https://github.com/lpil) for suggesting the ra
 - All code examples now include proper imports
 - Improved documentation tone and consistency
 
-[Unreleased]: https://github.com/TrustBound/dream/compare/v2.3.2...HEAD
+[Unreleased]: https://github.com/TrustBound/dream/compare/v2.3.3...HEAD
+[2.3.3]: https://github.com/TrustBound/dream/compare/v2.3.2...v2.3.3
 [2.3.2]: https://github.com/TrustBound/dream/compare/v2.3.1...v2.3.2
 [2.3.1]: https://github.com/TrustBound/dream/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/TrustBound/dream/compare/v2.2.0...v2.3.0
