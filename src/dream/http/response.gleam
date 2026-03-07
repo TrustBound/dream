@@ -67,7 +67,7 @@ pub type ResponseBody {
 /// - `status`: HTTP status code (200, 404, 500, etc.) - use constants from `dream/http/status`
 /// - `body`: Response body as Text, Bytes, or Stream
 /// - `headers`: List of HTTP headers
-/// - `cookies`: List of cookies to set
+/// - `cookies`: List of cookies to set (each becomes a separate `Set-Cookie` header)
 /// - `content_type`: Content-Type header value (automatically set by builders)
 ///
 /// ## Example
