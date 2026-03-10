@@ -640,7 +640,7 @@ Everything else is subject to change based on feedback and real-world usage:
 ### Upgrading Between Versions
 
 When upgrading between 0.x.x versions:
-- Review the [CHANGELOG](../CHANGELOG.md) for breaking changes
+- Review the [CHANGELOG](https://github.com/TrustBound/dream/blob/main/CHANGELOG.md) for breaking changes
 - Test your application thoroughly
 - Update code to match new APIs as needed
 

@@ -1,0 +1,36 @@
+@import url("https://rsms.me/inter/inter.css");
+
+:root {
+  --ifm-font-family-base:
+    "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+  /* Primary color (Wisp + Gleam fusion) */
+  --ifm-color-primary: #2f7c56;
+  --ifm-color-primary-light: #53c78f;
+  --ifm-color-primary-lighter: #79e4b0;
+  --ifm-color-primary-lightest: #b0f4d4;
+
+  --ifm-color-primary-dark: #256645;
+  --ifm-color-primary-darker: #1f593b;
+  --ifm-color-primary-darkest: #16412a;
+
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.06);
+}
+
+/* Dark theme (Gleam vibes with Wisp accents) */
+[data-theme="dark"] {
+  background-color: #292d3e;
+  color: #f0eeff;
+  --ifm-color-primary: #a37cf3;
+  --ifm-navbar-background-color: #292d3e;
+  --ifm-color-primary-light: #b796f8;
+  --ifm-color-primary-lighter: #cbb0fc;
+  --ifm-color-primary-lightest: #e3d6ff;
+
+  --ifm-color-primary-dark: #8d65d6;
+  --ifm-color-primary-darker: #7751b8;
+  --ifm-color-primary-darkest: #5d3e90;
+
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.08);
+}

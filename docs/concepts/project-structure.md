@@ -99,7 +99,7 @@ But this structure works. We use it in production. It scales.
 
 ## Next Steps
 
-- [Components](components.md) - Learn about controllers, models, views
+- Components - Learn about controllers, models, views
 - [Concepts Overview](../concepts.md) - All Dream concepts explained
 - [Examples](../examples.md) - See real project structures
 
