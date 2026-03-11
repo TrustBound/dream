@@ -1,7 +1,7 @@
 import dream/dream
 import dream/http/header.{Header}
 import dream/http/request.{type Request, Request}
-import dream/http/response.{Response, Text}
+import dream/http/response.{type Response, Response, Text}
 import dream/router.{type Route, type Router, find_route}
 import dream/servers/mist/internal
 import dream/servers/mist/request as mist_request
@@ -11,6 +11,7 @@ import gleam/bytes_tree
 import gleam/erlang/atom
 import gleam/http/request as http_request
 import gleam/http/response as http_response
+import gleam/list
 import gleam/option
 import gleam/result
 import gleam/yielder
@@ -77,11 +78,15 @@ fn create_request_handler(
     let response_key = atom.create(internal.response_key)
     internal.put(response_key, internal.to_dynamic(option.None))
 
-    // 3. Create a "Lightweight" Request (Headers, Path, Method only)
+    // 3. Initialize upgrade stash to None (for deferred SSE upgrades)
+    let upgrade_key = atom.create(internal.upgrade_key)
+    internal.put(upgrade_key, internal.to_dynamic(option.None))
+
+    // 4. Create a "Lightweight" Request (Headers, Path, Method only)
     let #(partial_request, request_id) =
       mist_request.convert_metadata(mist_request)
 
-    // 4. Find the route using the lightweight request
+    // 5. Find the route using the lightweight request
     let dream_response = case find_route(router, partial_request) {
       option.Some(#(route, params)) -> {
         // Create context for this request by updating template with request_id
@@ -113,7 +118,7 @@ fn create_request_handler(
       }
     }
 
-    // 5. Check for upgrade response in stash
+    // 6. Check for upgrade response in stash (WebSocket)
     let raw_upgrade = internal.get(response_key)
     let upgrade_result: option.Option(http_response.Response(ResponseData)) =
       internal.unsafe_coerce(raw_upgrade)
@@ -143,8 +148,6 @@ fn handle_routed_request(
 
   case final_request_result {
     Ok(final_request) -> {
-      // 4. Execute the route directly (we already found it above)
-      // execute_route will set params on the request internally
       let dream_response =
         dream.execute_route(
           route,
@@ -154,8 +157,20 @@ fn handle_routed_request(
           services_instance,
         )
 
-      // 5. Convert Dream response back to mist format
-      mist_response.convert(dream_response)
+      let upgrade_key = atom.create(internal.upgrade_key)
+      let raw_upgrade = internal.get(upgrade_key)
+      let maybe_upgrade: option.Option(
+        fn(List(#(String, String))) -> http_response.Response(ResponseData),
+      ) = internal.unsafe_coerce(raw_upgrade)
+
+      case maybe_upgrade {
+        option.Some(perform_upgrade) ->
+          case dream_response.status {
+            200 -> perform_upgrade(extract_dream_headers(dream_response))
+            _ -> mist_response.convert(dream_response)
+          }
+        option.None -> mist_response.convert(dream_response)
+      }
     }
     Error(response) -> response
   }
@@ -198,6 +213,13 @@ fn prepare_buffered_request(
     }
     Error(_) -> Error(bad_request_response())
   }
+}
+
+fn extract_dream_headers(response: Response) -> List(#(String, String)) {
+  list.map(response.headers, fn(h) {
+    let Header(name, value) = h
+    #(name, value)
+  })
 }
 
 fn bad_request_response() -> http_response.Response(ResponseData) {
