@@ -1,5 +1,5 @@
 name = "dream"
-version = "2.3.3"
+version = "2.4.0"
 description = "Clean, composable web development for Gleam. No magic."
 licences = ["MIT"]
 repository = { type = "github", user = "TrustBound", repo = "dream" }
