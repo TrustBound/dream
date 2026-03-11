@@ -24,7 +24,7 @@ test-integration:
 	echo "Server PID: $$SERVER_PID"; \
 	echo "Waiting for server to be ready..."; \
 	for i in $$(seq 1 30); do \
-		if curl -s http://localhost:8081/events > /dev/null 2>&1; then \
+		if curl -s http://localhost:8081/health > /dev/null 2>&1; then \
 			echo "Server is ready!"; \
 			break; \
 		fi; \
