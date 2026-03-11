@@ -12,6 +12,8 @@ pub const request_key = "dream_mist_request"
 
 pub const response_key = "dream_mist_response"
 
+pub const upgrade_key = "dream_mist_upgrade"
+
 @external(erlang, "erlang", "put")
 pub fn put(key: Atom, value: Dynamic) -> Dynamic
 

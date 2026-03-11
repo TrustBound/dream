@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-03-11
+
+### Fixed
+
+- **SSE middleware header preservation** — `upgrade_to_sse` now defers the Mist SSE upgrade until after middleware has run, so CORS, security, and other middleware-applied headers are included in the SSE response. Previously, the upgrade happened inside the controller before middleware could modify the response, causing headers like `Access-Control-Allow-Origin` to be silently discarded.
+
 ## [2.4.0] - 2026-03-10
 
 ### Added

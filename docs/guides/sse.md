@@ -283,6 +283,44 @@ source.onerror = (event) => {
 The browser automatically reconnects if the connection drops, sending
 `Last-Event-ID` so your server can resume from the right point.
 
+## Using Middleware with SSE
+
+SSE connections work seamlessly with Dream middleware. Any headers added
+by middleware (CORS, security headers, authentication, etc.) are included
+in the SSE response sent to the client.
+
+```gleam
+import dream/router.{route, router}
+
+pub fn create_router() {
+  router()
+  |> route(
+    method: Get,
+    path: "/events",
+    controller: sse_controller.handle_events,
+    middleware: [cors_middleware],
+  )
+}
+
+fn cors_middleware(request, context, services, next) {
+  let response = next(request, context, services)
+  Response(
+    ..response,
+    headers: [
+      Header("Access-Control-Allow-Origin", "*"),
+      ..response.headers
+    ],
+  )
+}
+```
+
+The `Access-Control-Allow-Origin` header will be sent to the client as
+part of the SSE response, enabling cross-origin `EventSource` connections.
+
+If middleware returns a non-200 response (for example, a 401 from an
+authentication check), the SSE upgrade is not performed and the error
+response is returned to the client instead.
+
 ## Testing SSE Apps
 
 The `examples/sse` project includes **full integration tests** written

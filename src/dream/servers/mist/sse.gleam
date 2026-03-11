@@ -25,10 +25,12 @@
 ////
 //// 1. Router sends a request to a controller.
 //// 2. Controller calls `upgrade_to_sse`.
-//// 3. Mist spawns a dedicated OTP actor for this connection.
-//// 4. `on_init` runs once, receiving a `Subject(message)` that external
+//// 3. Middleware runs on the dummy response (adding CORS, security headers, etc.).
+//// 4. The handler performs the actual Mist SSE upgrade, forwarding all
+////    middleware-applied headers to the client.
+//// 5. `on_init` runs once, receiving a `Subject(message)` that external
 ////    code can use to send messages into the actor.
-//// 5. `on_message` runs for each message received by the actor.
+//// 6. `on_message` runs for each message received by the actor.
 ////
 //// Handlers follow Dream's "no closures" rule: instead of capturing
 //// dependencies, you define a `Dependencies` type and pass it explicitly
@@ -92,10 +94,13 @@ import gleam/erlang/atom
 import gleam/erlang/process.{type Selector, type Subject}
 import gleam/http/request as http_request
 import gleam/http/response as http_response
+import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/otp/actor
 import gleam/string_tree
-import mist.{type SSEConnection as MistSSEConnection}
+import mist.{
+  type Connection, type ResponseData, type SSEConnection as MistSSEConnection,
+}
 
 /// An SSE connection handle.
 ///
@@ -129,9 +134,10 @@ pub opaque type Action(state, message) {
 
 /// Upgrade an HTTP request to a Server-Sent Events connection.
 ///
-/// This function must be called from within a Dream controller. It spawns
-/// a dedicated OTP actor for the SSE connection with its own mailbox,
-/// avoiding the stalling issues of chunked transfer encoding.
+/// This function must be called from within a Dream controller. It defers
+/// the actual Mist SSE upgrade until after middleware has run, so any
+/// headers added by middleware (CORS, security, etc.) are included in the
+/// SSE response sent to the client.
 ///
 /// ## Parameters
 ///
@@ -174,7 +180,7 @@ pub fn upgrade_to_sse(
   let request_key = atom.create(internal.request_key)
   let raw_request = internal.get(request_key)
 
-  let mist_request: http_request.Request(mist.Connection) =
+  let mist_request: http_request.Request(Connection) =
     internal.unsafe_coerce(raw_request)
 
   let wrapped_init = fn(subj: Subject(message)) {
@@ -197,16 +203,25 @@ pub fn upgrade_to_sse(
     next
   }
 
-  let mist_response =
+  let perform_upgrade = fn(headers: List(#(String, String))) {
+    let initial_response =
+      list.fold(headers, http_response.new(200), fn(resp, h) {
+        http_response.set_header(resp, h.0, h.1)
+      })
     mist.server_sent_events(
       request: mist_request,
-      initial_response: http_response.new(200),
+      initial_response: initial_response,
       init: wrapped_init,
       loop: wrapped_loop,
     )
+  }
 
-  let response_key = atom.create(internal.response_key)
-  internal.put(response_key, internal.unsafe_coerce(Some(mist_response)))
+  let upgrade_thunk: Option(
+    fn(List(#(String, String))) -> http_response.Response(ResponseData),
+  ) = Some(perform_upgrade)
+
+  let upgrade_key = atom.create(internal.upgrade_key)
+  internal.put(upgrade_key, internal.unsafe_coerce(upgrade_thunk))
 
   empty_response(200)
 }
