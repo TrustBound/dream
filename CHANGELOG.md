@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-03-10
+
+### Added
+
+**Server-Sent Events (SSE) Module**
+
+- Added `dream/servers/mist/sse` module with dedicated OTP actor-backed SSE connections
+- `SSEConnection` opaque type for sending events to connected clients
+- `Event` opaque type with builder pipeline: `event`, `event_name`, `event_id`, `event_retry`
+- `Action(state, message)` type for controlling SSE actor lifecycle
+- `upgrade_to_sse` function following the same stash-and-upgrade pattern as WebSockets
+- `send_event` function for pushing events to clients
+- `continue_connection`, `continue_connection_with_selector`, and `stop_connection` action helpers
+- Follows Dream's "no closures" rule with explicit `dependencies` parameter
+
+**SSE Example Application**
+
+- Added `examples/sse/` with a ticker endpoint demonstrating real-time event streaming
+- Integration tests using Cucumber/Gherkin with HTTPoison async streaming
+- Scenarios covering SSE headers, event streaming, named events with IDs, and stall verification
+
+**SSE Documentation**
+
+- Added comprehensive `docs/guides/sse.md` covering concepts, lifecycle, event builders, broadcasting, and client-side `EventSource` usage
+- Updated `docs/reference/streaming-api.md` with full `upgrade_to_sse` API reference
+- Updated `docs/guides/streaming.md` to direct users to the new SSE guide
+
+**Testing**
+
+- Added `test/dream/servers/mist/sse_test.gleam` unit tests for event builders and action wrappers
+- Added `test/snippets/` directory with tested code snippets from SSE documentation
+- Added `test/snippets_test.gleam` to run documentation snippet tests
+
+### Deprecated
+
+- `response.sse_response` is deprecated — it uses chunked transfer encoding which stalls after a few events due to yielder blocking in the mist handler process's mailbox. Use `dream/servers/mist/sse.upgrade_to_sse` instead, which spawns a dedicated OTP actor with its own mailbox.
+
 ## [2.3.3] - 2026-03-07
 
 ### Fixed
@@ -490,7 +527,8 @@ Special thanks to [Louis Pilfold](https://github.com/lpil) for suggesting the ra
 - All code examples now include proper imports
 - Improved documentation tone and consistency
 
-[Unreleased]: https://github.com/TrustBound/dream/compare/v2.3.3...HEAD
+[Unreleased]: https://github.com/TrustBound/dream/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/TrustBound/dream/compare/v2.3.3...v2.4.0
 [2.3.3]: https://github.com/TrustBound/dream/compare/v2.3.2...v2.3.3
 [2.3.2]: https://github.com/TrustBound/dream/compare/v2.3.1...v2.3.2
 [2.3.1]: https://github.com/TrustBound/dream/compare/v2.3.0...v2.3.1
