@@ -323,7 +323,14 @@ pub fn stream_response(
   )
 }
 
-/// Create a Server-Sent Events (SSE) response
+/// Create a Server-Sent Events (SSE) response.
+///
+/// **Deprecated:** This function uses chunked transfer encoding which stalls
+/// after a few events because the yielder blocks in the mist handler process's
+/// mailbox, competing with TCP messages. Use
+/// `dream/servers/mist/sse.upgrade_to_sse` instead, which spawns a dedicated
+/// OTP actor with its own mailbox. See the [SSE guide](docs/guides/sse.md)
+/// for migration instructions.
 ///
 /// Returns a streaming response configured for Server-Sent Events.
 /// SSE enables server-to-client real-time updates over HTTP.
@@ -332,26 +339,6 @@ pub fn stream_response(
 /// - `Content-Type: text/event-stream`
 /// - `Cache-Control: no-cache`
 /// - `Connection: keep-alive`
-///
-/// ## Example
-///
-/// ```gleam
-/// import dream/http/response
-/// import dream/http/status
-/// import gleam/yielder
-///
-/// pub fn events(request, context, services) {
-///   let event_stream = 
-///     subscribe_to_events(services)
-///     |> yielder.map(format_sse_event)
-///   
-///   response.sse_response(status.ok, event_stream, "text/event-stream")
-/// }
-///
-/// fn format_sse_event(data: String) -> BitArray {
-///   <<"data: ", data:utf8, "\n\n":utf8>>
-/// }
-/// ```
 pub fn sse_response(
   status: Int,
   stream: yielder.Yielder(BitArray),

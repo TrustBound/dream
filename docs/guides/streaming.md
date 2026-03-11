@@ -353,70 +353,36 @@ pub fn echo(request: Request, context, services) -> Response {
 
 ## Server-Sent Events (SSE)
 
-> Looking for **bi-directional, long-lived connections** (e.g. chat, live
-> dashboards)? Use WebSockets instead of HTTP streaming or SSE. See the
-> [WebSockets guide](websockets.md) for a full walkthrough.
+SSE now has its own dedicated module and guide. See the
+**[SSE Guide](sse.md)** for a full walkthrough of `upgrade_to_sse`,
+event builders, broadcasting, and integration testing.
 
-### Basic SSE Endpoint
+> **Note:** The old `sse_response` function from `dream/http/response` used
+> chunked transfer encoding which stalls after a few events due to TCP
+> message contention in the handler process. It has been deprecated in
+> favour of `dream/servers/mist/sse.upgrade_to_sse`, which spawns a
+> dedicated OTP actor with its own mailbox.
 
-```gleam
-import dream/http/response.{sse_response}
-import dream/http/status
-import gleam/yielder
-import gleam/int
-
-pub fn events(request, context, services) {
-  let event_stream =
-    yielder.range(1, 100)
-    |> yielder.map(number_to_sse_event)
-  
-  sse_response(status.ok, event_stream, "text/event-stream")
-}
-
-fn number_to_sse_event(n: Int) -> BitArray {
-  let data = "data: {\"count\": " <> int.to_string(n) <> "}\n\n"
-  <<data:utf8>>
-}
-```
-
-### SSE Event Format
-
-```
-data: {"type": "message", "text": "Hello"}
-
-data: {"type": "update", "count": 42}
-
-data: {"type": "complete"}
-
-```
-
-Each event:
-- Starts with `data: `
-- Contains JSON (or any text)
-- Ends with double newline (`\n\n`)
-
-### SSE with Event IDs
+Quick example of the new API:
 
 ```gleam
-fn format_sse_event(id: Int, data: String) -> BitArray {
-  let event = 
-    "id: " <> int.to_string(id) <> "\n"
-    <> "data: " <> data <> "\n\n"
-  <<event:utf8>>
-}
+import dream/servers/mist/sse
+import gleam/erlang/process
+import gleam/option.{None}
 
-pub fn events_with_ids(request, context, services) {
-  let stream =
-    services.event_source.subscribe()
-    |> yielder.index()
-    |> yielder.map(format_indexed_event)
-  
-  sse_response(status.ok, stream, "text/event-stream")
-}
-
-fn format_indexed_event(pair: #(Event, Int)) -> BitArray {
-  let #(event, index) = pair
-  format_sse_event(index, event_to_json(event))
+pub fn handle_events(request, _context, _services) {
+  sse.upgrade_to_sse(
+    request,
+    dependencies: Nil,
+    on_init: fn(subject, _deps) {
+      process.send(subject, Tick)
+      #(0, None)
+    },
+    on_message: fn(count, _msg, conn, _deps) {
+      let _ = sse.send_event(conn, sse.event("ping"))
+      sse.continue_connection(count + 1)
+    },
+  )
 }
 ```
 

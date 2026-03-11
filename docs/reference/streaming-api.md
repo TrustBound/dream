@@ -105,7 +105,11 @@ fn int_to_byte(n: Int) -> BitArray {
 }
 ```
 
-### sse_response
+### sse_response (deprecated)
+
+> **Deprecated.** This function uses chunked transfer encoding which stalls
+> after a few events. Use `upgrade_to_sse` from `dream/servers/mist/sse`
+> instead. See the [SSE guide](../guides/sse.md).
 
 ```gleam
 pub fn sse_response(
@@ -115,37 +119,93 @@ pub fn sse_response(
 ) -> Response
 ```
 
-Create a Server-Sent Events response with SSE headers.
+### Server-Sent Events (SSE)
+
+For full SSE documentation, see the [SSE guide](../guides/sse.md).
+
+#### upgrade_to_sse
+
+```gleam
+import dream/servers/mist/sse
+
+pub fn upgrade_to_sse(
+  request: Request,
+  dependencies deps: deps,
+  on_init: fn(Subject(message), deps) -> #(state, Option(Selector(message))),
+  on_message: fn(state, message, SSEConnection, deps) -> Action(state, message),
+) -> Response
+```
+
+Upgrade an HTTP request to a Server-Sent Events connection backed by a
+dedicated OTP actor.
 
 **Parameters:**
-- `status`: HTTP status code (usually `status.ok`)
-- `stream`: Yielder generating SSE-formatted events
-- `content_type`: Usually `"text/event-stream"`
-
-**Returns:** Response with:
-- `Content-Type: text/event-stream`
-- `Cache-Control: no-cache`
-- `Connection: keep-alive`
-- Stream body
+- `request`: The incoming HTTP request
+- `dependencies`: Application dependencies passed to all handlers
+- `on_init`: Called once when the actor starts. Receives the actor's
+  `Subject(message)` for external message sending. Returns initial state
+  and optional selector.
+- `on_message`: Called for each message. Returns the next action.
 
 **Example:**
 ```gleam
-import dream/http/response.{sse_response}
-import dream/http/status
-import gleam/yielder
+import dream/servers/mist/sse
+import gleam/erlang/process
+import gleam/option.{None}
 
-pub fn events(request, context, services) {
-  let stream =
-    services.events.subscribe()
-    |> yielder.map(format_sse_event)
-  
-  sse_response(status.ok, stream, "text/event-stream")
-}
-
-fn format_sse_event(event: String) -> BitArray {
-  <<"data: ", event:utf8, "\n\n":utf8>>
+pub fn handle_events(request, _context, _services) {
+  sse.upgrade_to_sse(
+    request,
+    dependencies: Nil,
+    on_init: fn(subject, _deps) {
+      process.send(subject, Tick)
+      #(0, None)
+    },
+    on_message: fn(count, _msg, conn, _deps) {
+      let _ = sse.send_event(conn, sse.event("ping"))
+      sse.continue_connection(count + 1)
+    },
+  )
 }
 ```
+
+#### send_event
+
+```gleam
+pub fn send_event(connection: SSEConnection, event: Event) -> Result(Nil, Nil)
+```
+
+Send an SSE event to the client.
+
+#### event / event_name / event_id / event_retry
+
+```gleam
+pub fn event(data: String) -> Event
+pub fn event_name(event: Event, name: String) -> Event
+pub fn event_id(event: Event, id: String) -> Event
+pub fn event_retry(event: Event, retry_ms: Int) -> Event
+```
+
+Build structured SSE events. Only `event(data)` is required.
+
+**Example:**
+```gleam
+sse.event("{\"count\": 42}")
+|> sse.event_name("tick")
+|> sse.event_id("42")
+|> sse.event_retry(5000)
+```
+
+#### continue_connection / stop_connection
+
+```gleam
+pub fn continue_connection(state: state) -> Action(state, message)
+pub fn continue_connection_with_selector(state: state, selector: Selector(message)) -> Action(state, message)
+pub fn stop_connection() -> Action(state, message)
+```
+
+Control the SSE actor loop. `continue_connection` keeps the actor alive,
+`stop_connection` shuts it down.
 
 ## Router Functions
 
