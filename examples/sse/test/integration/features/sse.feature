@@ -3,15 +3,11 @@ Feature: Server-Sent Events
     Background:
         Given the server is running on port 8081
 
-    Scenario: SSE endpoint returns correct headers
-        When I send a GET request to "/events"
-        Then the response status should be 200
-        And the response header "content-type" should contain "text/event-stream"
-        And the response header "cache-control" should contain "no-cache"
-
-    Scenario: SSE endpoint streams events
+    Scenario: SSE endpoint streams events with correct headers
         When I connect to SSE at "/events"
-        Then I should receive at least 3 SSE events within 5 seconds
+        Then the SSE response header "content-type" should contain "text/event-stream"
+        And the SSE response header "cache-control" should contain "no-cache"
+        And I should receive at least 3 SSE events within 5 seconds
         And each event should have a "data" field
 
     Scenario: SSE events with names and IDs

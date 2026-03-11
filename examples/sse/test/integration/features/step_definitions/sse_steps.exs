@@ -12,23 +12,45 @@ defmodule SseSteps do
         recv_timeout: 15_000
       )
 
-    # Wait for status
     receive do
       %HTTPoison.AsyncStatus{id: ^ref, code: 200} -> :ok
     after
       5000 -> raise "Timeout waiting for SSE response status"
     end
 
-    # Wait for headers
-    receive do
-      %HTTPoison.AsyncHeaders{id: ^ref} -> :ok
-    after
-      5000 -> raise "Timeout waiting for SSE response headers"
-    end
+    headers =
+      receive do
+        %HTTPoison.AsyncHeaders{id: ^ref, headers: h} -> h
+      after
+        5000 -> raise "Timeout waiting for SSE response headers"
+      end
 
     context
     |> Map.put(:sse_ref, ref)
+    |> Map.put(:sse_headers, headers)
     |> Map.put(:sse_events, [])
+  end
+
+  step "the SSE response header {string} should contain {string}",
+       %{args: [header_name, expected_value]} = context do
+    values =
+      for {k, v} <- context.sse_headers,
+          String.downcase(k) == String.downcase(header_name),
+          do: v
+
+    case values do
+      [] ->
+        raise "Header '#{header_name}' not found. Headers: #{inspect(context.sse_headers)}"
+
+      vals ->
+        combined = Enum.join(vals, ", ")
+
+        unless String.contains?(combined, expected_value) do
+          raise "Header '#{header_name}' value '#{combined}' does not contain '#{expected_value}'"
+        end
+    end
+
+    context
   end
 
   step "I should receive at least {int} SSE events within {int} seconds",
