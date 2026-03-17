@@ -5,6 +5,37 @@ All notable changes to `dream_http_client` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.1.3 - 2026-03-17
+
+### Fixed
+
+- **ETS table ownership no longer causes silent stream process crashes.** The
+  `dream_http_client_ref_mapping` ETS table was owned by whichever short-lived
+  process first called `ensure_ref_mapping_table()`. When that process exited,
+  the table was destroyed. Concurrent stream processes that depended on it
+  crashed with `badarg` inside `decode_stream_message_for_selector/1`, killing
+  the stream silently — no `on_stream_error` callback fired. In production this
+  manifested as streams hanging for the full monitor timeout (900s) with zero
+  crash reports in logs.
+- **Race condition on ETS table creation eliminated.** If two processes called
+  `ensure_ref_mapping_table()` concurrently when the table did not exist, both
+  saw `undefined` from `ets:info/1` and the second `ets:new/2` call crashed
+  with `badarg`. The function now wraps creation in `try/catch`.
+- **All ETS access in the ref-mapping subsystem is now crash-safe.** Seven
+  functions (`lookup_ref_by_string`, `lookup_string_by_ref`, `store_ref_mapping`,
+  `remove_ref_mapping`, `maybe_store_stream_zlib`, `maybe_decompress_stream_chunk`,
+  `cleanup_stream_zlib`) previously called `ets:lookup`/`ets:insert`/`ets:delete`
+  without `try/catch`. A destroyed table would crash the calling process. All
+  now have `try/catch error:badarg` guards with safe fallbacks.
+
+### Added
+
+- **9 regression tests** covering ETS table ownership, race conditions, and
+  concurrent streaming scenarios. Deterministic tests verify the holder process
+  owns the table (not the caller), the table survives creator exit, and stored
+  mappings persist. Integration tests verify concurrent streams from short-lived
+  callers all complete — the exact scenario from the bug report.
+
 ## 5.1.2 - 2026-03-03
 
 ### Fixed
