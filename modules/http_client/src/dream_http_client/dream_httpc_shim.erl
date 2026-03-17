@@ -3,8 +3,7 @@
 -export([request_stream/6, fetch_next/2, fetch_start_headers/2, request_stream_messages/6,
          cancel_stream/1, cancel_stream_by_string/1, receive_stream_message/1,
          decode_stream_message_for_selector/1, normalize_headers/1, request_sync/5,
-         ets_table_exists/1, ets_new/2, ets_insert/7, ets_lookup/2, ets_delete/2,
-         ensure_ref_mapping_table/0]).
+         ets_table_exists/1, ets_new/2, ets_insert/7, ets_lookup/2, ets_delete/2]).
 
 %% @doc Start a streaming HTTP request with pull-based chunk retrieval
 %%
@@ -503,8 +502,6 @@ request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
     ok = ensure_started(inets),
     ok = configure_httpc(),
 
-    ensure_ref_mapping_table(),
-
     NUrl = to_list(Url),
     NHeaders = maybe_add_accept_encoding(to_headers(Headers)),
     Req = build_req(NUrl, NHeaders, Body),
@@ -734,23 +731,15 @@ decode_stream_message_for_selector({http, InnerMessage}) ->
 
 %% Get string ID for httpc ref, creating mapping if needed.
 %% This handles the case where selector receives messages before we stored
-%% the mapping, and recovers if the table was destroyed (re-creates it).
+%% the mapping.
 get_or_create_string_id(HttpcRef) ->
-    try
-        case lookup_string_by_ref(HttpcRef) of
-            {some, StringId} ->
-                StringId;
-            none ->
-                NewId = ref_to_string(HttpcRef),
-                store_ref_mapping(NewId, HttpcRef),
-                NewId
-        end
-    catch
-        error:badarg ->
-            ensure_ref_mapping_table(),
-            RecoveredId = ref_to_string(HttpcRef),
-            store_ref_mapping(RecoveredId, HttpcRef),
-            RecoveredId
+    case lookup_string_by_ref(HttpcRef) of
+        {some, StringId} ->
+            StringId;
+        none ->
+            NewId = ref_to_string(HttpcRef),
+            store_ref_mapping(NewId, HttpcRef),
+            NewId
     end.
 
 %% @doc Normalize HTTP headers to binary tuples for Gleam decoding
@@ -1099,36 +1088,6 @@ ets_delete(TableName, Key) ->
 %% Table for mapping string IDs to httpc refs (for cancellation)
 -define(REF_MAPPING_TABLE, dream_http_client_ref_mapping).
 
-%% Ensure ref mapping table exists (created on first use).
-%% The table is owned by a dedicated long-lived holder process so it
-%% survives the exit of short-lived stream processes. A try/catch
-%% guards against the race where two processes both see `undefined`
-%% and the second `ets:new` fails with `badarg`.
-ensure_ref_mapping_table() ->
-    case ets:info(?REF_MAPPING_TABLE) of
-        undefined ->
-            try
-                ets:new(?REF_MAPPING_TABLE, [set, public, named_table]),
-                Holder = spawn(fun table_holder_loop/0),
-                ets:give_away(?REF_MAPPING_TABLE, Holder, undefined),
-                ok
-            catch
-                error:badarg -> ok
-            end;
-        _ ->
-            ok
-    end.
-
-%% Persistent process that owns the ETS ref-mapping table.
-%% ETS tables are destroyed when their owning process exits; by
-%% transferring ownership here the table outlives any individual
-%% stream process.
-table_holder_loop() ->
-    receive
-        {'ETS-TRANSFER', _Tab, _FromPid, _Data} ->
-            table_holder_loop()
-    end.
-
 %% Convert httpc ref to unique string ID
 %% Uses the ref's string representation which is guaranteed unique
 ref_to_string(Ref) ->
@@ -1136,39 +1095,26 @@ ref_to_string(Ref) ->
 
 %% Store bidirectional mapping: string <-> ref
 store_ref_mapping(StringId, HttpcRef) ->
-    ensure_ref_mapping_table(),
-    try
-        ets:insert(?REF_MAPPING_TABLE, {StringId, HttpcRef}),
-        ets:insert(?REF_MAPPING_TABLE, {HttpcRef, StringId}),
-        ok
-    catch
-        error:badarg -> ok
-    end.
+    ets:insert(?REF_MAPPING_TABLE, {StringId, HttpcRef}),
+    ets:insert(?REF_MAPPING_TABLE, {HttpcRef, StringId}),
+    ok.
 
 %% Lookup httpc ref by string ID (for cancellation)
 lookup_ref_by_string(StringId) ->
-    try
-        case ets:lookup(?REF_MAPPING_TABLE, StringId) of
-            [{StringId, HttpcRef}] ->
-                {some, HttpcRef};
-            [] ->
-                none
-        end
-    catch
-        error:badarg -> none
+    case ets:lookup(?REF_MAPPING_TABLE, StringId) of
+        [{StringId, HttpcRef}] ->
+            {some, HttpcRef};
+        [] ->
+            none
     end.
 
 %% Lookup string ID by httpc ref (for message translation)
 lookup_string_by_ref(HttpcRef) ->
-    try
-        case ets:lookup(?REF_MAPPING_TABLE, HttpcRef) of
-            [{HttpcRef, StringId}] ->
-                {some, StringId};
-            [] ->
-                none
-        end
-    catch
-        error:badarg -> none
+    case ets:lookup(?REF_MAPPING_TABLE, HttpcRef) of
+        [{HttpcRef, StringId}] ->
+            {some, StringId};
+        [] ->
+            none
     end.
 
 %% Store a zlib context in ETS for message-based streaming decompression
@@ -1176,58 +1122,39 @@ maybe_store_stream_zlib(StringId, Headers) ->
     case detect_stream_encoding(Headers) of
         {_Enc, WindowBits} ->
             Z = init_zlib_context(WindowBits),
-            ensure_ref_mapping_table(),
-            try
-                ets:insert(?REF_MAPPING_TABLE, {{zlib, StringId}, Z}),
-                ok
-            catch
-                error:badarg ->
-                    cleanup_zlib(Z),
-                    ok
-            end;
+            ets:insert(?REF_MAPPING_TABLE, {{zlib, StringId}, Z}),
+            ok;
         none ->
             ok
     end.
 
 %% Decompress a chunk using ETS-stored zlib context
 maybe_decompress_stream_chunk(StringId, Data) ->
-    try
-        case ets:lookup(?REF_MAPPING_TABLE, {zlib, StringId}) of
-            [{{zlib, StringId}, Z}] ->
-                decompress_chunk(Z, Data);
-            [] ->
-                Data
-        end
-    catch
-        error:badarg -> Data
+    case ets:lookup(?REF_MAPPING_TABLE, {zlib, StringId}) of
+        [{{zlib, StringId}, Z}] ->
+            decompress_chunk(Z, Data);
+        [] ->
+            Data
     end.
 
 %% Clean up ETS-stored zlib context
 cleanup_stream_zlib(StringId) ->
-    try
-        case ets:lookup(?REF_MAPPING_TABLE, {zlib, StringId}) of
-            [{{zlib, StringId}, Z}] ->
-                cleanup_zlib(Z),
-                ets:delete(?REF_MAPPING_TABLE, {zlib, StringId}),
-                ok;
-            [] ->
-                ok
-        end
-    catch
-        error:badarg -> ok
+    case ets:lookup(?REF_MAPPING_TABLE, {zlib, StringId}) of
+        [{{zlib, StringId}, Z}] ->
+            cleanup_zlib(Z),
+            ets:delete(?REF_MAPPING_TABLE, {zlib, StringId}),
+            ok;
+        [] ->
+            ok
     end.
 
 %% Remove both mappings (cleanup after stream ends)
 remove_ref_mapping(StringId) ->
-    try
-        case lookup_ref_by_string(StringId) of
-            {some, HttpcRef} ->
-                ets:delete(?REF_MAPPING_TABLE, StringId),
-                ets:delete(?REF_MAPPING_TABLE, HttpcRef),
-                ok;
-            none ->
-                ok
-        end
-    catch
-        error:badarg -> ok
+    case lookup_ref_by_string(StringId) of
+        {some, HttpcRef} ->
+            ets:delete(?REF_MAPPING_TABLE, StringId),
+            ets:delete(?REF_MAPPING_TABLE, HttpcRef),
+            ok;
+        none ->
+            ok
     end.

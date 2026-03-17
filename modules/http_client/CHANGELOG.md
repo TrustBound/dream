@@ -9,32 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **ETS table ownership no longer causes silent stream process crashes.** The
-  `dream_http_client_ref_mapping` ETS table was owned by whichever short-lived
-  process first called `ensure_ref_mapping_table()`. When that process exited,
-  the table was destroyed. Concurrent stream processes that depended on it
-  crashed with `badarg` inside `decode_stream_message_for_selector/1`, killing
-  the stream silently — no `on_stream_error` callback fired. In production this
-  manifested as streams hanging for the full monitor timeout (900s) with zero
-  crash reports in logs.
-- **Race condition on ETS table creation eliminated.** If two processes called
-  `ensure_ref_mapping_table()` concurrently when the table did not exist, both
-  saw `undefined` from `ets:info/1` and the second `ets:new/2` call crashed
-  with `badarg`. The function now wraps creation in `try/catch`.
-- **All ETS access in the ref-mapping subsystem is now crash-safe.** Seven
-  functions (`lookup_ref_by_string`, `lookup_string_by_ref`, `store_ref_mapping`,
-  `remove_ref_mapping`, `maybe_store_stream_zlib`, `maybe_decompress_stream_chunk`,
-  `cleanup_stream_zlib`) previously called `ets:lookup`/`ets:insert`/`ets:delete`
-  without `try/catch`. A destroyed table would crash the calling process. All
-  now have `try/catch error:badarg` guards with safe fallbacks.
+- **ETS table ownership no longer causes silent stream process crashes.**
+  `dream_http_client` is now a proper OTP application. Both ETS tables
+  (`dream_http_client_ref_mapping` and `dream_http_client_stream_recorders`)
+  are created in the application's `start/2` callback and owned by the
+  application master process, which lives for the entire application lifetime.
+  Previously, the tables were owned by whichever short-lived process first
+  created them. When that process exited, the tables were destroyed. Concurrent
+  stream processes crashed with `badarg` inside
+  `decode_stream_message_for_selector/1`, killing the stream silently — no
+  `on_stream_error` callback fired.
+- **Race condition on ETS table creation eliminated.** Application start is
+  serialized by the BEAM's application controller. Two processes can no longer
+  race to create the tables.
+- **Removed all `try/catch error:badarg` guards from ETS access.** The previous
+  fix wrapped every ETS operation in try/catch, which silently swallowed errors
+  (e.g., returning compressed bytes as raw data). With the table now guaranteed
+  to exist for the application's lifetime, these guards are unnecessary and
+  were masking real errors. ETS operations are now direct calls — if the table
+  is gone, the process crashes loudly, which is correct behavior.
 
 ### Added
 
-- **9 regression tests** covering ETS table ownership, race conditions, and
-  concurrent streaming scenarios. Deterministic tests verify the holder process
-  owns the table (not the caller), the table survives creator exit, and stored
-  mappings persist. Integration tests verify concurrent streams from short-lived
-  callers all complete — the exact scenario from the bug report.
+- **OTP application infrastructure.** `dream_http_client_app` (application
+  behaviour) and `dream_http_client_sup` (supervisor) provide the standard OTP
+  lifecycle for the module's ETS tables. This follows the same pattern used by
+  Ranch (Cowboy's transport layer).
+- **7 regression tests** covering ETS table ownership verification and
+  concurrent streaming scenarios. Integration tests verify concurrent streams
+  from short-lived callers all complete — the exact scenario from the bug
+  report.
+
+### Removed
+
+- **Unsupervised holder process.** The bare `spawn` + `ets:give_away` pattern
+  was replaced by proper OTP application ownership.
+- **Lazy ETS table creation.** `ensure_ref_mapping_table/0`,
+  `ensure_recorder_table/0`, and `ensure_ets_tables/0` are removed. Tables
+  exist from application start.
 
 ## 5.1.2 - 2026-03-03
 

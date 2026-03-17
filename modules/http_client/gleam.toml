@@ -18,6 +18,9 @@ simplifile = ">= 2.3.0 and < 3.0.0"
 gleam_otp = ">= 1.2.0 and < 2.0.0"
 gleam_crypto = ">= 1.3.0 and < 2.0.0"
 
+[erlang]
+application_start_module = "dream_http_client_app"
+
 [dev-dependencies]
 dream = { path = "../.." }
 dream_mock_server = { path = "../mock_server" }
