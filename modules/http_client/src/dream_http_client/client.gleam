@@ -2145,23 +2145,10 @@ fn pair_with_name(value: String, name: String) -> #(String, String) {
 /// client.cancel_stream_handle(stream)
 /// ```
 pub fn start_stream(request: ClientRequest) -> Result(StreamHandle, String) {
-  // Ensure ETS tables exist before spawning
-  ensure_ets_tables()
-
-  // Spawn process to handle the stream
   let stream_pid = process.spawn_unlinked(fn() { run_stream_process(request) })
 
   Ok(StreamHandle(pid: stream_pid))
 }
-
-// Ensure all required ETS tables exist
-fn ensure_ets_tables() -> Nil {
-  ensure_recorder_table()
-  ensure_ref_mapping_table_wrapper()
-}
-
-@external(erlang, "dream_httpc_shim", "ensure_ref_mapping_table")
-fn ensure_ref_mapping_table_wrapper() -> Nil
 
 fn run_stream_process(request: ClientRequest) -> Nil {
   // Try playback from recording first
@@ -2445,27 +2432,6 @@ type MessageStreamRecorderState {
 // ETS table name for recorder state
 const recorder_table_name = "dream_http_client_stream_recorders"
 
-// Ensure ETS table exists (idempotent)
-fn ensure_recorder_table() -> Nil {
-  case ets_table_exists(recorder_table_name) {
-    True -> Nil
-    False -> {
-      ets_new(recorder_table_name, [
-        atom.create("set"),
-        atom.create("public"),
-        atom.create("named_table"),
-      ])
-      Nil
-    }
-  }
-}
-
-@external(erlang, "dream_httpc_shim", "ets_table_exists")
-fn ets_table_exists(name: String) -> Bool
-
-@external(erlang, "dream_httpc_shim", "ets_new")
-fn ets_new(name: String, options: List(atom.Atom)) -> d.Dynamic
-
 @external(erlang, "dream_httpc_shim", "ets_insert")
 fn ets_insert(
   table: String,
@@ -2488,7 +2454,6 @@ fn store_message_stream_recorder(
   rec: recorder.Recorder,
   recorded_req: recording.RecordedRequest,
 ) -> Nil {
-  ensure_recorder_table()
   let RequestId(id) = request_id
   ets_insert(recorder_table_name, id, rec, recorded_req, [], [], None)
 }

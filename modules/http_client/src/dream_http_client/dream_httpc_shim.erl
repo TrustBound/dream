@@ -3,8 +3,7 @@
 -export([request_stream/6, fetch_next/2, fetch_start_headers/2, request_stream_messages/6,
          cancel_stream/1, cancel_stream_by_string/1, receive_stream_message/1,
          decode_stream_message_for_selector/1, normalize_headers/1, request_sync/5,
-         ets_table_exists/1, ets_new/2, ets_insert/7, ets_lookup/2, ets_delete/2,
-         ensure_ref_mapping_table/0]).
+         ets_table_exists/1, ets_new/2, ets_insert/7, ets_lookup/2, ets_delete/2]).
 
 %% @doc Start a streaming HTTP request with pull-based chunk retrieval
 %%
@@ -503,8 +502,6 @@ request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
     ok = ensure_started(inets),
     ok = configure_httpc(),
 
-    ensure_ref_mapping_table(),
-
     NUrl = to_list(Url),
     NHeaders = maybe_add_accept_encoding(to_headers(Headers)),
     Req = build_req(NUrl, NHeaders, Body),
@@ -732,17 +729,17 @@ decode_stream_message_for_selector({http, InnerMessage}) ->
             error(badarg)
     end.
 
-%% Get string ID for httpc ref, creating mapping if needed
-%% This handles the case where selector receives messages before we stored the mapping
+%% Get string ID for httpc ref, creating mapping if needed.
+%% This handles the case where selector receives messages before we stored
+%% the mapping.
 get_or_create_string_id(HttpcRef) ->
     case lookup_string_by_ref(HttpcRef) of
         {some, StringId} ->
             StringId;
         none ->
-            %% First time seeing this ref - create mapping
-            StringId = ref_to_string(HttpcRef),
-            store_ref_mapping(StringId, HttpcRef),
-            StringId
+            NewId = ref_to_string(HttpcRef),
+            store_ref_mapping(NewId, HttpcRef),
+            NewId
     end.
 
 %% @doc Normalize HTTP headers to binary tuples for Gleam decoding
@@ -1091,16 +1088,6 @@ ets_delete(TableName, Key) ->
 %% Table for mapping string IDs to httpc refs (for cancellation)
 -define(REF_MAPPING_TABLE, dream_http_client_ref_mapping).
 
-%% Ensure ref mapping table exists (created on first use)
-ensure_ref_mapping_table() ->
-    case ets:info(?REF_MAPPING_TABLE) of
-        undefined ->
-            ets:new(?REF_MAPPING_TABLE, [set, public, named_table]),
-            ok;
-        _ ->
-            ok
-    end.
-
 %% Convert httpc ref to unique string ID
 %% Uses the ref's string representation which is guaranteed unique
 ref_to_string(Ref) ->
@@ -1108,9 +1095,7 @@ ref_to_string(Ref) ->
 
 %% Store bidirectional mapping: string <-> ref
 store_ref_mapping(StringId, HttpcRef) ->
-    ensure_ref_mapping_table(),
     ets:insert(?REF_MAPPING_TABLE, {StringId, HttpcRef}),
-    %% Also store reverse mapping for message translation
     ets:insert(?REF_MAPPING_TABLE, {HttpcRef, StringId}),
     ok.
 
@@ -1137,7 +1122,6 @@ maybe_store_stream_zlib(StringId, Headers) ->
     case detect_stream_encoding(Headers) of
         {_Enc, WindowBits} ->
             Z = init_zlib_context(WindowBits),
-            ensure_ref_mapping_table(),
             ets:insert(?REF_MAPPING_TABLE, {{zlib, StringId}, Z}),
             ok;
         none ->
