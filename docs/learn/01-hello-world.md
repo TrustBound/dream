@@ -118,5 +118,5 @@ When you need multiple routes, path parameters, or a database, continue to [Less
 
 ---
 
-**Working example:** See [examples/simplest/](../../examples/simplest/) for the complete runnable code.
+**Working example:** See [examples/simplest/](https://github.com/TrustBound/dream/tree/main/examples/simplest/) for the complete runnable code.
 

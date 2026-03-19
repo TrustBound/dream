@@ -1,0 +1,41 @@
+.hero {
+  background: linear-gradient(135deg, #0e1c49 0%, #000120 100%);
+  color: #dae0ee;
+  padding: 6rem 0;
+}
+
+.heroTitle {
+  font-size: 4rem;
+  font-weight: 700;
+}
+
+.heroSubtitle {
+  font-size: 1.5rem;
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+}
+.features {
+  display: flex;
+  justify-content: space-between; /* separa las cajas */
+  flex-wrap: wrap; /* permite que bajen si la pantalla es pequeña */
+  gap: 20px; /* espacio entre cajas */
+  padding: 20px;
+}
+
+.row {
+  display: flex;
+  width: 100%;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.featureBox {
+  flex: 1 1 calc(33% - 20px); /* 3 cajas por fila, con espacio */
+  background-color: #2e3044;
+
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  min-width: 200px; /* evita que se achiquen demasiado */
+}

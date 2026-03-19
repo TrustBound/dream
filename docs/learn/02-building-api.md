@@ -635,4 +635,4 @@ Continue to [Lesson 3: Adding Auth](03-adding-auth.md) to learn custom context a
 
 ---
 
-**Working example:** See [examples/database/](../../examples/database/) for the complete runnable code.
+**Working example:** See [examples/database/](https://github.com/TrustBound/dream/tree/main/examples/database/) for the complete runnable code.

@@ -8,7 +8,7 @@ If you are not sure where to start, follow the examples in the **Learning Order*
 
 ## Learning Order
 
-### 1. [simplest/](../examples/simplest/)
+### 1. [simplest/](https://github.com/TrustBound/dream/tree/main/examples/simplest/)
 **One file. One route.** (Best first "hello Dream" example.)
 
 The absolute minimum Dream app. Everything inline, no organization. Start here.
@@ -22,7 +22,7 @@ The absolute minimum Dream app. Everything inline, no organization. Start here.
 
 ---
 
-### 2. [simple/](../examples/simple/)
+### 2. [simple/](https://github.com/TrustBound/dream/tree/main/examples/simple/)
 **Basic routing and path parameters.** (Best first routing + path parameters example.)
 
 Multiple routes, path parameters, HTTP client usage.
@@ -37,7 +37,7 @@ Multiple routes, path parameters, HTTP client usage.
 
 ---
 
-### 3. [database/](../examples/database/)
+### 3. [database/](https://github.com/TrustBound/dream/tree/main/examples/database/)
 **Full CRUD API with PostgreSQL.** (Best first database-backed REST API example.)
 
 Complete REST API with type-safe SQL, migrations, and validation.
@@ -55,7 +55,7 @@ Complete REST API with type-safe SQL, migrations, and validation.
 
 ---
 
-### 4. [custom_context/](../examples/custom_context/)
+### 4. [custom_context/](https://github.com/TrustBound/dream/tree/main/examples/custom_context/)
 **Authentication with middleware.** (Best first auth + custom context example.)
 
 Custom context types and middleware for auth.
@@ -71,7 +71,7 @@ Custom context types and middleware for auth.
 
 ---
 
-### 5. [tasks/](../examples/tasks/)
+### 5. [tasks/](https://github.com/TrustBound/dream/tree/main/examples/tasks/)
 **Full-featured task app with HTMX.** (Best first templates + HTMX example.)
 
 Complete task management application with HTMX, semantic classless HTML, and composable templates.
@@ -90,7 +90,7 @@ Complete task management application with HTMX, semantic classless HTML, and com
 
 ## Specialized Examples
 
-### [multi_format/](../examples/multi_format/)
+### [multi_format/](https://github.com/TrustBound/dream/tree/main/examples/multi_format/)
 **JSON, HTML, CSV, HTMX responses.** (Best first multi-format responses example.)
 
 Same data in multiple formats with content negotiation.
@@ -106,7 +106,7 @@ Same data in multiple formats with content negotiation.
 
 ---
 
-### [streaming/](../examples/streaming/)
+### [streaming/](https://github.com/TrustBound/dream/tree/main/examples/streaming/)
 **HTTP client with streaming.** (Best first streaming HTTP client example.)
 
 Both streaming and non-streaming HTTP requests to external APIs.
@@ -122,7 +122,7 @@ Both streaming and non-streaming HTTP requests to external APIs.
 
 ---
 
-### [streaming_capabilities/](../examples/streaming_capabilities/)
+### [streaming_capabilities/](https://github.com/TrustBound/dream/tree/main/examples/streaming_capabilities/)
 **🔥 Advanced streaming patterns.** (Read `streaming/` first; this is the advanced streaming showcase.)
 
 Complete streaming showcase: ingress, egress, bi-directional, middleware, proxying.
@@ -139,7 +139,7 @@ Complete streaming showcase: ingress, egress, bi-directional, middleware, proxyi
 
 ---
 
-### [websocket_chat/](../examples/websocket_chat/)
+### [websocket_chat/](https://github.com/TrustBound/dream/tree/main/examples/websocket_chat/)
 **Real-time chat with WebSockets.** (Best first WebSocket example.)
 
 A multi-user chat application that uses WebSockets and a broadcaster service.
@@ -156,7 +156,7 @@ A multi-user chat application that uses WebSockets and a broadcaster service.
 
 ---
 
-### [rate_limiter/](../examples/rate_limiter/)
+### [rate_limiter/](https://github.com/TrustBound/dream/tree/main/examples/rate_limiter/)
 **Global rate limiting with shared state.** (Best first ETS + rate limiting example.)
 
 Rate limiting across all requests using shared ETS-backed state.
@@ -170,7 +170,7 @@ Rate limiting across all requests using shared ETS-backed state.
 
 ---
 
-### [static/](../examples/static/)
+### [static/](https://github.com/TrustBound/dream/tree/main/examples/static/)
 **Serving static files.** (Best first static file serving example.)
 
 File serving with security, directory listing, MIME types.
