@@ -5,6 +5,39 @@ All notable changes to `dream_http_client` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.2.0 - 2026-03-25
+
+### Added
+
+- **Per-request TCP connection timeout.** `connect_timeout(ms)` controls how long
+  to wait for the TCP connection to be established, separate from the existing
+  `timeout()` which controls the entire request/response cycle. Defaults to
+  15000ms (matching the previous hardcoded value). Useful for failing fast against
+  unreachable hosts without shortening the overall request timeout.
+- **Per-request redirect control.** `auto_redirect(enabled)` controls whether
+  3xx redirects are followed automatically. When disabled, the 3xx response is
+  returned as `Ok(HttpResponse(...))` with the status code and `Location` header
+  visible, allowing manual redirect handling. Defaults to `True` (matching
+  previous behavior).
+- **Global transport configuration.** `TransportConfig` opaque type with builder
+  functions for connection pool tuning:
+  - `max_sessions(count)` — concurrent TCP connections per host (default: 100)
+  - `max_pipeline_length(length)` — HTTP pipelining depth, 0 = disabled (default: 0)
+  - `keep_alive_timeout(ms)` — idle connection lifetime (default: 60000ms)
+  - `max_keep_alive_length(count)` — requests per keep-alive connection (default: 100)
+
+  Create with `transport_config()`, configure with builders, apply with
+  `configure_transport()`. Settings are global (applied to the httpc default
+  profile) and affect all subsequent requests. Stored in ETS for concurrent
+  read access, created during OTP application startup alongside the existing
+  tables.
+- **Getter functions** for all new fields: `get_connect_timeout()`,
+  `get_auto_redirect()`, `get_max_sessions()`, `get_max_pipeline_length()`,
+  `get_keep_alive_timeout()`, `get_max_keep_alive_length()`.
+- **14 new tests** covering builder/getter round-trips, default values, edge
+  cases (zero values), builder chaining, and transport application. 3 new
+  test snippets for documentation examples.
+
 ## 5.1.3 - 2026-03-17
 
 ### Fixed

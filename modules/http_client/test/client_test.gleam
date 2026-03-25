@@ -110,6 +110,66 @@ pub fn timeout_sets_request_timeout_test() {
   client.get_timeout(updated) |> should.equal(option.Some(timeout_value))
 }
 
+pub fn connect_timeout_sets_request_connect_timeout_test() {
+  // Arrange
+  let request = client.new()
+
+  // Act
+  let updated = client.connect_timeout(request, 5000)
+
+  // Assert
+  client.get_connect_timeout(updated) |> should.equal(option.Some(5000))
+}
+
+pub fn connect_timeout_defaults_to_none_test() {
+  // Arrange & Act
+  let request = client.new()
+
+  // Assert
+  client.get_connect_timeout(request) |> should.equal(option.None)
+}
+
+pub fn connect_timeout_accepts_zero_test() {
+  // Arrange
+  let request = client.new()
+
+  // Act
+  let updated = client.connect_timeout(request, 0)
+
+  // Assert
+  client.get_connect_timeout(updated) |> should.equal(option.Some(0))
+}
+
+pub fn auto_redirect_sets_request_auto_redirect_test() {
+  // Arrange
+  let request = client.new()
+
+  // Act
+  let updated = client.auto_redirect(request, False)
+
+  // Assert
+  client.get_auto_redirect(updated) |> should.equal(option.Some(False))
+}
+
+pub fn auto_redirect_defaults_to_none_test() {
+  // Arrange & Act
+  let request = client.new()
+
+  // Assert
+  client.get_auto_redirect(request) |> should.equal(option.None)
+}
+
+pub fn auto_redirect_can_be_set_to_true_test() {
+  // Arrange
+  let request = client.new()
+
+  // Act
+  let updated = client.auto_redirect(request, True)
+
+  // Assert
+  client.get_auto_redirect(updated) |> should.equal(option.Some(True))
+}
+
 pub fn add_header_adds_header_to_request_test() {
   // Arrange
   let request = client.new()

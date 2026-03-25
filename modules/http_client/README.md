@@ -210,6 +210,60 @@ pub fn stream_and_print() -> Result(Nil, String) {
 
 ---
 
+## Configuration
+
+### Per-Request Settings
+
+Configure connection behavior on individual requests:
+
+```gleam
+import dream_http_client/client
+
+// Set TCP connection timeout (default: 15000ms)
+client.new()
+|> client.host("api.example.com")
+|> client.connect_timeout(5000)
+|> client.send()
+
+// Disable automatic redirect following (default: True)
+client.new()
+|> client.host("api.example.com")
+|> client.path("/old-endpoint")
+|> client.auto_redirect(False)
+|> client.send()
+```
+
+<sub>Tested sources: [connect_timeout](test/snippets/connect_timeout_config.gleam), [auto_redirect](test/snippets/redirect_config.gleam)</sub>
+
+### Transport Settings
+
+Configure the underlying connection pool (global, affects all requests):
+
+```gleam
+import dream_http_client/client
+
+client.transport_config()
+|> client.max_sessions(200)
+|> client.keep_alive_timeout(120_000)
+|> client.configure_transport()
+```
+
+<sub>Tested source: [transport config](test/snippets/transport_config_example.gleam)</sub>
+
+### Defaults
+
+| Setting                | Default | Scope       |
+| ---------------------- | ------- | ----------- |
+| `timeout`              | 30000ms | Per-request |
+| `connect_timeout`      | 15000ms | Per-request |
+| `auto_redirect`        | True    | Per-request |
+| `max_sessions`         | 100     | Global      |
+| `max_pipeline_length`  | 0       | Global      |
+| `keep_alive_timeout`   | 60000ms | Global      |
+| `max_keep_alive_length`| 100     | Global      |
+
+---
+
 ## Recording & Playback
 
 Record HTTP requests/responses for testing, debugging, and offline development.
@@ -462,7 +516,8 @@ mocks/api/POST_localhost__text_c7d8e9_4f22bc.json
 
 ```gleam
 import dream_http_client/client.{
-  add_header, body, host, method, path, port, query, scheme, send, timeout,
+  add_header, auto_redirect, body, connect_timeout, host, method, path, port,
+  query, scheme, send, timeout,
 }
 import gleam/http
 

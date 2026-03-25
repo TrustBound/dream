@@ -1,8 +1,9 @@
 -module(dream_httpc_shim).
 
--export([request_stream/6, fetch_next/2, fetch_start_headers/2, request_stream_messages/6,
+-export([request_stream/8, fetch_next/2, fetch_start_headers/2, request_stream_messages/8,
          cancel_stream/1, cancel_stream_by_string/1, receive_stream_message/1,
-         decode_stream_message_for_selector/1, normalize_headers/1, request_sync/5,
+         decode_stream_message_for_selector/1, normalize_headers/1, request_sync/7,
+         configure_transport/4,
          ets_table_exists/1, ets_new/2, ets_insert/7, ets_lookup/2, ets_delete/2]).
 
 %% @doc Start a streaming HTTP request with pull-based chunk retrieval
@@ -40,7 +41,7 @@
 %% - `fetch_next` will detect the dead process and return an error
 %% - Ensures `ssl` and `inets` applications are started before making requests
 %% - Configures httpc with streaming-optimized settings (no pipelining, high session cap)
-request_stream(Method, Url, Headers, Body, _Receiver, TimeoutMs) ->
+request_stream(Method, Url, Headers, Body, _Receiver, TimeoutMs, ConnectTimeoutMs, AutoRedirect) ->
     ok = ensure_started(ssl),
     ok = ensure_started(inets),
     ok = configure_httpc(),
@@ -48,7 +49,8 @@ request_stream(Method, Url, Headers, Body, _Receiver, TimeoutMs) ->
     NUrl = to_list(Url),
     NHeaders = maybe_add_accept_encoding(to_headers(Headers)),
     Req = build_req(NUrl, NHeaders, Body),
-    Owner = spawn(fun() -> stream_owner_loop(Method, Req, NUrl, TimeoutMs) end),
+    Owner = spawn(fun() -> stream_owner_loop(Method, Req, NUrl, TimeoutMs,
+                                              ConnectTimeoutMs, AutoRedirect) end),
     {ok, Owner}.
 
 %% @doc Fetch the next chunk from a streaming HTTP request
@@ -129,8 +131,9 @@ fetch_start_headers(OwnerPid, TimeoutMs) ->
     end.
 
 %% Stream owner process: starts httpc in continuous mode and services fetch_next requests
-stream_owner_loop(Method, Req, _Url, TimeoutMs) ->
-    HttpOpts = [{timeout, TimeoutMs}, {connect_timeout, 15000}, {autoredirect, true}],
+stream_owner_loop(Method, Req, _Url, TimeoutMs, ConnectTimeoutMs, AutoRedirect) ->
+    HttpOpts = [{timeout, TimeoutMs}, {connect_timeout, ConnectTimeoutMs},
+                {autoredirect, AutoRedirect}],
     Opts = [{stream, self}, {sync, false}],
     case httpc:request(Method, Req, HttpOpts, Opts) of
         {ok, RequestId} ->
@@ -292,19 +295,29 @@ ensure_started(App) ->
             ok
     end.
 
-%% Configure httpc with appropriate settings for streaming
+%% Configure httpc with appropriate settings for streaming.
+%% Reads transport config from ETS if configure_transport/4 has been called,
+%% otherwise uses defaults.
 configure_httpc() ->
-    %% Increase parallelism and avoid head-of-line blocking with streaming
-    %% - Disable HTTP pipelining so long-lived streams don't block queued requests
-    %% - Raise session cap so concurrent streams can use separate connections
-    %% - Keep-alive tuning to allow reuse for non-streaming while not limiting concurrency
-    ok =
-        httpc:set_options([{max_sessions, 100},
-                           {max_pipeline_length, 0},
-                           {keep_alive_timeout, 60000},
-                           {max_keep_alive_length, 100}],
-                          default),
+    Config = case ets:lookup(dream_http_client_transport_config, config) of
+        [{config, MaxS, MaxP, KeepT, MaxK}] ->
+            [{max_sessions, MaxS}, {max_pipeline_length, MaxP},
+             {keep_alive_timeout, KeepT}, {max_keep_alive_length, MaxK}];
+        [] ->
+            [{max_sessions, 100}, {max_pipeline_length, 0},
+             {keep_alive_timeout, 60000}, {max_keep_alive_length, 100}]
+    end,
+    ok = httpc:set_options(Config, default),
     ok.
+
+configure_transport(MaxSessions, MaxPipelineLength, KeepAliveTimeout, MaxKeepAliveLength) ->
+    ets:insert(dream_http_client_transport_config,
+        {config, MaxSessions, MaxPipelineLength, KeepAliveTimeout, MaxKeepAliveLength}),
+    ok = httpc:set_options([
+        {max_sessions, MaxSessions}, {max_pipeline_length, MaxPipelineLength},
+        {keep_alive_timeout, KeepAliveTimeout}, {max_keep_alive_length, MaxKeepAliveLength}
+    ], default),
+    nil.
 
 %% Convert various types to string lists
 to_list(S) when is_binary(S) ->
@@ -497,7 +510,8 @@ build_req(Url, Headers, Body) ->
 %% - Stores bidirectional mapping: `StringId <-> HttpcRef` for cancellation
 %% - String ID is derived from httpc ref's string representation (guaranteed unique)
 %% - Ensures `ssl` and `inets` applications are started before making requests
-request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
+request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs,
+                        ConnectTimeoutMs, AutoRedirect) ->
     ok = ensure_started(ssl),
     ok = ensure_started(inets),
     ok = configure_httpc(),
@@ -506,7 +520,8 @@ request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
     NHeaders = maybe_add_accept_encoding(to_headers(Headers)),
     Req = build_req(NUrl, NHeaders, Body),
 
-    HttpOpts = [{timeout, TimeoutMs}, {connect_timeout, 15000}, {autoredirect, true}],
+    HttpOpts = [{timeout, TimeoutMs}, {connect_timeout, ConnectTimeoutMs},
+                {autoredirect, AutoRedirect}],
     StreamOpts = [{stream, self}, {sync, false}],
 
     case httpc:request(Method, Req, HttpOpts, StreamOpts) of
@@ -822,6 +837,8 @@ ensure_utf8_binary(Other) ->
 %% - `Headers`: List of `{Key, Value}` tuples where both are strings or binaries
 %% - `Body`: Request body as a binary (empty binary `<<>>` for requests without body)
 %% - `TimeoutMs`: Request timeout in milliseconds
+%% - `ConnectTimeoutMs`: TCP connection timeout in milliseconds
+%% - `AutoRedirect`: Whether to follow 3xx redirects automatically (boolean)
 %%
 %% ## Returns
 %%
@@ -835,7 +852,7 @@ ensure_utf8_binary(Other) ->
 %% ## Examples
 %%
 %% ```erlang
-%% {ok, {Status, Headers, Body}} = request_sync(get, "https://api.example.com/users", [], <<>>, 30000),
+%% {ok, {Status, Headers, Body}} = request_sync(get, "https://api.example.com/users", [], <<>>, 30000, 15000, true),
 %% ```
 %%
 %% ## Notes
@@ -846,7 +863,7 @@ ensure_utf8_binary(Other) ->
 %% - Ensures `ssl` and `inets` applications are started before making requests
 %% - Configures httpc with appropriate timeout and redirect settings
 %% - Error reasons are formatted as binaries for Gleam compatibility
-request_sync(Method, Url, Headers, Body, TimeoutMs) ->
+request_sync(Method, Url, Headers, Body, TimeoutMs, ConnectTimeoutMs, AutoRedirect) ->
     ok = ensure_started(ssl),
     ok = ensure_started(inets),
     ok = configure_httpc(),
@@ -855,8 +872,8 @@ request_sync(Method, Url, Headers, Body, TimeoutMs) ->
     NHeaders = maybe_add_accept_encoding(to_headers(Headers)),
     Req = build_req(NUrl, NHeaders, Body),
 
-    %% Use synchronous mode WITHOUT streaming - this is what send() should use
-    HttpOpts = [{timeout, TimeoutMs}, {connect_timeout, 15000}, {autoredirect, true}],
+    HttpOpts = [{timeout, TimeoutMs}, {connect_timeout, ConnectTimeoutMs},
+                {autoredirect, AutoRedirect}],
     Opts = [{sync, true}, {body_format, binary}],
 
     case httpc:request(Method, Req, HttpOpts, Opts) of

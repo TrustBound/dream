@@ -221,6 +221,8 @@ pub opaque type ClientRequest {
     headers: List(Header),
     body: String,
     timeout: Option(Int),
+    connect_timeout: Option(Int),
+    auto_redirect: Option(Bool),
     recorder: Option(recorder.Recorder),
     on_stream_start: Option(fn(List(Header)) -> Nil),
     on_stream_chunk: Option(fn(BitArray) -> Nil),
@@ -266,6 +268,8 @@ pub fn new() -> ClientRequest {
     headers: [],
     body: "",
     timeout: None,
+    connect_timeout: None,
+    auto_redirect: None,
     recorder: None,
     on_stream_start: None,
     on_stream_chunk: None,
@@ -560,6 +564,263 @@ pub fn recorder(
 pub fn timeout(client_request: ClientRequest, timeout_ms: Int) -> ClientRequest {
   ClientRequest(..client_request, timeout: option.Some(timeout_ms))
 }
+
+/// Set TCP connection timeout in milliseconds
+///
+/// Controls how long to wait for the TCP connection to be established.
+/// This is separate from the request `timeout()`, which controls the total
+/// time for the entire HTTP request/response cycle.
+///
+/// ## Parameters
+///
+/// - `client_request`: The request to modify
+/// - `ms`: Connection timeout in milliseconds (default: 15000)
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+///
+/// client.new()
+/// |> client.host("api.example.com")
+/// |> client.connect_timeout(5000)
+/// |> client.send()
+/// ```
+pub fn connect_timeout(client_request: ClientRequest, ms: Int) -> ClientRequest {
+  ClientRequest(..client_request, connect_timeout: option.Some(ms))
+}
+
+/// Set whether HTTP redirects are followed automatically
+///
+/// When enabled (default), the client follows 3xx redirects automatically
+/// and returns the final response. When disabled, the 3xx response is
+/// returned as `Ok(HttpResponse(...))` with the redirect status code and
+/// Location header visible, allowing manual redirect handling.
+///
+/// ## Parameters
+///
+/// - `client_request`: The request to modify
+/// - `enabled`: Whether to follow redirects automatically (default: True)
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+///
+/// // Disable auto-redirect to inspect the 3xx response
+/// client.new()
+/// |> client.host("api.example.com")
+/// |> client.path("/old-endpoint")
+/// |> client.auto_redirect(False)
+/// |> client.send()
+/// ```
+pub fn auto_redirect(
+  client_request: ClientRequest,
+  enabled: Bool,
+) -> ClientRequest {
+  ClientRequest(..client_request, auto_redirect: option.Some(enabled))
+}
+
+// ============================================================================
+// Transport Configuration
+// ============================================================================
+
+/// Configuration for the HTTP transport layer
+///
+/// Controls connection pool behavior for the underlying httpc client.
+/// These settings are global (applied to the httpc default profile) and
+/// affect all subsequent HTTP requests.
+///
+/// Create with `transport_config()`, configure with builder functions,
+/// and apply with `configure_transport()`.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+///
+/// client.transport_config()
+/// |> client.max_sessions(200)
+/// |> client.keep_alive_timeout(120_000)
+/// |> client.configure_transport()
+/// ```
+pub opaque type TransportConfig {
+  TransportConfig(
+    max_sessions: Int,
+    max_pipeline_length: Int,
+    keep_alive_timeout: Int,
+    max_keep_alive_length: Int,
+  )
+}
+
+/// Create a transport configuration with default values
+///
+/// Returns a `TransportConfig` with Dream's default settings:
+/// - max_sessions: 100 (concurrent TCP connections per host)
+/// - max_pipeline_length: 0 (pipelining disabled)
+/// - keep_alive_timeout: 60000ms (idle connection lifetime)
+/// - max_keep_alive_length: 100 (requests per keep-alive connection)
+pub fn transport_config() -> TransportConfig {
+  TransportConfig(
+    max_sessions: 100,
+    max_pipeline_length: 0,
+    keep_alive_timeout: 60_000,
+    max_keep_alive_length: 100,
+  )
+}
+
+/// Set maximum concurrent TCP connections per host
+///
+/// Controls how many simultaneous TCP connections can be open to a single
+/// host. Increase for high-concurrency workloads; decrease to limit
+/// resource usage.
+///
+/// ## Parameters
+///
+/// - `config`: The transport config to modify
+/// - `count`: Maximum connections per host (default: 100)
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+///
+/// client.transport_config()
+/// |> client.max_sessions(200)
+/// |> client.configure_transport()
+/// ```
+pub fn max_sessions(config: TransportConfig, count: Int) -> TransportConfig {
+  TransportConfig(..config, max_sessions: count)
+}
+
+/// Set HTTP pipelining depth
+///
+/// Controls how many requests can be pipelined on a single TCP connection.
+/// Set to 0 to disable pipelining (default and recommended for streaming).
+/// Enabling pipelining can improve throughput for many small sequential
+/// requests to the same host.
+///
+/// ## Parameters
+///
+/// - `config`: The transport config to modify
+/// - `length`: Pipeline depth, 0 = disabled (default: 0)
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+///
+/// client.transport_config()
+/// |> client.max_pipeline_length(5)
+/// |> client.configure_transport()
+/// ```
+pub fn max_pipeline_length(
+  config: TransportConfig,
+  length: Int,
+) -> TransportConfig {
+  TransportConfig(..config, max_pipeline_length: length)
+}
+
+/// Set idle connection timeout in milliseconds
+///
+/// Controls how long an idle keep-alive connection is held open before
+/// being closed. Longer timeouts improve connection reuse but consume
+/// resources.
+///
+/// ## Parameters
+///
+/// - `config`: The transport config to modify
+/// - `ms`: Idle timeout in milliseconds (default: 60000)
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+///
+/// client.transport_config()
+/// |> client.keep_alive_timeout(120_000)
+/// |> client.configure_transport()
+/// ```
+pub fn keep_alive_timeout(config: TransportConfig, ms: Int) -> TransportConfig {
+  TransportConfig(..config, keep_alive_timeout: ms)
+}
+
+/// Set maximum requests per keep-alive connection
+///
+/// Controls how many requests can be sent on a single keep-alive
+/// connection before it is closed and a new one opened. This limits
+/// the lifetime of individual TCP connections.
+///
+/// ## Parameters
+///
+/// - `config`: The transport config to modify
+/// - `count`: Maximum requests per connection (default: 100)
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client
+///
+/// client.transport_config()
+/// |> client.max_keep_alive_length(50)
+/// |> client.configure_transport()
+/// ```
+pub fn max_keep_alive_length(
+  config: TransportConfig,
+  count: Int,
+) -> TransportConfig {
+  TransportConfig(..config, max_keep_alive_length: count)
+}
+
+/// Get the configured maximum concurrent TCP connections per host
+pub fn get_max_sessions(config: TransportConfig) -> Int {
+  config.max_sessions
+}
+
+/// Get the configured HTTP pipelining depth
+pub fn get_max_pipeline_length(config: TransportConfig) -> Int {
+  config.max_pipeline_length
+}
+
+/// Get the configured idle connection timeout in milliseconds
+pub fn get_keep_alive_timeout(config: TransportConfig) -> Int {
+  config.keep_alive_timeout
+}
+
+/// Get the configured maximum requests per keep-alive connection
+pub fn get_max_keep_alive_length(config: TransportConfig) -> Int {
+  config.max_keep_alive_length
+}
+
+/// Apply transport configuration to the HTTP client
+///
+/// Sets the httpc profile options for all subsequent HTTP requests.
+/// Call this once during application startup. Can be called again to
+/// update settings at runtime.
+///
+/// ## Example
+///
+/// ```gleam
+/// client.transport_config()
+/// |> client.max_sessions(200)
+/// |> client.configure_transport()
+/// ```
+pub fn configure_transport(config: TransportConfig) -> Nil {
+  configure_transport_ffi(
+    config.max_sessions,
+    config.max_pipeline_length,
+    config.keep_alive_timeout,
+    config.max_keep_alive_length,
+  )
+}
+
+@external(erlang, "dream_httpc_shim", "configure_transport")
+fn configure_transport_ffi(
+  max_sessions: Int,
+  max_pipeline_length: Int,
+  keep_alive_timeout: Int,
+  max_keep_alive_length: Int,
+) -> Nil
 
 /// Set callback for stream start event
 ///
@@ -869,6 +1130,20 @@ pub fn get_timeout(client_request: ClientRequest) -> Option(Int) {
   client_request.timeout
 }
 
+/// Get the configured TCP connection timeout
+///
+/// Returns `None` if the default (15000ms) will be used.
+pub fn get_connect_timeout(client_request: ClientRequest) -> Option(Int) {
+  client_request.connect_timeout
+}
+
+/// Get the configured auto-redirect setting
+///
+/// Returns `None` if the default (True) will be used.
+pub fn get_auto_redirect(client_request: ClientRequest) -> Option(Bool) {
+  client_request.auto_redirect
+}
+
 /// Get the recorder from a request
 ///
 /// Returns the optional recorder attached to the request for recording or playback.
@@ -1174,9 +1449,19 @@ fn send_client_request_to_httpc_with_meta(
   let method_dynamic = atom.to_dynamic(method_atom)
   let body = <<http_request.body:utf8>>
   let timeout_value = resolve_timeout(client_request)
+  let connect_timeout_value = resolve_connect_timeout(client_request)
+  let auto_redirect_value = resolve_auto_redirect(client_request)
 
   case
-    send_sync(method_dynamic, url, http_request.headers, body, timeout_value)
+    send_sync(
+      method_dynamic,
+      url,
+      http_request.headers,
+      body,
+      timeout_value,
+      connect_timeout_value,
+      auto_redirect_value,
+    )
   {
     Ok(#(status, headers, response_body)) -> {
       response_body
@@ -1216,6 +1501,20 @@ fn resolve_timeout(client_request: ClientRequest) -> Int {
   }
 }
 
+fn resolve_connect_timeout(client_request: ClientRequest) -> Int {
+  case client_request.connect_timeout {
+    Some(ms) -> ms
+    None -> 15_000
+  }
+}
+
+fn resolve_auto_redirect(client_request: ClientRequest) -> Bool {
+  case client_request.auto_redirect {
+    Some(enabled) -> enabled
+    None -> True
+  }
+}
+
 @external(erlang, "dream_httpc_shim", "request_sync")
 fn send_sync(
   method: d.Dynamic,
@@ -1223,6 +1522,8 @@ fn send_sync(
   headers: List(#(String, String)),
   body: BitArray,
   timeout_ms: Int,
+  connect_timeout_ms: Int,
+  autoredirect: Bool,
 ) -> Result(#(Int, List(#(String, String)), BitArray), String)
 
 /// Stream HTTP response chunks using a yielder
@@ -1376,6 +1677,8 @@ fn create_stream_yielder_from_client_request(
 ) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
   let http_request = to_http_request(client_request)
   let timeout_value = resolve_timeout(client_request)
+  let connect_timeout_value = resolve_connect_timeout(client_request)
+  let auto_redirect_value = resolve_auto_redirect(client_request)
 
   case client_request.recorder {
     option.Some(recorder_instance) ->
@@ -1384,8 +1687,16 @@ fn create_stream_yielder_from_client_request(
         recorder_instance,
         http_request,
         timeout_value,
+        connect_timeout_value,
+        auto_redirect_value,
       )
-    option.None -> create_plain_yielder(http_request, timeout_value)
+    option.None ->
+      create_plain_yielder(
+        http_request,
+        timeout_value,
+        connect_timeout_value,
+        auto_redirect_value,
+      )
   }
 }
 
@@ -1394,16 +1705,19 @@ fn stream_yielder_with_record_mode(
   recorder_instance: recorder.Recorder,
   http_request: request.Request(String),
   timeout_value: Int,
+  connect_timeout_value: Int,
+  auto_redirect_value: Bool,
 ) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
   case recorder.is_record_mode(recorder_instance) {
     True -> {
-      // Recording mode - wrap yielder to capture chunks
       let recorded_request = client_request_to_recorded_request(client_request)
       let initial_state =
         RecordingYielderState(
           owner: None,
           http_req: http_request,
           timeout_ms: timeout_value,
+          connect_timeout_ms: connect_timeout_value,
+          auto_redirect: auto_redirect_value,
           recorder: recorder_instance,
           recorded_request: recorded_request,
           start_headers: [],
@@ -1413,17 +1727,29 @@ fn stream_yielder_with_record_mode(
       yielder.unfold(initial_state, handle_recording_yielder_unfold)
     }
     False ->
-      // Playback mode was already handled, use normal yielder
-      create_plain_yielder(http_request, timeout_value)
+      create_plain_yielder(
+        http_request,
+        timeout_value,
+        connect_timeout_value,
+        auto_redirect_value,
+      )
   }
 }
 
 fn create_plain_yielder(
   http_request: request.Request(String),
   timeout_value: Int,
+  connect_timeout_value: Int,
+  auto_redirect_value: Bool,
 ) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
   let initial_state =
-    YielderState(owner: None, http_req: http_request, timeout_ms: timeout_value)
+    YielderState(
+      owner: None,
+      http_req: http_request,
+      timeout_ms: timeout_value,
+      connect_timeout_ms: connect_timeout_value,
+      auto_redirect: auto_redirect_value,
+    )
   yielder.unfold(initial_state, handle_yielder_unfold_with_deps)
 }
 
@@ -1448,6 +1774,8 @@ type YielderState {
     owner: Option(d.Dynamic),
     http_req: request.Request(String),
     timeout_ms: Int,
+    connect_timeout_ms: Int,
+    auto_redirect: Bool,
   )
 }
 
@@ -1456,6 +1784,8 @@ type RecordingYielderState {
     owner: Option(d.Dynamic),
     http_req: request.Request(String),
     timeout_ms: Int,
+    connect_timeout_ms: Int,
+    auto_redirect: Bool,
     recorder: recorder.Recorder,
     recorded_request: recording.RecordedRequest,
     start_headers: List(#(String, String)),
@@ -1515,7 +1845,12 @@ fn handle_yielder_start_with_state(
   state: YielderState,
 ) -> yielder.Step(Result(bytes_tree.BytesTree, String), YielderState) {
   let request_result =
-    internal.start_httpc_stream(state.http_req, state.timeout_ms)
+    internal.start_httpc_stream(
+      state.http_req,
+      state.timeout_ms,
+      state.connect_timeout_ms,
+      state.auto_redirect,
+    )
   let owner = internal.extract_owner_pid(request_result)
   case internal.receive_next(owner, state.timeout_ms) {
     Ok(option.Some(bin)) ->
@@ -1567,7 +1902,12 @@ fn handle_recording_yielder_start(
   state: RecordingYielderState,
 ) -> yielder.Step(Result(bytes_tree.BytesTree, String), RecordingYielderState) {
   let request_result =
-    internal.start_httpc_stream(state.http_req, state.timeout_ms)
+    internal.start_httpc_stream(
+      state.http_req,
+      state.timeout_ms,
+      state.connect_timeout_ms,
+      state.auto_redirect,
+    )
   let owner = internal.extract_owner_pid(request_result)
   let start_headers = case
     internal.get_stream_start_headers(owner, state.timeout_ms)
@@ -1733,6 +2073,8 @@ fn send_stream_messages_to_httpc(
   let body = <<http_request.body:utf8>>
   let caller_process = process.self()
   let timeout_value = resolve_timeout(client_request)
+  let connect_timeout_value = resolve_connect_timeout(client_request)
+  let auto_redirect_value = resolve_auto_redirect(client_request)
 
   let start_result =
     internal.start_stream_messages(
@@ -1742,6 +2084,8 @@ fn send_stream_messages_to_httpc(
       body,
       caller_process,
       timeout_value,
+      connect_timeout_value,
+      auto_redirect_value,
     )
 
   case parse_stream_start_result(start_result) {
