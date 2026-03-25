@@ -22,6 +22,7 @@ import dream_http_client/client
 import dream_http_client_test
 import gleam/erlang/process
 import gleam/http
+import gleam/int
 import gleam/list
 import gleeunit/should
 
@@ -184,7 +185,7 @@ pub fn five_concurrent_streams_from_expired_callers_test() {
   let end_subject = process.new_subject()
   let count = 5
 
-  list.each(list.range(1, count), fn(i) {
+  int.range(from: 1, to: count + 1, with: Nil, run: fn(_, i) {
     let _pid =
       process.spawn_unlinked(fn() {
         let request =
@@ -198,7 +199,7 @@ pub fn five_concurrent_streams_from_expired_callers_test() {
     Nil
   })
 
-  let results = collect_n(end_subject, count, 8000)
+  let results = collect_n(end_subject, count, 15_000)
   list.length(results) |> should.equal(count)
   list.each(results, fn(id) { { id > 0 } |> should.be_true() })
 }

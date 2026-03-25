@@ -7,36 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 5.2.0 - 2026-03-25
 
+### Changed
+
+- **HTTP backend replaced: `httpc` → `gun`.** The underlying HTTP client has
+  been swapped from Erlang's `httpc` to [gun](https://github.com/ninenines/gun),
+  a production-grade HTTP/1.1 and HTTP/2 client. This enables native HTTP/2
+  multiplexing for high-concurrency workloads (10k+ concurrent requests over
+  a single TCP connection to HTTP/2 servers). All public API contracts are
+  preserved — `send()`, `stream_yielder()`, and `start_stream()` behave
+  identically from the caller's perspective.
+
 ### Added
 
 - **Per-request TCP connection timeout.** `connect_timeout(ms)` controls how long
   to wait for the TCP connection to be established, separate from the existing
   `timeout()` which controls the entire request/response cycle. Defaults to
-  15000ms (matching the previous hardcoded value). Useful for failing fast against
-  unreachable hosts without shortening the overall request timeout.
+  15000ms. Useful for failing fast against unreachable hosts without shortening
+  the overall request timeout.
 - **Per-request redirect control.** `auto_redirect(enabled)` controls whether
   3xx redirects are followed automatically. When disabled, the 3xx response is
   returned as `Ok(HttpResponse(...))` with the status code and `Location` header
   visible, allowing manual redirect handling. Defaults to `True` (matching
-  previous behavior).
+  previous behavior). Note: gun does not handle redirects natively; the shim
+  implements manual redirect following (up to 5 hops).
 - **Global transport configuration.** `TransportConfig` opaque type with builder
-  functions for connection pool tuning:
-  - `max_sessions(count)` — concurrent TCP connections per host (default: 100)
-  - `max_pipeline_length(length)` — HTTP pipelining depth, 0 = disabled (default: 0)
-  - `keep_alive_timeout(ms)` — idle connection lifetime (default: 60000ms)
-  - `max_keep_alive_length(count)` — requests per keep-alive connection (default: 100)
+  functions for gun connection pool tuning (13 fields):
+  - `max_connections(count)` — TCP connections per host (default: 50)
+  - `idle_timeout(ms)` — idle connection lifetime (default: 60000ms)
+  - `default_connect_timeout(ms)` — TCP connect timeout (default: 15000ms)
+  - `domain_lookup_timeout(ms)` — DNS resolution timeout (default: 5000ms)
+  - `tls_handshake_timeout(ms)` — TLS negotiation timeout (default: 10000ms)
+  - `retry(count)` — connection retry attempts (default: 3)
+  - `retry_timeout(ms)` — delay between retries (default: 1000ms)
+  - `keepalive(ms)` — HTTP/2 PING interval (default: 30000ms)
+  - `keepalive_tolerance(count)` — missed PINGs before close (default: 3)
+  - `max_concurrent_streams(count)` — HTTP/2 streams per connection (default: 100)
+  - `initial_connection_window_size(bytes)` — HTTP/2 flow control (default: 65535)
+  - `initial_stream_window_size(bytes)` — HTTP/2 stream flow control (default: 65535)
+  - `closing_timeout(ms)` — graceful shutdown timeout (default: 15000ms)
 
   Create with `transport_config()`, configure with builders, apply with
-  `configure_transport()`. Settings are global (applied to the httpc default
-  profile) and affect all subsequent requests. Stored in ETS for concurrent
-  read access, created during OTP application startup alongside the existing
-  tables.
-- **Getter functions** for all new fields: `get_connect_timeout()`,
-  `get_auto_redirect()`, `get_max_sessions()`, `get_max_pipeline_length()`,
-  `get_keep_alive_timeout()`, `get_max_keep_alive_length()`.
-- **14 new tests** covering builder/getter round-trips, default values, edge
-  cases (zero values), builder chaining, and transport application. 3 new
-  test snippets for documentation examples.
+  `configure_transport()`. Settings are global and affect all subsequent
+  requests. Stored in ETS for concurrent read access.
+- **Connection pool manager.** `dream_http_conn_manager` gen_server manages
+  a per-host connection pool backed by an ETS `bag` table. Features round-robin
+  selection, automatic dead-connection cleanup, idle connection reaping, and
+  crash recovery on restart.
+- **Stale connection retry.** Requests that hit a server-closed connection
+  (`{stream_error, closed}`) are automatically retried once on a fresh
+  connection, preventing spurious failures when connection pool entries outlive
+  the server-side keep-alive.
+- **Getter functions** for all 13 `TransportConfig` fields.
+- **18 new tests** covering builder/getter round-trips, default values, edge
+  cases (zero values), builder chaining, transport application, and concurrent
+  streaming scenarios.
 
 ## 5.1.3 - 2026-03-17
 

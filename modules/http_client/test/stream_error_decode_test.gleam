@@ -1,15 +1,14 @@
 //// Tests for stream error reason decoding robustness
 ////
-//// Verifies that the HTTP client can decode error reasons from Erlang's httpc
-//// regardless of the error format: transport-level errors (atoms/tuples from
-//// httpc), non-UTF-8 response bodies, and connection failures. Both the
+//// Verifies that the HTTP client can decode error reasons from gun
+//// regardless of the error format: transport-level errors (atoms/tuples),
+//// non-UTF-8 response bodies, and connection failures. Both the
 //// message-based (start_stream) and pull-based (stream_yielder) paths are
 //// tested.
 ////
 //// These tests close the gap left by stream_non_streaming_response_test.gleam,
-//// which only covered HTTP error responses (complete response messages). The
-//// tests here cover the {error, Reason} message path from httpc, which fires
-//// on transport-level failures like connection refused and socket drops.
+//// which only covered HTTP error responses. The tests here cover
+//// transport-level failures like connection refused and socket drops.
 
 import dream_http_client/client
 import dream_http_client_test

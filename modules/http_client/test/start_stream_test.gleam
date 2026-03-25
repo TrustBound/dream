@@ -102,8 +102,8 @@ pub fn start_stream_calls_on_error_for_network_failure_test() {
   // Act
   let assert Ok(_handle) = client.start_stream(request)
 
-  // Assert - on_error was called
-  case process.receive(error_subject, 2000) {
+  // Assert - on_error was called (gun retries 3 times with 1s between retries)
+  case process.receive(error_subject, 10_000) {
     Ok(reason) -> {
       { reason != "" } |> should.be_true()
     }

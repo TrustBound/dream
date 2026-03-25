@@ -2,10 +2,10 @@
 ////
 //// When a streaming HTTP request is made via start_stream/stream_yielder and
 //// the upstream returns a non-streaming response (e.g. HTTP 401/500 with a
-//// JSON body), Erlang's httpc sends a complete response message instead of
-//// the expected stream_start/stream/stream_end sequence.
+//// body), the gun shim detects non-2xx status codes and surfaces them as
+//// errors through the existing error paths.
 ////
-//// These tests verify that complete response messages are handled gracefully
+//// These tests verify that non-2xx responses are handled gracefully
 //// and surfaced through the existing error paths rather than crashing the
 //// stream process or silently hanging.
 

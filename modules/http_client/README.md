@@ -25,7 +25,7 @@
 
 **Type-safe HTTP client for Gleam with recording + streaming support.**
 
-A standalone HTTP/HTTPS client built on Erlang's battle-tested `httpc`. Supports blocking requests, yielder streaming, and process-based streaming via callbacks. Built with the same quality standards as [Dream](https://github.com/TrustBound/dream), but completely independent—use it in any Gleam project.
+A standalone HTTP/HTTPS client built on [gun](https://github.com/ninenines/gun), supporting HTTP/1.1 and HTTP/2 with native multiplexing. Provides blocking requests, yielder streaming, and process-based streaming via callbacks. Built with the same quality standards as [Dream](https://github.com/TrustBound/dream), but completely independent—use it in any Gleam project.
 
 ---
 
@@ -49,7 +49,7 @@ A standalone HTTP/HTTPS client built on Erlang's battle-tested `httpc`. Supports
 | **OTP-first design**      | Process-based streams work great with OTP                   |
 | **Recording/playback**    | Record HTTP calls for tests, debug production, work offline |
 | **Type-safe**             | `Result` types force error handling—no silent failures      |
-| **Battle-tested**         | Built on Erlang's `httpc`—proven in production for decades  |
+| **HTTP/2 ready**          | Native HTTP/2 multiplexing via gun for high concurrency     |
 | **Framework-independent** | Zero dependencies on Dream or other frameworks              |
 | **Concurrent streams**    | Handle multiple HTTP streams in a single actor              |
 | **Stream cancellation**   | Cancel in-flight requests cleanly                           |
@@ -237,14 +237,15 @@ client.new()
 
 ### Transport Settings
 
-Configure the underlying connection pool (global, affects all requests):
+Configure the gun connection pool (global, affects all requests):
 
 ```gleam
 import dream_http_client/client
 
 client.transport_config()
-|> client.max_sessions(200)
-|> client.keep_alive_timeout(120_000)
+|> client.max_connections(200)
+|> client.idle_timeout(120_000)
+|> client.max_concurrent_streams(500)
 |> client.configure_transport()
 ```
 
@@ -252,15 +253,24 @@ client.transport_config()
 
 ### Defaults
 
-| Setting                | Default | Scope       |
-| ---------------------- | ------- | ----------- |
-| `timeout`              | 30000ms | Per-request |
-| `connect_timeout`      | 15000ms | Per-request |
-| `auto_redirect`        | True    | Per-request |
-| `max_sessions`         | 100     | Global      |
-| `max_pipeline_length`  | 0       | Global      |
-| `keep_alive_timeout`   | 60000ms | Global      |
-| `max_keep_alive_length`| 100     | Global      |
+| Setting                          | Default | Scope       |
+| -------------------------------- | ------- | ----------- |
+| `timeout`                        | 30000ms | Per-request |
+| `connect_timeout`                | 15000ms | Per-request |
+| `auto_redirect`                  | True    | Per-request |
+| `max_connections`                | 50      | Global      |
+| `idle_timeout`                   | 60000ms | Global      |
+| `default_connect_timeout`        | 15000ms | Global      |
+| `domain_lookup_timeout`          | 5000ms  | Global      |
+| `tls_handshake_timeout`          | 10000ms | Global      |
+| `retry`                          | 3       | Global      |
+| `retry_timeout`                  | 1000ms  | Global      |
+| `keepalive`                      | 30000ms | Global      |
+| `keepalive_tolerance`            | 3       | Global      |
+| `max_concurrent_streams`         | 100     | Global      |
+| `initial_connection_window_size` | 65535   | Global      |
+| `initial_stream_window_size`     | 65535   | Global      |
+| `closing_timeout`                | 15000ms | Global      |
 
 ---
 
@@ -646,7 +656,7 @@ This module follows the same quality standards as [Dream](https://github.com/Tru
 - **Type safety** - `Result` types force error handling at compile time
 - **OTP-first design** - Process-based streaming designed for supervision trees
 - **Comprehensive testing** - Unit tests (no network) + integration tests (real HTTP)
-- **Battle-tested foundation** - Built on Erlang's production-proven `httpc`
+- **HTTP/2 ready** - Built on gun for native HTTP/2 multiplexing
 
 ---
 

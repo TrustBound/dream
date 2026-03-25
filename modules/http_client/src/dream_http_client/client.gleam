@@ -1,7 +1,8 @@
 //// Type-safe HTTP client with recording + streaming support
 ////
-//// Gleam doesn't ship with an HTTPS client, so this module wraps Erlang's
-//// battle‑hardened `httpc` and adds a friendly builder API, streaming helpers,
+//// Gleam doesn't ship with an HTTPS client, so this module wraps
+//// [gun](https://github.com/ninenines/gun) (a high-performance Erlang HTTP/1.1
+//// and HTTP/2 client) and adds a friendly builder API, streaming helpers,
 //// and optional record/playback via `dream_http_client/recorder`.
 ////
 //// ## Quick Example — blocking request
@@ -627,9 +628,10 @@ pub fn auto_redirect(
 
 /// Configuration for the HTTP transport layer
 ///
-/// Controls connection pool behavior for the underlying httpc client.
-/// These settings are global (applied to the httpc default profile) and
-/// affect all subsequent HTTP requests.
+/// Controls connection pool behavior and gun client options.
+/// These settings are global and affect all subsequent HTTP requests.
+/// Gun negotiates HTTP/2 automatically when available (via ALPN),
+/// falling back to HTTP/1.1.
 ///
 /// Create with `transport_config()`, configure with builder functions,
 /// and apply with `configure_transport()`.
@@ -640,161 +642,321 @@ pub fn auto_redirect(
 /// import dream_http_client/client
 ///
 /// client.transport_config()
-/// |> client.max_sessions(200)
-/// |> client.keep_alive_timeout(120_000)
+/// |> client.max_connections(200)
+/// |> client.idle_timeout(120_000)
 /// |> client.configure_transport()
 /// ```
 pub opaque type TransportConfig {
   TransportConfig(
-    max_sessions: Int,
-    max_pipeline_length: Int,
-    keep_alive_timeout: Int,
-    max_keep_alive_length: Int,
+    max_connections: Int,
+    idle_timeout: Int,
+    default_connect_timeout: Int,
+    domain_lookup_timeout: Int,
+    tls_handshake_timeout: Int,
+    retry: Int,
+    retry_timeout: Int,
+    keepalive: Int,
+    keepalive_tolerance: Int,
+    max_concurrent_streams: Int,
+    initial_connection_window_size: Int,
+    initial_stream_window_size: Int,
+    closing_timeout: Int,
   )
 }
 
 /// Create a transport configuration with default values
 ///
-/// Returns a `TransportConfig` with Dream's default settings:
-/// - max_sessions: 100 (concurrent TCP connections per host)
-/// - max_pipeline_length: 0 (pipelining disabled)
-/// - keep_alive_timeout: 60000ms (idle connection lifetime)
-/// - max_keep_alive_length: 100 (requests per keep-alive connection)
+/// Returns a `TransportConfig` with sensible defaults:
+/// - max_connections: 50 (TCP connections per host)
+/// - idle_timeout: 60_000ms (close idle connections after 60s)
+/// - default_connect_timeout: 15_000ms (TCP connection timeout)
+/// - domain_lookup_timeout: 5_000ms (DNS resolution timeout)
+/// - tls_handshake_timeout: 10_000ms (TLS negotiation timeout)
+/// - retry: 3 (reconnection attempts)
+/// - retry_timeout: 1_000ms (between retries)
+/// - keepalive: 30_000ms (HTTP/2 ping interval)
+/// - keepalive_tolerance: 3 (unack'd pings before disconnect)
+/// - max_concurrent_streams: 100 (HTTP/2 streams per connection)
+/// - initial_connection_window_size: 65_535 (HTTP/2 connection flow control)
+/// - initial_stream_window_size: 65_535 (HTTP/2 per-stream flow control)
+/// - closing_timeout: 15_000ms (graceful shutdown wait)
 pub fn transport_config() -> TransportConfig {
   TransportConfig(
-    max_sessions: 100,
-    max_pipeline_length: 0,
-    keep_alive_timeout: 60_000,
-    max_keep_alive_length: 100,
+    max_connections: 50,
+    idle_timeout: 60_000,
+    default_connect_timeout: 15_000,
+    domain_lookup_timeout: 5000,
+    tls_handshake_timeout: 10_000,
+    retry: 3,
+    retry_timeout: 1000,
+    keepalive: 30_000,
+    keepalive_tolerance: 3,
+    max_concurrent_streams: 100,
+    initial_connection_window_size: 65_535,
+    initial_stream_window_size: 65_535,
+    closing_timeout: 15_000,
   )
 }
 
-/// Set maximum concurrent TCP connections per host
+/// Set maximum TCP connections per host
 ///
 /// Controls how many simultaneous TCP connections can be open to a single
-/// host. Increase for high-concurrency workloads; decrease to limit
-/// resource usage.
+/// host. With HTTP/2, a single connection supports multiplexed streams,
+/// so fewer connections are needed than with HTTP/1.1.
 ///
 /// ## Parameters
 ///
 /// - `config`: The transport config to modify
-/// - `count`: Maximum connections per host (default: 100)
+/// - `count`: Maximum connections per host (default: 50)
 ///
 /// ## Example
 ///
 /// ```gleam
-/// import dream_http_client/client
-///
 /// client.transport_config()
-/// |> client.max_sessions(200)
+/// |> client.max_connections(200)
 /// |> client.configure_transport()
 /// ```
-pub fn max_sessions(config: TransportConfig, count: Int) -> TransportConfig {
-  TransportConfig(..config, max_sessions: count)
-}
-
-/// Set HTTP pipelining depth
-///
-/// Controls how many requests can be pipelined on a single TCP connection.
-/// Set to 0 to disable pipelining (default and recommended for streaming).
-/// Enabling pipelining can improve throughput for many small sequential
-/// requests to the same host.
-///
-/// ## Parameters
-///
-/// - `config`: The transport config to modify
-/// - `length`: Pipeline depth, 0 = disabled (default: 0)
-///
-/// ## Example
-///
-/// ```gleam
-/// import dream_http_client/client
-///
-/// client.transport_config()
-/// |> client.max_pipeline_length(5)
-/// |> client.configure_transport()
-/// ```
-pub fn max_pipeline_length(
-  config: TransportConfig,
-  length: Int,
-) -> TransportConfig {
-  TransportConfig(..config, max_pipeline_length: length)
+pub fn max_connections(config: TransportConfig, count: Int) -> TransportConfig {
+  TransportConfig(..config, max_connections: count)
 }
 
 /// Set idle connection timeout in milliseconds
 ///
-/// Controls how long an idle keep-alive connection is held open before
-/// being closed. Longer timeouts improve connection reuse but consume
-/// resources.
+/// Controls how long an idle connection is held open before being closed.
+/// Longer timeouts improve connection reuse but consume resources.
 ///
 /// ## Parameters
 ///
 /// - `config`: The transport config to modify
-/// - `ms`: Idle timeout in milliseconds (default: 60000)
+/// - `ms`: Idle timeout in milliseconds (default: 60_000)
 ///
 /// ## Example
 ///
 /// ```gleam
-/// import dream_http_client/client
-///
 /// client.transport_config()
-/// |> client.keep_alive_timeout(120_000)
+/// |> client.idle_timeout(120_000)
 /// |> client.configure_transport()
 /// ```
-pub fn keep_alive_timeout(config: TransportConfig, ms: Int) -> TransportConfig {
-  TransportConfig(..config, keep_alive_timeout: ms)
+pub fn idle_timeout(config: TransportConfig, ms: Int) -> TransportConfig {
+  TransportConfig(..config, idle_timeout: ms)
 }
 
-/// Set maximum requests per keep-alive connection
+/// Set default TCP connection timeout in milliseconds
 ///
-/// Controls how many requests can be sent on a single keep-alive
-/// connection before it is closed and a new one opened. This limits
-/// the lifetime of individual TCP connections.
+/// The default timeout for establishing a TCP connection when not
+/// overridden per-request via `connect_timeout()`.
 ///
 /// ## Parameters
 ///
 /// - `config`: The transport config to modify
-/// - `count`: Maximum requests per connection (default: 100)
+/// - `ms`: Connection timeout in milliseconds (default: 15_000)
+pub fn default_connect_timeout(
+  config: TransportConfig,
+  ms: Int,
+) -> TransportConfig {
+  TransportConfig(..config, default_connect_timeout: ms)
+}
+
+/// Set DNS resolution timeout in milliseconds
 ///
-/// ## Example
+/// ## Parameters
 ///
-/// ```gleam
-/// import dream_http_client/client
+/// - `config`: The transport config to modify
+/// - `ms`: DNS lookup timeout in milliseconds (default: 5_000)
+pub fn domain_lookup_timeout(
+  config: TransportConfig,
+  ms: Int,
+) -> TransportConfig {
+  TransportConfig(..config, domain_lookup_timeout: ms)
+}
+
+/// Set TLS handshake timeout in milliseconds
 ///
-/// client.transport_config()
-/// |> client.max_keep_alive_length(50)
-/// |> client.configure_transport()
-/// ```
-pub fn max_keep_alive_length(
+/// ## Parameters
+///
+/// - `config`: The transport config to modify
+/// - `ms`: TLS negotiation timeout in milliseconds (default: 10_000)
+pub fn tls_handshake_timeout(
+  config: TransportConfig,
+  ms: Int,
+) -> TransportConfig {
+  TransportConfig(..config, tls_handshake_timeout: ms)
+}
+
+/// Set number of reconnection attempts
+///
+/// How many times gun will attempt to reconnect after a connection is lost.
+///
+/// ## Parameters
+///
+/// - `config`: The transport config to modify
+/// - `count`: Number of retry attempts (default: 3)
+pub fn retry(config: TransportConfig, count: Int) -> TransportConfig {
+  TransportConfig(..config, retry: count)
+}
+
+/// Set delay between reconnection attempts in milliseconds
+///
+/// ## Parameters
+///
+/// - `config`: The transport config to modify
+/// - `ms`: Delay between retries in milliseconds (default: 1_000)
+pub fn retry_timeout(config: TransportConfig, ms: Int) -> TransportConfig {
+  TransportConfig(..config, retry_timeout: ms)
+}
+
+/// Set HTTP/2 keepalive ping interval in milliseconds
+///
+/// How often to send HTTP/2 PING frames to keep the connection alive
+/// and detect dead connections.
+///
+/// ## Parameters
+///
+/// - `config`: The transport config to modify
+/// - `ms`: Ping interval in milliseconds (default: 30_000)
+pub fn keepalive(config: TransportConfig, ms: Int) -> TransportConfig {
+  TransportConfig(..config, keepalive: ms)
+}
+
+/// Set HTTP/2 keepalive tolerance
+///
+/// How many unacknowledged PING frames are allowed before the connection
+/// is considered dead and closed.
+///
+/// ## Parameters
+///
+/// - `config`: The transport config to modify
+/// - `count`: Max unacknowledged pings (default: 3)
+pub fn keepalive_tolerance(
   config: TransportConfig,
   count: Int,
 ) -> TransportConfig {
-  TransportConfig(..config, max_keep_alive_length: count)
+  TransportConfig(..config, keepalive_tolerance: count)
 }
 
-/// Get the configured maximum concurrent TCP connections per host
-pub fn get_max_sessions(config: TransportConfig) -> Int {
-  config.max_sessions
+/// Set maximum concurrent HTTP/2 streams per connection
+///
+/// Controls the maximum number of concurrent streams allowed on a single
+/// HTTP/2 connection. Increase for highly concurrent workloads.
+///
+/// ## Parameters
+///
+/// - `config`: The transport config to modify
+/// - `count`: Max concurrent streams (default: 100)
+pub fn max_concurrent_streams(
+  config: TransportConfig,
+  count: Int,
+) -> TransportConfig {
+  TransportConfig(..config, max_concurrent_streams: count)
 }
 
-/// Get the configured HTTP pipelining depth
-pub fn get_max_pipeline_length(config: TransportConfig) -> Int {
-  config.max_pipeline_length
+/// Set HTTP/2 connection-level flow control window size
+///
+/// ## Parameters
+///
+/// - `config`: The transport config to modify
+/// - `size`: Window size in bytes (default: 65_535)
+pub fn initial_connection_window_size(
+  config: TransportConfig,
+  size: Int,
+) -> TransportConfig {
+  TransportConfig(..config, initial_connection_window_size: size)
+}
+
+/// Set HTTP/2 per-stream flow control window size
+///
+/// ## Parameters
+///
+/// - `config`: The transport config to modify
+/// - `size`: Window size in bytes (default: 65_535)
+pub fn initial_stream_window_size(
+  config: TransportConfig,
+  size: Int,
+) -> TransportConfig {
+  TransportConfig(..config, initial_stream_window_size: size)
+}
+
+/// Set graceful shutdown timeout in milliseconds
+///
+/// How long to wait for in-flight requests to complete when closing
+/// a connection.
+///
+/// ## Parameters
+///
+/// - `config`: The transport config to modify
+/// - `ms`: Shutdown wait in milliseconds (default: 15_000)
+pub fn closing_timeout(config: TransportConfig, ms: Int) -> TransportConfig {
+  TransportConfig(..config, closing_timeout: ms)
+}
+
+/// Get the configured maximum TCP connections per host
+pub fn get_max_connections(config: TransportConfig) -> Int {
+  config.max_connections
 }
 
 /// Get the configured idle connection timeout in milliseconds
-pub fn get_keep_alive_timeout(config: TransportConfig) -> Int {
-  config.keep_alive_timeout
+pub fn get_idle_timeout(config: TransportConfig) -> Int {
+  config.idle_timeout
 }
 
-/// Get the configured maximum requests per keep-alive connection
-pub fn get_max_keep_alive_length(config: TransportConfig) -> Int {
-  config.max_keep_alive_length
+/// Get the configured default TCP connection timeout in milliseconds
+pub fn get_default_connect_timeout(config: TransportConfig) -> Int {
+  config.default_connect_timeout
+}
+
+/// Get the configured DNS resolution timeout in milliseconds
+pub fn get_domain_lookup_timeout(config: TransportConfig) -> Int {
+  config.domain_lookup_timeout
+}
+
+/// Get the configured TLS handshake timeout in milliseconds
+pub fn get_tls_handshake_timeout(config: TransportConfig) -> Int {
+  config.tls_handshake_timeout
+}
+
+/// Get the configured number of reconnection attempts
+pub fn get_retry(config: TransportConfig) -> Int {
+  config.retry
+}
+
+/// Get the configured delay between reconnection attempts in milliseconds
+pub fn get_retry_timeout(config: TransportConfig) -> Int {
+  config.retry_timeout
+}
+
+/// Get the configured HTTP/2 keepalive ping interval in milliseconds
+pub fn get_keepalive(config: TransportConfig) -> Int {
+  config.keepalive
+}
+
+/// Get the configured HTTP/2 keepalive tolerance
+pub fn get_keepalive_tolerance(config: TransportConfig) -> Int {
+  config.keepalive_tolerance
+}
+
+/// Get the configured maximum concurrent HTTP/2 streams per connection
+pub fn get_max_concurrent_streams(config: TransportConfig) -> Int {
+  config.max_concurrent_streams
+}
+
+/// Get the configured HTTP/2 connection-level flow control window size
+pub fn get_initial_connection_window_size(config: TransportConfig) -> Int {
+  config.initial_connection_window_size
+}
+
+/// Get the configured HTTP/2 per-stream flow control window size
+pub fn get_initial_stream_window_size(config: TransportConfig) -> Int {
+  config.initial_stream_window_size
+}
+
+/// Get the configured graceful shutdown timeout in milliseconds
+pub fn get_closing_timeout(config: TransportConfig) -> Int {
+  config.closing_timeout
 }
 
 /// Apply transport configuration to the HTTP client
 ///
-/// Sets the httpc profile options for all subsequent HTTP requests.
+/// Stores transport settings for use by all subsequent HTTP requests.
 /// Call this once during application startup. Can be called again to
 /// update settings at runtime.
 ///
@@ -802,25 +964,15 @@ pub fn get_max_keep_alive_length(config: TransportConfig) -> Int {
 ///
 /// ```gleam
 /// client.transport_config()
-/// |> client.max_sessions(200)
+/// |> client.max_connections(200)
 /// |> client.configure_transport()
 /// ```
 pub fn configure_transport(config: TransportConfig) -> Nil {
-  configure_transport_ffi(
-    config.max_sessions,
-    config.max_pipeline_length,
-    config.keep_alive_timeout,
-    config.max_keep_alive_length,
-  )
+  configure_transport_ffi(config)
 }
 
-@external(erlang, "dream_httpc_shim", "configure_transport")
-fn configure_transport_ffi(
-  max_sessions: Int,
-  max_pipeline_length: Int,
-  keep_alive_timeout: Int,
-  max_keep_alive_length: Int,
-) -> Nil
+@external(erlang, "dream_http_shim", "configure_transport")
+fn configure_transport_ffi(config: TransportConfig) -> Nil
 
 /// Set callback for stream start event
 ///
@@ -1202,7 +1354,7 @@ pub opaque type RequestId {
 /// Stream message types emitted by internal streaming machinery
 ///
 /// `start_stream()` runs a stream loop in a dedicated process; that process
-/// receives and decodes httpc messages into these variants.
+/// receives and decodes gun messages into these variants.
 ///
 /// ## Message Flow
 ///
@@ -1214,7 +1366,7 @@ pub opaque type RequestId {
 /// ## DecodeError
 ///
 /// `DecodeError` indicates the Erlang→Gleam FFI boundary received a malformed
-/// message from `httpc`. This is **not a normal HTTP error** - it means either:
+/// message from `gun`. This is **not a normal HTTP error** - it means either:
 ///
 /// - Erlang/OTP version incompatibility with this library
 /// - Memory corruption or other serious runtime issue
@@ -1352,7 +1504,7 @@ pub fn send(client_request: ClientRequest) -> Result(HttpResponse, SendError) {
 fn send_without_recorder(
   client_request: ClientRequest,
 ) -> Result(HttpResponse, SendError) {
-  send_client_request_to_httpc(client_request)
+  send_client_request_via_gun(client_request)
 }
 
 fn send_with_recorder(
@@ -1388,7 +1540,7 @@ fn send_and_maybe_record(
   recorder_instance: recorder.Recorder,
   recorded_request: recording.RecordedRequest,
 ) -> Result(HttpResponse, SendError) {
-  case send_client_request_to_httpc_with_meta(client_request) {
+  case send_client_request_via_gun_with_meta(client_request) {
     Ok(#(status, headers, body)) -> {
       let recorded_response =
         recording.BlockingResponse(status: status, headers: headers, body: body)
@@ -1431,16 +1583,16 @@ fn record_response_if_needed(
   }
 }
 
-fn send_client_request_to_httpc(
+fn send_client_request_via_gun(
   client_request: ClientRequest,
 ) -> Result(HttpResponse, SendError) {
-  case send_client_request_to_httpc_with_meta(client_request) {
+  case send_client_request_via_gun_with_meta(client_request) {
     Ok(#(status, headers, body)) -> response_result(status, headers, body)
     Error(error_message) -> Error(RequestError(message: error_message))
   }
 }
 
-fn send_client_request_to_httpc_with_meta(
+fn send_client_request_via_gun_with_meta(
   client_request: ClientRequest,
 ) -> Result(#(Int, List(#(String, String)), String), String) {
   let http_request = to_http_request(client_request)
@@ -1515,7 +1667,7 @@ fn resolve_auto_redirect(client_request: ClientRequest) -> Bool {
   }
 }
 
-@external(erlang, "dream_httpc_shim", "request_sync")
+@external(erlang, "dream_http_shim", "request_sync")
 fn send_sync(
   method: d.Dynamic,
   url: String,
@@ -1567,7 +1719,7 @@ fn send_sync(
 ///
 /// Possible error reasons (actual errors only):
 /// - `"timeout"` - Request timed out
-/// - Connection errors from `httpc`
+/// - Connection errors from `gun`
 ///
 /// ## Parameters
 ///
@@ -1845,7 +1997,7 @@ fn handle_yielder_start_with_state(
   state: YielderState,
 ) -> yielder.Step(Result(bytes_tree.BytesTree, String), YielderState) {
   let request_result =
-    internal.start_httpc_stream(
+    internal.start_gun_stream(
       state.http_req,
       state.timeout_ms,
       state.connect_timeout_ms,
@@ -1902,7 +2054,7 @@ fn handle_recording_yielder_start(
   state: RecordingYielderState,
 ) -> yielder.Step(Result(bytes_tree.BytesTree, String), RecordingYielderState) {
   let request_result =
-    internal.start_httpc_stream(
+    internal.start_gun_stream(
       state.http_req,
       state.timeout_ms,
       state.connect_timeout_ms,
@@ -1995,7 +2147,7 @@ fn save_streaming_recording(
   // Reverse chunks to get correct order (we prepended them)
   let ordered_chunks = list.reverse(chunks)
 
-  // httpc only streams body chunks for successful responses (200/206). We
+  // gun only streams body chunks for successful responses (200/206). We
   // infer 206 if Content-Range is present; otherwise default to 200.
   let status = case
     list.any(state.start_headers, fn(h) {
@@ -2020,7 +2172,7 @@ fn save_streaming_recording(
 }
 
 // Internal: Start a message-based streaming HTTP request
-// Used by start_stream() to initiate the low-level HTTP stream via httpc.
+// Used by start_stream() to initiate the low-level HTTP stream via gun.
 // Note: start_stream() already handles playback via maybe_replay_from_recording()
 // before reaching this function. This path is for live HTTP requests only.
 fn stream_messages(client_request: ClientRequest) -> Result(RequestId, String) {
@@ -2041,12 +2193,12 @@ fn stream_messages_with_recorder(
     Ok(option.Some(_recording)) ->
       // Safety net: start_stream() replays via maybe_replay_from_recording()
       // before reaching here. If we land here anyway, it means the low-level
-      // httpc message path cannot replay recordings.
+      // gun message path cannot replay recordings.
       Error(
         "Unexpected: recording found in stream_messages path. This should have been handled by start_stream() playback.",
       )
     Ok(option.None) ->
-      send_stream_messages_to_httpc(
+      send_stream_messages_via_gun(
         client_request,
         option.Some(recorder_instance),
         recorded_request,
@@ -2059,10 +2211,10 @@ fn stream_messages_without_recorder(
   client_request: ClientRequest,
 ) -> Result(RequestId, String) {
   let recorded_request = client_request_to_recorded_request(client_request)
-  send_stream_messages_to_httpc(client_request, option.None, recorded_request)
+  send_stream_messages_via_gun(client_request, option.None, recorded_request)
 }
 
-fn send_stream_messages_to_httpc(
+fn send_stream_messages_via_gun(
   client_request: ClientRequest,
   recorder_option: Option(recorder.Recorder),
   recorded_request: recording.RecordedRequest,
@@ -2144,7 +2296,7 @@ fn parse_stream_start_result(result: d.Dynamic) -> Result(RequestId, String) {
   case tag_result {
     Ok(tag_dyn) -> parse_stream_start_tag(tag_dyn, result)
     Error(decode_errors) ->
-      Error("Failed to parse httpc response: " <> string.inspect(decode_errors))
+      Error("Failed to parse gun response: " <> string.inspect(decode_errors))
   }
 }
 
@@ -2156,7 +2308,7 @@ fn parse_stream_start_tag(
   case tag {
     "ok" -> extract_request_id(result)
     "error" -> extract_error_reason(result)
-    _ -> Error("Unknown response from httpc")
+    _ -> Error("Unknown response from gun")
   }
 }
 
@@ -2213,7 +2365,7 @@ fn apply_mapper_to_dynamic(
   dyn: d.Dynamic,
   mapper: fn(StreamMessage) -> msg,
 ) -> msg {
-  // Erlang does the heavy lifting: converts raw httpc messages to clean format
+  // Erlang does the heavy lifting: converts raw gun messages to clean format
   // We just decode the simple {Tag, RequestId, Data} tuple
   let simplified = internal.decode_stream_message_for_selector(dyn)
   let stream_msg = decode_simplified_message(simplified)
@@ -2776,7 +2928,7 @@ type MessageStreamRecorderState {
 // ETS table name for recorder state
 const recorder_table_name = "dream_http_client_stream_recorders"
 
-@external(erlang, "dream_httpc_shim", "ets_insert")
+@external(erlang, "dream_http_shim", "ets_insert")
 fn ets_insert(
   table: String,
   key: String,
@@ -2787,10 +2939,10 @@ fn ets_insert(
   last_chunk_time: Option(Int),
 ) -> Nil
 
-@external(erlang, "dream_httpc_shim", "ets_lookup")
+@external(erlang, "dream_http_shim", "ets_lookup")
 fn ets_lookup(table: String, key: String) -> Option(MessageStreamRecorderState)
 
-@external(erlang, "dream_httpc_shim", "ets_delete")
+@external(erlang, "dream_http_shim", "ets_delete")
 fn ets_delete(table: String, key: String) -> Bool
 
 fn store_message_stream_recorder(

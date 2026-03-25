@@ -18,6 +18,15 @@
 //// - `GET /empty` - Returns empty response body
 //// - `GET /slow` - Returns response after 5s delay
 ////
+//// **Redirect:**
+//// - `GET /redirect/301` - 301 redirect to /text
+//// - `GET /redirect/302` - 302 redirect to /text
+//// - `GET /redirect/303` - 303 redirect to /text (forces GET)
+//// - `GET /redirect/307` - 307 redirect to /text (preserves method)
+//// - `GET /redirect/308` - 308 redirect to /text (preserves method, permanent)
+//// - `GET /redirect/chain` - 302 chain: /chain -> /chain/2 -> /text
+//// - `GET /redirect/absolute` - 302 with fully-qualified Location URL
+////
 //// **Streaming:**
 //// - `GET /` - Info page
 //// - `GET /stream/fast` - 10 chunks @ 100ms
@@ -163,6 +172,55 @@ pub fn create_router() -> Router(EmptyContext, EmptyServices) {
     method: Get,
     path: "/non-utf8-error",
     controller: api_controller.non_utf8_error,
+    middleware: [],
+  )
+  // Redirect endpoints
+  |> route(
+    method: Get,
+    path: "/redirect/301",
+    controller: api_controller.redirect_301,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/redirect/302",
+    controller: api_controller.redirect_302,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/redirect/303",
+    controller: api_controller.redirect_303,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/redirect/307",
+    controller: api_controller.redirect_307,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/redirect/308",
+    controller: api_controller.redirect_308,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/redirect/chain",
+    controller: api_controller.redirect_chain,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/redirect/chain/2",
+    controller: api_controller.redirect_chain_2,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/redirect/absolute",
+    controller: api_controller.redirect_absolute,
     middleware: [],
   )
   // Streaming endpoints

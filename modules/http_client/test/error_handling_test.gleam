@@ -151,9 +151,8 @@ pub fn send_connection_failure_test() {
 
 /// Test: requests with body do not hardcode Content-Type
 ///
-/// Regression test for the Erlang httpc shim: it must respect the caller's
-/// `Content-Type` header when building the `{Url, Headers, ContentType, Body}`
-/// request tuple (and never force `application/json`).
+/// Regression test: the shim must respect the caller's `Content-Type` header
+/// and never force a default content type.
 pub fn send_respects_explicit_request_content_type_test() {
   let req =
     client.new()
