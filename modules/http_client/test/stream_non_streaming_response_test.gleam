@@ -38,7 +38,9 @@ pub fn start_stream_calls_on_error_for_401_non_streaming_response_test() {
 
   let request =
     mock_request("/status/401")
-    |> client.on_stream_error(fn(reason) { process.send(error_subject, reason) })
+    |> client.on_stream_error(fn(failure) {
+      process.send(error_subject, client.stream_failure_to_string(failure))
+    })
 
   let assert Ok(_handle) = client.start_stream(request)
 
@@ -59,7 +61,9 @@ pub fn start_stream_calls_on_error_for_500_non_streaming_response_test() {
 
   let request =
     mock_request("/status/500")
-    |> client.on_stream_error(fn(reason) { process.send(error_subject, reason) })
+    |> client.on_stream_error(fn(failure) {
+      process.send(error_subject, client.stream_failure_to_string(failure))
+    })
 
   let assert Ok(_handle) = client.start_stream(request)
 
@@ -80,7 +84,9 @@ pub fn start_stream_error_contains_status_code_test() {
 
   let request =
     mock_request("/status/403")
-    |> client.on_stream_error(fn(reason) { process.send(error_subject, reason) })
+    |> client.on_stream_error(fn(failure) {
+      process.send(error_subject, client.stream_failure_to_string(failure))
+    })
 
   let assert Ok(_handle) = client.start_stream(request)
 
@@ -102,7 +108,9 @@ pub fn start_stream_error_contains_response_body_test() {
 
   let request =
     mock_request("/status/429")
-    |> client.on_stream_error(fn(reason) { process.send(error_subject, reason) })
+    |> client.on_stream_error(fn(failure) {
+      process.send(error_subject, client.stream_failure_to_string(failure))
+    })
 
   let assert Ok(_handle) = client.start_stream(request)
 
@@ -124,7 +132,9 @@ pub fn start_stream_does_not_crash_process_on_non_streaming_response_test() {
 
   let request =
     mock_request("/status/401")
-    |> client.on_stream_error(fn(reason) { process.send(error_subject, reason) })
+    |> client.on_stream_error(fn(failure) {
+      process.send(error_subject, client.stream_failure_to_string(failure))
+    })
 
   let assert Ok(handle) = client.start_stream(request)
 
@@ -157,7 +167,9 @@ pub fn stream_yielder_returns_error_for_401_non_streaming_response_test() {
 
   let assert [first, ..] = results
   case first {
-    Error(reason) -> string.contains(reason, "401") |> should.be_true()
+    Error(failure) ->
+      string.contains(client.stream_failure_to_string(failure), "401")
+      |> should.be_true()
     Ok(_) -> {
       io.println("Expected Error, got Ok")
       should.fail()
@@ -174,7 +186,9 @@ pub fn stream_yielder_returns_error_for_500_non_streaming_response_test() {
 
   let assert [first, ..] = results
   case first {
-    Error(reason) -> string.contains(reason, "500") |> should.be_true()
+    Error(failure) ->
+      string.contains(client.stream_failure_to_string(failure), "500")
+      |> should.be_true()
     Ok(_) -> {
       io.println("Expected Error, got Ok")
       should.fail()
@@ -191,7 +205,8 @@ pub fn stream_yielder_error_contains_response_body_test() {
 
   let assert [first, ..] = results
   case first {
-    Error(reason) -> {
+    Error(failure) -> {
+      let reason = client.stream_failure_to_string(failure)
       string.contains(reason, "422") |> should.be_true()
       { string.length(reason) > 10 } |> should.be_true()
     }
@@ -242,8 +257,11 @@ pub fn stream_yielder_normal_streaming_still_works_test() {
     list.all(results, fn(result) {
       case result {
         Ok(_) -> True
-        Error(reason) -> {
-          io.println("Unexpected error in normal stream: " <> reason)
+        Error(failure) -> {
+          io.println(
+            "Unexpected error in normal stream: "
+            <> client.stream_failure_to_string(failure),
+          )
           False
         }
       }
@@ -255,5 +273,59 @@ fn collect_from_subject(subject: process.Subject(a), acc: List(a)) -> List(a) {
   case process.receive(subject, 50) {
     Ok(item) -> collect_from_subject(subject, [item, ..acc])
     Error(Nil) -> list.reverse(acc)
+  }
+}
+
+// ============================================================================
+// Structured error type verification
+// ============================================================================
+
+/// HttpFailure from a 401 must carry response headers (not empty)
+pub fn start_stream_401_http_failure_carries_headers_test() {
+  let error_subject = process.new_subject()
+
+  let request =
+    mock_request("/status/401")
+    |> client.on_stream_error(fn(failure) {
+      process.send(error_subject, failure)
+    })
+
+  let assert Ok(_handle) = client.start_stream(request)
+
+  case process.receive(error_subject, 3000) {
+    Ok(client.HttpFailure(response: response)) -> {
+      { response.headers != [] } |> should.be_true()
+    }
+    Ok(client.TransportFailure(_)) -> {
+      io.println("Expected HttpFailure, got TransportFailure")
+      should.fail()
+    }
+    Error(Nil) -> {
+      io.println("on_stream_error was never called")
+      should.fail()
+    }
+  }
+}
+
+/// HttpFailure from a 500 via stream_yielder must carry a non-empty body
+pub fn stream_yielder_500_http_failure_carries_body_test() {
+  let req = mock_request("/status/500")
+  let results = client.stream_yielder(req) |> yielder.take(1) |> yielder.to_list
+
+  { results != [] } |> should.be_true()
+
+  let assert [first, ..] = results
+  case first {
+    Error(client.HttpFailure(response: response)) -> {
+      { response.body != "" } |> should.be_true()
+    }
+    Error(client.TransportFailure(_)) -> {
+      io.println("Expected HttpFailure, got TransportFailure")
+      should.fail()
+    }
+    Ok(_) -> {
+      io.println("Expected Error, got Ok")
+      should.fail()
+    }
   }
 }

@@ -16,9 +16,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a single TCP connection to HTTP/2 servers). All public API contracts are
   preserved — `send()`, `stream_yielder()`, and `start_stream()` behave
   identically from the caller's perspective.
+- **`SendError.RequestError` from `message: String` to `error: TransportError`**
+  for structured transport error classification. Pattern match on `TransportError`
+  variants for programmatic error handling, or use `transport_error_to_string`
+  for the old string behavior.
+- **`StreamMessage.StreamError` from `reason: String` to `error: StreamFailure`**
+  distinguishing HTTP failures (non-2xx response with headers/body) from
+  transport errors (connection drop, timeout, etc.).
+- **`on_stream_error` callback from `fn(String) -> Nil` to `fn(StreamFailure) -> Nil`.**
+  The callback now receives a `StreamFailure` with full error context instead of
+  a formatted string.
+- **`stream_yielder` error type from `String` to `StreamFailure`.** Error results
+  now carry structured failure information instead of formatted strings.
+- **Logging uses OTP `logger` instead of `error_logger`/`io:format`.** Connection
+  events and decompression warnings now go through OTP's logger, enabling
+  level-based filtering. Use `log_level()` on `TransportConfig` to control
+  verbosity — defaults to `LogInfo`.
 
 ### Added
 
+- **Per-request protocol preference.** `protocols(preference)` controls which
+  HTTP protocol version gun negotiates per connection. `Http1Only` forces
+  HTTP/1.1, `Http2Only` enables h2c (HTTP/2 over cleartext, RFC 7540
+  Section 3.4) for plaintext connections or h2-only for TLS, `Http2Preferred`
+  prefers HTTP/2 with HTTP/1.1 fallback. Defaults to HTTP/2 preferred for
+  HTTPS (via ALPN) and HTTP/1.1 for HTTP when not set.
 - **Per-request TCP connection timeout.** `connect_timeout(ms)` controls how long
   to wait for the TCP connection to be established, separate from the existing
   `timeout()` which controls the entire request/response cycle. Defaults to
@@ -57,10 +79,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`{stream_error, closed}`) are automatically retried once on a fresh
   connection, preventing spurious failures when connection pool entries outlive
   the server-side keep-alive.
+- **`TransportError` type (8 variants)** preserving all gun error details:
+  `StreamReset`, `Goaway`, `ConnectionError`, `RemoteClosed`, `TimedOut`,
+  `ProcessDown`, `ConnectFailed`, `Unexpected`. Each variant carries the full
+  structured information from gun (HTTP/2 error codes, human-readable
+  descriptions, GOAWAY fields) instead of flattening to formatted strings.
+- **`StreamFailure` type** with `HttpFailure(response: HttpResponse)` and
+  `TransportFailure(error: TransportError)`. Distinguishes HTTP-level
+  rejections (where response headers like `retry-after` and `x-request-id`
+  are available) from transport-level errors (connection drops, timeouts).
+- **`transport_error_to_string` and `stream_failure_to_string` helpers** for
+  converting structured errors to human-readable log strings.
+- **Response headers preserved in non-2xx streaming errors.** When a streaming
+  request receives a non-2xx response, the full `HttpResponse` (status, headers,
+  body) is now available via `HttpFailure` instead of a formatted string.
+- **`gun_down` connection events now logged.** The connection manager logs
+  `gun_down` events with connection PID, protocol, reason, and killed/unprocessed
+  stream counts via `error_logger:warning_msg`.
 - **Getter functions** for all 13 `TransportConfig` fields.
-- **18 new tests** covering builder/getter round-trips, default values, edge
-  cases (zero values), builder chaining, transport application, and concurrent
-  streaming scenarios.
+- **24 new tests** covering structured error types, HttpFailure headers/body
+  preservation, ConnectFailed variant checks, helper function output, plus
+  builder/getter round-trips, default values, edge cases, builder chaining,
+  transport application, and concurrent streaming scenarios.
 
 ## 5.1.3 - 2026-03-17
 

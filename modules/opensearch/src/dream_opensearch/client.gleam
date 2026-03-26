@@ -138,7 +138,8 @@ pub fn send_request(
       body: body,
       ..,
     ))) -> Error(body)
-    Error(http_client.RequestError(message: message)) -> Error(message)
+    Error(http_client.RequestError(error: transport_error)) ->
+      Error(http_client.transport_error_to_string(transport_error))
   }
 }
 

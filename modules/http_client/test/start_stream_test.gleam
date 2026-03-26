@@ -97,7 +97,9 @@ pub fn start_stream_calls_on_error_for_network_failure_test() {
     |> client.host("localhost")
     |> client.port(19_999)
     |> client.path("/")
-    |> client.on_stream_error(fn(reason) { process.send(error_subject, reason) })
+    |> client.on_stream_error(fn(failure) {
+      process.send(error_subject, client.stream_failure_to_string(failure))
+    })
 
   // Act
   let assert Ok(_handle) = client.start_stream(request)

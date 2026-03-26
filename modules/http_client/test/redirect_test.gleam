@@ -125,7 +125,7 @@ pub fn start_stream_follows_301_redirect_test() {
     mock_request("/redirect/301")
     |> client.on_stream_chunk(fn(data) { process.send(chunks_subject, data) })
     |> client.on_stream_end(fn(_headers) { process.send(ended_subject, True) })
-    |> client.on_stream_error(fn(reason) { process.send(error_subject, reason) })
+    |> client.on_stream_error(fn(_failure) { process.send(error_subject, Nil) })
 
   let assert Ok(_handle) = client.start_stream(request)
 
@@ -139,7 +139,7 @@ pub fn start_stream_follows_301_redirect_test() {
     Ok(False) -> should.fail()
     Error(Nil) -> {
       case process.receive(error_subject, 1000) {
-        Ok(_reason) -> should.fail()
+        Ok(_) -> should.fail()
         Error(Nil) -> should.fail()
       }
     }
@@ -161,7 +161,7 @@ fn collect_chunks(
 }
 
 fn combine_stream_chunks(
-  results: List(Result(bytes_tree.BytesTree, String)),
+  results: List(Result(bytes_tree.BytesTree, client.StreamFailure)),
 ) -> String {
   let chunks =
     list.filter_map(results, fn(r) {

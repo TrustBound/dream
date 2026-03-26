@@ -1,4 +1,4 @@
-import dream_http_client/client.{Header}
+import dream_http_client/client.{Header, Http1Only, Http2Only, Http2Preferred}
 import gleam/http
 import gleam/list
 import gleam/option
@@ -187,4 +187,45 @@ pub fn add_header_adds_header_to_request_test() {
     }
     [] -> should.fail()
   }
+}
+
+pub fn protocols_sets_request_protocols_test() {
+  // Arrange
+  let request = client.new()
+
+  // Act
+  let updated = client.protocols(request, Http2Only)
+
+  // Assert
+  client.get_protocols(updated) |> should.equal(option.Some(Http2Only))
+}
+
+pub fn protocols_defaults_to_none_test() {
+  // Arrange & Act
+  let request = client.new()
+
+  // Assert
+  client.get_protocols(request) |> should.equal(option.None)
+}
+
+pub fn protocols_http1_only_round_trip_test() {
+  // Arrange
+  let request = client.new()
+
+  // Act
+  let updated = client.protocols(request, Http1Only)
+
+  // Assert
+  client.get_protocols(updated) |> should.equal(option.Some(Http1Only))
+}
+
+pub fn protocols_http2_preferred_round_trip_test() {
+  // Arrange
+  let request = client.new()
+
+  // Act
+  let updated = client.protocols(request, Http2Preferred)
+
+  // Assert
+  client.get_protocols(updated) |> should.equal(option.Some(Http2Preferred))
 }

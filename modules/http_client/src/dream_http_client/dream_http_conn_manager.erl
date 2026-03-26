@@ -1,7 +1,7 @@
 -module(dream_http_conn_manager).
 -behaviour(gen_server).
 
--export([start_link/0, get_connection/3, ensure_connection/4]).
+-export([start_link/0, get_connection/4, ensure_connection/4]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 
 -define(TABLE, dream_http_client_connections).
@@ -11,8 +11,8 @@ start_link() ->
 
 %% Hot path: lock-free ETS lookup with round-robin selection.
 %% Returns {ok, ConnPid, Protocol} | none.
-get_connection(Scheme, Host, Port) ->
-    case ets:lookup(?TABLE, {Scheme, Host, Port}) of
+get_connection(Scheme, Host, Port, Protocols) ->
+    case ets:lookup(?TABLE, {Scheme, Host, Port, Protocols}) of
         [] ->
             none;
         Entries ->
@@ -69,7 +69,13 @@ init([]) ->
     {ok, #{}}.
 
 handle_call({ensure_connection, Scheme, Host, Port, GunOpts}, _From, State) ->
-    Key = {Scheme, Host, Port},
+    Transport = case Scheme of
+        https -> tls;
+        _ -> tcp
+    end,
+    Protocols = resolve_protocols(GunOpts, Transport),
+    ResolvedOpts = GunOpts#{protocols => Protocols},
+    Key = {Scheme, Host, Port, Protocols},
     Existing = ets:lookup(?TABLE, Key),
     %% Clean up dead connections first
     Alive = [E || {_, Pid, _, _, _} = E <- Existing, erlang:is_process_alive(Pid)],
@@ -88,7 +94,7 @@ handle_call({ensure_connection, Scheme, Host, Port, GunOpts}, _From, State) ->
     AliveCount = length(Alive),
     case AliveCount < MaxConns of
         true ->
-            case open_connection(Scheme, Host, Port, GunOpts) of
+            case open_connection(Scheme, Host, Port, ResolvedOpts) of
                 {ok, ConnPid, Protocol} ->
                     MonRef = erlang:monitor(process, ConnPid),
                     Now = erlang:monotonic_time(millisecond),
@@ -123,10 +129,15 @@ handle_info(check_idle, State) ->
 handle_info({gun_up, _ConnPid, _Protocol}, State) ->
     {noreply, State};
 
-handle_info({gun_down, _ConnPid, _Protocol, _Reason, _KilledStreams}, State) ->
+handle_info({gun_down, ConnPid, Protocol, Reason, KilledStreams}, State) ->
+    Killed = length(KilledStreams),
+    log_gun_down(ConnPid, Protocol, Reason, Killed, 0),
     {noreply, State};
 
-handle_info({gun_down, _ConnPid, _Protocol, _Reason, _KilledStreams, _UnprocessedStreams}, State) ->
+handle_info({gun_down, ConnPid, Protocol, Reason, KilledStreams, UnprocessedStreams}, State) ->
+    Killed = length(KilledStreams),
+    Unprocessed = length(UnprocessedStreams),
+    log_gun_down(ConnPid, Protocol, Reason, Killed, Unprocessed),
     {noreply, State};
 
 handle_info(_Info, State) ->
@@ -149,10 +160,10 @@ open_connection(Scheme, Host, Port, GunOpts) ->
         true -> binary_to_list(Host);
         false -> Host
     end,
-    Protocols = case Transport of
+    Protocols = maps:get(protocols, GunOpts, case Transport of
         tls -> [http2, http];
         tcp -> [http]
-    end,
+    end),
     BaseOpts = #{
         transport => Transport,
         connect_timeout => ConnectTimeout,
@@ -169,12 +180,13 @@ open_connection(Scheme, Host, Port, GunOpts) ->
     end,
     TlsOpts = case Transport of
         tls ->
+            AlpnProtocols = resolve_alpn(Protocols),
             Opts#{tls_opts => [
                 {verify, verify_peer},
                 {cacerts, public_key:cacerts_get()},
                 {depth, 3},
                 {customize_hostname_check, [{match_fun, public_key:pkix_verify_hostname_match_fun(https)}]},
-                {alpn_advertised_protocols, [<<"h2">>, <<"http/1.1">>]}
+                {alpn_advertised_protocols, AlpnProtocols}
             ]};
         tcp -> Opts
     end,
@@ -247,6 +259,45 @@ reap_idle_connections() ->
         error:badarg -> ok
     end.
 
+log_gun_down(ConnPid, Protocol, Reason, Killed, Unprocessed) ->
+    case is_expected_disconnect(Reason, Killed) of
+        true ->
+            logger:info(
+                "[dream_http] connection closed: pid=~p protocol=~p reason=~p",
+                [ConnPid, Protocol, Reason]);
+        false when Unprocessed > 0 ->
+            logger:warning(
+                "[dream_http] connection down: pid=~p protocol=~p reason=~p killed=~p unprocessed=~p",
+                [ConnPid, Protocol, Reason, Killed, Unprocessed]);
+        false ->
+            logger:warning(
+                "[dream_http] connection down: pid=~p protocol=~p reason=~p killed_streams=~p",
+                [ConnPid, Protocol, Reason, Killed])
+    end.
+
+is_expected_disconnect(closed, 0) -> true;
+is_expected_disconnect(normal, 0) -> true;
+is_expected_disconnect(_, _) -> false.
+
+resolve_protocols(GunOpts, Transport) ->
+    case maps:get(protocols, GunOpts, default) of
+        default ->
+            case Transport of
+                tls -> [http2, http];
+                tcp -> [http]
+            end;
+        http1_only -> [http];
+        http2_only -> [http2];
+        http2_preferred -> [http2, http]
+    end.
+
+resolve_alpn(Protocols) ->
+    lists:filtermap(fun
+        (http2) -> {true, <<"h2">>};
+        (http) -> {true, <<"http/1.1">>};
+        (_) -> false
+    end, Protocols).
+
 get_idle_timeout() ->
     case ets:lookup(dream_http_client_transport_config, config) of
         [{config, Config}] ->
@@ -254,3 +305,4 @@ get_idle_timeout() ->
         [] ->
             60000
     end.
+

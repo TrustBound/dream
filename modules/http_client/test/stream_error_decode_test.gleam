@@ -48,7 +48,9 @@ pub fn start_stream_connection_refused_surfaces_error_test() {
 
   let request =
     dead_port_request()
-    |> client.on_stream_error(fn(reason) { process.send(error_subject, reason) })
+    |> client.on_stream_error(fn(failure) {
+      process.send(error_subject, client.stream_failure_to_string(failure))
+    })
 
   let _result = client.start_stream(request)
 
@@ -77,7 +79,8 @@ pub fn stream_yielder_connection_refused_surfaces_error_test() {
 
   let assert [first, ..] = results
   case first {
-    Error(reason) -> {
+    Error(failure) -> {
+      let reason = client.stream_failure_to_string(failure)
       { string.length(reason) > 0 } |> should.be_true()
       io.println(
         "stream_yielder connection refused error: "
@@ -95,7 +98,8 @@ pub fn stream_yielder_connection_refused_surfaces_error_test() {
 pub fn send_connection_refused_surfaces_error_test() {
   let req = dead_port_request()
   case client.send(req) {
-    Error(client.RequestError(message: reason)) -> {
+    Error(client.RequestError(error: transport_error)) -> {
+      let reason = client.transport_error_to_string(transport_error)
       { string.length(reason) > 0 } |> should.be_true()
       io.println(
         "send() connection refused error: " <> string.slice(reason, 0, 80),
@@ -124,7 +128,9 @@ pub fn start_stream_connection_drop_surfaces_error_test() {
   let request =
     mock_request("/stream/drop")
     |> client.on_stream_chunk(fn(data) { process.send(chunk_subject, data) })
-    |> client.on_stream_error(fn(reason) { process.send(error_subject, reason) })
+    |> client.on_stream_error(fn(failure) {
+      process.send(error_subject, client.stream_failure_to_string(failure))
+    })
 
   let assert Ok(_handle) = client.start_stream(request)
 
@@ -171,7 +177,9 @@ pub fn start_stream_non_utf8_error_body_surfaces_error_test() {
 
   let request =
     mock_request("/non-utf8-error")
-    |> client.on_stream_error(fn(reason) { process.send(error_subject, reason) })
+    |> client.on_stream_error(fn(failure) {
+      process.send(error_subject, client.stream_failure_to_string(failure))
+    })
 
   let assert Ok(_handle) = client.start_stream(request)
 
@@ -201,7 +209,8 @@ pub fn stream_yielder_non_utf8_error_body_surfaces_error_test() {
 
   let assert [first, ..] = results
   case first {
-    Error(reason) -> {
+    Error(failure) -> {
+      let reason = client.stream_failure_to_string(failure)
       { string.length(reason) > 0 } |> should.be_true()
       string.contains(reason, "400") |> should.be_true()
       io.println(
@@ -222,7 +231,8 @@ pub fn stream_yielder_non_utf8_error_body_surfaces_error_test() {
 pub fn send_non_utf8_error_body_surfaces_error_test() {
   let req = mock_request("/non-utf8-error")
   case client.send(req) {
-    Error(client.RequestError(message: msg)) -> {
+    Error(client.RequestError(error: transport_error)) -> {
+      let msg = client.transport_error_to_string(transport_error)
       { string.length(msg) > 0 } |> should.be_true()
       io.println("send() non-UTF-8 body error (expected): " <> msg)
     }
@@ -248,7 +258,9 @@ pub fn connection_refused_error_is_not_unknown_test() {
 
   let request =
     dead_port_request()
-    |> client.on_stream_error(fn(reason) { process.send(error_subject, reason) })
+    |> client.on_stream_error(fn(failure) {
+      process.send(error_subject, client.stream_failure_to_string(failure))
+    })
 
   let _result = client.start_stream(request)
 

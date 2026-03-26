@@ -8,7 +8,7 @@
 //// This is an internal module. Use `dream_http_client/client`,
 //// `dream_http_client/recorder`, and `dream_http_client/matching` instead.
 
-import gleam/bit_array
+import gleam/dynamic
 import gleam/dynamic/decode as d
 import gleam/erlang/atom
 import gleam/erlang/process
@@ -32,6 +32,7 @@ fn request_stream(
   timeout_ms: Int,
   connect_timeout_ms: Int,
   autoredirect: Bool,
+  protocols: atom.Atom,
 ) -> d.Dynamic
 
 @external(erlang, "dream_http_shim", "fetch_next")
@@ -89,6 +90,7 @@ pub fn start_gun_stream(
   timeout_ms: Int,
   connect_timeout_ms: Int,
   autoredirect: Bool,
+  protocols_atom: atom.Atom,
 ) -> d.Dynamic {
   let port_string = case request.port {
     option.Some(port) -> ":" <> int.to_string(port)
@@ -117,6 +119,7 @@ pub fn start_gun_stream(
     timeout_ms,
     connect_timeout_ms,
     autoredirect,
+    protocols_atom,
   )
 }
 
@@ -156,8 +159,9 @@ pub fn extract_owner_pid(request_result: d.Dynamic) -> d.Dynamic {
 /// Receive the next chunk from the stream
 ///
 /// Receives the next chunk of data from an active streaming HTTP request.
-/// Returns `Ok(BitArray)` when a chunk is available, or `Error(String)` when
-/// the stream has finished or an error occurred.
+/// Returns `Ok(BitArray)` when a chunk is available, or `Error(d.Dynamic)` when
+/// the stream has finished or an error occurred. The error dynamic value is a
+/// structured tagged tuple from the Erlang shim's `classify_error`.
 ///
 /// ## Parameters
 ///
@@ -168,11 +172,11 @@ pub fn extract_owner_pid(request_result: d.Dynamic) -> d.Dynamic {
 ///
 /// - `Ok(Some(BitArray))`: The next chunk of response data
 /// - `Ok(None)`: Stream finished normally (no more data)
-/// - `Error(String)`: Error occurred with reason
+/// - `Error(d.Dynamic)`: Structured error from the Erlang shim
 pub fn receive_next(
   owner: d.Dynamic,
   timeout_ms: Int,
-) -> Result(option.Option(BitArray), String) {
+) -> Result(option.Option(BitArray), d.Dynamic) {
   let resp = fetch_next(owner, timeout_ms)
   let tag =
     d.run(resp, d.at([0], d.dynamic))
@@ -186,21 +190,17 @@ pub fn receive_next(
     }
     "finished" -> Ok(option.None)
     "error" -> {
-      let reason = case d.run(resp, d.at([1], d.string)) {
-        Ok(s) -> s
-        Error(_) ->
-          case d.run(resp, d.at([1], d.bit_array)) {
-            Ok(bytes) ->
-              case bit_array.to_string(bytes) {
-                Ok(s) -> s
-                Error(_) -> string.inspect(resp)
-              }
-            Error(_) -> string.inspect(resp)
-          }
-      }
-      Error(reason)
+      let reason_dyn =
+        d.run(resp, d.at([1], d.dynamic)) |> result.unwrap(dynamic.nil())
+      Error(reason_dyn)
     }
-    _ -> Error("Unexpected stream message tag: " <> tag)
+    _ ->
+      Error(
+        to_dynamic(#(
+          atom.create("unexpected"),
+          "Unexpected stream message tag: " <> tag,
+        )),
+      )
   }
 }
 
@@ -238,10 +238,9 @@ pub fn get_stream_start_headers(
     }
 
     "error" -> {
-      let reason =
-        d.run(resp, d.at([1], d.string))
-        |> result.unwrap("Unknown stream_start header error")
-      Error(reason)
+      let reason_dyn =
+        d.run(resp, d.at([1], d.dynamic)) |> result.unwrap(dynamic.nil())
+      Error(string.inspect(reason_dyn))
     }
 
     _ -> Error("Unexpected fetch_start_headers response: " <> tag)
@@ -251,6 +250,9 @@ pub fn get_stream_start_headers(
 fn convert_to_atom(dyn: d.Dynamic) -> Result(atom.Atom, e) {
   Ok(atom.cast_from_dynamic(dyn))
 }
+
+@external(erlang, "gleam_stdlib", "identity")
+fn to_dynamic(value: a) -> d.Dynamic
 
 // ============================================================================
 // Message-Based Streaming FFI
@@ -295,6 +297,7 @@ pub fn start_stream_messages(
   timeout_ms: Int,
   connect_timeout_ms: Int,
   autoredirect: Bool,
+  protocols: atom.Atom,
 ) -> d.Dynamic
 
 /// Cancel a streaming request

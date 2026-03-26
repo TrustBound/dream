@@ -88,20 +88,22 @@ pub fn new(
         status.internal_server_error,
         stream_view.format_error(body),
       )
-    Error(client.RequestError(message: error)) ->
+    Error(client.RequestError(error: transport_error)) ->
       text_response(
         status.internal_server_error,
-        stream_view.format_error(error),
+        stream_view.format_error(client.transport_error_to_string(
+          transport_error,
+        )),
       )
   }
 }
 
 fn convert_chunk_result(
-  result: Result(bytes_tree.BytesTree, String),
+  result: Result(bytes_tree.BytesTree, client.StreamFailure),
 ) -> Result(String, String) {
   case result {
     Ok(chunk) -> Ok(chunk_to_string(chunk))
-    Error(err) -> Error(err)
+    Error(failure) -> Error(client.stream_failure_to_string(failure))
   }
 }
 

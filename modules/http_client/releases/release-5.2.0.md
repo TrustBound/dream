@@ -5,12 +5,104 @@
 This release replaces the underlying HTTP backend from Erlang's `httpc` to
 [gun](https://github.com/ninenines/gun), enabling native HTTP/2 multiplexing
 for high-concurrency workloads. Per-request settings (`connect_timeout`,
-`auto_redirect`) are added to the `ClientRequest` builder. Connection pool
-settings are managed through a redesigned `TransportConfig` type with 13
-gun-native fields. All defaults are production-reasonable — existing code
-behaves identically without changes.
+`auto_redirect`, `protocols`) are added to the `ClientRequest` builder.
+`protocols()` enables h2c (HTTP/2 over cleartext) and per-request protocol
+preference. Connection pool settings are managed through a redesigned
+`TransportConfig` type with 13 gun-native fields plus `log_level` for
+controlling log verbosity. All defaults are production-reasonable — existing
+code behaves identically without changes.
 
-No breaking changes to the public API. Minor version bump (5.1.3 → 5.2.0).
+**Breaking changes** to error types (see Structured Error Types below).
+Minor version bump (5.1.3 → 5.2.0) since the version has not been published.
+
+---
+
+## Structured Error Types
+
+All string-based error representations have been replaced with structured Gleam
+types that preserve the full detail gun provides.
+
+### Motivation
+
+String errors (`"econnrefused"`, `"timeout"`, `"HTTP 500 Internal Server Error: ..."`)
+hide production issues. Consumers cannot reliably pattern-match on error categories
+for retry logic, alerting, or circuit breakers without fragile string parsing.
+
+### New types
+
+**`TransportError`** — 8 variants preserving all gun error details:
+
+```gleam
+pub type TransportError {
+  StreamReset(code: String, description: String)
+  Goaway(code: String, last_stream_id: Int, debug_data: String)
+  ConnectionError(code: String, description: String)
+  RemoteClosed
+  TimedOut(timeout_ms: Int)
+  ProcessDown(reason: String)
+  ConnectFailed(reason: String)
+  Unexpected(raw: String)
+}
+```
+
+**`StreamFailure`** — distinguishes HTTP failures from transport errors:
+
+```gleam
+pub type StreamFailure {
+  HttpFailure(response: HttpResponse)
+  TransportFailure(error: TransportError)
+}
+```
+
+### Breaking changes
+
+| Before | After |
+|--------|-------|
+| `RequestError(message: String)` | `RequestError(error: TransportError)` |
+| `StreamError(request_id, reason: String)` | `StreamError(request_id, error: StreamFailure)` |
+| `on_stream_error(fn(String) -> Nil)` | `on_stream_error(fn(StreamFailure) -> Nil)` |
+| `stream_yielder() -> Yielder(Result(BytesTree, String))` | `stream_yielder() -> Yielder(Result(BytesTree, StreamFailure))` |
+
+### Migration guide
+
+**Quick migration** — use the helper functions for the old string behavior:
+
+```gleam
+// Before:
+Error(client.RequestError(message: msg)) ->
+  io.println("Failed: " <> msg)
+
+// After:
+Error(client.RequestError(error: err)) ->
+  io.println("Failed: " <> client.transport_error_to_string(err))
+```
+
+**Recommended** — pattern match on error variants for structured handling:
+
+```gleam
+Error(client.RequestError(error: err)) ->
+  case err {
+    client.ConnectFailed(reason: reason) ->
+      io.println("Cannot connect: " <> reason)
+    client.TimedOut(timeout_ms: ms) ->
+      io.println("Timed out after " <> int.to_string(ms) <> "ms")
+    _ ->
+      io.println(client.transport_error_to_string(err))
+  }
+```
+
+**Streaming errors** — distinguish HTTP failures from transport errors:
+
+```gleam
+|> client.on_stream_error(fn(failure) {
+  case failure {
+    client.HttpFailure(response: resp) ->
+      io.println("HTTP " <> int.to_string(resp.status) <> ": " <> resp.body)
+    client.TransportFailure(error: err) ->
+      io.println(client.transport_error_to_string(err))
+  }
+})
+```
 
 ---
 
@@ -124,6 +216,71 @@ supervised by `dream_http_client_sup`. It uses an ETS `bag` table
 
 ---
 
+## Feature: Per-request protocol preference
+
+Gun supports HTTP/2 over cleartext (h2c) but the connection manager previously
+hardcoded HTTP/1.1 for all TCP connections. The new `protocols()` builder on
+`ClientRequest` makes protocol preference configurable per-request.
+
+### Usage
+
+```gleam
+import dream_http_client/client.{Http2Only}
+import gleam/http
+
+// h2c: HTTP/2 over cleartext using "prior knowledge" mode (RFC 7540 Section 3.4)
+client.new()
+  |> client.scheme(http.Http)
+  |> client.host("internal-service.local")
+  |> client.protocols(Http2Only)
+  |> client.send()
+```
+
+### Variants
+
+- `Http1Only` — forces HTTP/1.1 (`protocols => [http]`)
+- `Http2Only` — forces HTTP/2 (`protocols => [http2]`); enables h2c for TCP, h2-only ALPN for TLS
+- `Http2Preferred` — prefers HTTP/2 with fallback (`protocols => [http2, http]`)
+
+### Defaults
+
+When `protocols()` is not called, existing defaults apply: HTTP/2 preferred
+(via ALPN) for HTTPS, HTTP/1.1 only for HTTP. No behavior change for
+existing code.
+
+### Implementation
+
+ALPN advertisement is automatically aligned with the configured protocol
+preference — if you set `Http2Only`, only `h2` is advertised during the TLS
+handshake. Connections with different protocol preferences get separate pool
+entries to prevent protocol mismatch.
+
+---
+
+## Logging migration: OTP `logger`
+
+Internal logging has been migrated from `error_logger` and raw `io:format` to
+OTP's `logger` module. Connection events (graceful closures at `info` level,
+unexpected disconnects at `warning` level) and decompression warnings now go
+through `logger`, enabling standard OTP log level filtering.
+
+A new `log_level` field on `TransportConfig` controls the minimum severity for
+dream_http_client's log output. It uses `logger:set_module_level/2` to scope
+filtering to dream's own modules without affecting the rest of your application.
+
+```gleam
+import dream_http_client/client.{LogWarning}
+
+client.transport_config()
+|> client.log_level(LogWarning)
+|> client.configure_transport()
+```
+
+Defaults to `LogInfo`. Available levels: `LogDebug`, `LogInfo`, `LogWarning`,
+`LogError`, `LogNone`.
+
+---
+
 ## Architecture
 
 ### Connection lifecycle
@@ -152,13 +309,16 @@ with proper method/body handling for 301/302/303/307/308.
 
 ## Test coverage
 
-218 tests (218 total across the module):
+235 tests (235 total across the module):
 
-All existing tests pass without modification. New tests cover:
+All existing tests updated for structured error types. New tests cover:
 - All 13 `TransportConfig` builder/getter round-trips
 - Default values, edge cases (zero/one values), builder chaining
 - `configure_transport` application
 - Concurrent streaming scenarios with connection pool management
+- `HttpFailure` carries response headers and body
+- `ConnectFailed` variant with descriptive reason
+- `transport_error_to_string` and `stream_failure_to_string` helper output
 
 ---
 
@@ -199,9 +359,9 @@ Then run:
 gleam deps download
 ```
 
-No breaking changes to the public API. The HTTP backend has been swapped
-from `httpc` to `gun` but all public functions, types, and behaviors are
-preserved.
+Error types have changed (see Structured Error Types above). The HTTP
+backend has been swapped from `httpc` to `gun`. Use the migration guide
+above to update error handling code.
 
 ## Documentation
 

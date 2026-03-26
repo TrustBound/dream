@@ -77,6 +77,7 @@ import dream_http_client/recorder
 import dream_http_client/recording
 import gleam/bit_array
 import gleam/bytes_tree
+import gleam/dynamic
 import gleam/dynamic/decode as d
 import gleam/erlang/atom
 import gleam/erlang/process
@@ -151,6 +152,151 @@ pub type HttpResponse {
   HttpResponse(status: Int, headers: List(Header), body: String)
 }
 
+/// Transport-level error from the underlying gun HTTP client.
+///
+/// Each variant preserves ALL structured information that gun provides for that
+/// error class. Use `transport_error_to_string` for human-readable log output,
+/// or pattern match on variants for programmatic error handling (retry logic,
+/// alerting, circuit breakers).
+///
+/// ## Variants
+///
+/// - `StreamReset` — HTTP/2 RST_STREAM frame. The `code` field is the HTTP/2
+///   error code as a string (e.g. `"internal_error"`, `"cancel"`,
+///   `"refused_stream"`, `"enhance_your_calm"`). The `description` field is
+///   gun's human-readable explanation.
+///
+/// - `Goaway` — HTTP/2 GOAWAY frame. The server is shutting down gracefully.
+///   `last_stream_id` indicates the last stream the server will process.
+///   `debug_data` may contain additional context from the server.
+///
+/// - `ConnectionError` — Connection-level protocol error. The `code` field is
+///   the error code and `description` is gun's human-readable explanation.
+///
+/// - `RemoteClosed` — The remote peer closed the connection without sending
+///   an explicit error code.
+///
+/// - `TimedOut` — No response was received within the configured timeout.
+///   `timeout_ms` is the value that was configured.
+///
+/// - `ProcessDown` — The connection or stream owner process died unexpectedly.
+///   `reason` describes why the process exited.
+///
+/// - `ConnectFailed` — Could not establish a connection to the server. Common
+///   causes include connection refused (server not running), DNS resolution
+///   failure (NXDOMAIN), and TLS handshake errors.
+///
+/// - `Unexpected` — An error that doesn't match any known pattern. `raw`
+///   contains the Erlang term formatted as a string for debugging.
+///
+/// ## Example
+///
+/// ```gleam
+/// case error {
+///   ConnectFailed(reason: reason) ->
+///     io.println("Cannot reach server: " <> reason)
+///   TimedOut(timeout_ms: ms) ->
+///     io.println("Timed out after " <> int.to_string(ms) <> "ms")
+///   StreamReset(code: code, description: desc) ->
+///     io.println("Stream reset: " <> code <> " — " <> desc)
+///   _ ->
+///     io.println(transport_error_to_string(error))
+/// }
+/// ```
+pub type TransportError {
+  StreamReset(code: String, description: String)
+  Goaway(code: String, last_stream_id: Int, debug_data: String)
+  ConnectionError(code: String, description: String)
+  RemoteClosed
+  TimedOut(timeout_ms: Int)
+  ProcessDown(reason: String)
+  ConnectFailed(reason: String)
+  Unexpected(raw: String)
+}
+
+/// Failure during streaming, distinguishing HTTP errors from transport errors.
+///
+/// When a streaming request (`stream_yielder` or `start_stream`) fails, the
+/// failure is either an HTTP-level rejection (the server responded with a
+/// non-2xx status) or a transport-level error (the connection broke).
+///
+/// ## Variants
+///
+/// - `HttpFailure` — The server returned a non-2xx status code before streaming
+///   began. The full `HttpResponse` is available including status, headers
+///   (useful for `retry-after`, `x-request-id`), and body.
+///
+/// - `TransportFailure` — A transport-level error occurred during connection
+///   or streaming. See `TransportError` for the specific error variants.
+///
+/// ## Example
+///
+/// ```gleam
+/// case failure {
+///   HttpFailure(response: response) ->
+///     io.println("HTTP " <> int.to_string(response.status))
+///   TransportFailure(error: ConnectFailed(reason: reason)) ->
+///     io.println("Cannot connect: " <> reason)
+///   TransportFailure(error: error) ->
+///     io.println(transport_error_to_string(error))
+/// }
+/// ```
+pub type StreamFailure {
+  HttpFailure(response: HttpResponse)
+  TransportFailure(error: TransportError)
+}
+
+/// Convert a `TransportError` to a human-readable string for logging.
+///
+/// Produces a single-line summary suitable for log messages. For programmatic
+/// error handling, pattern match on the `TransportError` variants instead.
+///
+/// ## Example
+///
+/// ```gleam
+/// let msg = transport_error_to_string(ConnectFailed(reason: "Connection refused"))
+/// // => "Connection failed: Connection refused"
+/// ```
+pub fn transport_error_to_string(error: TransportError) -> String {
+  case error {
+    StreamReset(code: code, description: description) ->
+      "Stream reset (" <> code <> "): " <> description
+    Goaway(code: code, last_stream_id: last_id, debug_data: debug) ->
+      "GOAWAY ("
+      <> code
+      <> ", last_stream_id="
+      <> int.to_string(last_id)
+      <> "): "
+      <> debug
+    ConnectionError(code: code, description: description) ->
+      "Connection error (" <> code <> "): " <> description
+    RemoteClosed -> "Remote closed connection"
+    TimedOut(timeout_ms: ms) -> "Timed out after " <> int.to_string(ms) <> "ms"
+    ProcessDown(reason: reason) -> "Process down: " <> reason
+    ConnectFailed(reason: reason) -> "Connection failed: " <> reason
+    Unexpected(raw: raw) -> "Unexpected error: " <> raw
+  }
+}
+
+/// Convert a `StreamFailure` to a human-readable string for logging.
+///
+/// Produces a single-line summary suitable for log messages. For programmatic
+/// error handling, pattern match on the `StreamFailure` variants instead.
+///
+/// ## Example
+///
+/// ```gleam
+/// let msg = stream_failure_to_string(TransportFailure(error: TimedOut(timeout_ms: 5000)))
+/// // => "Timed out after 5000ms"
+/// ```
+pub fn stream_failure_to_string(failure: StreamFailure) -> String {
+  case failure {
+    HttpFailure(response: response) ->
+      "HTTP " <> int.to_string(response.status) <> ": " <> response.body
+    TransportFailure(error: error) -> transport_error_to_string(error)
+  }
+}
+
 /// Error types returned by `send()`.
 ///
 /// ## Variants
@@ -160,32 +306,101 @@ pub type HttpResponse {
 ///   headers, and body. The body typically contains error details (e.g. JSON
 ///   error messages from an API, or HTML error pages).
 ///
-/// - `RequestError(message: String)` — the request could not be completed.
-///   The `message` describes what went wrong. Common causes:
-///   - Connection refused (server not running)
-///   - DNS resolution failure (hostname not found)
-///   - Timeout (server did not respond in time)
-///   - Recorder errors (ambiguous recording match, missing fixture)
-///   - Streaming response found when blocking response expected
+/// - `RequestError(error: TransportError)` — the request could not be
+///   completed due to a transport-level failure. Pattern match on the
+///   `TransportError` for the specific cause, or use
+///   `transport_error_to_string` for logging.
 ///
 /// ## Example
 ///
 /// ```gleam
 /// case client.send(request) {
 ///   Ok(response) ->
-///     // Guaranteed status < 400
 ///     io.println("Got " <> int.to_string(response.status))
 ///   Error(ResponseError(response: response)) ->
-///     // HTTP error — inspect response.status, response.body
 ///     io.println("HTTP " <> int.to_string(response.status))
-///   Error(RequestError(message: message)) ->
-///     // Transport failure — no HTTP response at all
-///     io.println("Failed: " <> message)
+///   Error(RequestError(error: ConnectFailed(reason: reason))) ->
+///     io.println("Cannot connect: " <> reason)
+///   Error(RequestError(error: error)) ->
+///     io.println("Failed: " <> transport_error_to_string(error))
 /// }
 /// ```
 pub type SendError {
   ResponseError(response: HttpResponse)
-  RequestError(message: String)
+  RequestError(error: TransportError)
+}
+
+/// Per-request protocol preference for HTTP connections.
+///
+/// Controls which HTTP protocol version gun negotiates when opening a connection.
+/// The connection manager uses this to set gun's `protocols` option and, for TLS
+/// connections, to align ALPN advertisement accordingly.
+///
+/// ## Variants
+///
+/// - `Http1Only` — HTTP/1.1 only. Maps to gun `protocols => [http]`.
+///
+/// - `Http2Only` — HTTP/2 only. For cleartext (TCP) connections this enables
+///   h2c "prior knowledge" mode per RFC 7540 Section 3.4 — gun speaks HTTP/2
+///   directly without an upgrade dance. For TLS connections this advertises
+///   only `h2` via ALPN.
+///
+/// - `Http2Preferred` — Prefer HTTP/2, fall back to HTTP/1.1. Maps to gun
+///   `protocols => [http2, http]`. This is the default for TLS connections
+///   (ALPN negotiation). For TCP, this uses the HTTP/1.1 Upgrade mechanism
+///   which most servers do not support — use `Http2Only` for cleartext
+///   HTTP/2 instead.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client.{Http2Only}
+/// import gleam/http
+///
+/// client.new()
+///   |> client.scheme(http.Http)
+///   |> client.host("internal-service.local")
+///   |> client.protocols(Http2Only)
+///   |> client.send()
+/// ```
+pub type Protocols {
+  Http1Only
+  Http2Only
+  Http2Preferred
+}
+
+/// Minimum log level for dream_http_client's internal log output.
+///
+/// Controls which log messages are emitted by the library's connection manager
+/// and HTTP shim. Uses OTP's `logger:set_module_level/2` under the hood, so
+/// filtering is scoped to dream's own modules and does not affect the rest of
+/// your application.
+///
+/// ## Variants
+///
+/// - `LogDebug` — All messages including debug-level detail.
+/// - `LogInfo` — Informational messages and above (default). Includes graceful
+///   connection closures.
+/// - `LogWarning` — Warnings and above only. Unexpected disconnects,
+///   decompression failures, unrecognized content encodings.
+/// - `LogError` — Errors only.
+/// - `LogNone` — Suppress all log output from dream_http_client.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client.{LogWarning}
+///
+/// client.transport_config()
+///   |> client.log_level(LogWarning)
+///   |> client.configure_transport()
+/// ```
+pub type LogLevel {
+  LogDebug
+  LogInfo
+  LogWarning
+  LogError
+  LogNone
 }
 
 /// HTTP client request configuration
@@ -228,7 +443,8 @@ pub opaque type ClientRequest {
     on_stream_start: Option(fn(List(Header)) -> Nil),
     on_stream_chunk: Option(fn(BitArray) -> Nil),
     on_stream_end: Option(fn(List(Header)) -> Nil),
-    on_stream_error: Option(fn(String) -> Nil),
+    on_stream_error: Option(fn(StreamFailure) -> Nil),
+    protocols: Option(Protocols),
   )
 }
 
@@ -276,6 +492,7 @@ pub fn new() -> ClientRequest {
     on_stream_chunk: None,
     on_stream_end: None,
     on_stream_error: None,
+    protocols: None,
   )
 }
 
@@ -622,16 +839,43 @@ pub fn auto_redirect(
   ClientRequest(..client_request, auto_redirect: option.Some(enabled))
 }
 
+/// Set the protocol preference for the connection.
+///
+/// Controls which HTTP protocol version gun negotiates when opening a connection.
+/// When not set, defaults to HTTP/2 preferred (via ALPN) for HTTPS connections
+/// and HTTP/1.1 only for HTTP connections.
+///
+/// For HTTP/2 over cleartext (h2c), use `Http2Only` with `scheme(http.Http)`:
+///
+/// ```gleam
+/// import dream_http_client/client.{Http2Only}
+/// import gleam/http
+///
+/// client.new()
+///   |> client.scheme(http.Http)
+///   |> client.host("internal-service.local")
+///   |> client.protocols(Http2Only)
+///   |> client.send()
+/// ```
+pub fn protocols(
+  client_request: ClientRequest,
+  preference: Protocols,
+) -> ClientRequest {
+  ClientRequest(..client_request, protocols: option.Some(preference))
+}
+
 // ============================================================================
 // Transport Configuration
 // ============================================================================
 
 /// Configuration for the HTTP transport layer
 ///
-/// Controls connection pool behavior and gun client options.
+/// Controls connection pool behavior, gun client options, and log verbosity.
 /// These settings are global and affect all subsequent HTTP requests.
-/// Gun negotiates HTTP/2 automatically when available (via ALPN),
-/// falling back to HTTP/1.1.
+/// Gun negotiates HTTP/2 automatically for TLS connections via ALPN,
+/// falling back to HTTP/1.1. For cleartext (TCP) connections, the default
+/// is HTTP/1.1 only; use `protocols(Http2Only)` on `ClientRequest` for
+/// h2c (HTTP/2 over cleartext) per-request.
 ///
 /// Create with `transport_config()`, configure with builder functions,
 /// and apply with `configure_transport()`.
@@ -661,6 +905,7 @@ pub opaque type TransportConfig {
     initial_connection_window_size: Int,
     initial_stream_window_size: Int,
     closing_timeout: Int,
+    log_level: LogLevel,
   )
 }
 
@@ -680,6 +925,7 @@ pub opaque type TransportConfig {
 /// - initial_connection_window_size: 65_535 (HTTP/2 connection flow control)
 /// - initial_stream_window_size: 65_535 (HTTP/2 per-stream flow control)
 /// - closing_timeout: 15_000ms (graceful shutdown wait)
+/// - log_level: LogInfo (minimum severity for dream log output)
 pub fn transport_config() -> TransportConfig {
   TransportConfig(
     max_connections: 50,
@@ -695,6 +941,7 @@ pub fn transport_config() -> TransportConfig {
     initial_connection_window_size: 65_535,
     initial_stream_window_size: 65_535,
     closing_timeout: 15_000,
+    log_level: LogInfo,
   )
 }
 
@@ -889,6 +1136,30 @@ pub fn closing_timeout(config: TransportConfig, ms: Int) -> TransportConfig {
   TransportConfig(..config, closing_timeout: ms)
 }
 
+/// Set the minimum log level for dream_http_client's internal log output
+///
+/// Controls which log messages are emitted by the library's connection manager
+/// and HTTP shim. Filtering is scoped to dream's own modules via OTP's
+/// `logger:set_module_level/2` and does not affect the rest of your application.
+///
+/// ## Parameters
+///
+/// - `config`: The transport config to modify
+/// - `level`: Minimum log level (default: `LogInfo`)
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_http_client/client.{LogWarning}
+///
+/// client.transport_config()
+/// |> client.log_level(LogWarning)
+/// |> client.configure_transport()
+/// ```
+pub fn log_level(config: TransportConfig, level: LogLevel) -> TransportConfig {
+  TransportConfig(..config, log_level: level)
+}
+
 /// Get the configured maximum TCP connections per host
 pub fn get_max_connections(config: TransportConfig) -> Int {
   config.max_connections
@@ -952,6 +1223,22 @@ pub fn get_initial_stream_window_size(config: TransportConfig) -> Int {
 /// Get the configured graceful shutdown timeout in milliseconds
 pub fn get_closing_timeout(config: TransportConfig) -> Int {
   config.closing_timeout
+}
+
+/// Get the configured minimum log level
+///
+/// Returns the `LogLevel` that controls which internal log messages are emitted.
+/// Only messages at this level or above are output.
+///
+/// ## Example
+///
+/// ```gleam
+/// let config = client.transport_config()
+/// client.get_log_level(config)
+/// // -> LogInfo
+/// ```
+pub fn get_log_level(config: TransportConfig) -> LogLevel {
+  config.log_level
 }
 
 /// Apply transport configuration to the HTTP client
@@ -1059,26 +1346,32 @@ pub fn on_stream_end(
 /// Set callback for stream error event
 ///
 /// Sets a function to be called if the stream fails with an error.
-/// Handles both HTTP errors and network errors.
+/// The callback receives a `StreamFailure` which distinguishes HTTP failures
+/// (non-2xx response) from transport failures (connection errors, timeouts).
 ///
 /// ## Parameters
 ///
 /// - `client_request`: The request to modify
-/// - `callback`: Function called with error reason if stream fails
+/// - `callback`: Function called with a `StreamFailure` if stream fails
 ///
 /// ## Example
 ///
 /// ```gleam
 /// client.new()
 /// |> client.host("api.example.com")
-/// |> client.on_stream_error(fn(reason) {
-///   io.println_error("Stream failed: " <> reason)
+/// |> client.on_stream_error(fn(failure) {
+///   case failure {
+///     client.HttpFailure(response: resp) ->
+///       io.println_error("HTTP " <> int.to_string(resp.status))
+///     client.TransportFailure(error: err) ->
+///       io.println_error("Transport: " <> client.transport_error_to_string(err))
+///   }
 /// })
 /// |> client.start_stream()
 /// ```
 pub fn on_stream_error(
   client_request: ClientRequest,
-  callback: fn(String) -> Nil,
+  callback: fn(StreamFailure) -> Nil,
 ) -> ClientRequest {
   ClientRequest(..client_request, on_stream_error: Some(callback))
 }
@@ -1296,6 +1589,20 @@ pub fn get_auto_redirect(client_request: ClientRequest) -> Option(Bool) {
   client_request.auto_redirect
 }
 
+/// Get the configured protocol preference for the connection.
+///
+/// Returns `None` if no explicit protocol preference has been set,
+/// meaning transport-specific defaults will apply.
+///
+/// ```gleam
+/// let req = client.new() |> client.protocols(Http2Only)
+/// client.get_protocols(req)
+/// // -> Some(Http2Only)
+/// ```
+pub fn get_protocols(client_request: ClientRequest) -> Option(Protocols) {
+  client_request.protocols
+}
+
 /// Get the recorder from a request
 ///
 /// Returns the optional recorder attached to the request for recording or playback.
@@ -1386,7 +1693,7 @@ pub type StreamMessage {
   /// Stream completed successfully
   StreamEnd(request_id: RequestId, headers: List(Header))
   /// Stream failed with error (connection drop, timeout, HTTP error, etc.)
-  StreamError(request_id: RequestId, reason: String)
+  StreamError(request_id: RequestId, error: StreamFailure)
   /// Failed to decode stream message from Erlang FFI (indicates library bug)
   DecodeError(reason: String)
 }
@@ -1463,14 +1770,14 @@ pub opaque type StreamHandle {
 ///
 /// - `Ok(HttpResponse)`: Successful response (status < 400) with status, headers, and body
 /// - `Error(ResponseError(response))`: HTTP error response (status >= 400) with full response
-/// - `Error(RequestError(message))`: Connection failure, timeout, or other transport error
+/// - `Error(RequestError(error: transport_error))`: Connection failure, timeout, or other transport error
 ///
 /// ## Example
 ///
 /// ```gleam
 /// import dream_http_client/client.{
-///   HttpResponse, RequestError, ResponseError,
-///   host, path, add_header, send,
+///   HttpResponse, RequestError, ResponseError, ConnectFailed, TimedOut,
+///   host, path, add_header, send, transport_error_to_string,
 /// }
 ///
 /// let result = client.new()
@@ -1489,8 +1796,12 @@ pub opaque type StreamHandle {
 ///   }
 ///   Error(ResponseError(response)) ->
 ///     Error("HTTP " <> int.to_string(response.status) <> ": " <> response.body)
-///   Error(RequestError(message)) ->
-///     Error("Request failed: " <> message)
+///   Error(RequestError(error: ConnectFailed(reason))) ->
+///     Error("Connection failed: " <> reason)
+///   Error(RequestError(error: TimedOut(timeout_ms))) ->
+///     Error("Timed out after " <> int.to_string(timeout_ms) <> "ms")
+///   Error(RequestError(error: transport_error)) ->
+///     Error("Request failed: " <> transport_error_to_string(transport_error))
 /// }
 /// ```
 pub fn send(client_request: ClientRequest) -> Result(HttpResponse, SendError) {
@@ -1518,7 +1829,7 @@ fn send_with_recorder(
       handle_recorded_blocking_response(response)
     Ok(option.None) ->
       send_and_maybe_record(client_request, recorder_instance, recorded_request)
-    Error(reason) -> Error(RequestError(message: reason))
+    Error(reason) -> Error(RequestError(error: Unexpected(raw: reason)))
   }
 }
 
@@ -1529,9 +1840,11 @@ fn handle_recorded_blocking_response(
     recording.BlockingResponse(status, headers, body) ->
       response_result(status, headers, body)
     recording.StreamingResponse(_, _, _) ->
-      Error(RequestError(
-        message: "Recording contains streaming response, use stream_yielder() instead",
-      ))
+      Error(
+        RequestError(error: Unexpected(
+          raw: "Recording contains streaming response, use stream_yielder() instead",
+        )),
+      )
   }
 }
 
@@ -1564,7 +1877,8 @@ fn send_and_maybe_record(
 
       response_result(status, headers, body)
     }
-    Error(error_message) -> Error(RequestError(message: error_message))
+    Error(error_dyn) ->
+      Error(RequestError(error: decode_transport_error(error_dyn)))
   }
 }
 
@@ -1588,13 +1902,14 @@ fn send_client_request_via_gun(
 ) -> Result(HttpResponse, SendError) {
   case send_client_request_via_gun_with_meta(client_request) {
     Ok(#(status, headers, body)) -> response_result(status, headers, body)
-    Error(error_message) -> Error(RequestError(message: error_message))
+    Error(error_dyn) ->
+      Error(RequestError(error: decode_transport_error(error_dyn)))
   }
 }
 
 fn send_client_request_via_gun_with_meta(
   client_request: ClientRequest,
-) -> Result(#(Int, List(#(String, String)), String), String) {
+) -> Result(#(Int, List(#(String, String)), String), d.Dynamic) {
   let http_request = to_http_request(client_request)
   let url = build_url(http_request)
   let method_atom = internal.atomize_method(http_request.method)
@@ -1603,6 +1918,7 @@ fn send_client_request_via_gun_with_meta(
   let timeout_value = resolve_timeout(client_request)
   let connect_timeout_value = resolve_connect_timeout(client_request)
   let auto_redirect_value = resolve_auto_redirect(client_request)
+  let protocols_value = resolve_protocols(client_request)
 
   case
     send_sync(
@@ -1613,15 +1929,22 @@ fn send_client_request_via_gun_with_meta(
       timeout_value,
       connect_timeout_value,
       auto_redirect_value,
+      protocols_value,
     )
   {
     Ok(#(status, headers, response_body)) -> {
-      response_body
-      |> bit_array.to_string
-      |> result.map_error(convert_string_error)
-      |> result.map(fn(body_str) { #(status, headers, body_str) })
+      case bit_array.to_string(response_body) {
+        Ok(body_str) -> Ok(#(status, headers, body_str))
+        Error(_) ->
+          Error(
+            to_dynamic(#(
+              atom.create("unexpected"),
+              "Response body is not valid UTF-8",
+            )),
+          )
+      }
     }
-    Error(error_message) -> Error(error_message)
+    Error(error_dyn) -> Error(error_dyn)
   }
 }
 
@@ -1638,12 +1961,6 @@ fn client_request_to_recorded_request(
     headers: headers_to_tuples(client_request.headers),
     body: client_request.body,
   )
-}
-
-fn convert_string_error(_unused: Nil) -> String {
-  // BitArray.to_string uses Nil for string conversion errors, so there is no
-  // additional error information to surface here.
-  "Failed to convert response to string"
 }
 
 fn resolve_timeout(client_request: ClientRequest) -> Int {
@@ -1667,6 +1984,18 @@ fn resolve_auto_redirect(client_request: ClientRequest) -> Bool {
   }
 }
 
+fn resolve_protocols(request: ClientRequest) -> atom.Atom {
+  case request.protocols {
+    option.Some(Http1Only) -> atom.create("http1_only")
+    option.Some(Http2Only) -> atom.create("http2_only")
+    option.Some(Http2Preferred) -> atom.create("http2_preferred")
+    option.None -> atom.create("default")
+  }
+}
+
+@external(erlang, "gleam_stdlib", "identity")
+fn to_dynamic(value: a) -> d.Dynamic
+
 @external(erlang, "dream_http_shim", "request_sync")
 fn send_sync(
   method: d.Dynamic,
@@ -1676,7 +2005,8 @@ fn send_sync(
   timeout_ms: Int,
   connect_timeout_ms: Int,
   autoredirect: Bool,
-) -> Result(#(Int, List(#(String, String)), BitArray), String)
+  protocols: atom.Atom,
+) -> Result(#(Int, List(#(String, String)), BitArray), d.Dynamic)
 
 /// Stream HTTP response chunks using a yielder
 ///
@@ -1706,9 +2036,9 @@ fn send_sync(
 ///
 /// ## Error Semantics
 ///
-/// The yielder produces `Result(BytesTree, String)` for each chunk:
+/// The yielder produces `Result(BytesTree, StreamFailure)` for each chunk:
 /// - `Ok(chunk)` - Successful chunk, more may follow
-/// - `Error(reason)` - **Terminal error**, stream is done
+/// - `Error(failure)` - **Terminal error**, stream is done
 ///
 /// After an `Error`, the yielder immediately returns `Done` on the next call.
 /// This design reflects that HTTP stream errors (timeouts, connection drops,
@@ -1717,9 +2047,9 @@ fn send_sync(
 /// **Normal stream completion**: When the stream finishes successfully, the yielder
 /// returns `Done` (no more items). The stream does NOT yield an error for normal completion.
 ///
-/// Possible error reasons (actual errors only):
-/// - `"timeout"` - Request timed out
-/// - Connection errors from `gun`
+/// Errors are structured as `StreamFailure`:
+/// - `HttpFailure(response)` - Server returned non-2xx (status, headers, body available)
+/// - `TransportFailure(error)` - Transport-level failure (timeout, connection drop, etc.)
 ///
 /// ## Parameters
 ///
@@ -1727,7 +2057,7 @@ fn send_sync(
 ///
 /// ## Returns
 ///
-/// A `Yielder` that produces `Result(BytesTree, String)`. Always check each
+/// A `Yielder` that produces `Result(BytesTree, StreamFailure)`. Always check each
 /// result - errors are terminal and mean the stream has ended.
 ///
 /// ## Examples
@@ -1747,8 +2077,8 @@ fn send_sync(
 ///   |> each(fn(result) {
 ///     case result {
 ///       Ok(chunk) -> print(to_string(chunk))
-///       Error(error_reason) -> {
-///         println_error("Stream error: " <> error_reason)
+///       Error(failure) -> {
+///         println_error("Stream error: " <> client.stream_failure_to_string(failure))
 ///         // Stream is now done, no more chunks will arrive
 ///       }
 ///     }
@@ -1783,12 +2113,12 @@ fn send_sync(
 ///       |> string.join("")
 ///     Ok(body)
 ///   }
-///   Error(error_reason) -> Error("Stream failed: " <> error_reason)
+///   Error(failure) -> Error(client.stream_failure_to_string(failure))
 /// }
 /// ```
 pub fn stream_yielder(
   client_request: ClientRequest,
-) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
+) -> yielder.Yielder(Result(bytes_tree.BytesTree, StreamFailure)) {
   case client_request.recorder {
     option.Some(recorder_instance) ->
       stream_yielder_with_recorder(client_request, recorder_instance)
@@ -1799,20 +2129,21 @@ pub fn stream_yielder(
 fn stream_yielder_with_recorder(
   client_request: ClientRequest,
   recorder_instance: recorder.Recorder,
-) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
+) -> yielder.Yielder(Result(bytes_tree.BytesTree, StreamFailure)) {
   let recorded_request = client_request_to_recorded_request(client_request)
 
   case recorder.find_recording(recorder_instance, recorded_request) {
     Ok(option.Some(recording.Recording(_, response))) ->
       create_yielder_from_recorded_response(response)
     Ok(option.None) -> create_stream_yielder_from_client_request(client_request)
-    Error(reason) -> yielder.single(Error(reason))
+    Error(reason) ->
+      yielder.single(Error(TransportFailure(error: Unexpected(raw: reason))))
   }
 }
 
 fn create_yielder_from_recorded_response(
   response: recording.RecordedResponse,
-) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
+) -> yielder.Yielder(Result(bytes_tree.BytesTree, StreamFailure)) {
   case response {
     recording.StreamingResponse(_, _, chunks) ->
       create_yielder_from_chunks(chunks)
@@ -1826,11 +2157,12 @@ fn create_yielder_from_recorded_response(
 
 fn create_stream_yielder_from_client_request(
   client_request: ClientRequest,
-) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
+) -> yielder.Yielder(Result(bytes_tree.BytesTree, StreamFailure)) {
   let http_request = to_http_request(client_request)
   let timeout_value = resolve_timeout(client_request)
   let connect_timeout_value = resolve_connect_timeout(client_request)
   let auto_redirect_value = resolve_auto_redirect(client_request)
+  let protocols_value = resolve_protocols(client_request)
 
   case client_request.recorder {
     option.Some(recorder_instance) ->
@@ -1841,6 +2173,7 @@ fn create_stream_yielder_from_client_request(
         timeout_value,
         connect_timeout_value,
         auto_redirect_value,
+        protocols_value,
       )
     option.None ->
       create_plain_yielder(
@@ -1848,6 +2181,7 @@ fn create_stream_yielder_from_client_request(
         timeout_value,
         connect_timeout_value,
         auto_redirect_value,
+        protocols_value,
       )
   }
 }
@@ -1859,7 +2193,8 @@ fn stream_yielder_with_record_mode(
   timeout_value: Int,
   connect_timeout_value: Int,
   auto_redirect_value: Bool,
-) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
+  protocols_value: atom.Atom,
+) -> yielder.Yielder(Result(bytes_tree.BytesTree, StreamFailure)) {
   case recorder.is_record_mode(recorder_instance) {
     True -> {
       let recorded_request = client_request_to_recorded_request(client_request)
@@ -1870,6 +2205,7 @@ fn stream_yielder_with_record_mode(
           timeout_ms: timeout_value,
           connect_timeout_ms: connect_timeout_value,
           auto_redirect: auto_redirect_value,
+          protocols_atom: protocols_value,
           recorder: recorder_instance,
           recorded_request: recorded_request,
           start_headers: [],
@@ -1884,6 +2220,7 @@ fn stream_yielder_with_record_mode(
         timeout_value,
         connect_timeout_value,
         auto_redirect_value,
+        protocols_value,
       )
   }
 }
@@ -1893,7 +2230,8 @@ fn create_plain_yielder(
   timeout_value: Int,
   connect_timeout_value: Int,
   auto_redirect_value: Bool,
-) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
+  protocols_value: atom.Atom,
+) -> yielder.Yielder(Result(bytes_tree.BytesTree, StreamFailure)) {
   let initial_state =
     YielderState(
       owner: None,
@@ -1901,13 +2239,14 @@ fn create_plain_yielder(
       timeout_ms: timeout_value,
       connect_timeout_ms: connect_timeout_value,
       auto_redirect: auto_redirect_value,
+      protocols_atom: protocols_value,
     )
   yielder.unfold(initial_state, handle_yielder_unfold_with_deps)
 }
 
 fn create_yielder_from_chunks(
   chunks: List(recording.Chunk),
-) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
+) -> yielder.Yielder(Result(bytes_tree.BytesTree, StreamFailure)) {
   chunks
   |> yielder.from_list
   |> yielder.map(convert_chunk_to_result)
@@ -1915,7 +2254,7 @@ fn create_yielder_from_chunks(
 
 fn convert_chunk_to_result(
   chunk: recording.Chunk,
-) -> Result(bytes_tree.BytesTree, String) {
+) -> Result(bytes_tree.BytesTree, StreamFailure) {
   // TODO: Add delay based on chunk.delay_ms
   let data = bytes_tree.from_bit_array(chunk.data)
   Ok(data)
@@ -1928,6 +2267,7 @@ type YielderState {
     timeout_ms: Int,
     connect_timeout_ms: Int,
     auto_redirect: Bool,
+    protocols_atom: atom.Atom,
   )
 }
 
@@ -1938,6 +2278,7 @@ type RecordingYielderState {
     timeout_ms: Int,
     connect_timeout_ms: Int,
     auto_redirect: Bool,
+    protocols_atom: atom.Atom,
     recorder: recorder.Recorder,
     recorded_request: recording.RecordedRequest,
     start_headers: List(#(String, String)),
@@ -1948,7 +2289,7 @@ type RecordingYielderState {
 
 fn handle_yielder_unfold_with_deps(
   state: YielderState,
-) -> yielder.Step(Result(bytes_tree.BytesTree, String), YielderState) {
+) -> yielder.Step(Result(bytes_tree.BytesTree, StreamFailure), YielderState) {
   case state.owner {
     None -> handle_yielder_start_with_state(state)
     Some(owner) -> handle_yielder_next_with_state(owner, state)
@@ -1995,13 +2336,14 @@ fn response_result(
 
 fn handle_yielder_start_with_state(
   state: YielderState,
-) -> yielder.Step(Result(bytes_tree.BytesTree, String), YielderState) {
+) -> yielder.Step(Result(bytes_tree.BytesTree, StreamFailure), YielderState) {
   let request_result =
     internal.start_gun_stream(
       state.http_req,
       state.timeout_ms,
       state.connect_timeout_ms,
       state.auto_redirect,
+      state.protocols_atom,
     )
   let owner = internal.extract_owner_pid(request_result)
   case internal.receive_next(owner, state.timeout_ms) {
@@ -2011,19 +2353,21 @@ fn handle_yielder_start_with_state(
         YielderState(..state, owner: Some(owner)),
       )
     Ok(option.None) -> yielder.Done
-    Error(error_reason) -> yielder.Next(Error(error_reason), state)
+    Error(error_dyn) ->
+      yielder.Next(Error(decode_stream_failure(error_dyn)), state)
   }
 }
 
 fn handle_yielder_next_with_state(
   owner: d.Dynamic,
   state: YielderState,
-) -> yielder.Step(Result(bytes_tree.BytesTree, String), YielderState) {
+) -> yielder.Step(Result(bytes_tree.BytesTree, StreamFailure), YielderState) {
   case internal.receive_next(owner, state.timeout_ms) {
     Ok(option.Some(bin)) ->
       yielder.Next(Ok(bytes_tree.from_bit_array(bin)), state)
     Ok(option.None) -> yielder.Done
-    Error(error_reason) -> yielder.Next(Error(error_reason), state)
+    Error(error_dyn) ->
+      yielder.Next(Error(decode_stream_failure(error_dyn)), state)
   }
 }
 
@@ -2043,7 +2387,10 @@ fn convert_time_unit(time: Int, from_unit: atom.Atom, to_unit: atom.Atom) -> Int
 
 fn handle_recording_yielder_unfold(
   state: RecordingYielderState,
-) -> yielder.Step(Result(bytes_tree.BytesTree, String), RecordingYielderState) {
+) -> yielder.Step(
+  Result(bytes_tree.BytesTree, StreamFailure),
+  RecordingYielderState,
+) {
   case state.owner {
     None -> handle_recording_yielder_start(state)
     Some(owner) -> handle_recording_yielder_next(owner, state)
@@ -2052,13 +2399,17 @@ fn handle_recording_yielder_unfold(
 
 fn handle_recording_yielder_start(
   state: RecordingYielderState,
-) -> yielder.Step(Result(bytes_tree.BytesTree, String), RecordingYielderState) {
+) -> yielder.Step(
+  Result(bytes_tree.BytesTree, StreamFailure),
+  RecordingYielderState,
+) {
   let request_result =
     internal.start_gun_stream(
       state.http_req,
       state.timeout_ms,
       state.connect_timeout_ms,
       state.auto_redirect,
+      state.protocols_atom,
     )
   let owner = internal.extract_owner_pid(request_result)
   let start_headers = case
@@ -2096,9 +2447,8 @@ fn handle_recording_yielder_start(
       )
       yielder.Done
     }
-    Error(error_reason) -> {
-      // Error on first chunk - don't record, just pass through error
-      yielder.Next(Error(error_reason), state)
+    Error(error_dyn) -> {
+      yielder.Next(Error(decode_stream_failure(error_dyn)), state)
     }
   }
 }
@@ -2106,18 +2456,19 @@ fn handle_recording_yielder_start(
 fn handle_recording_yielder_next(
   owner: d.Dynamic,
   state: RecordingYielderState,
-) -> yielder.Step(Result(bytes_tree.BytesTree, String), RecordingYielderState) {
+) -> yielder.Step(
+  Result(bytes_tree.BytesTree, StreamFailure),
+  RecordingYielderState,
+) {
   let now = get_time_ms()
 
   case internal.receive_next(owner, state.timeout_ms) {
     Ok(option.Some(bin)) -> {
-      // Calculate delay since last chunk
       let delay = case state.last_chunk_time {
         Some(last_time) -> now - last_time
         None -> 0
       }
 
-      // Record the chunk
       let chunk = recording.Chunk(data: bin, delay_ms: delay)
       let new_state =
         RecordingYielderState(
@@ -2128,14 +2479,12 @@ fn handle_recording_yielder_next(
       yielder.Next(Ok(bytes_tree.from_bit_array(bin)), new_state)
     }
     Ok(option.None) -> {
-      // Stream finished - save recording
       save_streaming_recording(state, state.chunks)
       yielder.Done
     }
-    Error(error_reason) -> {
-      // Stream error - save what we have so far
+    Error(error_dyn) -> {
       save_streaming_recording(state, state.chunks)
-      yielder.Next(Error(error_reason), state)
+      yielder.Next(Error(decode_stream_failure(error_dyn)), state)
     }
   }
 }
@@ -2175,7 +2524,9 @@ fn save_streaming_recording(
 // Used by start_stream() to initiate the low-level HTTP stream via gun.
 // Note: start_stream() already handles playback via maybe_replay_from_recording()
 // before reaching this function. This path is for live HTTP requests only.
-fn stream_messages(client_request: ClientRequest) -> Result(RequestId, String) {
+fn stream_messages(
+  client_request: ClientRequest,
+) -> Result(RequestId, StreamFailure) {
   case client_request.recorder {
     option.Some(recorder_instance) ->
       stream_messages_with_recorder(client_request, recorder_instance)
@@ -2186,16 +2537,15 @@ fn stream_messages(client_request: ClientRequest) -> Result(RequestId, String) {
 fn stream_messages_with_recorder(
   client_request: ClientRequest,
   recorder_instance: recorder.Recorder,
-) -> Result(RequestId, String) {
+) -> Result(RequestId, StreamFailure) {
   let recorded_request = client_request_to_recorded_request(client_request)
 
   case recorder.find_recording(recorder_instance, recorded_request) {
     Ok(option.Some(_recording)) ->
-      // Safety net: start_stream() replays via maybe_replay_from_recording()
-      // before reaching here. If we land here anyway, it means the low-level
-      // gun message path cannot replay recordings.
       Error(
-        "Unexpected: recording found in stream_messages path. This should have been handled by start_stream() playback.",
+        TransportFailure(error: Unexpected(
+          raw: "Unexpected: recording found in stream_messages path. This should have been handled by start_stream() playback.",
+        )),
       )
     Ok(option.None) ->
       send_stream_messages_via_gun(
@@ -2203,13 +2553,13 @@ fn stream_messages_with_recorder(
         option.Some(recorder_instance),
         recorded_request,
       )
-    Error(reason) -> Error(reason)
+    Error(reason) -> Error(TransportFailure(error: Unexpected(raw: reason)))
   }
 }
 
 fn stream_messages_without_recorder(
   client_request: ClientRequest,
-) -> Result(RequestId, String) {
+) -> Result(RequestId, StreamFailure) {
   let recorded_request = client_request_to_recorded_request(client_request)
   send_stream_messages_via_gun(client_request, option.None, recorded_request)
 }
@@ -2218,7 +2568,7 @@ fn send_stream_messages_via_gun(
   client_request: ClientRequest,
   recorder_option: Option(recorder.Recorder),
   recorded_request: recording.RecordedRequest,
-) -> Result(RequestId, String) {
+) -> Result(RequestId, StreamFailure) {
   let http_request = to_http_request(client_request)
   let url = build_url(http_request)
   let method_atom = internal.atomize_method(http_request.method)
@@ -2227,6 +2577,7 @@ fn send_stream_messages_via_gun(
   let timeout_value = resolve_timeout(client_request)
   let connect_timeout_value = resolve_connect_timeout(client_request)
   let auto_redirect_value = resolve_auto_redirect(client_request)
+  let protocols_value = resolve_protocols(client_request)
 
   let start_result =
     internal.start_stream_messages(
@@ -2238,6 +2589,7 @@ fn send_stream_messages_via_gun(
       timeout_value,
       connect_timeout_value,
       auto_redirect_value,
+      protocols_value,
     )
 
   case parse_stream_start_result(start_result) {
@@ -2291,51 +2643,53 @@ fn build_url(request: request.Request(String)) -> String {
   <> query_string
 }
 
-fn parse_stream_start_result(result: d.Dynamic) -> Result(RequestId, String) {
+fn parse_stream_start_result(
+  result: d.Dynamic,
+) -> Result(RequestId, StreamFailure) {
   let tag_result = d.run(result, d.at([0], d.dynamic))
   case tag_result {
     Ok(tag_dyn) -> parse_stream_start_tag(tag_dyn, result)
     Error(decode_errors) ->
-      Error("Failed to parse gun response: " <> string.inspect(decode_errors))
+      Error(
+        TransportFailure(error: Unexpected(
+          raw: "Failed to parse gun response: " <> string.inspect(decode_errors),
+        )),
+      )
   }
 }
 
 fn parse_stream_start_tag(
   tag_dyn: d.Dynamic,
   result: d.Dynamic,
-) -> Result(RequestId, String) {
+) -> Result(RequestId, StreamFailure) {
   let tag = atom.cast_from_dynamic(tag_dyn) |> atom.to_string
   case tag {
     "ok" -> extract_request_id(result)
-    "error" -> extract_error_reason(result)
-    _ -> Error("Unknown response from gun")
+    "error" -> Error(extract_error_reason(result))
+    _ ->
+      Error(
+        TransportFailure(error: Unexpected(raw: "Unknown response from gun")),
+      )
   }
 }
 
-fn extract_request_id(result: d.Dynamic) -> Result(RequestId, String) {
+fn extract_request_id(result: d.Dynamic) -> Result(RequestId, StreamFailure) {
   let id_result = d.run(result, d.at([1], d.string))
   case id_result {
     Ok(id_string) -> Ok(RequestId(id: id_string))
     Error(decode_errors) ->
-      Error("Failed to extract request ID: " <> string.inspect(decode_errors))
+      Error(
+        TransportFailure(error: Unexpected(
+          raw: "Failed to extract request ID: " <> string.inspect(decode_errors),
+        )),
+      )
   }
 }
 
-fn extract_error_reason(result: d.Dynamic) -> Result(RequestId, String) {
-  let reason_result = d.run(result, d.at([1], d.dynamic))
-  case reason_result {
-    Ok(reason_dyn) -> {
-      let reason = string.inspect(reason_dyn)
-      Error("Failed to start stream: " <> reason)
-    }
-    Error(decode_error) -> {
-      Error(
-        "Failed to start stream (decode error: "
-        <> string.inspect(decode_error)
-        <> ")",
-      )
-    }
-  }
+fn extract_error_reason(result: d.Dynamic) -> StreamFailure {
+  let error_dyn =
+    d.run(result, d.at([1], d.dynamic)) |> result.unwrap(dynamic.nil())
+  decode_stream_failure(error_dyn)
 }
 
 // Internal: Add stream message handling to a selector
@@ -2398,7 +2752,7 @@ fn handle_tag_decode_error(
   case req_id_result {
     Ok(req_id_string) -> {
       let req_id = RequestId(id: req_id_string)
-      StreamError(req_id, error_msg)
+      StreamError(req_id, TransportFailure(error: Unexpected(raw: error_msg)))
     }
     Error(req_id_error) -> {
       let full_error_msg =
@@ -2443,7 +2797,12 @@ fn decode_by_tag(
     "stream_end" -> decode_stream_end(req_id, data_result)
     "stream_error" -> decode_stream_error(req_id, data_result)
     _ ->
-      StreamError(req_id, "Internal error: Unknown stream message tag: " <> tag)
+      StreamError(
+        req_id,
+        TransportFailure(error: Unexpected(
+          raw: "Internal error: Unknown stream message tag: " <> tag,
+        )),
+      )
   }
 }
 
@@ -2453,12 +2812,14 @@ fn decode_stream_start(
 ) -> StreamMessage {
   case data_result {
     Ok(headers_dyn) -> decode_stream_start_headers(req_id, headers_dyn)
-    Error(decode_error) -> {
-      let error_msg =
-        "Failed to get headers data in StreamStart: "
-        <> string.inspect(decode_error)
-      StreamError(req_id, error_msg)
-    }
+    Error(decode_error) ->
+      StreamError(
+        req_id,
+        TransportFailure(error: Unexpected(
+          raw: "Failed to get headers data in StreamStart: "
+          <> string.inspect(decode_error),
+        )),
+      )
   }
 }
 
@@ -2468,12 +2829,14 @@ fn decode_stream_start_headers(
 ) -> StreamMessage {
   case decode_headers(headers_dyn) {
     Ok(headers) -> StreamStart(req_id, tuples_to_headers(headers))
-    Error(header_decode_error) -> {
-      let error_msg =
-        "Failed to decode headers in StreamStart: "
-        <> string.inspect(header_decode_error)
-      StreamError(req_id, error_msg)
-    }
+    Error(header_decode_error) ->
+      StreamError(
+        req_id,
+        TransportFailure(error: Unexpected(
+          raw: "Failed to decode headers in StreamStart: "
+          <> string.inspect(header_decode_error),
+        )),
+      )
   }
 }
 
@@ -2483,24 +2846,28 @@ fn decode_chunk(
 ) -> StreamMessage {
   case data_result {
     Ok(data_dyn) -> decode_chunk_data(req_id, data_dyn)
-    Error(decode_error) -> {
-      let error_msg =
-        "Internal error: Failed to get chunk data: "
-        <> string.inspect(decode_error)
-      StreamError(req_id, error_msg)
-    }
+    Error(decode_error) ->
+      StreamError(
+        req_id,
+        TransportFailure(error: Unexpected(
+          raw: "Internal error: Failed to get chunk data: "
+          <> string.inspect(decode_error),
+        )),
+      )
   }
 }
 
 fn decode_chunk_data(req_id: RequestId, data_dyn: d.Dynamic) -> StreamMessage {
   case d.run(data_dyn, d.bit_array) {
     Ok(data) -> Chunk(req_id, data)
-    Error(decode_error) -> {
-      let error_msg =
-        "Internal error: Failed to decode chunk data: "
-        <> string.inspect(decode_error)
-      StreamError(req_id, error_msg)
-    }
+    Error(decode_error) ->
+      StreamError(
+        req_id,
+        TransportFailure(error: Unexpected(
+          raw: "Internal error: Failed to decode chunk data: "
+          <> string.inspect(decode_error),
+        )),
+      )
   }
 }
 
@@ -2510,12 +2877,14 @@ fn decode_stream_end(
 ) -> StreamMessage {
   case data_result {
     Ok(headers_dyn) -> decode_stream_end_headers(req_id, headers_dyn)
-    Error(decode_error) -> {
-      let error_msg =
-        "Failed to get trailing headers data in StreamEnd: "
-        <> string.inspect(decode_error)
-      StreamError(req_id, error_msg)
-    }
+    Error(decode_error) ->
+      StreamError(
+        req_id,
+        TransportFailure(error: Unexpected(
+          raw: "Failed to get trailing headers data in StreamEnd: "
+          <> string.inspect(decode_error),
+        )),
+      )
   }
 }
 
@@ -2525,12 +2894,86 @@ fn decode_stream_end_headers(
 ) -> StreamMessage {
   case decode_headers(headers_dyn) {
     Ok(headers) -> StreamEnd(req_id, tuples_to_headers(headers))
-    Error(header_decode_error) -> {
-      let error_msg =
-        "Failed to decode trailing headers in StreamEnd: "
-        <> string.inspect(header_decode_error)
-      StreamError(req_id, error_msg)
+    Error(header_decode_error) ->
+      StreamError(
+        req_id,
+        TransportFailure(error: Unexpected(
+          raw: "Failed to decode trailing headers in StreamEnd: "
+          <> string.inspect(header_decode_error),
+        )),
+      )
+  }
+}
+
+fn decode_transport_error(dyn: d.Dynamic) -> TransportError {
+  let tag =
+    d.run(dyn, d.at([0], d.dynamic))
+    |> result.map(fn(t) { atom.to_string(atom.cast_from_dynamic(t)) })
+    |> result.unwrap("")
+  case tag {
+    "stream_reset" -> {
+      let code = d.run(dyn, d.at([1], d.string)) |> result.unwrap("unknown")
+      let description = d.run(dyn, d.at([2], d.string)) |> result.unwrap("")
+      StreamReset(code: code, description: description)
     }
+    "goaway" -> {
+      let code = d.run(dyn, d.at([1], d.string)) |> result.unwrap("unknown")
+      let last_stream_id = d.run(dyn, d.at([2], d.int)) |> result.unwrap(0)
+      let debug_data = d.run(dyn, d.at([3], d.string)) |> result.unwrap("")
+      Goaway(code: code, last_stream_id: last_stream_id, debug_data: debug_data)
+    }
+    "connection_error" -> {
+      let code = d.run(dyn, d.at([1], d.string)) |> result.unwrap("unknown")
+      let description = d.run(dyn, d.at([2], d.string)) |> result.unwrap("")
+      ConnectionError(code: code, description: description)
+    }
+    "remote_closed" -> RemoteClosed
+    "timed_out" -> {
+      let timeout_ms = d.run(dyn, d.at([1], d.int)) |> result.unwrap(0)
+      TimedOut(timeout_ms: timeout_ms)
+    }
+    "process_down" -> {
+      let reason = d.run(dyn, d.at([1], d.string)) |> result.unwrap("unknown")
+      ProcessDown(reason: reason)
+    }
+    "connect_failed" -> {
+      let reason = d.run(dyn, d.at([1], d.string)) |> result.unwrap("unknown")
+      ConnectFailed(reason: reason)
+    }
+    "unexpected" -> {
+      let raw =
+        d.run(dyn, d.at([1], d.string)) |> result.unwrap(string.inspect(dyn))
+      Unexpected(raw: raw)
+    }
+    _ -> Unexpected(raw: "Unknown error tag: " <> tag)
+  }
+}
+
+fn decode_stream_failure(dyn: d.Dynamic) -> StreamFailure {
+  let tag =
+    d.run(dyn, d.at([0], d.dynamic))
+    |> result.map(fn(t) { atom.to_string(atom.cast_from_dynamic(t)) })
+    |> result.unwrap("")
+  case tag {
+    "http_failure" -> {
+      let status = d.run(dyn, d.at([1], d.int)) |> result.unwrap(0)
+      let headers =
+        d.run(dyn, d.at([2], d.list(d.dynamic)))
+        |> result.unwrap([])
+        |> list.filter_map(fn(h) {
+          case d.run(h, d.at([0], d.string)), d.run(h, d.at([1], d.string)) {
+            Ok(name), Ok(value) -> Ok(Header(name: name, value: value))
+            _, _ -> Error(Nil)
+          }
+        })
+      let body = d.run(dyn, d.at([3], d.string)) |> result.unwrap("")
+      HttpFailure(response: HttpResponse(
+        status: status,
+        headers: headers,
+        body: body,
+      ))
+    }
+    _ -> TransportFailure(error: decode_transport_error(dyn))
   }
 }
 
@@ -2539,32 +2982,12 @@ fn decode_stream_error(
   data_result: Result(d.Dynamic, List(d.DecodeError)),
 ) -> StreamMessage {
   case data_result {
-    Ok(reason_dyn) -> decode_error_reason(req_id, reason_dyn)
-    Error(decode_error) -> {
-      let error_msg =
-        "Stream error (failed to decode error reason: "
-        <> string.inspect(decode_error)
-        <> ")"
-      StreamError(req_id, error_msg)
-    }
-  }
-}
-
-fn decode_error_reason(
-  req_id: RequestId,
-  reason_dyn: d.Dynamic,
-) -> StreamMessage {
-  case d.run(reason_dyn, d.string) {
-    Ok(reason) -> StreamError(req_id, reason)
-    Error(_) ->
-      case d.run(reason_dyn, d.bit_array) {
-        Ok(bytes) ->
-          case bit_array.to_string(bytes) {
-            Ok(s) -> StreamError(req_id, s)
-            Error(_) -> StreamError(req_id, string.inspect(reason_dyn))
-          }
-        Error(_) -> StreamError(req_id, string.inspect(reason_dyn))
-      }
+    Ok(error_dyn) -> StreamError(req_id, decode_stream_failure(error_dyn))
+    Error(decode_error) ->
+      StreamError(
+        req_id,
+        TransportFailure(error: Unexpected(raw: string.inspect(decode_error))),
+      )
   }
 }
 
@@ -2632,8 +3055,8 @@ fn pair_with_name(value: String, name: String) -> #(String, String) {
 ///       Error(_) -> Nil
 ///     }
 ///   })
-///   |> client.on_stream_error(fn(reason) {
-///     io.println_error("Error: " <> reason)
+///   |> client.on_stream_error(fn(failure) {
+///     io.println_error("Error: " <> client.stream_failure_to_string(failure))
 ///   })
 ///   |> client.start_stream()
 ///
@@ -2660,10 +3083,9 @@ fn run_stream_process(request: ClientRequest) -> Nil {
 
       // Start the stream using internal API
       case stream_messages(request) {
-        Error(reason) -> {
-          // Call error callback if set
+        Error(failure) -> {
           case request.on_stream_error {
-            Some(on_error) -> on_error(reason)
+            Some(on_error) -> on_error(failure)
             None -> Nil
           }
         }
@@ -2747,9 +3169,9 @@ fn process_stream_loop(
       handle_stream_message(message, req_id, request, selector, timeout_ms)
     }
     Error(Nil) -> {
-      // Timeout waiting for messages
       case request.on_stream_error {
-        Some(on_error) -> on_error("Timeout waiting for stream messages")
+        Some(on_error) ->
+          on_error(TransportFailure(error: TimedOut(timeout_ms: timeout_ms)))
         None -> Nil
       }
     }
@@ -2803,11 +3225,11 @@ fn handle_stream_message(
       }
     }
 
-    StreamError(stream_req_id, reason) -> {
+    StreamError(stream_req_id, failure) -> {
       case stream_req_id == req_id {
         True -> {
           case request.on_stream_error {
-            Some(on_error) -> on_error(reason)
+            Some(on_error) -> on_error(failure)
             None -> Nil
           }
           Nil
@@ -2818,7 +3240,10 @@ fn handle_stream_message(
 
     DecodeError(reason) -> {
       case request.on_stream_error {
-        Some(on_error) -> on_error("DecodeError: " <> reason)
+        Some(on_error) ->
+          on_error(
+            TransportFailure(error: Unexpected(raw: "DecodeError: " <> reason)),
+          )
         None -> Nil
       }
       Nil
@@ -3024,13 +3449,13 @@ fn record_stream_message(message: StreamMessage) -> Nil {
         option.None -> Nil
       }
     }
-    StreamError(request_id, error_reason) -> {
+    StreamError(request_id, failure) -> {
       let RequestId(request_id_string) = request_id
       io.println_error(
         "HTTP stream error while recording messages for request "
         <> request_id_string
         <> ": "
-        <> error_reason,
+        <> stream_failure_to_string(failure),
       )
       case get_message_stream_recorder(request_id) {
         option.Some(state) -> {

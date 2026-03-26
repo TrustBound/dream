@@ -1,4 +1,6 @@
-import dream_http_client/client
+import dream_http_client/client.{
+  LogDebug, LogError, LogInfo, LogNone, LogWarning,
+}
 import gleeunit/should
 
 pub fn transport_config_has_correct_defaults_test() {
@@ -17,6 +19,7 @@ pub fn transport_config_has_correct_defaults_test() {
   client.get_initial_connection_window_size(config) |> should.equal(65_535)
   client.get_initial_stream_window_size(config) |> should.equal(65_535)
   client.get_closing_timeout(config) |> should.equal(15_000)
+  client.get_log_level(config) |> should.equal(LogInfo)
 }
 
 pub fn max_connections_sets_value_test() {
@@ -121,6 +124,35 @@ pub fn closing_timeout_sets_value_test() {
   client.get_closing_timeout(updated) |> should.equal(30_000)
 }
 
+pub fn log_level_defaults_to_info_test() {
+  let config = client.transport_config()
+  client.get_log_level(config) |> should.equal(LogInfo)
+}
+
+pub fn log_level_sets_debug_test() {
+  let config = client.transport_config()
+  let updated = client.log_level(config, LogDebug)
+  client.get_log_level(updated) |> should.equal(LogDebug)
+}
+
+pub fn log_level_sets_warning_test() {
+  let config = client.transport_config()
+  let updated = client.log_level(config, LogWarning)
+  client.get_log_level(updated) |> should.equal(LogWarning)
+}
+
+pub fn log_level_sets_error_test() {
+  let config = client.transport_config()
+  let updated = client.log_level(config, LogError)
+  client.get_log_level(updated) |> should.equal(LogError)
+}
+
+pub fn log_level_sets_none_test() {
+  let config = client.transport_config()
+  let updated = client.log_level(config, LogNone)
+  client.get_log_level(updated) |> should.equal(LogNone)
+}
+
 pub fn transport_config_builder_chain_sets_all_values_test() {
   let config =
     client.transport_config()
@@ -137,6 +169,7 @@ pub fn transport_config_builder_chain_sets_all_values_test() {
     |> client.initial_connection_window_size(131_070)
     |> client.initial_stream_window_size(131_070)
     |> client.closing_timeout(30_000)
+    |> client.log_level(LogWarning)
 
   client.get_max_connections(config) |> should.equal(200)
   client.get_idle_timeout(config) |> should.equal(120_000)
@@ -151,6 +184,7 @@ pub fn transport_config_builder_chain_sets_all_values_test() {
   client.get_initial_connection_window_size(config) |> should.equal(131_070)
   client.get_initial_stream_window_size(config) |> should.equal(131_070)
   client.get_closing_timeout(config) |> should.equal(30_000)
+  client.get_log_level(config) |> should.equal(LogWarning)
 }
 
 pub fn configure_transport_applies_without_error_test() {

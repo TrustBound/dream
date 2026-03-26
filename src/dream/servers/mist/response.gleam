@@ -16,7 +16,7 @@ import gleam/list
 import gleam/option
 import gleam/string
 import gleam/yielder
-import mist.{type ResponseData, Bytes as MistBytes, Chunked}
+import mist.{type ResponseData, Bytes as MistBytes}
 
 /// Convert Dream response to Mist response format
 ///
@@ -73,10 +73,8 @@ pub fn convert(dream_resp: Response) -> http_response.Response(ResponseData) {
     DreamBytes(bytes) -> MistBytes(bytes_tree.from_bit_array(bytes))
 
     Stream(stream) -> {
-      let byte_stream =
-        stream
-        |> yielder.map(bytes_tree.from_bit_array)
-      Chunked(byte_stream)
+      let byte_stream = stream |> yielder.map(bytes_tree.from_bit_array)
+      mist.Streaming(byte_stream)
     }
   }
 

@@ -25,7 +25,7 @@ import gleam/list
 import gleam/option
 import gleam/result
 import gleam/string
-import mist.{type Connection, type IpAddress, get_client_info}
+import mist.{type Connection, type IpAddress, get_connection_info}
 
 /// Generate a simple request ID
 ///
@@ -104,10 +104,10 @@ pub fn convert_metadata(
     |> option.from_result
 
   // Get client info
-  let client_info = get_client_info(mist_req.body)
-  let remote_address = case client_info {
-    Ok(info) -> {
-      let ip_address: IpAddress = info.ip_address
+  let connection_info = get_connection_info(mist_req.body)
+  let remote_address = case connection_info {
+    Ok(connection_info) -> {
+      let ip_address: IpAddress = connection_info.ip_address
       format_ip_address_value(ip_address) |> option.Some
     }
     Error(_) -> option.None
