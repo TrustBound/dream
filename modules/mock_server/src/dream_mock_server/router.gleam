@@ -84,6 +84,12 @@ pub fn create_router() -> Router(EmptyContext, EmptyServices) {
     middleware: [],
   )
   |> route(
+    method: Patch,
+    path: "/patch",
+    controller: api_controller.patch,
+    middleware: [],
+  )
+  |> route(
     method: Delete,
     path: "/delete",
     controller: api_controller.delete,

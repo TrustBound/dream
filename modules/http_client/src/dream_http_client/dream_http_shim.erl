@@ -577,10 +577,13 @@ build_gun_opts(ConnectTimeoutMs, Protocols) ->
         _ -> Opts#{protocols => Protocols}
     end.
 
-send_request(ConnPid, Method, PathQs, Headers, Body) when Body =:= <<>>; Body =:= undefined ->
-    gun:Method(ConnPid, PathQs, Headers);
 send_request(ConnPid, Method, PathQs, Headers, Body) ->
-    gun:Method(ConnPid, PathQs, Headers, Body).
+    MethodBin = method_atom_to_binary(Method),
+    ActualBody = case Body of
+        undefined -> <<>>;
+        _ -> Body
+    end,
+    gun:request(ConnPid, MethodBin, PathQs, Headers, ActualBody).
 
 %% ============================================================================
 %% URL parsing
@@ -721,6 +724,16 @@ to_method_atom(Method) when is_binary(Method) ->
         "options" -> options;
         Other -> list_to_atom(Other)
     end.
+
+method_atom_to_binary(get) -> <<"GET">>;
+method_atom_to_binary(post) -> <<"POST">>;
+method_atom_to_binary(put) -> <<"PUT">>;
+method_atom_to_binary(delete) -> <<"DELETE">>;
+method_atom_to_binary(patch) -> <<"PATCH">>;
+method_atom_to_binary(head) -> <<"HEAD">>;
+method_atom_to_binary(options) -> <<"OPTIONS">>;
+method_atom_to_binary(Other) ->
+    list_to_binary(string:to_upper(atom_to_list(Other))).
 
 %% ============================================================================
 %% Header conversion

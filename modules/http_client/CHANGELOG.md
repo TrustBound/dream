@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 5.2.0 - 2026-03-25
 
+### Fixed
+
+- Fixed PUT, POST, and PATCH requests hanging when sent with an empty body.
+  The underlying gun dispatch now uses `gun:request/5` directly instead of
+  method-specific functions that behave inconsistently for empty bodies.
+
 ### Changed
 
 - **HTTP backend replaced: `httpc` → `gun`.** The underlying HTTP client has
@@ -71,6 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Create with `transport_config()`, configure with builders, apply with
   `configure_transport()`. Settings are global and affect all subsequent
   requests. Stored in ETS for concurrent read access.
+
 - **Connection pool manager.** `dream_http_conn_manager` gen_server manages
   a per-host connection pool backed by an ETS `bag` table. Features round-robin
   selection, automatic dead-connection cleanup, idle connection reaping, and

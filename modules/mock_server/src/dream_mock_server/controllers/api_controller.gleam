@@ -46,6 +46,15 @@ pub fn put(
   json_response(status.ok, api_view.put_to_json(request.path, request.body))
 }
 
+/// PATCH /patch - Echoes request body as JSON
+pub fn patch(
+  request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  json_response(status.ok, api_view.patch_to_json(request.path, request.body))
+}
+
 /// DELETE /delete - Returns success response
 pub fn delete(
   request: Request,
