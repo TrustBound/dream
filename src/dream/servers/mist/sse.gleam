@@ -95,7 +95,7 @@ import gleam/erlang/process.{type Selector, type Subject}
 import gleam/http/request as http_request
 import gleam/http/response as http_response
 import gleam/list
-import gleam/option.{type Option, None, Some}
+import gleam/option.{type Option, Some}
 import gleam/otp/actor
 import gleam/string_tree
 import mist.{
@@ -184,13 +184,8 @@ pub fn upgrade_to_sse(
     internal.unsafe_coerce(raw_request)
 
   let wrapped_init = fn(subj: Subject(message)) {
-    let #(state, maybe_selector) = on_init(subj, dependencies)
-    let initialised = actor.initialised(state)
-    let initialised = case maybe_selector {
-      Some(sel) -> actor.selecting(initialised, sel)
-      None -> initialised
-    }
-    Ok(initialised)
+    let #(state, _maybe_selector) = on_init(subj, dependencies)
+    state
   }
 
   let wrapped_loop = fn(

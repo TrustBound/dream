@@ -45,7 +45,9 @@ pub fn test_with_playback() -> Result(HttpResponse, SendError) {
     |> directory(recordings_directory_path)
     |> mode("record")
     |> start()
-    |> result.map_error(fn(e) { client.RequestError(message: e) }),
+    |> result.map_error(fn(e) {
+      client.RequestError(error: client.Unexpected(raw: e))
+    }),
   )
 
   recorder.add_recording(rec, test_recording)
@@ -57,7 +59,9 @@ pub fn test_with_playback() -> Result(HttpResponse, SendError) {
     |> directory(recordings_directory_path)
     |> mode("playback")
     |> start()
-    |> result.map_error(fn(e) { client.RequestError(message: e) }),
+    |> result.map_error(fn(e) {
+      client.RequestError(error: client.Unexpected(raw: e))
+    }),
   )
 
   // Make request - returns recorded response without network call

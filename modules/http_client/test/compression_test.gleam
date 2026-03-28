@@ -167,7 +167,9 @@ pub fn start_stream_passes_through_unknown_encoding_chunks_test() {
     mock_request("/stream/unknown-encoding")
     |> client.on_stream_chunk(fn(data) { process.send(chunks_subject, data) })
     |> client.on_stream_end(fn(_headers) { process.send(ended_subject, True) })
-    |> client.on_stream_error(fn(reason) { process.send(error_subject, reason) })
+    |> client.on_stream_error(fn(failure) {
+      process.send(error_subject, failure)
+    })
 
   let assert Ok(_handle) = client.start_stream(request)
 
@@ -179,7 +181,7 @@ pub fn start_stream_passes_through_unknown_encoding_chunks_test() {
     Ok(False) -> should.fail()
     Error(Nil) -> {
       case process.receive(error_subject, 1000) {
-        Ok(_reason) -> Nil
+        Ok(_failure) -> Nil
         Error(Nil) -> {
           io.println("start_stream unknown-encoding: neither end nor error")
           should.fail()
@@ -290,8 +292,10 @@ pub fn stream_yielder_works_without_encoding_test() {
     list.all(results, fn(r) {
       case r {
         Ok(_) -> True
-        Error(reason) -> {
-          io.println("Unexpected error: " <> reason)
+        Error(failure) -> {
+          io.println(
+            "Unexpected error: " <> client.stream_failure_to_string(failure),
+          )
           False
         }
       }
@@ -320,9 +324,12 @@ pub fn start_stream_auto_injects_accept_encoding_test() {
     mock_request("/echo-accept-encoding")
     |> client.on_stream_chunk(fn(data) { process.send(chunks_subject, data) })
     |> client.on_stream_end(fn(_headers) { process.send(ended_subject, True) })
-    |> client.on_stream_error(fn(reason) {
+    |> client.on_stream_error(fn(failure) {
       process.send(ended_subject, False)
-      io.println("Error in header injection test: " <> reason)
+      io.println(
+        "Error in header injection test: "
+        <> client.stream_failure_to_string(failure),
+      )
     })
 
   let assert Ok(_handle) = client.start_stream(request)
@@ -376,9 +383,11 @@ pub fn start_stream_preserves_custom_accept_encoding_test() {
     |> client.headers([Header("Accept-Encoding", "zstd")])
     |> client.on_stream_chunk(fn(data) { process.send(chunks_subject, data) })
     |> client.on_stream_end(fn(_headers) { process.send(ended_subject, True) })
-    |> client.on_stream_error(fn(reason) {
+    |> client.on_stream_error(fn(failure) {
       process.send(ended_subject, False)
-      io.println("Error in preserve test: " <> reason)
+      io.println(
+        "Error in preserve test: " <> client.stream_failure_to_string(failure),
+      )
     })
 
   let assert Ok(_handle) = client.start_stream(request)
@@ -468,12 +477,14 @@ pub fn start_stream_gzip_cleans_up_zlib_on_error_test() {
     mock_request("/status/500")
     |> client.on_stream_chunk(fn(_data) { Nil })
     |> client.on_stream_end(fn(_headers) { Nil })
-    |> client.on_stream_error(fn(reason) { process.send(error_subject, reason) })
+    |> client.on_stream_error(fn(failure) {
+      process.send(error_subject, failure)
+    })
 
   let assert Ok(handle) = client.start_stream(request)
 
   case process.receive(error_subject, 5000) {
-    Ok(_reason) -> Nil
+    Ok(_failure) -> Nil
     Error(Nil) -> {
       io.println("Zlib error cleanup test: error never called")
       should.fail()

@@ -10,13 +10,15 @@ import dream/http/cookie.{type Cookie, Cookie, Lax, None, Strict}
 import dream/http/header.{type Header, header_name, header_value}
 import dream/http/response.{type Response, Bytes as DreamBytes, Stream, Text}
 import gleam/bytes_tree
+import gleam/erlang/process
+import gleam/http/request as http_request
 import gleam/http/response as http_response
 import gleam/int
 import gleam/list
 import gleam/option
 import gleam/string
 import gleam/yielder
-import mist.{type ResponseData, Bytes as MistBytes, Chunked}
+import mist.{type Connection, type ResponseData, Bytes as MistBytes}
 
 /// Convert Dream response to Mist response format
 ///
@@ -50,41 +52,56 @@ import mist.{type ResponseData, Bytes as MistBytes, Chunked}
 /// // Mist server sends mist_resp to client
 /// ```
 pub fn convert(dream_resp: Response) -> http_response.Response(ResponseData) {
-  // Status is now a plain Int
-  let status_code = dream_resp.status
+  let headers = build_response_headers(dream_resp)
 
-  // Convert headers
-  let headers = list.map(dream_resp.headers, convert_header_to_tuple)
-
-  // Add cookie headers
-  let headers_with_cookies =
-    list.fold(dream_resp.cookies, headers, add_cookie_header)
-
-  // Add content-type header if present
-  let headers_with_content_type = case dream_resp.content_type {
-    option.Some(ct) -> list.key_set(headers_with_cookies, "content-type", ct)
-    option.None -> headers_with_cookies
-  }
-
-  // Convert body based on ResponseBody variant
   let response_data = case dream_resp.body {
     Text(text) -> MistBytes(bytes_tree.from_string(text))
-
     DreamBytes(bytes) -> MistBytes(bytes_tree.from_bit_array(bytes))
-
-    Stream(stream) -> {
-      let byte_stream =
-        stream
-        |> yielder.map(bytes_tree.from_bit_array)
-      Chunked(byte_stream)
-    }
+    Stream(_stream) ->
+      panic as "Stream bodies must use convert_stream with mist request"
   }
 
-  let resp_with_body =
-    http_response.new(status_code)
-    |> http_response.set_body(response_data)
+  http_response.new(dream_resp.status)
+  |> http_response.set_body(response_data)
+  |> set_all_headers(headers)
+}
 
-  set_all_headers(headers_with_content_type, resp_with_body)
+/// Convert a Dream streaming response to Mist chunked response
+///
+/// Uses mist's actor-based chunked API to drain a Dream yielder,
+/// sending each element as an HTTP chunk. Requires the original mist
+/// request for connection access.
+///
+/// ## Example
+///
+/// ```gleam
+/// // Internal use - called by the handler when body is Stream
+/// let mist_resp = convert_stream(mist_request, dream_resp, stream)
+/// ```
+pub fn convert_stream(
+  mist_request: http_request.Request(Connection),
+  dream_response: Response,
+  stream: yielder.Yielder(BitArray),
+) -> http_response.Response(ResponseData) {
+  let headers = build_response_headers(dream_response)
+
+  let base_response =
+    http_response.Response(
+      status: dream_response.status,
+      headers: [],
+      body: Nil,
+    )
+    |> set_all_headers(headers)
+
+  mist.chunked(
+    request: mist_request,
+    response: base_response,
+    init: fn(subject) {
+      process.send(subject, DrainNext)
+      DrainState(remaining: stream, subject: subject)
+    },
+    loop: drain_yielder_loop,
+  )
 }
 
 fn convert_header_to_tuple(header: Header) -> #(String, String) {
@@ -99,10 +116,20 @@ fn add_cookie_header(
   [#("set-cookie", cookie_header), ..acc]
 }
 
+fn build_response_headers(dream_resp: Response) -> List(#(String, String)) {
+  let headers = list.map(dream_resp.headers, convert_header_to_tuple)
+  let headers_with_cookies =
+    list.fold(dream_resp.cookies, headers, add_cookie_header)
+  case dream_resp.content_type {
+    option.Some(ct) -> list.key_set(headers_with_cookies, "content-type", ct)
+    option.None -> headers_with_cookies
+  }
+}
+
 fn add_header(
-  acc: http_response.Response(ResponseData),
+  acc: http_response.Response(body),
   header: #(String, String),
-) -> http_response.Response(ResponseData) {
+) -> http_response.Response(body) {
   case header.0 {
     "set-cookie" -> http_response.prepend_header(acc, header.0, header.1)
     _ -> http_response.set_header(acc, header.0, header.1)
@@ -110,10 +137,48 @@ fn add_header(
 }
 
 fn set_all_headers(
+  resp: http_response.Response(body),
   headers: List(#(String, String)),
-  resp: http_response.Response(ResponseData),
-) -> http_response.Response(ResponseData) {
+) -> http_response.Response(body) {
   list.fold(headers, resp, add_header)
+}
+
+type DrainMessage {
+  DrainNext
+}
+
+type DrainState {
+  DrainState(
+    remaining: yielder.Yielder(BitArray),
+    subject: process.Subject(DrainMessage),
+  )
+}
+
+fn drain_yielder_loop(
+  state: DrainState,
+  _message: DrainMessage,
+  connection: Connection,
+) -> mist.ChunkNext(DrainState) {
+  case yielder.step(state.remaining) {
+    yielder.Next(chunk, rest) ->
+      send_chunk_and_continue(state, chunk, rest, connection)
+    yielder.Done -> mist.ChunkStop
+  }
+}
+
+fn send_chunk_and_continue(
+  state: DrainState,
+  chunk: BitArray,
+  rest: yielder.Yielder(BitArray),
+  connection: Connection,
+) -> mist.ChunkNext(DrainState) {
+  case mist.send_chunk(connection, chunk) {
+    Ok(Nil) -> {
+      process.send(state.subject, DrainNext)
+      mist.ChunkContinue(DrainState(remaining: rest, subject: state.subject))
+    }
+    Error(Nil) -> mist.ChunkStop
+  }
 }
 
 /// Format a cookie for the Set-Cookie header

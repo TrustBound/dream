@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Updated mist streaming adapter to use actor-based `mist.chunked()` API
+  instead of the removed `mist.Streaming` response variant. Dream's public
+  streaming API (`stream_response`, `sse_response`, `ResponseBody.Stream`)
+  is unchanged.
+
 ## [2.4.1] - 2026-03-11
 
 ### Fixed

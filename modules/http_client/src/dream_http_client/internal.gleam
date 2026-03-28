@@ -8,7 +8,7 @@
 //// This is an internal module. Use `dream_http_client/client`,
 //// `dream_http_client/recorder`, and `dream_http_client/matching` instead.
 
-import gleam/bit_array
+import gleam/dynamic
 import gleam/dynamic/decode as d
 import gleam/erlang/atom
 import gleam/erlang/process
@@ -22,7 +22,7 @@ import gleam/result
 import gleam/string
 
 // Erlang externals for streaming HTTP requests
-@external(erlang, "dream_httpc_shim", "request_stream")
+@external(erlang, "dream_http_shim", "request_stream")
 fn request_stream(
   method: atom.Atom,
   url: String,
@@ -30,18 +30,21 @@ fn request_stream(
   body: BitArray,
   receiver: process.Pid,
   timeout_ms: Int,
+  connect_timeout_ms: Int,
+  autoredirect: Bool,
+  protocols: atom.Atom,
 ) -> d.Dynamic
 
-@external(erlang, "dream_httpc_shim", "fetch_next")
+@external(erlang, "dream_http_shim", "fetch_next")
 fn fetch_next(owner: d.Dynamic, timeout_ms: Int) -> d.Dynamic
 
-@external(erlang, "dream_httpc_shim", "fetch_start_headers")
+@external(erlang, "dream_http_shim", "fetch_start_headers")
 fn fetch_start_headers(owner: d.Dynamic, timeout_ms: Int) -> d.Dynamic
 
 /// Convert an HTTP method to an Erlang atom
 ///
 /// Converts a Gleam HTTP method type to an Erlang atom for use with the
-/// Erlang httpc library. This is an internal function used by the streaming
+/// Erlang gun library. This is an internal function used by the streaming
 /// request implementation.
 ///
 /// ## Parameters
@@ -68,7 +71,7 @@ pub fn atomize_method(method: http.Method) -> atom.Atom {
 
 /// Start an HTTP streaming request
 ///
-/// Initiates a streaming HTTP request using Erlang's httpc library. This
+/// Initiates a streaming HTTP request using Erlang's gun library. This
 /// function constructs the URL, converts the method to an atom, and starts
 /// the streaming process. Returns a dynamic value containing the owner PID
 /// that can be used to receive chunks.
@@ -82,9 +85,12 @@ pub fn atomize_method(method: http.Method) -> atom.Atom {
 ///
 /// A dynamic value containing the owner PID in the format `{ok, OwnerPid}`.
 /// Use `extract_owner_pid()` to get the PID for receiving chunks.
-pub fn start_httpc_stream(
+pub fn start_gun_stream(
   request: Request(String),
   timeout_ms: Int,
+  connect_timeout_ms: Int,
+  autoredirect: Bool,
+  protocols_atom: atom.Atom,
 ) -> d.Dynamic {
   let port_string = case request.port {
     option.Some(port) -> ":" <> int.to_string(port)
@@ -104,17 +110,27 @@ pub fn start_httpc_stream(
   let method_atom = atomize_method(request.method)
   let body = <<request.body:utf8>>
   let receiver = process.self()
-  request_stream(method_atom, url, request.headers, body, receiver, timeout_ms)
+  request_stream(
+    method_atom,
+    url,
+    request.headers,
+    body,
+    receiver,
+    timeout_ms,
+    connect_timeout_ms,
+    autoredirect,
+    protocols_atom,
+  )
 }
 
 /// Extract the owner PID from the request result
 ///
-/// Extracts the owner process ID from the result returned by `start_httpc_stream()`.
+/// Extracts the owner process ID from the result returned by `start_gun_stream()`.
 /// The owner PID is used to receive response chunks from the streaming request.
 ///
 /// ## Parameters
 ///
-/// - `request_result`: The dynamic result from `start_httpc_stream()`, which is
+/// - `request_result`: The dynamic result from `start_gun_stream()`, which is
 ///   always `{ok, OwnerPid}` (errors are detected asynchronously)
 ///
 /// ## Returns
@@ -143,8 +159,9 @@ pub fn extract_owner_pid(request_result: d.Dynamic) -> d.Dynamic {
 /// Receive the next chunk from the stream
 ///
 /// Receives the next chunk of data from an active streaming HTTP request.
-/// Returns `Ok(BitArray)` when a chunk is available, or `Error(String)` when
-/// the stream has finished or an error occurred.
+/// Returns `Ok(BitArray)` when a chunk is available, or `Error(d.Dynamic)` when
+/// the stream has finished or an error occurred. The error dynamic value is a
+/// structured tagged tuple from the Erlang shim's `classify_error`.
 ///
 /// ## Parameters
 ///
@@ -155,11 +172,11 @@ pub fn extract_owner_pid(request_result: d.Dynamic) -> d.Dynamic {
 ///
 /// - `Ok(Some(BitArray))`: The next chunk of response data
 /// - `Ok(None)`: Stream finished normally (no more data)
-/// - `Error(String)`: Error occurred with reason
+/// - `Error(d.Dynamic)`: Structured error from the Erlang shim
 pub fn receive_next(
   owner: d.Dynamic,
   timeout_ms: Int,
-) -> Result(option.Option(BitArray), String) {
+) -> Result(option.Option(BitArray), d.Dynamic) {
   let resp = fetch_next(owner, timeout_ms)
   let tag =
     d.run(resp, d.at([0], d.dynamic))
@@ -173,21 +190,17 @@ pub fn receive_next(
     }
     "finished" -> Ok(option.None)
     "error" -> {
-      let reason = case d.run(resp, d.at([1], d.string)) {
-        Ok(s) -> s
-        Error(_) ->
-          case d.run(resp, d.at([1], d.bit_array)) {
-            Ok(bytes) ->
-              case bit_array.to_string(bytes) {
-                Ok(s) -> s
-                Error(_) -> string.inspect(resp)
-              }
-            Error(_) -> string.inspect(resp)
-          }
-      }
-      Error(reason)
+      let reason_dyn =
+        d.run(resp, d.at([1], d.dynamic)) |> result.unwrap(dynamic.nil())
+      Error(reason_dyn)
     }
-    _ -> Error("Unexpected stream message tag: " <> tag)
+    _ ->
+      Error(
+        to_dynamic(#(
+          atom.create("unexpected"),
+          "Unexpected stream message tag: " <> tag,
+        )),
+      )
   }
 }
 
@@ -225,10 +238,9 @@ pub fn get_stream_start_headers(
     }
 
     "error" -> {
-      let reason =
-        d.run(resp, d.at([1], d.string))
-        |> result.unwrap("Unknown stream_start header error")
-      Error(reason)
+      let reason_dyn =
+        d.run(resp, d.at([1], d.dynamic)) |> result.unwrap(dynamic.nil())
+      Error(string.inspect(reason_dyn))
     }
 
     _ -> Error("Unexpected fetch_start_headers response: " <> tag)
@@ -239,6 +251,9 @@ fn convert_to_atom(dyn: d.Dynamic) -> Result(atom.Atom, e) {
   Ok(atom.cast_from_dynamic(dyn))
 }
 
+@external(erlang, "gleam_stdlib", "identity")
+fn to_dynamic(value: a) -> d.Dynamic
+
 // ============================================================================
 // Message-Based Streaming FFI
 // ============================================================================
@@ -246,7 +261,7 @@ fn convert_to_atom(dyn: d.Dynamic) -> Result(atom.Atom, e) {
 /// Start a message-based streaming HTTP request
 ///
 /// Low-level FFI function that initiates a streaming HTTP request using Erlang's
-/// `httpc` library. Messages are sent directly to the specified process mailbox
+/// `gun` library. Messages are sent directly to the specified process mailbox
 /// without buffering or an intermediate owner process.
 ///
 /// **Note:** This is an internal function used by the public API. Most callers
@@ -272,7 +287,7 @@ fn convert_to_atom(dyn: d.Dynamic) -> Result(atom.Atom, e) {
 /// - This function is used internally by `client.start_stream()`
 /// - Messages arrive as Erlang tuples that must be decoded
 /// - Use `decode_stream_message_for_selector()` for selector integration
-@external(erlang, "dream_httpc_shim", "request_stream_messages")
+@external(erlang, "dream_http_shim", "request_stream_messages")
 pub fn start_stream_messages(
   method: atom.Atom,
   url: String,
@@ -280,26 +295,29 @@ pub fn start_stream_messages(
   body: BitArray,
   receiver: process.Pid,
   timeout_ms: Int,
+  connect_timeout_ms: Int,
+  autoredirect: Bool,
+  protocols: atom.Atom,
 ) -> d.Dynamic
 
 /// Cancel a streaming request
 ///
 /// Low-level FFI function that cancels an active streaming HTTP request using
-/// the httpc request ID.
+/// the gun request ID.
 ///
 /// **Note:** This is an internal function used by the public API. Most callers
 /// should use `client.cancel_stream()` instead.
 ///
 /// ## Parameters
 ///
-/// - `request_id`: The httpc request ID as a dynamic value
+/// - `request_id`: The gun request ID as a dynamic value
 ///
 /// ## Notes
 ///
 /// - This function is used internally by `client.cancel_stream()`
 /// - After cancellation, no more messages will be sent to the receiver process
 /// - Safe to call multiple times on the same request ID
-@external(erlang, "dream_httpc_shim", "cancel_stream")
+@external(erlang, "dream_http_shim", "cancel_stream")
 pub fn cancel_stream_internal(request_id: d.Dynamic) -> Nil
 
 /// Cancel a streaming request by string ID
@@ -317,20 +335,20 @@ pub fn cancel_stream_internal(request_id: d.Dynamic) -> Nil
 /// ## Notes
 ///
 /// - This function is used internally by `client.cancel_stream()`
-/// - Converts the string ID to the appropriate format for httpc
+/// - Converts the string ID to the appropriate format for gun
 /// - After cancellation, no more messages will be sent to the receiver process
-@external(erlang, "dream_httpc_shim", "cancel_stream_by_string")
+@external(erlang, "dream_http_shim", "cancel_stream_by_string")
 pub fn cancel_stream_by_string(request_id_string: String) -> Nil
 
 /// Receive the next stream message with timeout
 ///
-/// Low-level FFI function that blocks waiting for an httpc stream message from
+/// Low-level FFI function that blocks waiting for an gun stream message from
 /// the process mailbox and returns a normalized tuple. This is used for direct
 /// message receiving without selector integration.
 ///
 /// **Note:** This is an internal function. Most callers should use the public
 /// streaming API (`client.start_stream()` or `client.stream_yielder()`), not
-/// raw httpc messages.
+/// raw gun messages.
 ///
 /// ## Parameters
 ///
@@ -346,12 +364,12 @@ pub fn cancel_stream_by_string(request_id_string: String) -> Nil
 /// - This function is used internally for non-selector message handling
 /// - Messages are normalized by the Erlang shim before being returned
 /// - Use `decode_stream_message_for_selector()` for selector integration
-@external(erlang, "dream_httpc_shim", "receive_stream_message")
+@external(erlang, "dream_http_shim", "receive_stream_message")
 pub fn receive_stream_message(timeout_ms: Int) -> d.Dynamic
 
 /// Decode stream message for selector integration
 ///
-/// Low-level FFI function that processes raw httpc messages from OTP selectors.
+/// Low-level FFI function that processes raw gun messages from OTP selectors.
 /// The Erlang shim handles pattern matching, normalizes charlists to binaries,
 /// and returns a clean tuple format that Gleam can easily decode.
 ///
@@ -374,5 +392,5 @@ pub fn receive_stream_message(timeout_ms: Int) -> d.Dynamic
 /// - This function is used internally by `client.start_stream()`
 /// - Handles all message normalization and type conversion
 /// - Returns a format optimized for Gleam's dynamic decoder
-@external(erlang, "dream_httpc_shim", "decode_stream_message_for_selector")
+@external(erlang, "dream_http_shim", "decode_stream_message_for_selector")
 pub fn decode_stream_message_for_selector(message: d.Dynamic) -> d.Dynamic
