@@ -114,7 +114,10 @@ fn format_chat_message_to_json(chat_message: ChatMessage) -> json.Json {
 /// Handle WebSocket close
 ///
 /// Notifies other users when a user leaves.
-fn handle_websocket_close(state: String, dependencies: ChatDependencies) -> Nil {
+fn handle_websocket_close(
+  state: String,
+  dependencies: ChatDependencies,
+) -> Nil {
   let ChatDependencies(services: services, ..) = dependencies
   broadcaster.publish(services.pubsub, UserLeft(state))
 }

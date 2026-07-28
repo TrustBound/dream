@@ -237,7 +237,10 @@ pub fn header_value(header: Header) -> String {
 }
 
 /// Get the value of a header by name (case-insensitive)
-pub fn get_header(headers: List(Header), name: String) -> option.Option(String) {
+pub fn get_header(
+  headers: List(Header),
+  name: String,
+) -> option.Option(String) {
   let normalized_name = string.lowercase(name)
   get_header_recursive(headers, normalized_name)
 }
@@ -305,7 +308,10 @@ pub fn remove_header(headers: List(Header), name: String) -> List(Header) {
 // Cookie utilities
 
 /// Get a cookie by name (case-insensitive)
-pub fn get_cookie(cookies: List(Cookie), name: String) -> option.Option(Cookie) {
+pub fn get_cookie(
+  cookies: List(Cookie),
+  name: String,
+) -> option.Option(Cookie) {
   let normalized_name = string.lowercase(name)
   get_cookie_recursive(cookies, normalized_name)
 }

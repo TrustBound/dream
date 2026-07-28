@@ -531,7 +531,9 @@ fn decode_header_pair_decoder() -> decode.Decoder(#(String, String)) {
   |> decode.then(build_header_value_decoder)
 }
 
-fn build_header_value_decoder(name: String) -> decode.Decoder(#(String, String)) {
+fn build_header_value_decoder(
+  name: String,
+) -> decode.Decoder(#(String, String)) {
   decode.at([1], decode.string)
   |> decode.map(build_header_pair(name))
 }

@@ -232,8 +232,7 @@ fn create_wrapped_controller(
     context,
     services,
     fn(Request, context, services) -> Response,
-  ) ->
-    Response,
+  ) -> Response,
   controller: fn(Request, context, services) -> Response,
 ) -> fn(Request, context, services) -> Response {
   fn(request, context, services) {

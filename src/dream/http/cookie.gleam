@@ -253,7 +253,10 @@ pub fn secure_cookie(name: String, value: String) -> Cookie {
 /// // Case-insensitive
 /// cookie.get_cookie(cookies, "THEME")  // Some(Cookie("theme", "dark", ...))
 /// ```
-pub fn get_cookie(cookies: List(Cookie), name: String) -> option.Option(Cookie) {
+pub fn get_cookie(
+  cookies: List(Cookie),
+  name: String,
+) -> option.Option(Cookie) {
   let normalized_name = string.lowercase(name)
   find_cookie(cookies, normalized_name)
 }

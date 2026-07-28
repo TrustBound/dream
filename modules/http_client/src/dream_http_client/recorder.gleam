@@ -162,7 +162,10 @@ pub fn new() -> RecorderBuilder {
 ///
 /// The directory is **required** for `"record"` and `"playback"` (validated in
 /// `start()`), and ignored for `"passthrough"`.
-pub fn directory(builder: RecorderBuilder, directory: String) -> RecorderBuilder {
+pub fn directory(
+  builder: RecorderBuilder,
+  directory: String,
+) -> RecorderBuilder {
   RecorderBuilder(..builder, directory: option.Some(directory))
 }
 
@@ -185,7 +188,10 @@ pub fn mode(builder: RecorderBuilder, mode: String) -> RecorderBuilder {
 ///
 /// If two different recordings produce the same key, playback lookup becomes
 /// ambiguous and `find_recording()` will return `Error(...)`.
-pub fn key(builder: RecorderBuilder, key: matching.MatchKey) -> RecorderBuilder {
+pub fn key(
+  builder: RecorderBuilder,
+  key: matching.MatchKey,
+) -> RecorderBuilder {
   RecorderBuilder(..builder, key: key)
 }
 

@@ -166,7 +166,9 @@ fn initialize_count(
   }
 }
 
-fn deny_request(cfg: RateLimitConfig) -> Result(RateLimitStatus, table.EtsError) {
+fn deny_request(
+  cfg: RateLimitConfig,
+) -> Result(RateLimitStatus, table.EtsError) {
   Ok(RateLimitStatus(allowed: False, remaining: 0, limit: cfg.max_requests))
 }
 

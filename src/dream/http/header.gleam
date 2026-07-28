@@ -103,7 +103,10 @@ pub fn header_value(header: Header) -> String {
 /// header.get_header(headers, "CACHE-CONTROL")  // Some("max-age=3600")
 /// header.get_header(headers, "X-Missing")  // None
 /// ```
-pub fn get_header(headers: List(Header), name: String) -> option.Option(String) {
+pub fn get_header(
+  headers: List(Header),
+  name: String,
+) -> option.Option(String) {
   let normalized_name = string.lowercase(name)
   find_header(headers, normalized_name)
 }

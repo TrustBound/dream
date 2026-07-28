@@ -492,8 +492,7 @@ fn create_wrapped_controller(
     context,
     services,
     fn(Request, context, services) -> Response,
-  ) ->
-    Response,
+  ) -> Response,
   controller: fn(Request, context, services) -> Response,
 ) -> fn(Request, context, services) -> Response {
   wrap_controller_with_middleware(middleware_fn, controller)
@@ -508,8 +507,7 @@ fn wrap_controller_with_middleware(
     context,
     services,
     fn(Request, context, services) -> Response,
-  ) ->
-    Response,
+  ) -> Response,
   controller: fn(Request, context, services) -> Response,
 ) -> fn(Request, context, services) -> Response {
   apply_middleware_to_controller(middleware_fn, controller)
@@ -522,8 +520,7 @@ fn apply_middleware_to_controller(
     context,
     services,
     fn(Request, context, services) -> Response,
-  ) ->
-    Response,
+  ) -> Response,
   controller: fn(Request, context, services) -> Response,
 ) -> fn(Request, context, services) -> Response {
   fn(request, context, services) {

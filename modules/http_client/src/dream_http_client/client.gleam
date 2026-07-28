@@ -575,7 +575,10 @@ pub fn scheme(
 /// client.new()
 /// |> client.host("api.example.com")
 /// ```
-pub fn host(client_request: ClientRequest, host_value: String) -> ClientRequest {
+pub fn host(
+  client_request: ClientRequest,
+  host_value: String,
+) -> ClientRequest {
   ClientRequest(..client_request, host: host_value)
 }
 
@@ -627,7 +630,10 @@ pub fn port(client_request: ClientRequest, port_value: Int) -> ClientRequest {
 /// client.new()
 /// |> client.path("/api/users/123")
 /// ```
-pub fn path(client_request: ClientRequest, path_value: String) -> ClientRequest {
+pub fn path(
+  client_request: ClientRequest,
+  path_value: String,
+) -> ClientRequest {
   ClientRequest(..client_request, path: path_value)
 }
 
@@ -721,7 +727,10 @@ pub fn headers(
 /// |> client.method(http.Post)
 /// |> client.body(json.to_string(json_body))
 /// ```
-pub fn body(client_request: ClientRequest, body_value: String) -> ClientRequest {
+pub fn body(
+  client_request: ClientRequest,
+  body_value: String,
+) -> ClientRequest {
   ClientRequest(..client_request, body: body_value)
 }
 
@@ -779,7 +788,10 @@ pub fn recorder(
 /// |> host("slow-api.example.com")
 /// |> timeout(60_000)  // 60 second timeout
 /// ```
-pub fn timeout(client_request: ClientRequest, timeout_ms: Int) -> ClientRequest {
+pub fn timeout(
+  client_request: ClientRequest,
+  timeout_ms: Int,
+) -> ClientRequest {
   ClientRequest(..client_request, timeout: option.Some(timeout_ms))
 }
 
@@ -804,7 +816,10 @@ pub fn timeout(client_request: ClientRequest, timeout_ms: Int) -> ClientRequest 
 /// |> client.connect_timeout(5000)
 /// |> client.send()
 /// ```
-pub fn connect_timeout(client_request: ClientRequest, ms: Int) -> ClientRequest {
+pub fn connect_timeout(
+  client_request: ClientRequest,
+  ms: Int,
+) -> ClientRequest {
   ClientRequest(..client_request, connect_timeout: option.Some(ms))
 }
 
@@ -1622,7 +1637,9 @@ pub fn get_protocols(client_request: ClientRequest) -> Option(Protocols) {
 /// let recorder_opt = client.get_recorder(req)
 /// // recorder_opt == Some(rec)
 /// ```
-pub fn get_recorder(client_request: ClientRequest) -> Option(recorder.Recorder) {
+pub fn get_recorder(
+  client_request: ClientRequest,
+) -> Option(recorder.Recorder) {
   client_request.recorder
 }
 

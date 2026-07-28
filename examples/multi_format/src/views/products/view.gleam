@@ -58,7 +58,9 @@ pub fn list_to_html(products: List(Product)) -> String {
 }
 
 /// Format list of products as CSV stream
-pub fn list_to_csv_stream(products: List(Product)) -> yielder.Yielder(BitArray) {
+pub fn list_to_csv_stream(
+  products: List(Product),
+) -> yielder.Yielder(BitArray) {
   let header = "id,name,price,stock\n"
   yielder.from_list([header, ..list.map(products, product_to_csv_row)])
   |> yielder.map(string_to_bit_array)
