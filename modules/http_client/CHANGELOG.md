@@ -5,6 +5,16 @@ All notable changes to `dream_http_client` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+
+- **`gleam_stdlib` requirement widened to `>= 0.60.0 and < 2.0.0`.** The
+  previous `< 1.0.0` cap made the package unresolvable in projects that use
+  `gleam_stdlib` 1.x. No code changes were needed: the package compiles
+  cleanly against `gleam_stdlib` 1.0.5, and the test suite passes at the
+  locked version.
+
 ## 5.1.3 - 2026-03-17
 
 ### Fixed
