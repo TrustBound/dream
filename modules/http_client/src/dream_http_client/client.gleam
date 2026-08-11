@@ -1949,21 +1949,18 @@ fn send_client_request_via_gun_with_meta(
       protocols_value,
     )
   {
-    Ok(#(status, headers, response_body)) -> {
-      case bit_array.to_string(response_body) {
-        Ok(body_str) -> Ok(#(status, headers, body_str))
-        Error(_) ->
-          Error(
-            to_dynamic(#(
-              atom.create("unexpected"),
-              "Response body is not valid UTF-8",
-            )),
-          )
-      }
-    }
+    Ok(#(status, headers, response_body)) ->
+      // Response bodies are opaque bytes, not text: S3 objects, PDFs,
+      // images. On the BEAM a String IS a binary, so reinterpret the
+      // bytes without UTF-8 validation — rejecting non-UTF8 here made
+      // every binary download fail with a transport error.
+      Ok(#(status, headers, unchecked_bits_to_string(response_body)))
     Error(error_dyn) -> Error(error_dyn)
   }
 }
+
+@external(erlang, "gleam_stdlib", "identity")
+fn unchecked_bits_to_string(bits: BitArray) -> String
 
 fn client_request_to_recorded_request(
   client_request: ClientRequest,

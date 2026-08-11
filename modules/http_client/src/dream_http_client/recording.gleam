@@ -234,27 +234,31 @@ fn encode_recorded_request(req: RecordedRequest) -> json.Json {
     option.Some(q) -> json.string(q)
     option.None -> json.null()
   }
-  json.object([
-    #("method", encode_method(req.method)),
-    #("scheme", encode_scheme(req.scheme)),
-    #("host", json.string(req.host)),
-    #("port", port_json),
-    #("path", json.string(req.path)),
-    #("query", query_json),
-    #("headers", encode_headers(req.headers)),
-    #("body", json.string(req.body)),
-  ])
+  json.object(list.append(
+    [
+      #("method", encode_method(req.method)),
+      #("scheme", encode_scheme(req.scheme)),
+      #("host", json.string(req.host)),
+      #("port", port_json),
+      #("path", json.string(req.path)),
+      #("query", query_json),
+      #("headers", encode_headers(req.headers)),
+    ],
+    encode_body_fields(req.body),
+  ))
 }
 
 fn encode_recorded_response(resp: RecordedResponse) -> json.Json {
   case resp {
     BlockingResponse(status, headers, body) ->
-      json.object([
-        #("mode", json.string("blocking")),
-        #("status", json.int(status)),
-        #("headers", encode_headers(headers)),
-        #("body", json.string(body)),
-      ])
+      json.object(list.append(
+        [
+          #("mode", json.string("blocking")),
+          #("status", json.int(status)),
+          #("headers", encode_headers(headers)),
+        ],
+        encode_body_fields(body),
+      ))
     StreamingResponse(status, headers, chunks) -> {
       let chunks_json = list.map(chunks, encode_chunk)
       json.object([
@@ -267,27 +271,45 @@ fn encode_recorded_response(resp: RecordedResponse) -> json.Json {
   }
 }
 
-fn encode_chunk(chunk: Chunk) -> json.Json {
-  // Convert BitArray to string for JSON storage
-  // We'll store as UTF-8 string, which works for text data
-  // For binary data, we'd need base64, but BitArray doesn't have that
-  // For now, convert to string and handle encoding errors gracefully
-  let data_str = case bit_array.to_string(chunk.data) {
-    Ok(string_value) -> string_value
-    Error(utf8_decode_error) -> {
-      // If conversion fails, log the decode error and use a placeholder. In
-      // practice, streaming chunks are usually text, so this is rare.
-      io.println_error(
-        "Failed to encode recording chunk as UTF-8 string: "
-        <> string.inspect(utf8_decode_error),
-      )
-      ""
-    }
+/// Encode a request/response body for JSON storage.
+///
+/// JSON strings can only carry UTF-8 (gleam/json raises `invalid_byte`
+/// on anything else), but recorded bodies may hold raw binary — S3
+/// objects, PDFs, images. Valid UTF-8 bodies are stored verbatim so
+/// existing fixtures stay byte-identical and reviewable; binary bodies
+/// are base64-encoded and tagged with `"body_encoding": "base64"` so
+/// the decoder can restore the exact bytes.
+fn encode_body_fields(body: String) -> List(#(String, json.Json)) {
+  case bit_array.to_string(bit_array.from_string(body)) {
+    Ok(_) -> [#("body", json.string(body))]
+    Error(_) -> [
+      #(
+        "body",
+        json.string(bit_array.base64_encode(bit_array.from_string(body), True)),
+      ),
+      #("body_encoding", json.string("base64")),
+    ]
   }
-  json.object([
-    #("data", json.string(data_str)),
-    #("delay_ms", json.int(chunk.delay_ms)),
-  ])
+}
+
+fn encode_chunk(chunk: Chunk) -> json.Json {
+  // Chunk data is a BitArray and may hold raw binary. UTF-8 chunks are
+  // stored verbatim (keeps SSE fixtures human-readable); binary chunks
+  // are base64-encoded and tagged with `"data_encoding": "base64"` —
+  // never silently replaced with a placeholder.
+  case bit_array.to_string(chunk.data) {
+    Ok(string_value) ->
+      json.object([
+        #("data", json.string(string_value)),
+        #("delay_ms", json.int(chunk.delay_ms)),
+      ])
+    Error(_) ->
+      json.object([
+        #("data", json.string(bit_array.base64_encode(chunk.data, True))),
+        #("data_encoding", json.string("base64")),
+        #("delay_ms", json.int(chunk.delay_ms)),
+      ])
+  }
 }
 
 fn encode_headers(headers: List(#(String, String))) -> json.Json {
@@ -434,7 +456,13 @@ fn decode_recorded_request_decoder() -> decode.Decoder(RecordedRequest) {
     "headers",
     decode.list(decode_header_pair_decoder()),
   )
-  use body <- decode.field("body", decode.string)
+  use stored_body <- decode.field("body", decode.string)
+  use body_encoding <- decode.optional_field(
+    "body_encoding",
+    "utf8",
+    decode.string,
+  )
+  let body = decode_stored_body(stored_body, body_encoding)
 
   // Parse method and scheme
   // Method: Use Other() for unknown methods (preserves original value)
@@ -502,9 +530,46 @@ fn decode_blocking_response_decoder(
   status: Int,
   headers: List(#(String, String)),
 ) -> decode.Decoder(RecordedResponse) {
-  use body <- decode.field("body", decode.string)
-  decode.success(BlockingResponse(status: status, headers: headers, body: body))
+  use stored_body <- decode.field("body", decode.string)
+  use body_encoding <- decode.optional_field(
+    "body_encoding",
+    "utf8",
+    decode.string,
+  )
+  decode.success(BlockingResponse(
+    status: status,
+    headers: headers,
+    body: decode_stored_body(stored_body, body_encoding),
+  ))
 }
+
+/// Restore a stored body to its original bytes. `"base64"`-tagged
+/// bodies decode back to the exact recorded binary; everything else
+/// (including fixtures written before the tag existed) is verbatim
+/// UTF-8. A corrupt base64 payload falls back to the stored string
+/// with a logged error, matching this module's lenient decode style.
+fn decode_stored_body(stored: String, encoding: String) -> String {
+  case encoding {
+    "base64" ->
+      case bit_array.base64_decode(stored) {
+        Ok(bits) -> unchecked_bits_to_string(bits)
+        Error(_) -> {
+          io.println_error(
+            "Recording body tagged base64 failed to decode; using raw value",
+          )
+          stored
+        }
+      }
+    _ -> stored
+  }
+}
+
+/// Reinterpret raw bytes as a String without UTF-8 validation. On the
+/// BEAM a String IS a binary; recorded bodies must round-trip
+/// byte-exact even when they are not valid UTF-8 (PDFs, images), which
+/// `bit_array.to_string` would reject.
+@external(erlang, "gleam_stdlib", "identity")
+fn unchecked_bits_to_string(bits: BitArray) -> String
 
 fn decode_streaming_response_decoder(
   status: Int,
@@ -520,9 +585,25 @@ fn decode_streaming_response_decoder(
 
 fn decode_chunk_decoder() -> decode.Decoder(Chunk) {
   use data_str <- decode.field("data", decode.string)
+  use data_encoding <- decode.optional_field(
+    "data_encoding",
+    "utf8",
+    decode.string,
+  )
   use delay_ms <- decode.field("delay_ms", decode.int)
-  // Convert string back to BitArray
-  let data = <<data_str:utf8>>
+  let data = case data_encoding {
+    "base64" ->
+      case bit_array.base64_decode(data_str) {
+        Ok(bits) -> bits
+        Error(_) -> {
+          io.println_error(
+            "Recording chunk tagged base64 failed to decode; using raw value",
+          )
+          <<data_str:utf8>>
+        }
+      }
+    _ -> <<data_str:utf8>>
+  }
   decode.success(Chunk(data: data, delay_ms: delay_ms))
 }
 
