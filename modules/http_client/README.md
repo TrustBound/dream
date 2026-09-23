@@ -499,6 +499,13 @@ client.new()
 - `await_stream(handle) -> Nil` - Wait for completion (optional)
 - `cancel_stream_handle(handle) -> Nil` - Cancel running stream
 
+A callback stream is owned by its dedicated stream process. Cancelling the
+handle asks `httpc` to cancel the request and stops that process. If the
+stream process crashes, its request is cancelled and the client releases its
+request bookkeeping. The process that called `start_stream()` may exit without
+cancelling the stream. Cancellation ends local request work; a server may have
+already completed the response, and a pooled connection may remain open.
+
 ### Types
 
 **`Header`** - HTTP header with `name: String` and `value: String`

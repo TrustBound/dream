@@ -322,6 +322,9 @@ pub fn cancel_stream_internal(request_id: d.Dynamic) -> Nil
 @external(erlang, "dream_httpc_shim", "cancel_stream_by_string")
 pub fn cancel_stream_by_string(request_id_string: String) -> Nil
 
+@external(erlang, "dream_httpc_shim", "cancel_stream_process")
+pub fn cancel_stream_process(pid: process.Pid) -> Nil
+
 /// Receive the next stream message with timeout
 ///
 /// Low-level FFI function that blocks waiting for an httpc stream message from

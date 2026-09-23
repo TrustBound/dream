@@ -964,6 +964,11 @@ pub type StreamMessage {
   DecodeError(reason: String)
 }
 
+type StreamEvent {
+  HttpMessage(StreamMessage)
+  CancelRequested
+}
+
 /// Handle to a running HTTP stream
 ///
 /// Opaque handle returned from `start_stream()` representing a stream running in
@@ -2158,7 +2163,12 @@ fn run_stream_process(request: ClientRequest) -> Nil {
       // Build selector for HTTP messages
       let selector =
         process.new_selector()
-        |> select_stream_messages(fn(msg) { msg })
+        |> select_stream_messages(HttpMessage)
+        |> process.select_record(
+          tag: atom.create("dream_cancel_stream"),
+          fields: 0,
+          mapping: fn(_message) { CancelRequested },
+        )
 
       let timeout_ms = resolve_timeout(request)
 
@@ -2241,17 +2251,18 @@ fn replay_recorded_stream(
 }
 
 fn process_stream_loop(
-  selector: process.Selector(StreamMessage),
+  selector: process.Selector(StreamEvent),
   req_id: RequestId,
   request: ClientRequest,
   timeout_ms: Int,
 ) -> Nil {
   case process.selector_receive(selector, timeout_ms) {
-    Ok(message) -> {
+    Ok(HttpMessage(message)) ->
       handle_stream_message(message, req_id, request, selector, timeout_ms)
-    }
+    Ok(CancelRequested) -> cancel_stream(req_id)
     Error(Nil) -> {
       // Timeout waiting for messages
+      cancel_stream(req_id)
       case request.on_stream_error {
         Some(on_error) -> on_error("Timeout waiting for stream messages")
         None -> Nil
@@ -2264,7 +2275,7 @@ fn handle_stream_message(
   message: StreamMessage,
   req_id: RequestId,
   request: ClientRequest,
-  selector: process.Selector(StreamMessage),
+  selector: process.Selector(StreamEvent),
   timeout_ms: Int,
 ) -> Nil {
   case message {
@@ -2321,6 +2332,7 @@ fn handle_stream_message(
     }
 
     DecodeError(reason) -> {
+      cancel_stream(req_id)
       case request.on_stream_error {
         Some(on_error) -> on_error("DecodeError: " <> reason)
         None -> Nil
@@ -2344,7 +2356,7 @@ fn handle_stream_message(
 /// ```
 pub fn cancel_stream_handle(handle: StreamHandle) -> Nil {
   let StreamHandle(pid) = handle
-  process.kill(pid)
+  internal.cancel_stream_process(pid)
 }
 
 /// Check if a stream is still active

@@ -1,7 +1,10 @@
 -module(dream_httpc_shim).
 
+-define(REF_MAPPING_TABLE, dream_http_client_ref_mapping).
+
 -export([request_stream/6, fetch_next/2, fetch_start_headers/2, request_stream_messages/6,
-         cancel_stream/1, cancel_stream_by_string/1, receive_stream_message/1,
+         cancel_stream/1, cancel_stream_by_string/1, cancel_stream_process/1,
+         receive_stream_message/1,
          decode_stream_message_for_selector/1, normalize_headers/1, request_sync/5,
          ets_table_exists/1, ets_new/2, ets_insert/7, ets_lookup/2, ets_delete/2]).
 
@@ -497,7 +500,7 @@ build_req(Url, Headers, Body) ->
 %% - Stores bidirectional mapping: `StringId <-> HttpcRef` for cancellation
 %% - String ID is derived from httpc ref's string representation (guaranteed unique)
 %% - Ensures `ssl` and `inets` applications are started before making requests
-request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
+request_stream_messages(Method, Url, Headers, Body, ReceiverPid, TimeoutMs) ->
     ok = ensure_started(ssl),
     ok = ensure_started(inets),
     ok = configure_httpc(),
@@ -513,11 +516,27 @@ request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
         {ok, HttpcRef} ->
             %% Convert ref to string for type-safe Gleam API
             RefString = ref_to_string(HttpcRef),
+            Guardian = spawn(fun() ->
+                monitor_stream_owner(ReceiverPid, RefString, HttpcRef)
+            end),
             %% Store mapping for cancellation
             store_ref_mapping(RefString, HttpcRef),
+            store_owner_mapping(ReceiverPid, RefString, HttpcRef, Guardian),
             {ok, RefString};
         {error, Reason} ->
             {error, format_error(Reason)}
+    end.
+
+%% The callback process owns this request. Its caller may exit or detach
+%% without affecting it; if the callback process itself dies, request work ends.
+monitor_stream_owner(OwnerPid, StringId, HttpcRef) ->
+    Monitor = erlang:monitor(process, OwnerPid),
+    receive
+        stop -> erlang:demonitor(Monitor, [flush]);
+        {'DOWN', Monitor, process, OwnerPid, _Reason} ->
+            httpc:cancel_request(HttpcRef),
+            cleanup_stream_zlib(StringId),
+            remove_ref_mapping(StringId)
     end.
 
 %% @doc Cancel a streaming request using httpc ref directly
@@ -583,6 +602,21 @@ cancel_stream_by_string(StringId) ->
             %% Ref not found - stream already ended or never existed
             nil
     end.
+
+%% Stop a callback stream and its underlying request. If its worker has not
+%% registered an httpc reference yet, the queued event is processed after
+%% request startup. That closes the startup/cancellation race.
+cancel_stream_process(Pid) ->
+    case ets:lookup(?REF_MAPPING_TABLE, {owner, Pid}) of
+        [{{owner, Pid}, {StringId, HttpcRef}}] ->
+            httpc:cancel_request(HttpcRef),
+            cleanup_stream_zlib(StringId),
+            remove_ref_mapping(StringId),
+            exit(Pid, kill);
+        [] ->
+            Pid ! {dream_cancel_stream}
+    end,
+    nil.
 
 %% @doc Receive and decode the next stream message from process mailbox
 %%
@@ -1086,7 +1120,6 @@ ets_delete(TableName, Key) ->
 %% =============================================================================
 
 %% Table for mapping string IDs to httpc refs (for cancellation)
--define(REF_MAPPING_TABLE, dream_http_client_ref_mapping).
 
 %% Convert httpc ref to unique string ID
 %% Uses the ref's string representation which is guaranteed unique
@@ -1097,6 +1130,12 @@ ref_to_string(Ref) ->
 store_ref_mapping(StringId, HttpcRef) ->
     ets:insert(?REF_MAPPING_TABLE, {StringId, HttpcRef}),
     ets:insert(?REF_MAPPING_TABLE, {HttpcRef, StringId}),
+    ok.
+
+store_owner_mapping(Pid, StringId, HttpcRef, Guardian) ->
+    ets:insert(?REF_MAPPING_TABLE, {{owner, Pid}, {StringId, HttpcRef}}),
+    ets:insert(?REF_MAPPING_TABLE, {{request_owner, StringId}, Pid}),
+    ets:insert(?REF_MAPPING_TABLE, {{request_guardian, StringId}, Guardian}),
     ok.
 
 %% Lookup httpc ref by string ID (for cancellation)
@@ -1150,6 +1189,16 @@ cleanup_stream_zlib(StringId) ->
 
 %% Remove both mappings (cleanup after stream ends)
 remove_ref_mapping(StringId) ->
+    case ets:take(?REF_MAPPING_TABLE, {request_guardian, StringId}) of
+        [{{request_guardian, StringId}, Guardian}] -> Guardian ! stop;
+        [] -> ok
+    end,
+    case ets:lookup(?REF_MAPPING_TABLE, {request_owner, StringId}) of
+        [{{request_owner, StringId}, Pid}] ->
+            ets:delete(?REF_MAPPING_TABLE, {owner, Pid}),
+            ets:delete(?REF_MAPPING_TABLE, {request_owner, StringId});
+        [] -> ok
+    end,
     case lookup_ref_by_string(StringId) of
         {some, HttpcRef} ->
             ets:delete(?REF_MAPPING_TABLE, StringId),
