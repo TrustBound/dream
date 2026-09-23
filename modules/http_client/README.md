@@ -483,6 +483,21 @@ client.new()
 
 <sub>🧪 [Tested source](test/snippets/request_builder.gleam)</sub>
 
+Connection settings compose with the same request builder and apply to `send()`,
+`stream_yielder()`, and `start_stream()`:
+
+```gleam
+client.new()
+|> host("api.example.com")
+|> connection_timeout(5_000)
+|> follow_redirects(False)
+|> certificate_authority_file("/path/to/roots.pem")
+```
+
+The defaults are a 15 second connection timeout, automatic redirects, and the
+runtime's default trusted authorities. The CA file must contain PEM certificates.
+`timeout()` remains the overall `httpc` request timeout.
+
 ### Execution
 
 **Blocking:**

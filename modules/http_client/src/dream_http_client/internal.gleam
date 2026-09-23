@@ -30,6 +30,9 @@ fn request_stream(
   body: BitArray,
   receiver: process.Pid,
   timeout_ms: Int,
+  connection_timeout_ms: Int,
+  follow_redirects: Bool,
+  certificate_authority_file: String,
 ) -> d.Dynamic
 
 @external(erlang, "dream_httpc_shim", "fetch_next")
@@ -85,6 +88,9 @@ pub fn atomize_method(method: http.Method) -> atom.Atom {
 pub fn start_httpc_stream(
   request: Request(String),
   timeout_ms: Int,
+  connection_timeout_ms: Int,
+  follow_redirects: Bool,
+  certificate_authority_file: String,
 ) -> d.Dynamic {
   let port_string = case request.port {
     option.Some(port) -> ":" <> int.to_string(port)
@@ -104,7 +110,17 @@ pub fn start_httpc_stream(
   let method_atom = atomize_method(request.method)
   let body = <<request.body:utf8>>
   let receiver = process.self()
-  request_stream(method_atom, url, request.headers, body, receiver, timeout_ms)
+  request_stream(
+    method_atom,
+    url,
+    request.headers,
+    body,
+    receiver,
+    timeout_ms,
+    connection_timeout_ms,
+    follow_redirects,
+    certificate_authority_file,
+  )
 }
 
 /// Extract the owner PID from the request result
@@ -280,6 +296,9 @@ pub fn start_stream_messages(
   body: BitArray,
   receiver: process.Pid,
   timeout_ms: Int,
+  connection_timeout_ms: Int,
+  follow_redirects: Bool,
+  certificate_authority_file: String,
 ) -> d.Dynamic
 
 /// Cancel a streaming request

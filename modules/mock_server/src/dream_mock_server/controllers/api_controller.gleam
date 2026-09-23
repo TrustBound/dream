@@ -6,7 +6,7 @@
 import dream/context.{type EmptyContext}
 import dream/http/header.{Header}
 import dream/http/request.{type Request, get_int_param}
-import dream/http/response.{type Response, json_response, text_response}
+import dream/http/response.{type Response, json_response, redirect_response, text_response}
 import dream/http/status
 import dream/router.{type EmptyServices}
 import dream_mock_server/compression
@@ -66,6 +66,15 @@ pub fn status(
     Error(error_msg) ->
       json_response(status.bad_request, api_view.error_to_json(error_msg))
   }
+}
+
+/// GET /redirect - Redirects to the text fixture.
+pub fn redirect(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  redirect_response(302, "/text")
 }
 
 /// GET /json - Returns simple JSON object

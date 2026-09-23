@@ -1,8 +1,8 @@
 -module(dream_httpc_shim).
 
--export([request_stream/6, fetch_next/2, fetch_start_headers/2, request_stream_messages/6,
+-export([request_stream/9, fetch_next/2, fetch_start_headers/2, request_stream_messages/9,
          cancel_stream/1, cancel_stream_by_string/1, receive_stream_message/1,
-         decode_stream_message_for_selector/1, normalize_headers/1, request_sync/5,
+         decode_stream_message_for_selector/1, normalize_headers/1, request_sync/8,
          ets_table_exists/1, ets_new/2, ets_insert/7, ets_lookup/2, ets_delete/2]).
 
 %% @doc Start a streaming HTTP request with pull-based chunk retrieval
@@ -40,7 +40,8 @@
 %% - `fetch_next` will detect the dead process and return an error
 %% - Ensures `ssl` and `inets` applications are started before making requests
 %% - Configures httpc with streaming-optimized settings (no pipelining, high session cap)
-request_stream(Method, Url, Headers, Body, _Receiver, TimeoutMs) ->
+request_stream(Method, Url, Headers, Body, _Receiver, TimeoutMs, ConnectTimeoutMs,
+               FollowRedirects, CaFile) ->
     ok = ensure_started(ssl),
     ok = ensure_started(inets),
     ok = configure_httpc(),
@@ -48,7 +49,8 @@ request_stream(Method, Url, Headers, Body, _Receiver, TimeoutMs) ->
     NUrl = to_list(Url),
     NHeaders = maybe_add_accept_encoding(to_headers(Headers)),
     Req = build_req(NUrl, NHeaders, Body),
-    Owner = spawn(fun() -> stream_owner_loop(Method, Req, NUrl, TimeoutMs) end),
+    HttpOpts = http_options(TimeoutMs, ConnectTimeoutMs, FollowRedirects, CaFile),
+    Owner = spawn(fun() -> stream_owner_loop(Method, Req, HttpOpts) end),
     {ok, Owner}.
 
 %% @doc Fetch the next chunk from a streaming HTTP request
@@ -129,8 +131,7 @@ fetch_start_headers(OwnerPid, TimeoutMs) ->
     end.
 
 %% Stream owner process: starts httpc in continuous mode and services fetch_next requests
-stream_owner_loop(Method, Req, _Url, TimeoutMs) ->
-    HttpOpts = [{timeout, TimeoutMs}, {connect_timeout, 15000}, {autoredirect, true}],
+stream_owner_loop(Method, Req, HttpOpts) ->
     Opts = [{stream, self}, {sync, false}],
     case httpc:request(Method, Req, HttpOpts, Opts) of
         {ok, RequestId} ->
@@ -497,7 +498,8 @@ build_req(Url, Headers, Body) ->
 %% - Stores bidirectional mapping: `StringId <-> HttpcRef` for cancellation
 %% - String ID is derived from httpc ref's string representation (guaranteed unique)
 %% - Ensures `ssl` and `inets` applications are started before making requests
-request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
+request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs,
+                        ConnectTimeoutMs, FollowRedirects, CaFile) ->
     ok = ensure_started(ssl),
     ok = ensure_started(inets),
     ok = configure_httpc(),
@@ -506,7 +508,7 @@ request_stream_messages(Method, Url, Headers, Body, _ReceiverPid, TimeoutMs) ->
     NHeaders = maybe_add_accept_encoding(to_headers(Headers)),
     Req = build_req(NUrl, NHeaders, Body),
 
-    HttpOpts = [{timeout, TimeoutMs}, {connect_timeout, 15000}, {autoredirect, true}],
+    HttpOpts = http_options(TimeoutMs, ConnectTimeoutMs, FollowRedirects, CaFile),
     StreamOpts = [{stream, self}, {sync, false}],
 
     case httpc:request(Method, Req, HttpOpts, StreamOpts) of
@@ -846,7 +848,7 @@ ensure_utf8_binary(Other) ->
 %% - Ensures `ssl` and `inets` applications are started before making requests
 %% - Configures httpc with appropriate timeout and redirect settings
 %% - Error reasons are formatted as binaries for Gleam compatibility
-request_sync(Method, Url, Headers, Body, TimeoutMs) ->
+request_sync(Method, Url, Headers, Body, TimeoutMs, ConnectTimeoutMs, FollowRedirects, CaFile) ->
     ok = ensure_started(ssl),
     ok = ensure_started(inets),
     ok = configure_httpc(),
@@ -856,7 +858,7 @@ request_sync(Method, Url, Headers, Body, TimeoutMs) ->
     Req = build_req(NUrl, NHeaders, Body),
 
     %% Use synchronous mode WITHOUT streaming - this is what send() should use
-    HttpOpts = [{timeout, TimeoutMs}, {connect_timeout, 15000}, {autoredirect, true}],
+    HttpOpts = http_options(TimeoutMs, ConnectTimeoutMs, FollowRedirects, CaFile),
     Opts = [{sync, true}, {body_format, binary}],
 
     case httpc:request(Method, Req, HttpOpts, Opts) of
@@ -866,6 +868,15 @@ request_sync(Method, Url, Headers, Body, TimeoutMs) ->
             {ok, {StatusCode, normalize_headers(CleanHeaders), DecompressedBody}};
         {error, Reason} ->
             {error, format_error(Reason)}
+    end.
+
+http_options(TimeoutMs, ConnectTimeoutMs, FollowRedirects, CaFile) ->
+    Base = [{timeout, TimeoutMs},
+            {connect_timeout, ConnectTimeoutMs},
+            {autoredirect, FollowRedirects}],
+    case to_list(CaFile) of
+        [] -> Base;
+        Path -> Base ++ [{ssl, [{verify, verify_peer}, {cacertfile, Path}]}]
     end.
 
 format_error(Reason) ->

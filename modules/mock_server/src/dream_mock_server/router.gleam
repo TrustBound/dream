@@ -106,6 +106,12 @@ pub fn create_router() -> Router(EmptyContext, EmptyServices) {
   )
   |> route(
     method: Get,
+    path: "/redirect",
+    controller: api_controller.redirect,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
     path: "/large",
     controller: api_controller.large,
     middleware: [],

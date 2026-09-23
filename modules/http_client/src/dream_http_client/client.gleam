@@ -221,6 +221,9 @@ pub opaque type ClientRequest {
     headers: List(Header),
     body: String,
     timeout: Option(Int),
+    connection_timeout: Option(Int),
+    follow_redirects: Bool,
+    certificate_authority_file: Option(String),
     recorder: Option(recorder.Recorder),
     on_stream_start: Option(fn(List(Header)) -> Nil),
     on_stream_chunk: Option(fn(BitArray) -> Nil),
@@ -266,6 +269,9 @@ pub fn new() -> ClientRequest {
     headers: [],
     body: "",
     timeout: None,
+    connection_timeout: None,
+    follow_redirects: True,
+    certificate_authority_file: None,
     recorder: None,
     on_stream_start: None,
     on_stream_chunk: None,
@@ -559,6 +565,30 @@ pub fn recorder(
 /// ```
 pub fn timeout(client_request: ClientRequest, timeout_ms: Int) -> ClientRequest {
   ClientRequest(..client_request, timeout: option.Some(timeout_ms))
+}
+
+/// Limit the time spent establishing a connection. The default is 15 seconds.
+pub fn connection_timeout(
+  client_request: ClientRequest,
+  timeout_ms: Int,
+) -> ClientRequest {
+  ClientRequest(..client_request, connection_timeout: Some(timeout_ms))
+}
+
+/// Choose whether HTTP redirects are followed automatically. The default is True.
+pub fn follow_redirects(
+  client_request: ClientRequest,
+  enabled: Bool,
+) -> ClientRequest {
+  ClientRequest(..client_request, follow_redirects: enabled)
+}
+
+/// Use a PEM file containing trusted certificate authorities for HTTPS.
+pub fn certificate_authority_file(
+  client_request: ClientRequest,
+  file_path: String,
+) -> ClientRequest {
+  ClientRequest(..client_request, certificate_authority_file: Some(file_path))
 }
 
 /// Set callback for stream start event
@@ -1176,7 +1206,16 @@ fn send_client_request_to_httpc_with_meta(
   let timeout_value = resolve_timeout(client_request)
 
   case
-    send_sync(method_dynamic, url, http_request.headers, body, timeout_value)
+    send_sync(
+      method_dynamic,
+      url,
+      http_request.headers,
+      body,
+      timeout_value,
+      resolve_connection_timeout(client_request),
+      client_request.follow_redirects,
+      resolve_certificate_authority_file(client_request),
+    )
   {
     Ok(#(status, headers, response_body)) -> {
       response_body
@@ -1216,6 +1255,20 @@ fn resolve_timeout(client_request: ClientRequest) -> Int {
   }
 }
 
+fn resolve_connection_timeout(client_request: ClientRequest) -> Int {
+  case client_request.connection_timeout {
+    Some(timeout_value) -> timeout_value
+    None -> 15_000
+  }
+}
+
+fn resolve_certificate_authority_file(client_request: ClientRequest) -> String {
+  case client_request.certificate_authority_file {
+    Some(file_path) -> file_path
+    None -> ""
+  }
+}
+
 @external(erlang, "dream_httpc_shim", "request_sync")
 fn send_sync(
   method: d.Dynamic,
@@ -1223,6 +1276,9 @@ fn send_sync(
   headers: List(#(String, String)),
   body: BitArray,
   timeout_ms: Int,
+  connection_timeout_ms: Int,
+  follow_redirects: Bool,
+  certificate_authority_file: String,
 ) -> Result(#(Int, List(#(String, String)), BitArray), String)
 
 /// Stream HTTP response chunks using a yielder
@@ -1385,7 +1441,8 @@ fn create_stream_yielder_from_client_request(
         http_request,
         timeout_value,
       )
-    option.None -> create_plain_yielder(http_request, timeout_value)
+    option.None ->
+      create_plain_yielder(client_request, http_request, timeout_value)
   }
 }
 
@@ -1404,6 +1461,11 @@ fn stream_yielder_with_record_mode(
           owner: None,
           http_req: http_request,
           timeout_ms: timeout_value,
+          connection_timeout_ms: resolve_connection_timeout(client_request),
+          follow_redirects: client_request.follow_redirects,
+          certificate_authority_file: resolve_certificate_authority_file(
+            client_request,
+          ),
           recorder: recorder_instance,
           recorded_request: recorded_request,
           start_headers: [],
@@ -1414,16 +1476,26 @@ fn stream_yielder_with_record_mode(
     }
     False ->
       // Playback mode was already handled, use normal yielder
-      create_plain_yielder(http_request, timeout_value)
+      create_plain_yielder(client_request, http_request, timeout_value)
   }
 }
 
 fn create_plain_yielder(
+  client_request: ClientRequest,
   http_request: request.Request(String),
   timeout_value: Int,
 ) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
   let initial_state =
-    YielderState(owner: None, http_req: http_request, timeout_ms: timeout_value)
+    YielderState(
+      owner: None,
+      http_req: http_request,
+      timeout_ms: timeout_value,
+      connection_timeout_ms: resolve_connection_timeout(client_request),
+      follow_redirects: client_request.follow_redirects,
+      certificate_authority_file: resolve_certificate_authority_file(
+        client_request,
+      ),
+    )
   yielder.unfold(initial_state, handle_yielder_unfold_with_deps)
 }
 
@@ -1448,6 +1520,9 @@ type YielderState {
     owner: Option(d.Dynamic),
     http_req: request.Request(String),
     timeout_ms: Int,
+    connection_timeout_ms: Int,
+    follow_redirects: Bool,
+    certificate_authority_file: String,
   )
 }
 
@@ -1456,6 +1531,9 @@ type RecordingYielderState {
     owner: Option(d.Dynamic),
     http_req: request.Request(String),
     timeout_ms: Int,
+    connection_timeout_ms: Int,
+    follow_redirects: Bool,
+    certificate_authority_file: String,
     recorder: recorder.Recorder,
     recorded_request: recording.RecordedRequest,
     start_headers: List(#(String, String)),
@@ -1515,7 +1593,13 @@ fn handle_yielder_start_with_state(
   state: YielderState,
 ) -> yielder.Step(Result(bytes_tree.BytesTree, String), YielderState) {
   let request_result =
-    internal.start_httpc_stream(state.http_req, state.timeout_ms)
+    internal.start_httpc_stream(
+      state.http_req,
+      state.timeout_ms,
+      state.connection_timeout_ms,
+      state.follow_redirects,
+      state.certificate_authority_file,
+    )
   let owner = internal.extract_owner_pid(request_result)
   case internal.receive_next(owner, state.timeout_ms) {
     Ok(option.Some(bin)) ->
@@ -1567,7 +1651,13 @@ fn handle_recording_yielder_start(
   state: RecordingYielderState,
 ) -> yielder.Step(Result(bytes_tree.BytesTree, String), RecordingYielderState) {
   let request_result =
-    internal.start_httpc_stream(state.http_req, state.timeout_ms)
+    internal.start_httpc_stream(
+      state.http_req,
+      state.timeout_ms,
+      state.connection_timeout_ms,
+      state.follow_redirects,
+      state.certificate_authority_file,
+    )
   let owner = internal.extract_owner_pid(request_result)
   let start_headers = case
     internal.get_stream_start_headers(owner, state.timeout_ms)
@@ -1742,6 +1832,9 @@ fn send_stream_messages_to_httpc(
       body,
       caller_process,
       timeout_value,
+      resolve_connection_timeout(client_request),
+      client_request.follow_redirects,
+      resolve_certificate_authority_file(client_request),
     )
 
   case parse_stream_start_result(start_result) {
