@@ -5,7 +5,20 @@ import dream_http_client_test
 import gleam/erlang/process
 import gleam/http
 import gleam/list
+import gleam/string
 import gleeunit/should
+
+@external(erlang, "cancellation_ffi", "await_registered")
+fn await_registered(handle: client.StreamHandle) -> Bool
+
+@external(erlang, "cancellation_ffi", "await_cleanup")
+fn await_cleanup(handle: client.StreamHandle) -> Bool
+
+@external(erlang, "cancellation_ffi", "begin_cancel_trace")
+fn begin_cancel_trace() -> Nil
+
+@external(erlang, "cancellation_ffi", "cancel_request_observed")
+fn cancel_request_observed() -> Bool
 
 fn mock_request(path: String) -> client.ClientRequest {
   client.new()
@@ -134,6 +147,42 @@ pub fn cancel_stream_handle_stops_stream_test() {
 
   // Assert - process is dead
   client.is_stream_active(handle) |> should.be_false()
+}
+
+pub fn cancel_stream_handle_cancels_underlying_request_test() {
+  let assert Ok(handle) = client.start_stream(mock_request("/stream/slow"))
+  await_registered(handle) |> should.be_true()
+  begin_cancel_trace()
+  client.cancel_stream_handle(handle)
+  cancel_request_observed() |> should.be_true()
+  client.await_stream(handle)
+}
+
+pub fn callback_crash_cleans_up_underlying_request_test() {
+  let request =
+    mock_request("/stream/fast")
+    |> client.on_stream_chunk(fn(_chunk) {
+      panic as "deliberate callback failure"
+    })
+  let assert Ok(handle) = client.start_stream(request)
+  await_registered(handle) |> should.be_true()
+  client.await_stream(handle)
+  await_cleanup(handle) |> should.be_true()
+}
+
+pub fn callback_timeout_cleans_up_underlying_request_test() {
+  let errors = process.new_subject()
+  let request =
+    mock_request("/stream/slow")
+    |> client.timeout(1000)
+    |> client.on_stream_error(fn(reason) { process.send(errors, reason) })
+
+  let assert Ok(handle) = client.start_stream(request)
+  await_registered(handle) |> should.be_true()
+  let assert Ok(reason) = process.receive(errors, 3000)
+  string.contains(string.lowercase(reason), "timeout") |> should.be_true()
+  client.await_stream(handle)
+  await_cleanup(handle) |> should.be_true()
 }
 
 pub fn is_stream_active_returns_true_while_running_test() {

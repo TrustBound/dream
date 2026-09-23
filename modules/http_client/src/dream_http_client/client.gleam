@@ -150,6 +150,34 @@ pub type HttpResponse {
   HttpResponse(status: Int, headers: List(Header), body: String)
 }
 
+/// An isolated `httpc` connection pool owned by the caller.
+pub opaque type HttpProfile {
+  HttpProfile(name: atom.Atom)
+}
+
+@external(erlang, "dream_httpc_shim", "start_profile")
+fn start_http_profile(
+  name: atom.Atom,
+  max_sessions: Int,
+) -> Result(atom.Atom, String)
+
+@external(erlang, "dream_httpc_shim", "stop_profile")
+fn stop_http_profile(name: atom.Atom) -> Result(Nil, String)
+
+/// Start a named profile with a bounded number of sessions per host.
+pub fn start_profile(
+  name: atom.Atom,
+  max_sessions: Int,
+) -> Result(HttpProfile, String) {
+  start_http_profile(name, max_sessions) |> result.map(HttpProfile)
+}
+
+/// Stop a profile after its requests have completed or been cancelled.
+pub fn stop_profile(profile: HttpProfile) -> Result(Nil, String) {
+  let HttpProfile(name) = profile
+  stop_http_profile(name)
+}
+
 /// Error types returned by `send()`.
 ///
 /// ## Variants
@@ -221,6 +249,7 @@ pub opaque type ClientRequest {
     headers: List(Header),
     body: String,
     timeout: Option(Int),
+    profile: Option(HttpProfile),
     recorder: Option(recorder.Recorder),
     on_stream_start: Option(fn(List(Header)) -> Nil),
     on_stream_chunk: Option(fn(BitArray) -> Nil),
@@ -266,6 +295,7 @@ pub fn new() -> ClientRequest {
     headers: [],
     body: "",
     timeout: None,
+    profile: None,
     recorder: None,
     on_stream_start: None,
     on_stream_chunk: None,
@@ -559,6 +589,14 @@ pub fn recorder(
 /// ```
 pub fn timeout(client_request: ClientRequest, timeout_ms: Int) -> ClientRequest {
   ClientRequest(..client_request, timeout: option.Some(timeout_ms))
+}
+
+/// Send this request through an explicitly managed connection profile.
+pub fn use_profile(
+  client_request: ClientRequest,
+  profile: HttpProfile,
+) -> ClientRequest {
+  ClientRequest(..client_request, profile: Some(profile))
 }
 
 /// Set callback for stream start event
@@ -964,6 +1002,11 @@ pub type StreamMessage {
   DecodeError(reason: String)
 }
 
+type StreamEvent {
+  HttpMessage(StreamMessage)
+  CancelRequested
+}
+
 /// Handle to a running HTTP stream
 ///
 /// Opaque handle returned from `start_stream()` representing a stream running in
@@ -1176,7 +1219,14 @@ fn send_client_request_to_httpc_with_meta(
   let timeout_value = resolve_timeout(client_request)
 
   case
-    send_sync(method_dynamic, url, http_request.headers, body, timeout_value)
+    send_sync(
+      method_dynamic,
+      url,
+      http_request.headers,
+      body,
+      timeout_value,
+      resolve_profile(client_request),
+    )
   {
     Ok(#(status, headers, response_body)) -> {
       response_body
@@ -1216,6 +1266,13 @@ fn resolve_timeout(client_request: ClientRequest) -> Int {
   }
 }
 
+fn resolve_profile(client_request: ClientRequest) -> atom.Atom {
+  case client_request.profile {
+    Some(HttpProfile(name)) -> name
+    None -> atom.create("dream_http_client")
+  }
+}
+
 @external(erlang, "dream_httpc_shim", "request_sync")
 fn send_sync(
   method: d.Dynamic,
@@ -1223,6 +1280,7 @@ fn send_sync(
   headers: List(#(String, String)),
   body: BitArray,
   timeout_ms: Int,
+  profile: atom.Atom,
 ) -> Result(#(Int, List(#(String, String)), BitArray), String)
 
 /// Stream HTTP response chunks using a yielder
@@ -1385,7 +1443,12 @@ fn create_stream_yielder_from_client_request(
         http_request,
         timeout_value,
       )
-    option.None -> create_plain_yielder(http_request, timeout_value)
+    option.None ->
+      create_plain_yielder(
+        http_request,
+        timeout_value,
+        resolve_profile(client_request),
+      )
   }
 }
 
@@ -1404,6 +1467,7 @@ fn stream_yielder_with_record_mode(
           owner: None,
           http_req: http_request,
           timeout_ms: timeout_value,
+          profile: resolve_profile(client_request),
           recorder: recorder_instance,
           recorded_request: recorded_request,
           start_headers: [],
@@ -1414,16 +1478,26 @@ fn stream_yielder_with_record_mode(
     }
     False ->
       // Playback mode was already handled, use normal yielder
-      create_plain_yielder(http_request, timeout_value)
+      create_plain_yielder(
+        http_request,
+        timeout_value,
+        resolve_profile(client_request),
+      )
   }
 }
 
 fn create_plain_yielder(
   http_request: request.Request(String),
   timeout_value: Int,
+  profile: atom.Atom,
 ) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
   let initial_state =
-    YielderState(owner: None, http_req: http_request, timeout_ms: timeout_value)
+    YielderState(
+      owner: None,
+      http_req: http_request,
+      timeout_ms: timeout_value,
+      profile: profile,
+    )
   yielder.unfold(initial_state, handle_yielder_unfold_with_deps)
 }
 
@@ -1448,6 +1522,7 @@ type YielderState {
     owner: Option(d.Dynamic),
     http_req: request.Request(String),
     timeout_ms: Int,
+    profile: atom.Atom,
   )
 }
 
@@ -1456,6 +1531,7 @@ type RecordingYielderState {
     owner: Option(d.Dynamic),
     http_req: request.Request(String),
     timeout_ms: Int,
+    profile: atom.Atom,
     recorder: recorder.Recorder,
     recorded_request: recording.RecordedRequest,
     start_headers: List(#(String, String)),
@@ -1515,7 +1591,7 @@ fn handle_yielder_start_with_state(
   state: YielderState,
 ) -> yielder.Step(Result(bytes_tree.BytesTree, String), YielderState) {
   let request_result =
-    internal.start_httpc_stream(state.http_req, state.timeout_ms)
+    internal.start_httpc_stream(state.http_req, state.timeout_ms, state.profile)
   let owner = internal.extract_owner_pid(request_result)
   case internal.receive_next(owner, state.timeout_ms) {
     Ok(option.Some(bin)) ->
@@ -1567,7 +1643,7 @@ fn handle_recording_yielder_start(
   state: RecordingYielderState,
 ) -> yielder.Step(Result(bytes_tree.BytesTree, String), RecordingYielderState) {
   let request_result =
-    internal.start_httpc_stream(state.http_req, state.timeout_ms)
+    internal.start_httpc_stream(state.http_req, state.timeout_ms, state.profile)
   let owner = internal.extract_owner_pid(request_result)
   let start_headers = case
     internal.get_stream_start_headers(owner, state.timeout_ms)
@@ -1742,6 +1818,7 @@ fn send_stream_messages_to_httpc(
       body,
       caller_process,
       timeout_value,
+      resolve_profile(client_request),
     )
 
   case parse_stream_start_result(start_result) {
@@ -2158,7 +2235,12 @@ fn run_stream_process(request: ClientRequest) -> Nil {
       // Build selector for HTTP messages
       let selector =
         process.new_selector()
-        |> select_stream_messages(fn(msg) { msg })
+        |> select_stream_messages(HttpMessage)
+        |> process.select_record(
+          tag: atom.create("dream_cancel_stream"),
+          fields: 0,
+          mapping: fn(_message) { CancelRequested },
+        )
 
       let timeout_ms = resolve_timeout(request)
 
@@ -2241,17 +2323,18 @@ fn replay_recorded_stream(
 }
 
 fn process_stream_loop(
-  selector: process.Selector(StreamMessage),
+  selector: process.Selector(StreamEvent),
   req_id: RequestId,
   request: ClientRequest,
   timeout_ms: Int,
 ) -> Nil {
   case process.selector_receive(selector, timeout_ms) {
-    Ok(message) -> {
+    Ok(HttpMessage(message)) ->
       handle_stream_message(message, req_id, request, selector, timeout_ms)
-    }
+    Ok(CancelRequested) -> cancel_stream(req_id)
     Error(Nil) -> {
       // Timeout waiting for messages
+      cancel_stream(req_id)
       case request.on_stream_error {
         Some(on_error) -> on_error("Timeout waiting for stream messages")
         None -> Nil
@@ -2264,7 +2347,7 @@ fn handle_stream_message(
   message: StreamMessage,
   req_id: RequestId,
   request: ClientRequest,
-  selector: process.Selector(StreamMessage),
+  selector: process.Selector(StreamEvent),
   timeout_ms: Int,
 ) -> Nil {
   case message {
@@ -2321,6 +2404,7 @@ fn handle_stream_message(
     }
 
     DecodeError(reason) -> {
+      cancel_stream(req_id)
       case request.on_stream_error {
         Some(on_error) -> on_error("DecodeError: " <> reason)
         None -> Nil
@@ -2344,7 +2428,7 @@ fn handle_stream_message(
 /// ```
 pub fn cancel_stream_handle(handle: StreamHandle) -> Nil {
   let StreamHandle(pid) = handle
-  process.kill(pid)
+  internal.cancel_stream_process(pid)
 }
 
 /// Check if a stream is still active

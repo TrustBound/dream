@@ -30,6 +30,7 @@ fn request_stream(
   body: BitArray,
   receiver: process.Pid,
   timeout_ms: Int,
+  profile: atom.Atom,
 ) -> d.Dynamic
 
 @external(erlang, "dream_httpc_shim", "fetch_next")
@@ -85,6 +86,7 @@ pub fn atomize_method(method: http.Method) -> atom.Atom {
 pub fn start_httpc_stream(
   request: Request(String),
   timeout_ms: Int,
+  profile: atom.Atom,
 ) -> d.Dynamic {
   let port_string = case request.port {
     option.Some(port) -> ":" <> int.to_string(port)
@@ -104,7 +106,15 @@ pub fn start_httpc_stream(
   let method_atom = atomize_method(request.method)
   let body = <<request.body:utf8>>
   let receiver = process.self()
-  request_stream(method_atom, url, request.headers, body, receiver, timeout_ms)
+  request_stream(
+    method_atom,
+    url,
+    request.headers,
+    body,
+    receiver,
+    timeout_ms,
+    profile,
+  )
 }
 
 /// Extract the owner PID from the request result
@@ -280,6 +290,7 @@ pub fn start_stream_messages(
   body: BitArray,
   receiver: process.Pid,
   timeout_ms: Int,
+  profile: atom.Atom,
 ) -> d.Dynamic
 
 /// Cancel a streaming request
@@ -321,6 +332,9 @@ pub fn cancel_stream_internal(request_id: d.Dynamic) -> Nil
 /// - After cancellation, no more messages will be sent to the receiver process
 @external(erlang, "dream_httpc_shim", "cancel_stream_by_string")
 pub fn cancel_stream_by_string(request_id_string: String) -> Nil
+
+@external(erlang, "dream_httpc_shim", "cancel_stream_process")
+pub fn cancel_stream_process(pid: process.Pid) -> Nil
 
 /// Receive the next stream message with timeout
 ///

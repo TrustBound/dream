@@ -94,6 +94,28 @@ pub fn simple_get() -> Result(HttpResponse, SendError) {
 
 dream_http_client provides three execution modes. Choose based on your use case:
 
+Requests use a Dream-owned `httpc` profile by default. It permits up to 100
+sessions per host and disables HTTP pipelining without changing the host
+application's default `httpc` profile. For a separate connection pool, create
+a named profile once, attach it to requests, and stop it at application shutdown:
+
+```gleam
+import dream_http_client/client
+import gleam/erlang/atom
+
+let assert Ok(profile) =
+  client.start_profile(atom.create("my_service_http"), 24)
+
+let request = client.new() |> client.use_profile(profile)
+// Add host, path, and other request options before sending.
+
+let assert Ok(Nil) = client.stop_profile(profile)
+```
+
+Profile names are node-wide Erlang atoms. Use fixed names chosen in application
+code, not names derived from user input. `max_sessions` is the per-host session
+limit for that profile.
+
 ### 1. Blocking - `send()`
 
 **Best for:** JSON APIs, small responses
@@ -498,6 +520,13 @@ client.new()
 - `start_stream(req) -> Result(StreamHandle, String)` - Starts stream, returns handle
 - `await_stream(handle) -> Nil` - Wait for completion (optional)
 - `cancel_stream_handle(handle) -> Nil` - Cancel running stream
+
+A callback stream is owned by its dedicated stream process. Cancelling the
+handle asks `httpc` to cancel the request and stops that process. If the
+stream process crashes, its request is cancelled and the client releases its
+request bookkeeping. The process that called `start_stream()` may exit without
+cancelling the stream. Cancellation ends local request work; a server may have
+already completed the response, and a pooled connection may remain open.
 
 ### Types
 
