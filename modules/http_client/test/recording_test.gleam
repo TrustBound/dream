@@ -73,6 +73,40 @@ pub fn encode_recording_file_with_streaming_response_includes_chunks_test() {
   string.contains(json_string, "chunk2") |> should.be_true()
 }
 
+pub fn streamed_recording_without_status_round_trips_test() {
+  let request =
+    recording.RecordedRequest(
+      method: http.Get,
+      scheme: http.Http,
+      host: "localhost",
+      port: option.None,
+      path: "/stream",
+      query: option.None,
+      headers: [],
+      body: "",
+    )
+  let response =
+    recording.StreamingResponseWithoutStatus(
+      headers: [#("Content-Type", "text/event-stream")],
+      chunks: [recording.Chunk(data: <<"data":utf8>>, delay_ms: 0)],
+    )
+  let file =
+    recording.RecordingFile(version: "1.0", entries: [
+      recording.Recording(request, response),
+    ])
+  let encoded = file |> recording.encode_recording_file |> json.to_string
+  string.contains(encoded, "\"status\":null") |> should.be_true()
+
+  let assert Ok(decoded) = recording.decode_recording_file(encoded)
+  let assert [
+    recording.Recording(
+      response: recording.StreamingResponseWithoutStatus(_, chunks),
+      ..,
+    ),
+  ] = decoded.entries
+  list.length(chunks) |> should.equal(1)
+}
+
 pub fn encode_recording_file_with_optional_fields_handles_none_test() {
   // Arrange
   let request =
@@ -173,6 +207,7 @@ pub fn decode_recording_file_with_streaming_response_decodes_chunks_test() {
               io.println("Expected StreamingResponse")
               should.fail()
             }
+            recording.StreamingResponseWithoutStatus(_, _) -> should.fail()
           }
         }
         Error(Nil) -> {
@@ -305,6 +340,7 @@ pub fn encode_and_decode_recording_file_round_trips_correctly_test() {
               io.println("Expected BlockingResponse")
               should.fail()
             }
+            recording.StreamingResponseWithoutStatus(_, _) -> should.fail()
           }
         }
         Error(Nil) -> {

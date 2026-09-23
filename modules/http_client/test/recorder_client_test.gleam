@@ -368,6 +368,8 @@ fn scrub_recorded_response(
         headers: headers,
         chunks: chunks,
       )
+    recording.StreamingResponseWithoutStatus(headers, chunks) ->
+      recording.StreamingResponseWithoutStatus(headers, chunks)
   }
 }
 
@@ -399,7 +401,8 @@ pub fn response_transformer_scrubs_persisted_body_but_send_returns_original_test
     recording.BlockingResponse(_status, _headers, persisted_body) -> {
       persisted_body |> should.equal("")
     }
-    recording.StreamingResponse(_, _, _) -> should.fail()
+    recording.StreamingResponse(_, _, _)
+    | recording.StreamingResponseWithoutStatus(_, _) -> should.fail()
   }
 }
 
@@ -814,7 +817,7 @@ pub fn stream_yielder_records_real_streaming_request_test() {
 
   // Verify recording has streaming response (not blocking)
   case rec_entry.response {
-    recording.StreamingResponse(_status, headers, chunks) -> {
+    recording.StreamingResponseWithoutStatus(headers, chunks) -> {
       // Verify we captured response headers from stream_start
       let has_content_type =
         list.any(headers, fn(h) {
@@ -839,7 +842,20 @@ pub fn stream_yielder_records_real_streaming_request_test() {
       io.println("Expected StreamingResponse, got BlockingResponse")
       should.fail()
     }
+    recording.StreamingResponse(_, _, _) -> should.fail()
   }
+}
+
+pub fn failed_stream_is_not_recorded_as_success_test() {
+  let assert Ok(rec) =
+    recorder.new()
+    |> directory(temp_directory("failed_stream_not_recorded"))
+    |> mode("record")
+    |> start()
+  let request = mock_request("/status/500") |> client.recorder(rec)
+  let assert [Error(_)] = client.stream_yielder(request) |> yielder.to_list
+  recorder.get_recordings(rec) |> should.equal([])
+  let assert Ok(_) = recorder.stop(rec)
 }
 
 pub fn stream_yielder_playback_matches_recorded_stream_test() {
@@ -868,6 +884,25 @@ pub fn stream_yielder_playback_matches_recorded_stream_test() {
 
   // Replace chunk content - mock server sends "Chunk 1\n", "Chunk 2\n", etc.
   let modified_recording = case rec_entry.response {
+    recording.StreamingResponseWithoutStatus(headers, chunks) -> {
+      let modified_chunks =
+        list.map(chunks, fn(chunk) {
+          let original_text =
+            bit_array.to_string(chunk.data) |> result.unwrap("")
+          let modified_text = string.replace(original_text, "Chunk", "MODIFIED")
+          recording.Chunk(
+            data: <<modified_text:utf8>>,
+            delay_ms: chunk.delay_ms,
+          )
+        })
+      recording.Recording(
+        request: rec_entry.request,
+        response: recording.StreamingResponseWithoutStatus(
+          headers,
+          modified_chunks,
+        ),
+      )
+    }
     recording.StreamingResponse(status, headers, chunks) -> {
       let modified_chunks =
         list.map(chunks, fn(chunk) {
@@ -971,7 +1006,7 @@ pub fn start_stream_records_real_streaming_request_test() {
 
   // Verify recording has streaming response (not blocking)
   case rec_entry.response {
-    recording.StreamingResponse(_status, headers, chunks) -> {
+    recording.StreamingResponseWithoutStatus(headers, chunks) -> {
       // Verify we captured response headers from stream_start (callback streaming)
       let has_content_type =
         list.any(headers, fn(h) {
@@ -996,6 +1031,7 @@ pub fn start_stream_records_real_streaming_request_test() {
       io.println("Expected StreamingResponse, got BlockingResponse")
       should.fail()
     }
+    recording.StreamingResponse(_, _, _) -> should.fail()
   }
 }
 

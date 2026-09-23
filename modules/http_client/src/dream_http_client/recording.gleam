@@ -66,6 +66,8 @@ pub type RecordedRequest {
 ///
 /// - `BlockingResponse(status, headers, body)`: Complete response body received at once
 /// - `StreamingResponse(status, headers, chunks)`: Response delivered in chunks with timing
+/// - `StreamingResponseWithoutStatus(headers, chunks)`: Live streamed response
+///   whose exact 200/206 status was not exposed by httpc
 ///
 /// ## Examples
 ///
@@ -91,6 +93,11 @@ pub type RecordedResponse {
   BlockingResponse(status: Int, headers: List(#(String, String)), body: String)
   StreamingResponse(
     status: Int,
+    headers: List(#(String, String)),
+    chunks: List(Chunk),
+  )
+  /// Live httpc streaming does not expose the exact 200 or 206 status.
+  StreamingResponseWithoutStatus(
     headers: List(#(String, String)),
     chunks: List(Chunk),
   )
@@ -260,6 +267,15 @@ fn encode_recorded_response(resp: RecordedResponse) -> json.Json {
       json.object([
         #("mode", json.string("streaming")),
         #("status", json.int(status)),
+        #("headers", encode_headers(headers)),
+        #("chunks", json.array(from: chunks_json, of: identity_json)),
+      ])
+    }
+    StreamingResponseWithoutStatus(headers, chunks) -> {
+      let chunks_json = list.map(chunks, encode_chunk)
+      json.object([
+        #("mode", json.string("streaming")),
+        #("status", json.null()),
         #("headers", encode_headers(headers)),
         #("chunks", json.array(from: chunks_json, of: identity_json)),
       ])
@@ -485,17 +501,40 @@ fn decode_recorded_request_decoder() -> decode.Decoder(RecordedRequest) {
 
 fn decode_recorded_response_decoder() -> decode.Decoder(RecordedResponse) {
   use mode <- decode.field("mode", decode.string)
-  use status <- decode.field("status", decode.int)
+  use status <- decode.optional_field(
+    "status",
+    option.None,
+    decode.optional(decode.int),
+  )
   use headers <- decode.field(
     "headers",
     decode.list(decode_header_pair_decoder()),
   )
 
-  case mode {
-    "blocking" -> decode_blocking_response_decoder(status, headers)
-    "streaming" -> decode_streaming_response_decoder(status, headers)
-    _ -> decode_blocking_response_decoder(status, headers)
+  case mode, status {
+    "blocking", option.Some(status) ->
+      decode_blocking_response_decoder(status, headers)
+    "streaming", option.Some(status) ->
+      decode_streaming_response_decoder(status, headers)
+    "streaming", option.None ->
+      decode_streaming_response_without_status(headers)
+    _, option.Some(status) -> decode_blocking_response_decoder(status, headers)
+    _, option.None ->
+      decode.failure(
+        BlockingResponse(0, [], ""),
+        expected: "a status for a blocking response",
+      )
   }
+}
+
+fn decode_streaming_response_without_status(
+  headers: List(#(String, String)),
+) -> decode.Decoder(RecordedResponse) {
+  use chunks <- decode.field("chunks", decode.list(decode_chunk_decoder()))
+  decode.success(StreamingResponseWithoutStatus(
+    headers: headers,
+    chunks: chunks,
+  ))
 }
 
 fn decode_blocking_response_decoder(

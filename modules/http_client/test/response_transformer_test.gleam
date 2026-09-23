@@ -36,6 +36,11 @@ fn scrub_response(
         headers: list.filter(headers, fn(h) { h.0 != "set-cookie" }),
         chunks: chunks,
       )
+    recording.StreamingResponseWithoutStatus(headers, chunks) ->
+      recording.StreamingResponseWithoutStatus(
+        headers: list.filter(headers, fn(h) { h.0 != "set-cookie" }),
+        chunks: chunks,
+      )
   }
 }
 

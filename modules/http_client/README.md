@@ -224,6 +224,10 @@ All three execution modes fully support both recording and playback:
 Streaming recordings capture each chunk along with timing information.
 The same fixture format is shared between `stream_yielder()` and `start_stream()`,
 so recordings made with one can be played back by either.
+Live streamed recordings store `status: null` because OTP's `stream_start`
+message has no status code. Manually authored and older fixtures with an exact
+status continue to play back. Failed or incomplete streams are not saved as
+successful recordings.
 
 ### Quick Example
 

@@ -1101,7 +1101,8 @@ fn handle_recorded_blocking_response(
   case response {
     recording.BlockingResponse(status, headers, body) ->
       response_result(status, headers, body)
-    recording.StreamingResponse(_, _, _) ->
+    recording.StreamingResponse(_, _, _)
+    | recording.StreamingResponseWithoutStatus(_, _) ->
       Error(RequestError(
         message: "Recording contains streaming response, use stream_yielder() instead",
       ))
@@ -1363,6 +1364,8 @@ fn create_yielder_from_recorded_response(
   case response {
     recording.StreamingResponse(_, _, chunks) ->
       create_yielder_from_chunks(chunks)
+    recording.StreamingResponseWithoutStatus(_, chunks) ->
+      create_yielder_from_chunks(chunks)
     recording.BlockingResponse(_, _, body) -> {
       // Blocking response - return as single chunk
       let chunk = bytes_tree.from_bit_array(<<body:utf8>>)
@@ -1409,6 +1412,7 @@ fn stream_yielder_with_record_mode(
           start_headers: [],
           chunks: [],
           last_chunk_time: None,
+          terminal: False,
         )
       yielder.unfold(initial_state, handle_recording_yielder_unfold)
     }
@@ -1461,6 +1465,7 @@ type RecordingYielderState {
     start_headers: List(#(String, String)),
     chunks: List(recording.Chunk),
     last_chunk_time: Option(Int),
+    terminal: Bool,
   )
 }
 
@@ -1557,9 +1562,10 @@ fn convert_time_unit(time: Int, from_unit: atom.Atom, to_unit: atom.Atom) -> Int
 fn handle_recording_yielder_unfold(
   state: RecordingYielderState,
 ) -> yielder.Step(Result(bytes_tree.BytesTree, String), RecordingYielderState) {
-  case state.owner {
-    None -> handle_recording_yielder_start(state)
-    Some(owner) -> handle_recording_yielder_next(owner, state)
+  case state.terminal, state.owner {
+    True, _ -> yielder.Done
+    False, None -> handle_recording_yielder_start(state)
+    False, Some(owner) -> handle_recording_yielder_next(owner, state)
   }
 }
 
@@ -1606,7 +1612,10 @@ fn handle_recording_yielder_start(
     }
     Error(error_reason) -> {
       // Error on first chunk - don't record, just pass through error
-      yielder.Next(Error(error_reason), state)
+      yielder.Next(
+        Error(error_reason),
+        RecordingYielderState(..state, terminal: True),
+      )
     }
   }
 }
@@ -1641,9 +1650,11 @@ fn handle_recording_yielder_next(
       yielder.Done
     }
     Error(error_reason) -> {
-      // Stream error - save what we have so far
-      save_streaming_recording(state, state.chunks)
-      yielder.Next(Error(error_reason), state)
+      // A failed request must not be persisted as a successful stream.
+      yielder.Next(
+        Error(error_reason),
+        RecordingYielderState(..state, terminal: True),
+      )
     }
   }
 }
@@ -1655,20 +1666,8 @@ fn save_streaming_recording(
   // Reverse chunks to get correct order (we prepended them)
   let ordered_chunks = list.reverse(chunks)
 
-  // httpc only streams body chunks for successful responses (200/206). We
-  // infer 206 if Content-Range is present; otherwise default to 200.
-  let status = case
-    list.any(state.start_headers, fn(h) {
-      string.lowercase(h.0) == "content-range"
-    })
-  {
-    True -> 206
-    False -> 200
-  }
-
   let response =
-    recording.StreamingResponse(
-      status: status,
+    recording.StreamingResponseWithoutStatus(
       headers: state.start_headers,
       chunks: ordered_chunks,
     )
@@ -2207,22 +2206,10 @@ fn replay_recorded_stream(
   response: recording.RecordedResponse,
 ) -> Nil {
   case response {
-    recording.StreamingResponse(_, headers, chunks) -> {
-      case request.on_stream_start {
-        Some(cb) -> cb(list.map(headers, fn(h) { Header(h.0, h.1) }))
-        None -> Nil
-      }
-      list.each(chunks, fn(chunk) {
-        case request.on_stream_chunk {
-          Some(cb) -> cb(chunk.data)
-          None -> Nil
-        }
-      })
-      case request.on_stream_end {
-        Some(cb) -> cb([])
-        None -> Nil
-      }
-    }
+    recording.StreamingResponse(_, headers, chunks) ->
+      replay_stream_chunks(request, headers, chunks)
+    recording.StreamingResponseWithoutStatus(headers, chunks) ->
+      replay_stream_chunks(request, headers, chunks)
     recording.BlockingResponse(_, headers, body) -> {
       case request.on_stream_start {
         Some(cb) -> cb(list.map(headers, fn(h) { Header(h.0, h.1) }))
@@ -2237,6 +2224,27 @@ fn replay_recorded_stream(
         None -> Nil
       }
     }
+  }
+}
+
+fn replay_stream_chunks(
+  request: ClientRequest,
+  headers: List(#(String, String)),
+  chunks: List(recording.Chunk),
+) -> Nil {
+  case request.on_stream_start {
+    Some(cb) -> cb(list.map(headers, fn(h) { Header(h.0, h.1) }))
+    None -> Nil
+  }
+  list.each(chunks, fn(chunk) {
+    case request.on_stream_chunk {
+      Some(cb) -> cb(chunk.data)
+      None -> Nil
+    }
+  })
+  case request.on_stream_end {
+    Some(cb) -> cb([])
+    None -> Nil
   }
 }
 
@@ -2537,9 +2545,7 @@ fn record_stream_message(message: StreamMessage) -> Nil {
         <> error_reason,
       )
       case get_message_stream_recorder(request_id) {
-        option.Some(state) -> {
-          finish_message_stream_recording(request_id, state)
-        }
+        option.Some(_) -> remove_message_stream_recorder(request_id)
         option.None -> Nil
       }
     }
@@ -2570,16 +2576,8 @@ fn finish_message_stream_recording(
 ) -> Nil {
   let ordered_chunks = list.reverse(state.chunks)
 
-  let status = case
-    list.any(state.headers, fn(h) { string.lowercase(h.0) == "content-range" })
-  {
-    True -> 206
-    False -> 200
-  }
-
   let response =
-    recording.StreamingResponse(
-      status: status,
+    recording.StreamingResponseWithoutStatus(
       headers: state.headers,
       chunks: ordered_chunks,
     )
