@@ -1423,7 +1423,12 @@ fn create_plain_yielder(
   timeout_value: Int,
 ) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
   let initial_state =
-    YielderState(owner: None, http_req: http_request, timeout_ms: timeout_value)
+    YielderState(
+      owner: None,
+      http_req: http_request,
+      timeout_ms: timeout_value,
+      terminal: False,
+    )
   yielder.unfold(initial_state, handle_yielder_unfold_with_deps)
 }
 
@@ -1448,6 +1453,7 @@ type YielderState {
     owner: Option(d.Dynamic),
     http_req: request.Request(String),
     timeout_ms: Int,
+    terminal: Bool,
   )
 }
 
@@ -1467,9 +1473,10 @@ type RecordingYielderState {
 fn handle_yielder_unfold_with_deps(
   state: YielderState,
 ) -> yielder.Step(Result(bytes_tree.BytesTree, String), YielderState) {
-  case state.owner {
-    None -> handle_yielder_start_with_state(state)
-    Some(owner) -> handle_yielder_next_with_state(owner, state)
+  case state.terminal, state.owner {
+    True, _ -> yielder.Done
+    False, None -> handle_yielder_start_with_state(state)
+    False, Some(owner) -> handle_yielder_next_with_state(owner, state)
   }
 }
 
@@ -1524,7 +1531,8 @@ fn handle_yielder_start_with_state(
         YielderState(..state, owner: Some(owner)),
       )
     Ok(option.None) -> yielder.Done
-    Error(error_reason) -> yielder.Next(Error(error_reason), state)
+    Error(error_reason) ->
+      yielder.Next(Error(error_reason), YielderState(..state, terminal: True))
   }
 }
 
@@ -1536,7 +1544,8 @@ fn handle_yielder_next_with_state(
     Ok(option.Some(bin)) ->
       yielder.Next(Ok(bytes_tree.from_bit_array(bin)), state)
     Ok(option.None) -> yielder.Done
-    Error(error_reason) -> yielder.Next(Error(error_reason), state)
+    Error(error_reason) ->
+      yielder.Next(Error(error_reason), YielderState(..state, terminal: True))
   }
 }
 

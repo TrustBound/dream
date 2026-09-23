@@ -493,6 +493,13 @@ client.new()
 
 - `stream_yielder(req) -> Yielder(Result(BytesTree, String))` - Returns yielder producing chunks
 
+Live yielder streams ask `httpc` for the next message only when the yielder is
+advanced. The client does not queue response chunks while the consumer is
+paused. A request timeout or an idle owner timeout ends abandoned request work.
+The callback API remains push-based; use the yielder when consumer demand must
+control delivery. `httpc` and the operating system may still buffer bytes below
+this API.
+
 **Process-Based Streaming:**
 
 - `start_stream(req) -> Result(StreamHandle, String)` - Starts stream, returns handle
