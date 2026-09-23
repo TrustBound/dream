@@ -150,6 +150,19 @@ pub type HttpResponse {
   HttpResponse(status: Int, headers: List(Header), body: String)
 }
 
+/// Complete non-streaming HTTP response received by a streaming request.
+/// The body remains bytes so non-UTF-8 error payloads are preserved.
+pub type HttpErrorResponse {
+  HttpErrorResponse(status: Int, headers: List(Header), body: BitArray)
+}
+
+/// Error from a detailed pull stream. HTTP responses retain all response data;
+/// connection and timeout failures retain the transport reason.
+pub type StreamFailure {
+  HttpStatusFailure(response: HttpErrorResponse)
+  StreamTransportFailure(reason: String)
+}
+
 /// Error types returned by `send()`.
 ///
 /// ## Variants
@@ -226,6 +239,7 @@ pub opaque type ClientRequest {
     on_stream_chunk: Option(fn(BitArray) -> Nil),
     on_stream_end: Option(fn(List(Header)) -> Nil),
     on_stream_error: Option(fn(String) -> Nil),
+    on_http_response_error: Option(fn(HttpErrorResponse) -> Nil),
   )
 }
 
@@ -271,6 +285,7 @@ pub fn new() -> ClientRequest {
     on_stream_chunk: None,
     on_stream_end: None,
     on_stream_error: None,
+    on_http_response_error: None,
   )
 }
 
@@ -670,6 +685,17 @@ pub fn on_stream_error(
   ClientRequest(..client_request, on_stream_error: Some(callback))
 }
 
+/// Handle a complete HTTP error response during callback streaming.
+/// This callback receives the exact status, headers, and body bytes. When set,
+/// it handles HTTP responses instead of `on_stream_error`; transport failures
+/// still use `on_stream_error`.
+pub fn on_http_response_error(
+  client_request: ClientRequest,
+  callback: fn(HttpErrorResponse) -> Nil,
+) -> ClientRequest {
+  ClientRequest(..client_request, on_http_response_error: Some(callback))
+}
+
 /// Add a header to the request
 ///
 /// Adds a single header to the existing headers list without replacing them.
@@ -960,6 +986,8 @@ pub type StreamMessage {
   StreamEnd(request_id: RequestId, headers: List(Header))
   /// Stream failed with error (connection drop, timeout, HTTP error, etc.)
   StreamError(request_id: RequestId, reason: String)
+  /// A complete HTTP response was returned instead of a streamed 200/206 body.
+  ResponseErrorMessage(request_id: RequestId, response: HttpErrorResponse)
   /// Failed to decode stream message from Erlang FFI (indicates library bug)
   DecodeError(reason: String)
 }
@@ -1343,6 +1371,28 @@ pub fn stream_yielder(
   }
 }
 
+/// Pull response chunks with structured HTTP response errors.
+/// Use this variant when status, headers, or exact error body bytes matter.
+pub fn stream_yielder_detailed(
+  client_request: ClientRequest,
+) -> yielder.Yielder(Result(bytes_tree.BytesTree, StreamFailure)) {
+  case client_request.recorder {
+    Some(_) ->
+      stream_yielder(client_request)
+      |> yielder.map(fn(item) { result.map_error(item, StreamTransportFailure) })
+    None -> {
+      let state =
+        YielderState(
+          owner: None,
+          http_req: to_http_request(client_request),
+          timeout_ms: resolve_timeout(client_request),
+          terminal: False,
+        )
+      yielder.unfold(state, handle_detailed_yielder_unfold)
+    }
+  }
+}
+
 fn stream_yielder_with_recorder(
   client_request: ClientRequest,
   recorder_instance: recorder.Recorder,
@@ -1423,7 +1473,12 @@ fn create_plain_yielder(
   timeout_value: Int,
 ) -> yielder.Yielder(Result(bytes_tree.BytesTree, String)) {
   let initial_state =
-    YielderState(owner: None, http_req: http_request, timeout_ms: timeout_value)
+    YielderState(
+      owner: None,
+      http_req: http_request,
+      timeout_ms: timeout_value,
+      terminal: False,
+    )
   yielder.unfold(initial_state, handle_yielder_unfold_with_deps)
 }
 
@@ -1448,6 +1503,7 @@ type YielderState {
     owner: Option(d.Dynamic),
     http_req: request.Request(String),
     timeout_ms: Int,
+    terminal: Bool,
   )
 }
 
@@ -1467,9 +1523,10 @@ type RecordingYielderState {
 fn handle_yielder_unfold_with_deps(
   state: YielderState,
 ) -> yielder.Step(Result(bytes_tree.BytesTree, String), YielderState) {
-  case state.owner {
-    None -> handle_yielder_start_with_state(state)
-    Some(owner) -> handle_yielder_next_with_state(owner, state)
+  case state.terminal, state.owner {
+    True, _ -> yielder.Done
+    False, None -> handle_yielder_start_with_state(state)
+    False, Some(owner) -> handle_yielder_next_with_state(owner, state)
   }
 }
 
@@ -1524,7 +1581,8 @@ fn handle_yielder_start_with_state(
         YielderState(..state, owner: Some(owner)),
       )
     Ok(option.None) -> yielder.Done
-    Error(error_reason) -> yielder.Next(Error(error_reason), state)
+    Error(error_reason) ->
+      yielder.Next(Error(error_reason), YielderState(..state, terminal: True))
   }
 }
 
@@ -1536,7 +1594,53 @@ fn handle_yielder_next_with_state(
     Ok(option.Some(bin)) ->
       yielder.Next(Ok(bytes_tree.from_bit_array(bin)), state)
     Ok(option.None) -> yielder.Done
-    Error(error_reason) -> yielder.Next(Error(error_reason), state)
+    Error(error_reason) ->
+      yielder.Next(Error(error_reason), YielderState(..state, terminal: True))
+  }
+}
+
+fn handle_detailed_yielder_unfold(
+  state: YielderState,
+) -> yielder.Step(Result(bytes_tree.BytesTree, StreamFailure), YielderState) {
+  case state.terminal, state.owner {
+    True, _ -> yielder.Done
+    False, None -> {
+      let request_result =
+        internal.start_httpc_stream(state.http_req, state.timeout_ms)
+      let owner = internal.extract_owner_pid(request_result)
+      receive_detailed_yielder_chunk(
+        owner,
+        YielderState(..state, owner: Some(owner)),
+      )
+    }
+    False, Some(owner) -> receive_detailed_yielder_chunk(owner, state)
+  }
+}
+
+fn receive_detailed_yielder_chunk(
+  owner: d.Dynamic,
+  state: YielderState,
+) -> yielder.Step(Result(bytes_tree.BytesTree, StreamFailure), YielderState) {
+  case internal.receive_next_detailed(owner, state.timeout_ms) {
+    Ok(Some(bytes)) -> yielder.Next(Ok(bytes_tree.from_bit_array(bytes)), state)
+    Ok(None) -> yielder.Done
+    Error(error) ->
+      yielder.Next(
+        Error(to_stream_failure(error)),
+        YielderState(..state, terminal: True),
+      )
+  }
+}
+
+fn to_stream_failure(error: internal.DetailedStreamError) -> StreamFailure {
+  case error {
+    internal.TransportError(reason) -> StreamTransportFailure(reason)
+    internal.HttpResponseError(status, headers, body) ->
+      HttpStatusFailure(HttpErrorResponse(
+        status,
+        tuples_to_headers(headers),
+        body,
+      ))
   }
 }
 
@@ -1946,8 +2050,27 @@ fn decode_by_tag(
     "chunk" -> decode_chunk(req_id, data_result)
     "stream_end" -> decode_stream_end(req_id, data_result)
     "stream_error" -> decode_stream_error(req_id, data_result)
+    "http_response_error" -> decode_http_response_error(req_id, data_result)
     _ ->
       StreamError(req_id, "Internal error: Unknown stream message tag: " <> tag)
+  }
+}
+
+fn decode_http_response_error(
+  req_id: RequestId,
+  data_result: Result(d.Dynamic, List(d.DecodeError)),
+) -> StreamMessage {
+  case data_result {
+    Ok(data) ->
+      case internal.decode_http_response_error(data) {
+        Ok(#(status, headers, body)) ->
+          ResponseErrorMessage(
+            req_id,
+            HttpErrorResponse(status, tuples_to_headers(headers), body),
+          )
+        Error(reason) -> StreamError(req_id, reason)
+      }
+    Error(_) -> StreamError(req_id, "Could not decode HTTP error response")
   }
 }
 
@@ -2320,6 +2443,23 @@ fn handle_stream_message(
       }
     }
 
+    ResponseErrorMessage(stream_req_id, response) -> {
+      case stream_req_id == req_id {
+        True -> {
+          case request.on_http_response_error {
+            Some(on_response_error) -> on_response_error(response)
+            None ->
+              case request.on_stream_error {
+                Some(on_error) -> on_error(describe_http_error(response))
+                None -> Nil
+              }
+          }
+          Nil
+        }
+        False -> process_stream_loop(selector, req_id, request, timeout_ms)
+      }
+    }
+
     DecodeError(reason) -> {
       case request.on_stream_error {
         Some(on_error) -> on_error("DecodeError: " <> reason)
@@ -2328,6 +2468,12 @@ fn handle_stream_message(
       Nil
     }
   }
+}
+
+fn describe_http_error(response: HttpErrorResponse) -> String {
+  let body =
+    result.unwrap(bit_array.to_string(response.body), "<non-UTF-8 body>")
+  "HTTP " <> int.to_string(response.status) <> ": " <> body
 }
 
 /// Cancel a stream started with start_stream()
@@ -2539,6 +2685,31 @@ fn record_stream_message(message: StreamMessage) -> Nil {
       case get_message_stream_recorder(request_id) {
         option.Some(state) -> {
           finish_message_stream_recording(request_id, state)
+        }
+        option.None -> Nil
+      }
+    }
+    ResponseErrorMessage(request_id, response) -> {
+      case get_message_stream_recorder(request_id) {
+        option.Some(state) -> {
+          case bit_array.to_string(response.body) {
+            Ok(body) -> {
+              let recorded_response =
+                recording.BlockingResponse(
+                  status: response.status,
+                  headers: headers_to_tuples(response.headers),
+                  body: body,
+                )
+              let entry =
+                recording.Recording(
+                  request: state.recorded_request,
+                  response: recorded_response,
+                )
+              recorder.add_recording(state.recorder, entry)
+            }
+            Error(_) -> Nil
+          }
+          remove_message_stream_recorder(request_id)
         }
         option.None -> Nil
       }

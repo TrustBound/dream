@@ -11,6 +11,7 @@
 
 import dream_http_client/client
 import dream_http_client_test
+import gleam/bit_array
 import gleam/erlang/process
 import gleam/http
 import gleam/io
@@ -26,6 +27,70 @@ fn mock_request(path: String) -> client.ClientRequest {
   |> client.host("localhost")
   |> client.port(dream_http_client_test.get_test_port())
   |> client.path(path)
+}
+
+pub fn stream_yielder_accepts_empty_204_response_test() {
+  let results =
+    client.stream_yielder(mock_request("/status/204")) |> yielder.to_list()
+  results |> should.equal([])
+}
+
+pub fn start_stream_ends_empty_204_response_test() {
+  let completion = process.new_subject()
+  let request =
+    mock_request("/status/204")
+    |> client.on_stream_end(fn(_headers) { process.send(completion, True) })
+    |> client.on_stream_error(fn(_reason) { process.send(completion, False) })
+
+  let assert Ok(handle) = client.start_stream(request)
+  process.receive(completion, 3000) |> should.equal(Ok(True))
+  client.await_stream(handle)
+}
+
+pub fn callback_preserves_http_error_response_test() {
+  let response_subject = process.new_subject()
+  let request =
+    mock_request("/status/429")
+    |> client.on_http_response_error(fn(response) {
+      process.send(response_subject, response)
+    })
+  let assert Ok(handle) = client.start_stream(request)
+  let assert Ok(response) = process.receive(response_subject, 3000)
+  client.await_stream(handle)
+
+  response.status |> should.equal(429)
+  list.any(response.headers, fn(header) {
+    string.lowercase(header.name) == "retry-after" && header.value == "17"
+  })
+  |> should.be_true()
+  let assert Ok(body) = bit_array.to_string(response.body)
+  string.contains(body, "429") |> should.be_true()
+}
+
+pub fn detailed_yielder_preserves_http_error_response_test() {
+  let results =
+    mock_request("/status/429")
+    |> client.stream_yielder_detailed
+    |> yielder.to_list
+  let assert [Error(client.HttpStatusFailure(response))] = results
+
+  response.status |> should.equal(429)
+  list.any(response.headers, fn(header) {
+    string.lowercase(header.name) == "retry-after" && header.value == "17"
+  })
+  |> should.be_true()
+  let assert Ok(body) = bit_array.to_string(response.body)
+  string.contains(body, "429") |> should.be_true()
+}
+
+pub fn detailed_yielder_preserves_non_utf8_error_body_test() {
+  let results =
+    mock_request("/non-utf8-error")
+    |> client.stream_yielder_detailed
+    |> yielder.to_list
+  let assert [Error(client.HttpStatusFailure(response))] = results
+  response.body
+  |> should.equal(<<69, 114, 114, 111, 114, 58, 32, 192, 193, 254, 255>>)
 }
 
 // ============================================================================
@@ -146,14 +211,12 @@ pub fn start_stream_does_not_crash_process_on_non_streaming_response_test() {
 // stream_yielder pull-based path (exercises stream_owner_wait + stream_owner_next_message)
 // ============================================================================
 
-/// Yielder to a 401 endpoint must yield Error containing "401".
-/// Uses yielder.take(1) because the yielder retries on start errors (owner
-/// never gets set), which would make yielder.to_list loop infinitely.
+/// Yielder to a 401 endpoint must yield one terminal error containing "401".
 pub fn stream_yielder_returns_error_for_401_non_streaming_response_test() {
   let req = mock_request("/status/401")
-  let results = client.stream_yielder(req) |> yielder.take(1) |> yielder.to_list
+  let results = client.stream_yielder(req) |> yielder.to_list
 
-  { results != [] } |> should.be_true()
+  list.length(results) |> should.equal(1)
 
   let assert [first, ..] = results
   case first {

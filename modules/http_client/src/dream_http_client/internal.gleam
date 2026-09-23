@@ -156,10 +156,23 @@ pub fn extract_owner_pid(request_result: d.Dynamic) -> d.Dynamic {
 /// - `Ok(Some(BitArray))`: The next chunk of response data
 /// - `Ok(None)`: Stream finished normally (no more data)
 /// - `Error(String)`: Error occurred with reason
+pub type DetailedStreamError {
+  HttpResponseError(Int, List(#(String, String)), BitArray)
+  TransportError(String)
+}
+
 pub fn receive_next(
   owner: d.Dynamic,
   timeout_ms: Int,
 ) -> Result(option.Option(BitArray), String) {
+  receive_next_detailed(owner, timeout_ms)
+  |> result.map_error(describe_stream_error)
+}
+
+pub fn receive_next_detailed(
+  owner: d.Dynamic,
+  timeout_ms: Int,
+) -> Result(option.Option(BitArray), DetailedStreamError) {
   let resp = fetch_next(owner, timeout_ms)
   let tag =
     d.run(resp, d.at([0], d.dynamic))
@@ -172,22 +185,67 @@ pub fn receive_next(
       Ok(option.Some(bin))
     }
     "finished" -> Ok(option.None)
-    "error" -> {
-      let reason = case d.run(resp, d.at([1], d.string)) {
-        Ok(s) -> s
-        Error(_) ->
-          case d.run(resp, d.at([1], d.bit_array)) {
-            Ok(bytes) ->
-              case bit_array.to_string(bytes) {
-                Ok(s) -> s
-                Error(_) -> string.inspect(resp)
-              }
-            Error(_) -> string.inspect(resp)
-          }
+    "error" -> Error(decode_stream_failure(resp))
+    _ -> Error(TransportError("Unexpected stream message tag: " <> tag))
+  }
+}
+
+fn decode_stream_failure(resp: d.Dynamic) -> DetailedStreamError {
+  case d.run(resp, d.at([1], d.dynamic)) {
+    Ok(reason) ->
+      case decode_http_response_error(reason) {
+        Ok(#(status, headers, body)) -> HttpResponseError(status, headers, body)
+        Error(_) -> TransportError(decode_reason(reason))
       }
-      Error(reason)
+    Error(_) -> TransportError(string.inspect(resp))
+  }
+}
+
+fn decode_reason(reason: d.Dynamic) -> String {
+  case d.run(reason, d.string) {
+    Ok(message) -> message
+    Error(_) ->
+      case d.run(reason, d.bit_array) {
+        Ok(bytes) ->
+          result.unwrap(bit_array.to_string(bytes), string.inspect(reason))
+        Error(_) -> string.inspect(reason)
+      }
+  }
+}
+
+pub fn decode_http_response_error(
+  data: d.Dynamic,
+) -> Result(#(Int, List(#(String, String)), BitArray), String) {
+  let status = d.run(data, d.at([1], d.int))
+  let headers = d.run(data, d.at([2], d.list(d.dynamic)))
+  let body = d.run(data, d.at([3], d.bit_array))
+  case status, headers, body {
+    Ok(status), Ok(headers), Ok(body) -> {
+      let pairs =
+        headers
+        |> list.filter_map(fn(item) {
+          case
+            d.run(item, d.at([0], d.string)),
+            d.run(item, d.at([1], d.string))
+          {
+            Ok(name), Ok(value) -> Ok(#(name, value))
+            _, _ -> Error(Nil)
+          }
+        })
+      Ok(#(status, pairs, body))
     }
-    _ -> Error("Unexpected stream message tag: " <> tag)
+    _, _, _ -> Error("Invalid HTTP response error from httpc")
+  }
+}
+
+fn describe_stream_error(error: DetailedStreamError) -> String {
+  case error {
+    TransportError(message) -> message
+    HttpResponseError(status, _headers, body) -> {
+      let body_text =
+        result.unwrap(bit_array.to_string(body), "<non-UTF-8 body>")
+      "HTTP " <> int.to_string(status) <> ": " <> body_text
+    }
   }
 }
 

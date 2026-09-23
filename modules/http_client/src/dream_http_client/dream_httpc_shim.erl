@@ -7,7 +7,7 @@
 
 %% @doc Start a streaming HTTP request with pull-based chunk retrieval
 %%
-%% Initiates a streaming HTTP request using Erlang's `httpc` library in continuous
+%% Initiates a streaming HTTP request using Erlang's `httpc` library in once
 %% streaming mode. Creates an owner process that manages the stream and services
 %% `fetch_next` requests. This function returns immediately; chunks are retrieved
 %% by calling `fetch_next` with the returned owner PID.
@@ -24,7 +24,8 @@
 %% ## Returns
 %%
 %% `{ok, OwnerPid}` where `OwnerPid` is the process handling the stream. Use this
-%% PID with `fetch_next` to retrieve chunks.
+%% PID with `fetch_next` to retrieve chunks. Each fetch authorizes one httpc
+%% message, so a slow consumer does not accumulate response chunks here.
 %%
 %% ## Examples
 %%
@@ -89,15 +90,16 @@ request_stream(Method, Url, Headers, Body, _Receiver, TimeoutMs) ->
 %% - Timeout errors are returned as `{error, timeout}`
 fetch_next(OwnerPid, TimeoutMs) ->
     MonitorRef = erlang:monitor(process, OwnerPid),
-    OwnerPid ! {fetch_next, self()},
+    FetchRef = make_ref(),
+    OwnerPid ! {fetch_next, self(), FetchRef},
     receive
-        {stream_chunk, Bin} ->
+        {stream_result, FetchRef, {chunk, Bin}} ->
             erlang:demonitor(MonitorRef, [flush]),
             {chunk, Bin};
-        {stream_end, Headers} ->
+        {stream_result, FetchRef, {finished, Headers}} ->
             erlang:demonitor(MonitorRef, [flush]),
             {finished, Headers};
-        {stream_error, Reason} ->
+        {stream_result, FetchRef, {error, Reason}} ->
             erlang:demonitor(MonitorRef, [flush]),
             {error, Reason};
         {'DOWN', MonitorRef, process, OwnerPid, Reason} ->
@@ -105,6 +107,7 @@ fetch_next(OwnerPid, TimeoutMs) ->
             {error, format_exit_reason(Reason)}
     after TimeoutMs ->
         erlang:demonitor(MonitorRef, [flush]),
+        OwnerPid ! cancel_stream,
         {error, timeout}
     end.
 
@@ -116,169 +119,143 @@ fetch_next(OwnerPid, TimeoutMs) ->
 %% Note: httpc's streamed response status code is not included in stream_start.
 fetch_start_headers(OwnerPid, TimeoutMs) ->
     MonitorRef = erlang:monitor(process, OwnerPid),
-    OwnerPid ! {fetch_start_headers, self()},
+    FetchRef = make_ref(),
+    OwnerPid ! {fetch_start_headers, self(), FetchRef},
     receive
-        {stream_start_headers, Headers} ->
+        {stream_start_headers, FetchRef, Headers} ->
             erlang:demonitor(MonitorRef, [flush]),
             {ok, Headers};
+        {stream_start_error, FetchRef, Reason} ->
+            erlang:demonitor(MonitorRef, [flush]),
+            {error, Reason};
         {'DOWN', MonitorRef, process, OwnerPid, Reason} ->
             {error, format_exit_reason(Reason)}
     after TimeoutMs ->
         erlang:demonitor(MonitorRef, [flush]),
+        OwnerPid ! cancel_stream,
         {error, timeout}
     end.
 
-%% Stream owner process: starts httpc in continuous mode and services fetch_next requests
+%% A request owner is the only recipient of httpc messages. The once mode lets
+%% it request one message for each fetch, without an application-side chunk queue.
 stream_owner_loop(Method, Req, _Url, TimeoutMs) ->
     HttpOpts = [{timeout, TimeoutMs}, {connect_timeout, 15000}, {autoredirect, true}],
-    Opts = [{stream, self}, {sync, false}],
+    Opts = [{stream, {self, once}}, {sync, false}],
     case httpc:request(Method, Req, HttpOpts, Opts) of
         {ok, RequestId} ->
-            stream_owner_wait(RequestId, [], undefined, [], undefined);
+            State = #{request_id => RequestId,
+                      idle_timeout => TimeoutMs,
+                      handler => undefined,
+                      start_headers => undefined,
+                      start_waiters => [],
+                      pending => undefined,
+                      zlib => undefined,
+                      terminal => undefined},
+            try stream_owner_wait(State)
+            after httpc:cancel_request(RequestId) end;
         Error ->
             exit({stream_start_failed, Error})
     end.
 
-%% Wait for either a fetch_next request or internal http messages (buffered)
-%% State:
-%%   Buffer - queued {chunk, Bin}/{finished, Headers}/{error, Reason}
-%%   StartHeaders - normalized headers from stream_start (or undefined)
-%%   StartWaiters - callers waiting for stream_start headers
-%%   ZlibCtx - zlib inflate context for decompression (undefined if none)
-stream_owner_wait(RequestId, Buffer, StartHeaders, StartWaiters, ZlibCtx) ->
+stream_owner_wait(State) ->
+    RequestId = maps:get(request_id, State),
+    IdleTimeout = maps:get(idle_timeout, State),
     receive
-        {fetch_next, From} ->
-            handle_fetch_next(From, RequestId, Buffer, StartHeaders, StartWaiters, ZlibCtx);
-        {fetch_start_headers, From} ->
-            case StartHeaders of
-                undefined ->
-                    stream_owner_wait(RequestId, Buffer, StartHeaders, [From | StartWaiters], ZlibCtx);
-                _ ->
-                    From ! {stream_start_headers, normalize_headers_default(StartHeaders)},
-                    stream_owner_wait(RequestId, Buffer, StartHeaders, StartWaiters, ZlibCtx)
+        {fetch_next, From, Ref} ->
+            case {maps:get(terminal, State), maps:get(pending, State)} of
+                {Terminal, _} when Terminal =/= undefined ->
+                    From ! {stream_result, Ref, Terminal},
+                    cleanup_zlib(maps:get(zlib, State));
+                {undefined, undefined} ->
+                    Handler = maps:get(handler, State),
+                    maybe_stream_next(Handler),
+                    stream_owner_wait(State#{pending => {From, Ref}});
+                {undefined, _} ->
+                    From ! {stream_result, Ref, {error, <<"concurrent fetch_next calls">>}},
+                    stream_owner_wait(State)
             end;
+        {fetch_start_headers, From, Ref} ->
+            case {maps:get(start_headers, State), maps:get(terminal, State)} of
+                {undefined, undefined} ->
+                    Waiters = maps:get(start_waiters, State),
+                    stream_owner_wait(State#{start_waiters => [{From, Ref} | Waiters]});
+                {undefined, {error, Reason}} ->
+                    From ! {stream_start_error, Ref, Reason},
+                    stream_owner_wait(State);
+                {Headers, _} ->
+                    From ! {stream_start_headers, Ref, Headers},
+                    stream_owner_wait(State)
+            end;
+        {http, {RequestId, stream_start, Headers, Handler}} ->
+            Normalized = normalize_headers(Headers),
+            notify_start_waiters(maps:get(start_waiters, State), Normalized),
+            maybe_stream_next_for_pending(Handler, maps:get(pending, State)),
+            NewZlib = maybe_init_stream_zlib(Headers),
+            stream_owner_wait(State#{handler => Handler,
+                                     start_headers => Normalized,
+                                     start_waiters => [],
+                                     zlib => NewZlib});
+        {http, {RequestId, stream_start, _Headers}} ->
+            finish_owner(State, {error, <<"httpc once stream did not supply a handler">>});
         {http, {RequestId, stream, Bin}} ->
-            DecompBin = case ZlibCtx of
+            Zlib = maps:get(zlib, State),
+            Data = case Zlib of
                 undefined -> Bin;
-                _ -> decompress_chunk(ZlibCtx, Bin)
+                _ -> decompress_chunk(Zlib, Bin)
             end,
-            stream_owner_wait(RequestId, Buffer ++ [{chunk, DecompBin}], StartHeaders, StartWaiters, ZlibCtx);
-        {http, {RequestId, stream_start, Headers}} ->
-            Norm = normalize_headers(Headers),
-            lists:foreach(fun(W) -> W ! {stream_start_headers, Norm} end, StartWaiters),
-            NewZlib = maybe_init_stream_zlib(Headers),
-            stream_owner_wait(RequestId, Buffer, Norm, [], NewZlib);
-        {http, {RequestId, stream_start, Headers, _Pid}} ->
-            Norm = normalize_headers(Headers),
-            lists:foreach(fun(W) -> W ! {stream_start_headers, Norm} end, StartWaiters),
-            NewZlib = maybe_init_stream_zlib(Headers),
-            stream_owner_wait(RequestId, Buffer, Norm, [], NewZlib);
+            case maps:get(pending, State) of
+                {From, Ref} ->
+                    From ! {stream_result, Ref, {chunk, Data}},
+                    stream_owner_wait(State#{pending => undefined});
+                undefined ->
+                    finish_owner(State, {error, <<"unsolicited httpc stream chunk">>})
+            end;
         {http, {RequestId, stream_end, Headers}} ->
-            cleanup_zlib(ZlibCtx),
-            stream_owner_wait(RequestId,
-                              Buffer ++ [{finished, normalize_headers(Headers)}],
-                              StartHeaders,
-                              StartWaiters,
-                              undefined);
+            finish_owner(State, {finished, normalize_headers(Headers)});
         {http, {RequestId, {error, Reason}}} ->
-            cleanup_zlib(ZlibCtx),
-            stream_owner_wait(RequestId, Buffer ++ [{error, format_error(Reason)}], StartHeaders, StartWaiters, undefined);
-        {http, {RequestId, {{_HttpVersion, StatusCode, ReasonPhrase}, _Headers, Body}}} ->
-            cleanup_zlib(ZlibCtx),
-            ErrorMsg = format_complete_response_error(StatusCode, ReasonPhrase, Body),
-            stream_owner_wait(RequestId, Buffer ++ [{error, ErrorMsg}], StartHeaders, StartWaiters, undefined);
-        _Other ->
-            stream_owner_wait(RequestId, Buffer, StartHeaders, StartWaiters, ZlibCtx)
-    end.
-
-%% Handle a fetch_next request from the client
-handle_fetch_next(From, RequestId, [], StartHeaders, StartWaiters, ZlibCtx) ->
-    %% Buffer empty - fetch next message from stream
-    case stream_owner_next_message(RequestId, ZlibCtx) of
-        {start, _Hs, NewZlib} ->
-            Norm = normalize_headers(_Hs),
-            lists:foreach(fun(W) -> W ! {stream_start_headers, Norm} end, StartWaiters),
-            handle_fetch_next_after_start(From, RequestId, Norm, [], NewZlib);
-        {Msg, NewZlib} ->
-            deliver_message(From, Msg, RequestId, StartHeaders, StartWaiters, NewZlib)
-    end;
-handle_fetch_next(From, RequestId, [Item | Rest], StartHeaders, StartWaiters, ZlibCtx) ->
-    deliver_message(From, Item, RequestId, Rest, StartHeaders, StartWaiters, ZlibCtx).
-
-%% Handle fetch_next after receiving stream_start (headers)
-handle_fetch_next_after_start(From, RequestId, StartHeaders, StartWaiters, ZlibCtx) ->
-    case stream_owner_next_message(RequestId, ZlibCtx) of
-        {{chunk, Bin}, NewZlib} ->
-            From ! {stream_chunk, Bin},
-            stream_owner_wait(RequestId, [], StartHeaders, StartWaiters, NewZlib);
-        {{finished, Headers}, _NewZlib} ->
-            From ! {stream_end, Headers},
+            finish_owner(State, {error, format_error(Reason)});
+        {http, {RequestId, {{_Version, 204, _Phrase}, Headers, _Body}}} ->
+            finish_owner(State, {finished, normalize_headers(Headers)});
+        {http, {RequestId, {{_Version, Status, _Phrase}, Headers, Body}}} ->
+            finish_owner(State, {error, {http_response, Status,
+                                         normalize_headers(Headers),
+                                         iolist_to_binary(Body)}});
+        cancel_stream ->
+            cleanup_zlib(maps:get(zlib, State)),
             ok;
-        {{error, Reason}, _NewZlib} ->
-            From ! {stream_error, Reason},
-            ok
+        _Other ->
+            stream_owner_wait(State)
+    after IdleTimeout ->
+        cleanup_zlib(maps:get(zlib, State)),
+        ok
     end.
 
-%% Deliver a message to the client (from live stream, with ZlibCtx)
-deliver_message(From, {chunk, Bin}, RequestId, StartHeaders, StartWaiters, ZlibCtx) ->
-    From ! {stream_chunk, Bin},
-    stream_owner_wait(RequestId, [], StartHeaders, StartWaiters, ZlibCtx);
-deliver_message(From, {finished, Headers}, _RequestId, _StartHeaders, _StartWaiters, _ZlibCtx) ->
-    From ! {stream_end, Headers},
-    ok;
-deliver_message(From, {error, Reason}, _RequestId, _StartHeaders, _StartWaiters, _ZlibCtx) ->
-    From ! {stream_error, Reason},
-    ok.
+maybe_stream_next(undefined) -> ok;
+maybe_stream_next(Handler) -> httpc:stream_next(Handler).
 
-%% Deliver a message to the client (from buffer, with ZlibCtx)
-deliver_message(From, {chunk, Bin}, RequestId, Rest, StartHeaders, StartWaiters, ZlibCtx) ->
-    From ! {stream_chunk, Bin},
-    stream_owner_wait(RequestId, Rest, StartHeaders, StartWaiters, ZlibCtx);
-deliver_message(From,
-                {finished, Headers},
-                _RequestId,
-                _Rest,
-                _StartHeaders,
-                _StartWaiters,
-                _ZlibCtx) ->
-    From ! {stream_end, Headers},
-    ok;
-deliver_message(From, {error, Reason}, _RequestId, _Rest, _StartHeaders, _StartWaiters, _ZlibCtx) ->
-    From ! {stream_error, Reason},
-    ok.
+maybe_stream_next_for_pending(_Handler, undefined) -> ok;
+maybe_stream_next_for_pending(Handler, _Pending) -> maybe_stream_next(Handler).
 
-normalize_headers_default(undefined) ->
-    [];
-normalize_headers_default(Headers) ->
-    Headers.
+notify_start_waiters(Waiters, Headers) ->
+    lists:foreach(fun({From, Ref}) -> From ! {stream_start_headers, Ref, Headers} end, Waiters).
 
-%% Wait for the next HTTP message from httpc.
-%% Returns {start, Headers, NewZlibCtx} | {{chunk|finished|error, Data}, NewZlibCtx}
-stream_owner_next_message(RequestId, ZlibCtx) ->
-    receive
-        {http, {RequestId, stream_start, Headers}} ->
-            NewZlib = maybe_init_stream_zlib(Headers),
-            {start, Headers, NewZlib};
-        {http, {RequestId, stream_start, Headers, _Pid}} ->
-            NewZlib = maybe_init_stream_zlib(Headers),
-            {start, Headers, NewZlib};
-        {http, {RequestId, stream, Bin}} ->
-            DecompBin = case ZlibCtx of
-                undefined -> Bin;
-                _ -> decompress_chunk(ZlibCtx, Bin)
+finish_owner(State, Terminal) ->
+    cleanup_zlib(maps:get(zlib, State)),
+    case maps:get(pending, State) of
+        {From, Ref} ->
+            From ! {stream_result, Ref, Terminal},
+            ok;
+        undefined ->
+            case Terminal of
+                {error, Reason} ->
+                    lists:foreach(fun({From, Ref}) ->
+                        From ! {stream_start_error, Ref, Reason}
+                    end, maps:get(start_waiters, State));
+                _ -> ok
             end,
-            {{chunk, DecompBin}, ZlibCtx};
-        {http, {RequestId, stream_end, Headers}} ->
-            cleanup_zlib(ZlibCtx),
-            {{finished, normalize_headers(Headers)}, undefined};
-        {http, {RequestId, {error, Reason}}} ->
-            cleanup_zlib(ZlibCtx),
-            {{error, format_error(Reason)}, undefined};
-        {http, {RequestId, {{_HttpVersion, StatusCode, ReasonPhrase}, _Headers, Body}}} ->
-            cleanup_zlib(ZlibCtx),
-            {{error, format_complete_response_error(StatusCode, ReasonPhrase, Body)}, undefined};
-        _Other ->
-            stream_owner_next_message(RequestId, ZlibCtx)
+            stream_owner_wait(State#{terminal => Terminal,
+                                     zlib => undefined,
+                                     start_waiters => []})
     end.
 
 %% Ensure an Erlang application is started
@@ -645,6 +622,10 @@ receive_stream_message(TimeoutMs) ->
             StringId = get_or_create_string_id(RequestId),
             cleanup_stream_zlib(StringId),
             {stream_error, RequestId, format_error(Reason)};
+        {http, {RequestId, {{_HttpVersion, 204, _ReasonPhrase}, Headers, _Body}}} ->
+            StringId = get_or_create_string_id(RequestId),
+            cleanup_stream_zlib(StringId),
+            {stream_end, RequestId, normalize_headers(Headers)};
         {http, {RequestId, {{_HttpVersion, StatusCode, ReasonPhrase}, _Headers, Body}}} ->
             StringId = get_or_create_string_id(RequestId),
             cleanup_stream_zlib(StringId),
@@ -720,11 +701,17 @@ decode_stream_message_for_selector({http, InnerMessage}) ->
             cleanup_stream_zlib(StringId),
             remove_ref_mapping(StringId),
             {stream_error, StringId, format_error(Reason)};
-        {HttpcRef, {{_HttpVersion, StatusCode, ReasonPhrase}, _Headers, Body}} ->
+        {HttpcRef, {{_HttpVersion, 204, _ReasonPhrase}, Headers, _Body}} ->
             StringId = get_or_create_string_id(HttpcRef),
             cleanup_stream_zlib(StringId),
             remove_ref_mapping(StringId),
-            {stream_error, StringId, format_complete_response_error(StatusCode, ReasonPhrase, Body)};
+            {stream_end, StringId, normalize_headers(Headers)};
+        {HttpcRef, {{_HttpVersion, StatusCode, _ReasonPhrase}, Headers, Body}} ->
+            StringId = get_or_create_string_id(HttpcRef),
+            cleanup_stream_zlib(StringId),
+            remove_ref_mapping(StringId),
+            {http_response_error, StringId,
+             {http_response, StatusCode, normalize_headers(Headers), iolist_to_binary(Body)}};
         _ ->
             error(badarg)
     end.

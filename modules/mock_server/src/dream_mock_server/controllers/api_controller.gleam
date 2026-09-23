@@ -62,6 +62,13 @@ pub fn status(
   _services: EmptyServices,
 ) -> Response {
   case get_int_param(request, "code") {
+    Ok(429) -> {
+      let original = json_response(429, api_view.status_to_json(429))
+      response.Response(
+        ..original,
+        headers: [Header("Retry-After", "17"), ..original.headers],
+      )
+    }
     Ok(code) -> json_response(code, api_view.status_to_json(code))
     Error(error_msg) ->
       json_response(status.bad_request, api_view.error_to_json(error_msg))

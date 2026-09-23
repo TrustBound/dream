@@ -492,6 +492,22 @@ client.new()
 **Yielder Streaming:**
 
 - `stream_yielder(req) -> Yielder(Result(BytesTree, String))` - Returns yielder producing chunks
+- `stream_yielder_detailed(req) -> Yielder(Result(BytesTree, StreamFailure))` - Retains complete HTTP error responses
+
+Live yielder streams ask `httpc` for the next message only when the yielder is
+advanced. The client does not queue response chunks while the consumer is
+paused. A request timeout or an idle owner timeout ends abandoned request work.
+The callback API remains push-based; use the yielder when consumer demand must
+control delivery. `httpc` and the operating system may still buffer bytes below
+this API.
+
+When `httpc` returns a complete HTTP response instead of a streamed body, the
+detailed yielder yields `HttpStatusFailure(HttpErrorResponse(status, headers,
+body))` once. The body is a `BitArray` so invalid UTF-8 is retained. Callback
+streams can use `on_http_response_error` for the same data. The existing
+`on_stream_error` callback and `stream_yielder` keep their string error form.
+`httpc` does not include the exact success status in `stream_start`, so these
+stream APIs do not report a success status.
 
 **Process-Based Streaming:**
 
