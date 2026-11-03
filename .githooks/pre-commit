@@ -8,6 +8,15 @@
 
 set -e
 
+# Git exports GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE and GIT_PREFIX to hooks
+# (see githooks(5)), and nested git commands inherit them. The example builds
+# below resolve git dependencies, and gleam runs `git init`, `remote add`,
+# `fetch` and `checkout` inside build/packages/<dep>. With GIT_DIR set, those
+# commands act on THIS repository instead: they replace its origin remote with
+# the dependency repository and check out the dependency branch in the
+# worktree. Drop the variables so nested git commands only see their cwd.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

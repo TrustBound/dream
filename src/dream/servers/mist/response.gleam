@@ -72,6 +72,14 @@ pub fn convert(dream_resp: Response) -> http_response.Response(ResponseData) {
 /// sending each element as an HTTP chunk. Requires the original mist
 /// request for connection access.
 ///
+/// The chunk actor does not start draining until `mist.chunked` has
+/// returned. On HTTP/1.1 mist hands the socket to the chunk actor only
+/// after the actor has started; a stream that finishes before that
+/// handoff makes the actor exit first, the handoff fails, and mist
+/// answers the request with a 500 after the chunked body was already sent.
+/// So the actor reports its subject back here, and the first `DrainNext`
+/// is sent from the request process once `mist.chunked` is done.
+///
 /// ## Example
 ///
 /// ```gleam
@@ -93,16 +101,41 @@ pub fn convert_stream(
     )
     |> set_all_headers(headers)
 
-  mist.chunked(
-    request: mist_request,
-    response: base_response,
-    init: fn(subject) {
-      process.send(subject, DrainNext)
-      DrainState(remaining: stream, subject: subject)
-    },
-    loop: drain_yielder_loop,
-  )
+  let drain_subject = process.new_subject()
+
+  let mist_response =
+    mist.chunked(
+      request: mist_request,
+      response: base_response,
+      init: fn(subject) {
+        process.send(drain_subject, subject)
+        DrainState(remaining: stream, subject: subject)
+      },
+      loop: drain_yielder_loop,
+    )
+
+  start_draining(drain_subject)
+
+  mist_response
 }
+
+/// Send the first `DrainNext` to the chunk actor
+///
+/// The actor's `init` runs to completion before `mist.chunked` returns,
+/// so its subject is already in this process's mailbox when the actor
+/// started. When mist could not start the actor it has already returned
+/// an error response, and there is nothing to drain.
+fn start_draining(
+  drain_subject: process.Subject(process.Subject(DrainMessage)),
+) -> Nil {
+  case process.receive(drain_subject, chunk_actor_start_timeout_ms) {
+    Ok(subject) -> process.send(subject, DrainNext)
+    Error(Nil) -> Nil
+  }
+}
+
+/// Matches the initialisation timeout mist gives the chunk actor
+const chunk_actor_start_timeout_ms = 1000
 
 fn convert_header_to_tuple(header: Header) -> #(String, String) {
   #(string.lowercase(header_name(header)), header_value(header))
