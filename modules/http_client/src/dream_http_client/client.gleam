@@ -75,7 +75,6 @@
 import dream_http_client/internal
 import dream_http_client/recorder
 import dream_http_client/recording
-import gleam/bit_array
 import gleam/bytes_tree
 import gleam/dynamic
 import gleam/dynamic/decode as d
@@ -2006,9 +2005,6 @@ fn resolve_protocols(request: ClientRequest) -> atom.Atom {
     option.None -> atom.create("default")
   }
 }
-
-@external(erlang, "gleam_stdlib", "identity")
-fn to_dynamic(value: a) -> d.Dynamic
 
 @external(erlang, "dream_http_shim", "request_sync")
 fn send_sync(
