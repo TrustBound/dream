@@ -13,6 +13,7 @@ import dream/http/status_test
 import dream/http/validation_test
 import dream/router/parser_test
 import dream/router_test
+import dream/servers/mist/chunked_stream_test
 import dream/servers/mist/h2c_test
 import dream/servers/mist/handler_test
 import dream/servers/mist/request_test as mist_request_test
@@ -42,6 +43,10 @@ pub fn main() {
       unit.to_test_cases("dream/http/validation", validation_test.tests()),
       unit.to_test_cases("dream/router", router_test.tests()),
       unit.to_test_cases("dream/router/parser", parser_test.tests()),
+      unit.to_test_cases(
+        "dream/servers/mist/chunked_stream",
+        chunked_stream_test.tests(),
+      ),
       unit.to_test_cases("dream/servers/mist/h2c", h2c_test.tests()),
       unit.to_test_cases("dream/servers/mist/handler", handler_test.tests()),
       unit.to_test_cases(

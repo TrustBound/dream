@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   streaming API (`stream_response`, `sse_response`, `ResponseBody.Stream`)
   is unchanged.
 
+### Fixed
+
+- Chunked streaming responses over HTTP/1.1 no longer send a stray
+  `500 Internal Server Error` after the body when the stream finishes before
+  mist hands the socket to the chunk actor. The first drain message is now
+  sent only after `mist.chunked()` has returned, so a keep-alive client no
+  longer reads that 500 as the answer to its next request.
+
 ## [2.4.1] - 2026-03-11
 
 ### Fixed
