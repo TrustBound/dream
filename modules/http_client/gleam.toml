@@ -26,4 +26,3 @@ application_start_module = "dream_http_client_app"
 dream = { path = "../.." }
 dream_mock_server = { path = "../mock_server" }
 gleeunit = ">= 1.0.0 and < 2.0.0"
-mockth = { git = "https://github.com/bondiano/mockth.git", ref = "master" }
