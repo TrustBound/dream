@@ -9,8 +9,8 @@ links = [
 ]
 
 [dependencies]
-gleam_stdlib = ">= 0.44.0 and < 2.0.0"
-mist = { git = "https://github.com/TrustBound/mist.git", ref = "fix/http2-support" }
+gleam_stdlib = ">= 1.0.0 and < 2.0.0"
+mist = { git = "https://github.com/TrustBound/mist.git", ref = "feature/svc-680-http2-fixes-on-v6.0.3" }
 gleam_http = ">= 4.3.0 and < 5.0.0"
 gleam_otp = ">= 1.2.0 and < 2.0.0"
 gleam_erlang = ">= 1.0.0 and < 2.0.0"
