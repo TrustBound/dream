@@ -45,7 +45,7 @@ pub fn start_server() -> AssertionResult {
 
 fn is_server_responding() -> Bool {
   let result =
-    client.new
+    client.new()
     |> client.scheme(http.Http)
     |> client.host("127.0.0.1")
     |> client.port(test_server_port)
@@ -54,7 +54,7 @@ fn is_server_responding() -> Bool {
 
   case result {
     Ok(_response) -> True
-    // Connection refused, timeout, or HTTP error expected during startup polling
+    Error(client.ResponseError(_)) -> True
     Error(_error) -> False
   }
 }

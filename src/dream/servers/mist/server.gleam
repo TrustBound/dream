@@ -427,7 +427,10 @@ pub fn stop(handle: ServerHandle) -> Nil {
 /// This is a simple implementation that just returns the template context
 /// Most applications don't need request_id in their context
 /// If you need request_id, consider using middleware or logging
-fn update_context_with_request_id(ctx: context, _request_id: String) -> context {
+fn update_context_with_request_id(
+  ctx: context,
+  _request_id: String,
+) -> context {
   // Just return the template context as-is
   // Applications that need request_id can provide custom middleware
   ctx

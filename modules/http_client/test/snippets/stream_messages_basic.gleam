@@ -5,7 +5,7 @@
 
 import dream_http_client/client.{
   await_stream, host, on_stream_chunk, on_stream_end, on_stream_error,
-  on_stream_start, path, port, scheme, start_stream,
+  on_stream_start, path, port, scheme, start_stream, stream_failure_to_string,
 }
 import gleam/bit_array
 import gleam/http
@@ -27,8 +27,8 @@ pub fn stream_and_print() -> Result(Nil, String) {
       }
     })
     |> on_stream_end(fn(_headers) { io.println("\nStream completed") })
-    |> on_stream_error(fn(reason) {
-      io.println_error("Stream error: " <> reason)
+    |> on_stream_error(fn(failure) {
+      io.println_error("Stream error: " <> stream_failure_to_string(failure))
     })
     |> start_stream()
 

@@ -97,13 +97,15 @@ pub fn start_stream_calls_on_error_for_network_failure_test() {
     |> client.host("localhost")
     |> client.port(19_999)
     |> client.path("/")
-    |> client.on_stream_error(fn(reason) { process.send(error_subject, reason) })
+    |> client.on_stream_error(fn(failure) {
+      process.send(error_subject, client.stream_failure_to_string(failure))
+    })
 
   // Act
   let assert Ok(_handle) = client.start_stream(request)
 
-  // Assert - on_error was called
-  case process.receive(error_subject, 2000) {
+  // Assert - on_error was called (gun retries 3 times with 1s between retries)
+  case process.receive(error_subject, 10_000) {
     Ok(reason) -> {
       { reason != "" } |> should.be_true()
     }

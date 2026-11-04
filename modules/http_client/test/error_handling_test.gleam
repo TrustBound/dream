@@ -47,10 +47,10 @@ pub fn send_404_status_test() {
       status |> should.equal(404)
       string.contains(body, "404") |> should.be_true()
     }
-    Error(client.RequestError(message: error_reason)) -> {
+    Error(client.RequestError(error: transport_error)) -> {
       io.println(
         "send_404_status_test encountered connection-level error: "
-        <> error_reason,
+        <> client.transport_error_to_string(transport_error),
       )
     }
     Ok(_) -> {
@@ -78,10 +78,10 @@ pub fn send_500_status_test() {
       status |> should.equal(500)
       string.contains(body, "500") |> should.be_true()
     }
-    Error(client.RequestError(message: error_reason)) -> {
+    Error(client.RequestError(error: transport_error)) -> {
       io.println(
         "send_500_status_test encountered connection-level error: "
-        <> error_reason,
+        <> client.transport_error_to_string(transport_error),
       )
     }
     Ok(_) -> {
@@ -109,10 +109,10 @@ pub fn send_400_status_test() {
       status |> should.equal(400)
       string.contains(body, "400") |> should.be_true()
     }
-    Error(client.RequestError(message: error_reason)) -> {
+    Error(client.RequestError(error: transport_error)) -> {
       io.println(
         "send_400_status_test encountered connection-level error: "
-        <> error_reason,
+        <> client.transport_error_to_string(transport_error),
       )
     }
     Ok(_) -> {
@@ -138,7 +138,8 @@ pub fn send_connection_failure_test() {
 
   // Assert - Should get a RequestError (transport failure)
   case result {
-    Error(client.RequestError(message: error_msg)) -> {
+    Error(client.RequestError(error: transport_error)) -> {
+      let error_msg = client.transport_error_to_string(transport_error)
       string.length(error_msg) |> should.not_equal(0)
     }
     Error(client.ResponseError(_)) -> {
@@ -151,9 +152,8 @@ pub fn send_connection_failure_test() {
 
 /// Test: requests with body do not hardcode Content-Type
 ///
-/// Regression test for the Erlang httpc shim: it must respect the caller's
-/// `Content-Type` header when building the `{Url, Headers, ContentType, Body}`
-/// request tuple (and never force `application/json`).
+/// Regression test: the shim must respect the caller's `Content-Type` header
+/// and never force a default content type.
 pub fn send_respects_explicit_request_content_type_test() {
   let req =
     client.new()
@@ -175,10 +175,10 @@ pub fn send_respects_explicit_request_content_type_test() {
       )
       False |> should.be_true()
     }
-    Error(client.RequestError(message: error_reason)) -> {
+    Error(client.RequestError(error: transport_error)) -> {
       io.println(
         "send_respects_explicit_request_content_type_test failed: "
-        <> error_reason,
+        <> client.transport_error_to_string(transport_error),
       )
       False |> should.be_true()
     }
@@ -282,8 +282,11 @@ pub fn send_error_response_includes_headers_test() {
         })
       has_content_type |> should.be_true()
     }
-    Error(client.RequestError(message: msg)) -> {
-      io.println("Connection error (mock server down?): " <> msg)
+    Error(client.RequestError(error: transport_error)) -> {
+      io.println(
+        "Connection error (mock server down?): "
+        <> client.transport_error_to_string(transport_error),
+      )
     }
     Ok(_) -> {
       io.println("Expected ResponseError for 404, got Ok")
@@ -358,6 +361,71 @@ pub fn send_status_503_returns_error_test() {
 // Error Message Quality Tests
 // ============================================================================
 
+/// Test: connection refused returns ConnectFailed with a non-empty reason
+pub fn send_connection_refused_returns_connect_failed_test() {
+  let req =
+    client.new()
+    |> client.method(http.Get)
+    |> client.scheme(http.Http)
+    |> client.host("localhost")
+    |> client.port(19_999)
+    |> client.path("/nonexistent")
+
+  let result = client.send(req)
+
+  case result {
+    Error(client.RequestError(error: client.ConnectFailed(reason: reason))) -> {
+      { reason != "" } |> should.be_true()
+    }
+    Error(client.RequestError(error: other)) -> {
+      io.println(
+        "Expected ConnectFailed, got: "
+        <> client.transport_error_to_string(other),
+      )
+      should.fail()
+    }
+    Error(client.ResponseError(_)) -> {
+      io.println("Expected RequestError, got ResponseError")
+      should.fail()
+    }
+    Ok(_) -> should.fail()
+  }
+}
+
+/// Test: transport_error_to_string produces a readable message for ConnectFailed
+pub fn transport_error_to_string_returns_readable_message_test() {
+  let msg =
+    client.transport_error_to_string(client.ConnectFailed(
+      reason: "Connection refused",
+    ))
+  { msg != "" } |> should.be_true()
+  string.contains(msg, "Connection refused") |> should.be_true()
+}
+
+/// Test: stream_failure_to_string produces a readable message for HttpFailure
+pub fn stream_failure_to_string_returns_readable_message_for_http_failure_test() {
+  let msg =
+    client.stream_failure_to_string(
+      client.HttpFailure(response: client.HttpResponse(
+        status: 404,
+        headers: [],
+        body: "not found",
+      )),
+    )
+  { msg != "" } |> should.be_true()
+  string.contains(msg, "404") |> should.be_true()
+}
+
+/// Test: stream_failure_to_string produces a readable message for TransportFailure
+pub fn stream_failure_to_string_returns_readable_message_for_transport_failure_test() {
+  let msg =
+    client.stream_failure_to_string(
+      client.TransportFailure(error: client.TimedOut(timeout_ms: 5000)),
+    )
+  { msg != "" } |> should.be_true()
+  string.contains(msg, "5000") |> should.be_true()
+}
+
 /// Test: Errors contain useful information
 pub fn error_messages_are_informative_test() {
   // Arrange - Connect to non-existent server
@@ -374,7 +442,8 @@ pub fn error_messages_are_informative_test() {
 
   // Assert - Error message should have substance
   case result {
-    Error(client.RequestError(message: error_msg)) -> {
+    Error(client.RequestError(error: transport_error)) -> {
+      let error_msg = client.transport_error_to_string(transport_error)
       // Should be more than just "error" or empty
       string.length(error_msg) |> should.not_equal(0)
       // Should not be just "Nil" or similar

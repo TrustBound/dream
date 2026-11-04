@@ -46,6 +46,15 @@ pub fn put(
   json_response(status.ok, api_view.put_to_json(request.path, request.body))
 }
 
+/// PATCH /patch - Echoes request body as JSON
+pub fn patch(
+  request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  json_response(status.ok, api_view.patch_to_json(request.path, request.body))
+}
+
 /// DELETE /delete - Returns success response
 pub fn delete(
   request: Request,
@@ -265,4 +274,92 @@ pub fn echo_accept_encoding(
     Error(Nil) -> ""
   }
   text_response(status.ok, value)
+}
+
+/// GET /redirect/301 - Returns 301 with Location: /text
+pub fn redirect_301(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  redirect_response(status.moved_permanently, "/text")
+}
+
+/// GET /redirect/302 - Returns 302 with Location: /text
+pub fn redirect_302(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  redirect_response(status.found, "/text")
+}
+
+/// GET /redirect/303 - Returns 303 with Location: /text (forces GET)
+pub fn redirect_303(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  redirect_response(status.see_other, "/text")
+}
+
+/// GET /redirect/307 - Returns 307 with Location: /text (preserves method)
+pub fn redirect_307(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  redirect_response(status.temporary_redirect, "/text")
+}
+
+/// GET /redirect/308 - Returns 308 with Location: /text (preserves method, permanent)
+pub fn redirect_308(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  redirect_response(308, "/text")
+}
+
+/// GET /redirect/chain - Returns 302 with Location: /redirect/chain/2
+pub fn redirect_chain(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  redirect_response(status.found, "/redirect/chain/2")
+}
+
+/// GET /redirect/chain/2 - Returns 302 with Location: /text
+pub fn redirect_chain_2(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  redirect_response(status.found, "/text")
+}
+
+/// GET /redirect/absolute - Returns 302 with a fully-qualified Location URL
+pub fn redirect_absolute(
+  request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  let port_str = case
+    list.find(request.headers, fn(h) { string.lowercase(h.name) == "host" })
+  {
+    Ok(host_header) -> host_header.value
+    Error(Nil) -> "localhost:9876"
+  }
+  redirect_response(status.found, "http://" <> port_str <> "/text")
+}
+
+fn redirect_response(status_code: Int, location: String) -> Response {
+  response.Response(
+    status: status_code,
+    body: response.Text(""),
+    headers: [Header("Location", location)],
+    cookies: [],
+    content_type: option.None,
+  )
 }

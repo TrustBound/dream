@@ -6,4 +6,10 @@ start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
-    {ok, {#{strategy => one_for_one, intensity => 5, period => 10}, []}}.
+    ConnManager = #{
+        id => dream_http_conn_manager,
+        start => {dream_http_conn_manager, start_link, []},
+        restart => permanent,
+        type => worker
+    },
+    {ok, {#{strategy => one_for_one, intensity => 5, period => 10}, [ConnManager]}}.

@@ -1,7 +1,7 @@
 import dream/dream
 import dream/http/header.{Header}
 import dream/http/request.{type Request, Request}
-import dream/http/response.{type Response, Response, Text}
+import dream/http/response.{type Response, Response, Stream, Text}
 import dream/router.{type Route, type Router, find_route}
 import dream/servers/mist/internal
 import dream/servers/mist/request as mist_request
@@ -114,7 +114,7 @@ fn create_request_handler(
             cookies: [],
             content_type: option.Some("text/plain; charset=utf-8"),
           )
-        mist_response.convert(dream_response)
+        convert_dream_response(mist_request, dream_response)
       }
     }
 
@@ -167,9 +167,9 @@ fn handle_routed_request(
         option.Some(perform_upgrade) ->
           case dream_response.status {
             200 -> perform_upgrade(extract_dream_headers(dream_response))
-            _ -> mist_response.convert(dream_response)
+            _ -> convert_dream_response(mist_request, dream_response)
           }
-        option.None -> mist_response.convert(dream_response)
+        option.None -> convert_dream_response(mist_request, dream_response)
       }
     }
     Error(response) -> response
@@ -212,6 +212,17 @@ fn prepare_buffered_request(
       Ok(Request(..partial_request, body: body_string))
     }
     Error(_) -> Error(bad_request_response())
+  }
+}
+
+fn convert_dream_response(
+  mist_request: http_request.Request(Connection),
+  dream_response: Response,
+) -> http_response.Response(ResponseData) {
+  case dream_response.body {
+    Stream(stream) ->
+      mist_response.convert_stream(mist_request, dream_response, stream)
+    _ -> mist_response.convert(dream_response)
   }
 }
 

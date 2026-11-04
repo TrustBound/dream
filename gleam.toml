@@ -10,7 +10,7 @@ links = [
 
 [dependencies]
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"
-mist = ">= 5.0.3 and < 6.0.0"
+mist = { git = "https://github.com/TrustBound/mist.git", ref = "fix/http2-support" }
 gleam_http = ">= 4.3.0 and < 5.0.0"
 gleam_otp = ">= 1.2.0 and < 2.0.0"
 gleam_erlang = ">= 1.0.0 and < 2.0.0"
@@ -24,4 +24,4 @@ simplifile = ">= 2.3.0 and < 3.0.0"
 squirrel = ">= 4.0.0 and < 5.0.0"
 mockth = { git = "https://github.com/bondiano/mockth.git", ref = "master" }
 dream_test = ">= 1.0.3 and < 2.0.0"
-dream_http_client = ">= 2.1.1 and < 3.0.0"
+dream_http_client = { path = "modules/http_client" }

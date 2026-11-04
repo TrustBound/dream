@@ -13,7 +13,7 @@ on:
 
 env:
   OTP_VERSION: "28"
-  GLEAM_VERSION: "1.14.0"
+  GLEAM_VERSION: "1.17.0"
   REBAR3_VERSION: "3"
 
 jobs:

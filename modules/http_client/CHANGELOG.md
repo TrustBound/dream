@@ -5,6 +5,110 @@ All notable changes to `dream_http_client` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.2.0 - 2026-03-25
+
+### Fixed
+
+- Fixed PUT, POST, and PATCH requests hanging when sent with an empty body.
+  The underlying gun dispatch now uses `gun:request/5` directly instead of
+  method-specific functions that behave inconsistently for empty bodies.
+
+### Changed
+
+- **HTTP backend replaced: `httpc` → `gun`.** The underlying HTTP client has
+  been swapped from Erlang's `httpc` to [gun](https://github.com/ninenines/gun),
+  a production-grade HTTP/1.1 and HTTP/2 client. This enables native HTTP/2
+  multiplexing for high-concurrency workloads (10k+ concurrent requests over
+  a single TCP connection to HTTP/2 servers). All public API contracts are
+  preserved — `send()`, `stream_yielder()`, and `start_stream()` behave
+  identically from the caller's perspective.
+- **`SendError.RequestError` from `message: String` to `error: TransportError`**
+  for structured transport error classification. Pattern match on `TransportError`
+  variants for programmatic error handling, or use `transport_error_to_string`
+  for the old string behavior.
+- **`StreamMessage.StreamError` from `reason: String` to `error: StreamFailure`**
+  distinguishing HTTP failures (non-2xx response with headers/body) from
+  transport errors (connection drop, timeout, etc.).
+- **`on_stream_error` callback from `fn(String) -> Nil` to `fn(StreamFailure) -> Nil`.**
+  The callback now receives a `StreamFailure` with full error context instead of
+  a formatted string.
+- **`stream_yielder` error type from `String` to `StreamFailure`.** Error results
+  now carry structured failure information instead of formatted strings.
+- **Logging uses OTP `logger` instead of `error_logger`/`io:format`.** Connection
+  events and decompression warnings now go through OTP's logger, enabling
+  level-based filtering. Use `log_level()` on `TransportConfig` to control
+  verbosity — defaults to `LogInfo`.
+
+### Added
+
+- **Per-request protocol preference.** `protocols(preference)` controls which
+  HTTP protocol version gun negotiates per connection. `Http1Only` forces
+  HTTP/1.1, `Http2Only` enables h2c (HTTP/2 over cleartext, RFC 7540
+  Section 3.4) for plaintext connections or h2-only for TLS, `Http2Preferred`
+  prefers HTTP/2 with HTTP/1.1 fallback. Defaults to HTTP/2 preferred for
+  HTTPS (via ALPN) and HTTP/1.1 for HTTP when not set.
+- **Per-request TCP connection timeout.** `connect_timeout(ms)` controls how long
+  to wait for the TCP connection to be established, separate from the existing
+  `timeout()` which controls the entire request/response cycle. Defaults to
+  15000ms. Useful for failing fast against unreachable hosts without shortening
+  the overall request timeout.
+- **Per-request redirect control.** `auto_redirect(enabled)` controls whether
+  3xx redirects are followed automatically. When disabled, the 3xx response is
+  returned as `Ok(HttpResponse(...))` with the status code and `Location` header
+  visible, allowing manual redirect handling. Defaults to `True` (matching
+  previous behavior). Note: gun does not handle redirects natively; the shim
+  implements manual redirect following (up to 5 hops).
+- **Global transport configuration.** `TransportConfig` opaque type with builder
+  functions for gun connection pool tuning (13 fields):
+  - `max_connections(count)` — TCP connections per host (default: 50)
+  - `idle_timeout(ms)` — idle connection lifetime (default: 60000ms)
+  - `default_connect_timeout(ms)` — TCP connect timeout (default: 15000ms)
+  - `domain_lookup_timeout(ms)` — DNS resolution timeout (default: 5000ms)
+  - `tls_handshake_timeout(ms)` — TLS negotiation timeout (default: 10000ms)
+  - `retry(count)` — connection retry attempts (default: 3)
+  - `retry_timeout(ms)` — delay between retries (default: 1000ms)
+  - `keepalive(ms)` — HTTP/2 PING interval (default: 30000ms)
+  - `keepalive_tolerance(count)` — missed PINGs before close (default: 3)
+  - `max_concurrent_streams(count)` — HTTP/2 streams per connection (default: 100)
+  - `initial_connection_window_size(bytes)` — HTTP/2 flow control (default: 65535)
+  - `initial_stream_window_size(bytes)` — HTTP/2 stream flow control (default: 65535)
+  - `closing_timeout(ms)` — graceful shutdown timeout (default: 15000ms)
+
+  Create with `transport_config()`, configure with builders, apply with
+  `configure_transport()`. Settings are global and affect all subsequent
+  requests. Stored in ETS for concurrent read access.
+
+- **Connection pool manager.** `dream_http_conn_manager` gen_server manages
+  a per-host connection pool backed by an ETS `bag` table. Features round-robin
+  selection, automatic dead-connection cleanup, idle connection reaping, and
+  crash recovery on restart.
+- **Stale connection retry.** Requests that hit a server-closed connection
+  (`{stream_error, closed}`) are automatically retried once on a fresh
+  connection, preventing spurious failures when connection pool entries outlive
+  the server-side keep-alive.
+- **`TransportError` type (8 variants)** preserving all gun error details:
+  `StreamReset`, `Goaway`, `ConnectionError`, `RemoteClosed`, `TimedOut`,
+  `ProcessDown`, `ConnectFailed`, `Unexpected`. Each variant carries the full
+  structured information from gun (HTTP/2 error codes, human-readable
+  descriptions, GOAWAY fields) instead of flattening to formatted strings.
+- **`StreamFailure` type** with `HttpFailure(response: HttpResponse)` and
+  `TransportFailure(error: TransportError)`. Distinguishes HTTP-level
+  rejections (where response headers like `retry-after` and `x-request-id`
+  are available) from transport-level errors (connection drops, timeouts).
+- **`transport_error_to_string` and `stream_failure_to_string` helpers** for
+  converting structured errors to human-readable log strings.
+- **Response headers preserved in non-2xx streaming errors.** When a streaming
+  request receives a non-2xx response, the full `HttpResponse` (status, headers,
+  body) is now available via `HttpFailure` instead of a formatted string.
+- **`gun_down` connection events now logged.** The connection manager logs
+  `gun_down` events with connection PID, protocol, reason, and killed/unprocessed
+  stream counts via `error_logger:warning_msg`.
+- **Getter functions** for all 13 `TransportConfig` fields.
+- **24 new tests** covering structured error types, HttpFailure headers/body
+  preservation, ConnectFailed variant checks, helper function output, plus
+  builder/getter round-trips, default values, edge cases, builder chaining,
+  transport application, and concurrent streaming scenarios.
+
 ## 5.1.3 - 2026-03-17
 
 ### Fixed

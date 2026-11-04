@@ -96,7 +96,7 @@ fn create_line(n: Int) -> BitArray {
 }
 
 fn convert_to_bit_array(
-  result: Result(bytes_tree.BytesTree, String),
+  result: Result(bytes_tree.BytesTree, client.StreamFailure),
 ) -> Result(BitArray, Nil) {
   case result {
     Ok(chunk) -> Ok(bytes_tree.to_bit_array(chunk))

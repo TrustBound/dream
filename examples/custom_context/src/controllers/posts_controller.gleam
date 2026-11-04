@@ -56,7 +56,10 @@ fn make_request_and_respond(user_id: String, post_id: String) -> Response {
       text_response(status.ok, post_view.format_show(user_id, post_id, body))
     Error(client.ResponseError(response: client.HttpResponse(body: body, ..))) ->
       text_response(status.internal_server_error, post_view.format_error(body))
-    Error(client.RequestError(message: error)) ->
-      text_response(status.internal_server_error, post_view.format_error(error))
+    Error(client.RequestError(error: transport_error)) ->
+      text_response(
+        status.internal_server_error,
+        post_view.format_error(client.transport_error_to_string(transport_error)),
+      )
   }
 }

@@ -274,8 +274,12 @@ pub fn send_with_recorder_finding_streaming_response_returns_error_test() {
 
   // Assert - should be RequestError, not ResponseError
   case result {
-    Error(client.RequestError(message: msg)) ->
-      string.contains(msg, "streaming response") |> should.be_true()
+    Error(client.RequestError(error: transport_error)) ->
+      string.contains(
+        client.transport_error_to_string(transport_error),
+        "streaming response",
+      )
+      |> should.be_true()
     Error(client.ResponseError(_)) -> {
       io.println("Expected RequestError, got ResponseError")
       should.fail()
@@ -540,8 +544,12 @@ pub fn send_with_recorder_in_playback_mode_with_ambiguous_key_returns_error_test
   // Assert
   result |> should.be_error()
   case result {
-    Error(client.RequestError(message: reason)) ->
-      string.contains(reason, "Ambiguous recording match") |> should.be_true()
+    Error(client.RequestError(error: transport_error)) ->
+      string.contains(
+        client.transport_error_to_string(transport_error),
+        "Ambiguous recording match",
+      )
+      |> should.be_true()
     Error(client.ResponseError(_)) -> should.fail()
     Ok(_) -> should.fail()
   }
@@ -616,8 +624,11 @@ pub fn playback_of_error_recording_preserves_status_and_headers_test() {
         })
       has_custom |> should.be_true()
     }
-    Error(client.RequestError(message: msg)) -> {
-      io.println("Expected ResponseError, got RequestError: " <> msg)
+    Error(client.RequestError(error: transport_error)) -> {
+      io.println(
+        "Expected ResponseError, got RequestError: "
+        <> client.transport_error_to_string(transport_error),
+      )
       should.fail()
     }
     Ok(_) -> {
@@ -1230,7 +1241,7 @@ fn extract_query_from_get_response(body: String) -> String {
 }
 
 fn stream_chunks_to_string(
-  chunks: List(Result(bytes_tree.BytesTree, String)),
+  chunks: List(Result(bytes_tree.BytesTree, client.StreamFailure)),
 ) -> String {
   chunks
   |> list.filter_map(fn(chunk) { chunk })

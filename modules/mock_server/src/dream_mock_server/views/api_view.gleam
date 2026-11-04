@@ -23,6 +23,12 @@ pub fn put_to_json(path: String, body: String) -> String {
   |> json.to_string()
 }
 
+/// Format PATCH request info as JSON string
+pub fn patch_to_json(path: String, body: String) -> String {
+  patch_to_json_object(path, body)
+  |> json.to_string()
+}
+
 /// Format DELETE request info as JSON string
 pub fn delete_to_json(path: String) -> String {
   delete_to_json_object(path)
@@ -80,6 +86,14 @@ fn post_to_json_object(path: String, body: String) -> json.Json {
 fn put_to_json_object(path: String, body: String) -> json.Json {
   json.object([
     #("method", json.string("PUT")),
+    #("url", json.string(path)),
+    #("data", json.string(body)),
+  ])
+}
+
+fn patch_to_json_object(path: String, body: String) -> json.Json {
+  json.object([
+    #("method", json.string("PATCH")),
     #("url", json.string(path)),
     #("data", json.string(body)),
   ])
