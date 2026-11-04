@@ -8,9 +8,20 @@ links = [
     { title = "GitHub", href = "https://github.com/TrustBound/dream" },
 ]
 
+# Starts the vendored mist clock (date-header cache) when the dream
+# application starts, as mist's own gleam.toml does.
+[erlang]
+application_start_module = "mist@internal@clock"
+
 [dependencies]
 gleam_stdlib = ">= 1.0.0 and < 2.0.0"
-mist = { git = "https://github.com/TrustBound/mist.git", ref = "feature/svc-680-http2-fixes-on-v6.0.3" }
+# mist is vendored under src/mist* (see docs/contributing/vendored-mist.md).
+# These are mist 6.0.3's own runtime dependencies, with its ranges.
+glisten = ">= 9.0.0 and < 10.0.0"
+gramps = ">= 6.0.0 and < 7.0.0"
+hpack_erl = ">= 0.3.0 and < 1.0.0"
+exception = ">= 2.1.0 and < 3.0.0"
+logging = ">= 1.0.0 and < 2.0.0"
 gleam_http = ">= 4.3.0 and < 5.0.0"
 gleam_otp = ">= 1.2.0 and < 2.0.0"
 gleam_erlang = ">= 1.0.0 and < 2.0.0"
@@ -23,4 +34,9 @@ simplifile = ">= 2.3.0 and < 3.0.0"
 [dev-dependencies]
 squirrel = ">= 4.0.0 and < 5.0.0"
 dream_test = ">= 1.0.3 and < 2.0.0"
+gleam_hackney = ">= 1.2.0 and < 1.4.0"
+# The vendored mist HTTP/1 tests assert the exact hackney client behaviour
+# (user-agent header, chunked uploads) of the hackney 1.x line that the mist
+# fork locked. hackney 4.x changes both, so keep the test client on 1.x.
+hackney = ">= 1.25.0 and < 2.0.0"
 dream_http_client = { path = "modules/http_client" }
