@@ -193,6 +193,24 @@ See the [Contributing Guide](https://github.com/TrustBound/dream/blob/main/docs/
 
 MIT — see [LICENSE.md](LICENSE.md)
 
+## Third-party code
+
+Dream ships a temporary copy of the [mist](https://github.com/rawhat/mist) web
+server, by rawhat and the mist contributors, under the
+Apache-2.0 licence. The copy lives in `src/mist.gleam`, `src/mist/` and
+`src/mist_ffi.erl`, and its licence is in [src/mist/LICENSE](src/mist/LICENSE).
+
+- Upstream version: mist 6.0.3
+- Source: TrustBound/mist branch `feature/svc-680-http2-fixes-on-v6.0.3`,
+  commit `dfba4fe` (upstream 6.0.3 plus our HTTP/2 fixes)
+
+The copy exists so that Dream can be published to Hex before upstream ships
+the HTTP/2 fixes. It keeps the upstream module names (`mist`,
+`mist/internal/...`), so a project must not depend on both Dream and the
+`mist` Hex package at the same time. See
+[docs/contributing/vendored-mist.md](docs/contributing/vendored-mist.md) for
+the reasons and the removal plan.
+
 ---
 
 <div align="center">

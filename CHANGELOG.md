@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Vendored the forked mist 6.0.3 (with our HTTP/2 fixes) into `src/mist*` and
+  replaced the mist git dependency with mist's own Hex dependencies, so Dream
+  can be published to Hex. A project must not depend on both Dream and the
+  `mist` Hex package. See `docs/contributing/vendored-mist.md`.
 - Updated mist streaming adapter to use actor-based `mist.chunked()` API
   instead of the removed `mist.Streaming` response variant. Dream's public
   streaming API (`stream_response`, `sse_response`, `ResponseBody.Stream`)
