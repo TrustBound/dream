@@ -8,6 +8,8 @@
 
 **Publishing modules?** See [Publishing Strategy](publishing.md)
 
+**Why is mist in `src/`?** See [Vendored mist](vendored-mist.md)
+
 ---
 
 **Quick tasks:**
