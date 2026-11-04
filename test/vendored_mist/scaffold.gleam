@@ -1,0 +1,288 @@
+import exception
+import gleam/bit_array
+import gleam/bool
+import gleam/bytes_tree.{type BytesTree}
+import gleam/erlang/atom
+import gleam/erlang/process
+import gleam/hackney
+import gleam/http
+import gleam/http/request.{type Request}
+import gleam/http/response.{type Response, Response}
+import gleam/int
+import gleam/list
+import gleam/option
+import gleam/otp/factory_supervisor as factory
+import gleam/result
+import gleam/set
+import gleam/string
+import glisten
+import glisten/internal/handler as glisten_handler
+import glisten/socket/options
+import glisten/tcp
+import glisten/transport.{Tcp}
+import mist
+import mist/internal/handler
+import mist/internal/http.{type Connection} as mhttp
+
+pub fn with_server(
+  at port: Int,
+  with handler: fn(Request(Connection)) -> Response(mist.ResponseData),
+  given req: Request(String),
+) -> Response(String) {
+  use <- open_server(port, handler)
+
+  let assert Ok(resp) = hackney.send(req)
+
+  resp
+}
+
+pub fn open_server(
+  at port: Int,
+  with handler: fn(Request(Connection)) -> Response(mist.ResponseData),
+  after perform: fn() -> return,
+) -> return {
+  let factory_supervisor = process.new_name("mist_factory_supervisor")
+  let chunked_response_supervisor =
+    process.spawn_unlinked(fn() {
+      let assert Ok(_chunked) =
+        factory.worker_child(fn(start) { start() })
+        |> factory.named(factory_supervisor)
+        |> factory.start()
+
+      process.sleep_forever()
+    })
+
+  let pid =
+    process.spawn_unlinked(fn() {
+      let assert Ok(listener) = tcp.listen(port, [])
+      let assert Ok(socket) = tcp.accept(listener)
+
+      let loop_func =
+        handler.with_func(
+          fn(req) {
+            req
+            |> handler
+            |> convert_body_types
+          },
+          factory_supervisor,
+        )
+
+      let glisten_handler =
+        glisten_handler.Handler(
+          socket: socket,
+          on_init: handler.init,
+          on_close: option.None,
+          loop: convert_loop(loop_func),
+          transport: Tcp,
+          active_state: options.Once,
+        )
+
+      let assert Ok(server) = glisten_handler.start(glisten_handler)
+      let assert Ok(owner) = process.subject_owner(server.data)
+      let assert Ok(_nil) = tcp.controlling_process(socket, owner)
+      process.send(server.data, glisten_handler.Internal(glisten_handler.Ready))
+
+      process.sleep_forever()
+    })
+
+  case exception.rescue(perform) {
+    Ok(return) -> {
+      process.kill(pid)
+      exit(chunked_response_supervisor, atom.create("shutdown"))
+      return
+    }
+    Error(err) -> {
+      process.kill(pid)
+      exit(chunked_response_supervisor, atom.create("shutdown"))
+      panic as { "Handler failed with: " <> string.inspect(err) }
+    }
+  }
+}
+
+fn convert_body_types(
+  resp: Response(mist.ResponseData),
+) -> Response(mhttp.ResponseData) {
+  let new_body = case resp.body {
+    mist.Websocket -> mhttp.Websocket
+    mist.Bytes(data) -> mhttp.Bytes(data)
+    mist.File(descriptor, offset, length) ->
+      mhttp.File(descriptor, offset, length)
+    mist.Chunked -> mhttp.Chunked
+    mist.ServerSentEvents -> mhttp.ServerSentEvents
+  }
+  response.set_body(resp, new_body)
+}
+
+fn map_user_selector(
+  value: glisten.Message(user_message),
+) -> glisten_handler.LoopMessage(user_message) {
+  case value {
+    glisten.Packet(msg) -> glisten_handler.Packet(msg)
+    glisten.User(msg) -> glisten_handler.Custom(msg)
+  }
+}
+
+fn convert_loop(
+  loop: glisten.Loop(data, user_message),
+) -> glisten_handler.Loop(data, user_message) {
+  fn(data, msg, conn: glisten_handler.Connection(user_message)) {
+    let conn = glisten.Connection(conn.socket, conn.transport, conn.sender)
+    case msg {
+      glisten_handler.Packet(msg) ->
+        loop(data, glisten.Packet(msg), conn)
+        |> glisten.map_selector(map_user_selector)
+        |> glisten.convert_next
+      glisten_handler.Custom(msg) ->
+        loop(data, glisten.User(msg), conn)
+        |> glisten.map_selector(map_user_selector)
+        |> glisten.convert_next
+    }
+  }
+}
+
+type ChunkMessage {
+  Data(data: String)
+  Done
+}
+
+pub fn chunked_echo_server(chunk_size: Int) {
+  let chunk_sender = fn(body: String, subject: process.Subject(ChunkMessage)) {
+    body
+    |> string.to_graphemes
+    |> list.sized_chunk(chunk_size)
+    |> list.each(fn(chars) {
+      chars
+      |> string.join("")
+      |> fn(data) { process.send(subject, Data(data)) }
+      process.sleep(5)
+    })
+    process.send(subject, Done)
+  }
+  fn(req: request.Request(mhttp.Connection)) {
+    let assert Ok(read_request) = mhttp.read_body(req)
+    let assert Ok(body) = bit_array.to_string(read_request.body)
+    mist.chunked(
+      req,
+      response.new(200),
+      fn(subj) { process.spawn(fn() { chunk_sender(body, subj) }) },
+      fn(state, msg, conn) {
+        case msg {
+          Data(data) -> {
+            let assert Ok(_sent) =
+              mist.send_chunk(conn, bit_array.from_string(data))
+            mist.chunk_continue(state)
+          }
+          Done -> {
+            mist.chunk_stop()
+          }
+        }
+      },
+    )
+  }
+}
+
+pub fn default_handler(
+  req: request.Request(Connection),
+) -> response.Response(mist.ResponseData) {
+  let too_beeg =
+    response.new(413)
+    |> response.set_header("connection", "close")
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  let req = mist.read_body(req, 4_000_000)
+  use <- bool.guard(when: result.is_error(req), return: too_beeg)
+  let assert Ok(req) = req
+  let body =
+    req.query
+    |> option.map(bit_array.from_string)
+    |> option.unwrap(req.body)
+    |> bytes_tree.from_bit_array
+  let length =
+    body
+    |> bytes_tree.byte_size
+    |> int.to_string
+  let headers =
+    list.filter(req.headers, fn(p) {
+      case p {
+        #("transfer-encoding", "chunked") -> False
+        #("content-length", _) -> False
+        _ -> True
+      }
+    })
+    |> list.prepend(#("content-length", length))
+  Response(status: 200, headers: headers, body: mist.Bytes(body))
+}
+
+fn compare_bitstring_body(actual: BitArray, expected: BytesTree) {
+  assert bytes_tree.from_bit_array(actual) == expected
+}
+
+fn compare_string_body(actual: String, expected: BytesTree) {
+  assert bytes_tree.from_string(actual) == expected
+}
+
+fn compare_headers_and_status(actual: Response(a), expected: Response(b)) {
+  assert actual.status == expected.status
+
+  let expected_headers = set.from_list(expected.headers)
+  let actual_headers =
+    actual.headers
+    |> set.from_list
+    |> set.filter(fn(pair) {
+      let #(key, _value) = pair
+      key != "date"
+    })
+
+  let missing_headers =
+    set.filter(expected_headers, fn(header) {
+      set.contains(actual_headers, header) == False
+    })
+  let extra_headers =
+    set.filter(actual_headers, fn(header) {
+      set.contains(expected_headers, header) == False
+    })
+
+  assert missing_headers == extra_headers
+}
+
+pub fn string_response_should_equal(
+  actual: Response(String),
+  expected: Response(BytesTree),
+) {
+  compare_headers_and_status(actual, expected)
+  compare_string_body(actual.body, expected.body)
+}
+
+pub fn bitstring_response_should_equal(
+  actual: Response(BitArray),
+  expected: Response(BytesTree),
+) {
+  compare_headers_and_status(actual, expected)
+  compare_bitstring_body(actual.body, expected.body)
+}
+
+pub fn make_request(path: String, body: body) -> request.Request(body) {
+  request.new()
+  |> request.set_host("localhost:8888")
+  |> request.set_method(http.Post)
+  |> request.set_path(path)
+  |> request.set_body(body)
+  |> request.set_scheme(http.Http)
+}
+
+type IoFormat {
+  User
+}
+
+@external(erlang, "io", "fwrite")
+fn io_fwrite(
+  format format: IoFormat,
+  output_format output_format: String,
+  data data: any,
+) -> Nil
+
+pub fn io_fwrite_user(data: anything) {
+  io_fwrite(User, "~tp\n", [data])
+}
+
+@external(erlang, "erlang", "exit")
+fn exit(pid: process.Pid, reason: anything) -> Nil

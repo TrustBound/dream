@@ -22,11 +22,13 @@ import dream/servers/mist/server_test
 import dream/servers/mist/sse_test
 import dream/streaming_test
 import dream_test/reporter/bdd
-import dream_test/runner
+import dream_test/runner.{RunnerConfig}
 import dream_test/unit
 import gleam/io
 import gleam/list
+import gleam/option.{None}
 import snippets_test
+import vendored_mist/suite as vendored_mist
 
 pub fn main() {
   let all_tests =
@@ -65,8 +67,27 @@ pub fn main() {
     ]
     |> list.flatten
 
-  all_tests
-  |> runner.run_all()
+  let dream_results = runner.run_all(all_tests)
+
+  // The vendored mist suites (test/vendored_mist/) came from gleeunit, which
+  // ran them one at a time; several bind the same port. Run them one at a
+  // time, with a longer timeout for the load tests.
+  let vendored_mist_tests =
+    vendored_mist.suites()
+    |> list.map(fn(suite) { unit.to_test_cases(suite.name, suite.tests) })
+    |> list.flatten
+
+  let vendored_results =
+    runner.run_all_with_config(
+      RunnerConfig(
+        max_concurrency: 1,
+        default_timeout_ms: 60_000,
+        test_filter: None,
+      ),
+      vendored_mist_tests,
+    )
+
+  list.append(dream_results, vendored_results)
   |> bdd.report(io.println)
   |> runner.exit_on_failure()
 }
