@@ -17,7 +17,7 @@ and `gleam publish` works.
 
 We do not plan to maintain a mist fork. The copy is temporary. It goes away
 when upstream mist ships the fixes (tracked as U11 in the Dream Maintenance
-project, Linear SVC-689 project P-SVC-37).
+project, Linear P-SVC-37).
 
 ## What is copied
 
