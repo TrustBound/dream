@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Erlang and Gleam
         uses: erlef/setup-beam@v1
@@ -25,6 +27,10 @@ jobs:
           otp-version: ${{ env.OTP_VERSION }}
           gleam-version: ${{ env.GLEAM_VERSION }}
           rebar3-version: ${{ env.REBAR3_VERSION }}
+
+      # The vendored mist and glisten copies must match the vendor/ submodules.
+      - name: Check vendored copies
+        run: make vendor-check
 
       - name: Download dependencies
         run: gleam deps download
@@ -89,6 +95,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Erlang and Gleam
         uses: erlef/setup-beam@v1

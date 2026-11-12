@@ -40,10 +40,39 @@ back to the Hex packages (see "How to remove the copies").
 We have not opened the upstream pull requests yet. They follow once this
 version of Dream is released and proven.
 
+## How the copies are kept
+
+The two libraries live in this repository twice, on purpose.
+
+- **The source of truth is two git submodules.** `vendor/mist` points at our
+  fork [TrustBound/mist](https://github.com/TrustBound/mist) and
+  `vendor/glisten` at our fork
+  [TrustBound/glisten](https://github.com/TrustBound/glisten). Each is pinned
+  to one exact commit, so git records which fix-branch commit Dream uses, and
+  the full history of every fix is one `git log` away in the submodule.
+- **The files under `src/` and `test/` are generated from the submodules.**
+  The Gleam compiler and the Hex package only take real files under `src/`.
+  We tested links from `src/` into the submodule: the build works, but the
+  Hex package then carries the files at `vendor/mist/src/`, where a project
+  that installs Dream cannot find them. So `make vendor-sync` copies the
+  files, and `make vendor-check` fails when a copy differs from its
+  submodule. CI and the pre-commit hook run the check.
+
+After you clone Dream, fetch the submodules once:
+
+```sh
+git submodule update --init
+```
+
+Never edit a generated file. Change the fork, move the submodule to the new
+commit, and run `make vendor-sync`.
+
 ## What is copied
 
 | Item | Where |
 |------|-------|
+| mist submodule (source of truth) | `vendor/mist` |
+| glisten submodule (source of truth) | `vendor/glisten` |
 | mist source | `src/mist.gleam`, `src/mist/`, `src/mist_ffi.erl` |
 | mist licence (Apache-2.0) | `src/mist/LICENSE` |
 | mist tests | `test/vendored_mist/` |
@@ -63,8 +92,9 @@ them as before.
 ### mist
 
 - Upstream base: mist 6.0.3 (upstream commit `6be7897`)
-- Copied from: our fix branch `http2-review-fixes`, commit `50660e9`, which is
-  that release plus the changes below, one commit each
+- Copied from: the `vendor/mist` submodule, branch `http2-review-fixes` of our
+  fork, commit `4aebd5f`, which is that release plus the changes below, one
+  commit each
 
 What the changes do:
 
@@ -102,13 +132,13 @@ What the changes do:
 - Tests: the test server no longer races the tests for its port.
 
 The commit list is the authority. Read it with
-`git log --oneline 6be7897..50660e9` in the fix repository.
+`git -C vendor/mist log --oneline 6be7897..4aebd5f`.
 
 ### glisten
 
 - Upstream base: glisten 9.0.1
-- Copied from: our fix branch `socket-buffer-9.0.1`, commit `5340a31`, which
-  is that release plus two changes
+- Copied from: the `vendor/glisten` submodule, branch `socket-buffer-9.0.1`
+  of our fork, commit `5340a31`, which is that release plus two changes
 
 What the changes do:
 
@@ -126,6 +156,12 @@ the same as the fix branches, so that what Dream ships is exactly what goes
 upstream. For that reason the format check in the pre-commit hook, the
 `Makefile` and CI skips the copied source, and compiler warnings from it do
 not fail the hook.
+
+`scripts/vendor.sh` is the one definition of how the copies are made.
+`make vendor-sync` and `make vendor-check` call it. It does not copy three
+upstream test files: mist's `mist_test.gleam` (it only starts gleeunit) and
+`websocket_test.gleam` (it needs a package Dream does not depend on), and
+glisten's `test_utils.gleam` (nothing imports it).
 
 The test bodies under `test/vendored_mist/` and `test/vendored_glisten/` are
 unchanged too, with three mechanical exceptions: the `scaffold` and
@@ -157,19 +193,21 @@ lock file.
 
 If a fix branch gets a new commit before upstream ships it:
 
-1. Check out the fix branch at the new commit.
-2. Replace the source files listed in "What is copied" with the branch's
-   `src/` tree. Keep `src/mist/LICENSE` and `src/glisten/LICENSE`.
-3. Replace the test files under `test/vendored_mist/` or
-   `test/vendored_glisten/` with the branch's `test/` files. Keep
-   `suite.gleam`. Re-apply the import changes described above. Add new
-   `*_test` functions to `suite.gleam`.
-4. Compare the branch's `gleam.toml` `[dependencies]` with Dream's and align
+1. Push the new commit to the fork. A submodule can only point at a commit
+   that exists on GitHub.
+2. Move the submodule to it: `git -C vendor/mist fetch` and
+   `git -C vendor/mist checkout <commit>` (or the same in `vendor/glisten`).
+3. Run `make vendor-sync`. It regenerates the copied source, licences and
+   tests. Do not run `gleam format` on the copied source.
+4. Add any new `*_test` function to `test/vendored_mist/suite.gleam`. That
+   file is written by hand; `make vendor-check` tells you which tests are
+   missing.
+5. Compare the fork's `gleam.toml` `[dependencies]` with Dream's and align
    the ranges.
-5. Update the commit ids on this page and in `README.md`.
-6. Do not run `gleam format` on the copied source. Check that the copy is
-   identical to the branch with `diff -r`.
-7. Run `gleam build` and `gleam test`.
+6. Update the commit ids on this page and in `README.md`.
+7. Run `make vendor-check`, then `make test-unit`. The module tests matter:
+   `modules/http_client` drives a real HTTP/2 client against the mock
+   server, which runs on the vendored mist.
 
 ## How to remove the copies
 
@@ -177,8 +215,9 @@ Do this when upstream releases include the fixes. Call the releases mist
 `X.Y.Z` and glisten `A.B.C`. The two can be removed separately; mist needs a
 glisten release that it is compatible with.
 
-1. Delete the source files listed in "What is copied", including the two
-   `LICENSE` files.
+1. Remove the submodule (`git submodule deinit vendor/mist` and
+   `git rm vendor/mist`, or the same for `vendor/glisten`) and delete the
+   source files listed in "What is copied", including the `LICENSE` file.
 2. Delete `test/vendored_mist/` and `test/vendored_glisten/`. Remove the
    `vendored_mist/suite` import and the vendored run block from
    `test/dream_test.gleam`.
@@ -192,7 +231,8 @@ glisten release that it is compatible with.
    - remove `gleam_hackney` and `hackney` from `[dev-dependencies]` if
      nothing else uses them.
 4. Remove the vendored-path exclusions from the format check in
-   `.githooks/pre-commit`, the `Makefile` and the CI workflow.
+   `.githooks/pre-commit`, the `Makefile` and the CI workflow, and remove
+   the `vendor-sync` and `vendor-check` steps once both copies are gone.
 5. Remove the "Third-party code" section from `README.md`.
 6. Delete this file and its link in `docs/contributing/index.md`.
 7. Regenerate the lock files: run `gleam deps download` in the repository

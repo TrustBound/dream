@@ -43,6 +43,15 @@ is_vendored() {
 echo "🔍 Running pre-commit checks..."
 echo ""
 
+# Step 0: Check the vendored mist and glisten copies against vendor/
+echo "📦 Checking vendored copies..."
+if ! scripts/vendor.sh check; then
+  echo ""
+  echo -e "${RED}❌ Vendored copies do not match vendor/. Run 'make vendor-sync'.${NC}"
+  exit 1
+fi
+echo ""
+
 # Step 1: Check code formatting
 echo "📝 Checking code formatting..."
 format_files=()

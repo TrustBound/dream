@@ -201,10 +201,15 @@ rawhat and their contributors, under the Apache-2.0 licence.
 
 - mist: `src/mist.gleam`, `src/mist/` and `src/mist_ffi.erl`; licence in
   [src/mist/LICENSE](src/mist/LICENSE). Upstream 6.0.3 plus our fixes
-  (fix commit `50660e9`).
+  (fix commit `4aebd5f`).
 - glisten: `src/glisten.gleam`, `src/glisten/` and `src/glisten_*.erl`;
   licence in [src/glisten/LICENSE](src/glisten/LICENSE). Upstream 9.0.1 plus
   our fixes (fix commit `5340a31`).
+
+The copies are generated from two git submodules, `vendor/mist` and
+`vendor/glisten`, which point at our forks and pin those commits. Run
+`git submodule update --init` after you clone. `make vendor-check` fails when
+a copy differs from its submodule.
 
 Dream needed many HTTP/2 fixes in these libraries. We are contributing them
 back upstream, which takes time for this many changes, and this version of

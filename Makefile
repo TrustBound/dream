@@ -1,7 +1,7 @@
 # Dream Library Development Makefile
 # For example-specific commands, see individual example directories
 
-.PHONY: test test-dream test-unit test-integration setup-integration-dbs clean build format docs check install-hooks
+.PHONY: test test-dream test-unit test-integration setup-integration-dbs clean build format docs check install-hooks vendor-sync vendor-check
 
 # Run all tests (unit + integration)
 test:
@@ -57,6 +57,16 @@ check:
 		| xargs gleam format --check
 	@gleam build
 	@gleam test
+
+# Regenerate the vendored mist and glisten copies (src/ and test/) from the
+# vendor/ submodules. See docs/contributing/vendored-mist.md.
+vendor-sync:
+	@scripts/vendor.sh sync
+
+# Fail if the vendored copies differ from the vendor/ submodules, or if a
+# vendored test is not registered in test/vendored_mist/suite.gleam
+vendor-check:
+	@scripts/vendor.sh check
 
 # Install repo-managed git hooks into .git/hooks/
 # (Git does not version-control .git/hooks, so this must be run per-clone.)
