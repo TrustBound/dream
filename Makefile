@@ -45,9 +45,16 @@ format:
 docs:
 	@gleam docs build
 
+# Vendored mist and glisten source stays byte-identical to upstream, so the
+# format check skips it. See docs/contributing/vendored-mist.md.
+VENDORED_GLEAM := ^src/(mist|glisten)(\.gleam$$|/)
+
 # Run format check and build (useful for CI)
 check:
-	@gleam format --check
+	@git ls-files --cached --others --exclude-standard -- '*.gleam' \
+		| grep -Ev '$(VENDORED_GLEAM)' \
+		| while IFS= read -r f; do [ -f "$$f" ] && echo "$$f"; done \
+		| xargs gleam format --check
 	@gleam build
 	@gleam test
 

@@ -8,7 +8,7 @@
 
 **Publishing modules?** See [Publishing Strategy](publishing.md)
 
-**Why is mist in `src/`?** See [Vendored mist](vendored-mist.md)
+**Why are mist and glisten in `src/`?** See [Vendored mist and glisten](vendored-mist.md)
 
 ---
 

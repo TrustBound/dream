@@ -1,23 +1,44 @@
-# Vendored mist
+# Vendored mist and glisten
 
-Dream ships a copy of the [mist](https://github.com/rawhat/mist) web server
-inside its own source tree. This page says why, what it changes for you, and
-how to remove the copy again.
+Dream ships copies of two libraries inside its own source tree:
 
-## Why the copy exists
+- [mist](https://github.com/rawhat/mist), the web server
+- [glisten](https://github.com/rawhat/glisten), the socket library that mist
+  runs on
 
-Dream needs HTTP/2 fixes that upstream mist 6.0.3 does not have yet. We made
-them on a fork, `TrustBound/mist`, branch
-`feature/svc-680-http2-fixes-on-v6.0.3`. Dream used that fork as a git
-dependency. Hex does not accept packages with git dependencies, so Dream could
-not be published.
+Both are written by Alex Manning (rawhat) and their contributors, under the
+Apache-2.0 licence. This page says why the copies exist, what is in them, what
+they change for you, and how to remove them again.
 
-The copy removes the git dependency. Dream now depends only on Hex packages,
-and `gleam publish` works.
+## Why we vendored
 
-We do not plan to maintain a mist fork. The copy is temporary. It goes away
-when upstream mist ships the fixes (tracked as U11 in the Dream Maintenance
-project, Linear P-SVC-37).
+Mist and glisten have given a great deal to us and to the rest of the Gleam
+community. We want to give back to both projects, and that is still the plan.
+The copies are here for four reasons.
+
+1. **Dream needed many fixes, not one.** HTTP/2 in upstream mist 6.0.3 was not
+   finished. Requests with a body did not get a response, every request left a
+   process behind, large responses stalled, and several kinds of client input
+   closed or crashed the whole connection. Making HTTP/2 correct for Dream took
+   more than forty separate changes to mist and two to glisten. They are
+   listed below.
+2. **Contributing that many changes takes a long time.** Each change has to go
+   upstream as its own small pull request, in the maintainer's style, and be
+   reviewed and released on the maintainer's schedule. That is the right way
+   to do it, and it cannot be hurried.
+3. **This version of Dream has already been delayed too long.** Dream could
+   not be published while it depended on a fork: Hex does not accept packages
+   with git dependencies. Waiting for every pull request to be merged and
+   released would have delayed Dream by months more.
+4. **The fixes have to reach Dream's users now.** Shipping the corrected
+   source inside Dream lets us release, while the same changes go upstream at
+   the pace the upstream projects can take them.
+
+The copies are temporary. When upstream releases contain the fixes, Dream goes
+back to the Hex packages (see "How to remove the copies").
+
+We have not opened the upstream pull requests yet. They follow once this
+version of Dream is released and proven.
 
 ## What is copied
 
@@ -25,74 +46,155 @@ project, Linear P-SVC-37).
 |------|-------|
 | mist source | `src/mist.gleam`, `src/mist/`, `src/mist_ffi.erl` |
 | mist licence (Apache-2.0) | `src/mist/LICENSE` |
-| mist tests | `test/vendored_mist/` (registered in `test/vendored_mist/suite.gleam`) |
-| mist runtime dependencies | `[dependencies]` in `gleam.toml`, with mist's own version ranges |
+| mist tests | `test/vendored_mist/` |
+| glisten source | `src/glisten.gleam`, `src/glisten/`, `src/glisten_ffi.erl`, `src/glisten_ssl_ffi.erl`, `src/glisten_tcp_ffi.erl` |
+| glisten licence (Apache-2.0) | `src/glisten/LICENSE` |
+| glisten tests | `test/vendored_glisten/` |
+| test registration | `test/vendored_mist/suite.gleam` |
+| runtime dependencies of both | `[dependencies]` in `gleam.toml`, with their own version ranges |
 | mist application start module | `[erlang] application_start_module = "mist@internal@clock"` in `gleam.toml` |
+| `ssl` application for glisten | `[erlang] extra_applications = ["ssl"]` in `gleam.toml` |
 | attribution | "Third-party code" section in `README.md` |
 
-- Upstream version: mist 6.0.3
-- Fork commit the copy is based on: `dfba4fe` on
-  `TrustBound/mist` branch `feature/svc-680-http2-fixes-on-v6.0.3`
-  (upstream v6.0.3 plus our HTTP/2 fixes and small chores)
+The module names are unchanged: `mist`, `mist/internal/...`, `glisten`,
+`glisten/...`. Dream's own code (`src/dream/servers/mist/*.gleam`) imports
+them as before.
 
-The module names are unchanged: `mist`, `mist/internal/...`. Dream's own
-code (`src/dream/servers/mist/*.gleam`) imports them as before.
+### mist
 
-The test bodies under `test/vendored_mist/` are unchanged too. Only the
-`scaffold` import moved to `vendored_mist/scaffold`, and
+- Upstream base: mist 6.0.3 (upstream commit `6be7897`)
+- Copied from: our fix branch `http2-review-fixes`, commit `1b3867f`, which is
+  that release plus the changes below, one commit each
+
+What the changes do:
+
+- HTTP/1: a response sent just before the connection closes is no longer lost
+  to a connection reset.
+- HTTP/2 requests: the request path, method, scheme and host are applied;
+  request bodies are delivered, with or without a `content-length`, and
+  checked against it when it is given; headers split across frames and
+  request trailers are handled; the body size limit is enforced while reading.
+- HTTP/2 responses: large bodies and large headers are split into frames; flow
+  control is respected; server-sent events, chunked responses and file
+  responses work; headers and body go out in one write.
+- HTTP/2 connection handling: settings from the client are applied; `PING` is
+  answered; a stream that the client resets stops its handler; stream
+  processes are cleaned up; stream numbers cannot be reused; frames sent with
+  the client preface are processed.
+- Errors: bad input gets the error the HTTP/2 specification asks for (a stream
+  reset or a `GOAWAY`) and no longer crashes or silently stalls the
+  connection; a handler that fails answers 500 on its own stream only;
+  oversized frames and oversized header blocks are refused.
+- Limits and flow control: at most 100 streams run at once on a connection,
+  and more are refused; the window for a request body is granted as the
+  handler reads it, so an upload cannot pile up in memory; frame padding is
+  counted.
+- Settings: `mist.with_read_timeout` sets how long to wait for request data
+  (15 seconds by default, for HTTP/1 and HTTP/2), and
+  `mist.with_send_timeout` sets how long an HTTP/2 chunked or
+  server-sent-events send waits for the client (30 seconds by default).
+- Slow clients: a chunked or server-sent-events response waits for the client
+  and no longer piles up in server memory; a send that times out is cancelled.
+- Tests: the test server no longer races the tests for its port.
+
+The commit list is the authority. Read it with
+`git log --oneline 6be7897..1b3867f` in the fix repository.
+
+### glisten
+
+- Upstream base: glisten 9.0.1
+- Copied from: our fix branch `socket-buffer-9.0.1`, commit `5340a31`, which
+  is that release plus two changes
+
+What the changes do:
+
+- Glisten no longer sets every socket's read buffer to the size of the
+  kernel's receive buffer. Under load that step held a large buffer for every
+  read (about 3,000 MB against 155 MB in the same test on macOS, and 139 MB
+  against about 70 MB on Linux) and gave no measurable speed.
+- `glisten.with_buffer_size` sets the buffer for anyone who wants a different
+  size.
+
+### What is not changed
+
+The copied source is never reformatted or tidied. It must stay byte for byte
+the same as the fix branches, so that what Dream ships is exactly what goes
+upstream. For that reason the format check in the pre-commit hook, the
+`Makefile` and CI skips the copied source, and compiler warnings from it do
+not fail the hook.
+
+The test bodies under `test/vendored_mist/` and `test/vendored_glisten/` are
+unchanged too, with three mechanical exceptions: the `scaffold` and
+`tcp_client` imports point at their new module paths, glisten's `main`
+function (which starts gleeunit) is removed, and
 `test/vendored_mist/suite.gleam` wraps each `*_test` function as a dream_test
 unit test. `test/dream_test.gleam` runs these suites one at a time, because
-the HTTP/1 tests all listen on port 8888.
+they share ports.
 
-## Consequence: no second mist in the dependency tree
+## Consequence: no second mist or glisten in the dependency tree
 
 Gleam does not allow two packages to define the same module. Dream now
-defines `mist`. If a project depends on Dream and, directly or through another
-package, on the `mist` Hex package, `gleam build` fails with a duplicate
-module error.
+defines `mist` and `glisten`. If a project depends on Dream and, directly or
+through another package, on the `mist` or `glisten` Hex package, `gleam build`
+fails with a duplicate module error.
 
-Rule for consumers: depend on Dream, not on `mist`. Dream re-exports what you
-need through `dream/servers/mist/*`.
+Rule for consumers: depend on Dream, not on `mist` or `glisten`. Dream
+re-exports what you need through `dream/servers/mist/*`.
 
-Rule for Dream contributors: do not add a dependency that pulls in `mist`.
+Rule for Dream contributors: do not add a dependency that pulls in `mist` or
+`glisten`.
 
-## How to update the copy
+If a project already has a `manifest.toml` from before this change, it still
+lists the Hex packages and the build fails with the duplicate module error.
+Run `gleam deps update dream` in that project once. It removes them from the
+lock file.
 
-If the fork gets a new fix before upstream ships it:
+## How to update the copies
 
-1. Clone the fork branch at the new commit.
-2. Replace `src/mist.gleam`, `src/mist/` and `src/mist_ffi.erl` with the
-   fork's `src/` tree. Keep `src/mist/LICENSE`.
-3. Replace the test files under `test/vendored_mist/` with the fork's
-   `test/` files. Keep `suite.gleam`. Re-apply the `vendored_mist/scaffold`
-   import change. Add new `*_test` functions to `suite.gleam`.
-4. Compare the fork's `gleam.toml` `[dependencies]` with Dream's and align
+If a fix branch gets a new commit before upstream ships it:
+
+1. Check out the fix branch at the new commit.
+2. Replace the source files listed in "What is copied" with the branch's
+   `src/` tree. Keep `src/mist/LICENSE` and `src/glisten/LICENSE`.
+3. Replace the test files under `test/vendored_mist/` or
+   `test/vendored_glisten/` with the branch's `test/` files. Keep
+   `suite.gleam`. Re-apply the import changes described above. Add new
+   `*_test` functions to `suite.gleam`.
+4. Compare the branch's `gleam.toml` `[dependencies]` with Dream's and align
    the ranges.
-5. Update the fork commit in this file and in `README.md`.
-6. Run `gleam format`, `gleam build`, `gleam test`.
+5. Update the commit ids on this page and in `README.md`.
+6. Do not run `gleam format` on the copied source. Check that the copy is
+   identical to the branch with `diff -r`.
+7. Run `gleam build` and `gleam test`.
 
-## How to remove the copy (U11)
+## How to remove the copies
 
-Do this when an upstream mist release includes the HTTP/2 fixes. Call that
-release `X.Y.Z`.
+Do this when upstream releases include the fixes. Call the releases mist
+`X.Y.Z` and glisten `A.B.C`. The two can be removed separately; mist needs a
+glisten release that it is compatible with.
 
-1. Delete `src/mist.gleam`, `src/mist/` (including `src/mist/LICENSE`) and
-   `src/mist_ffi.erl`.
-2. Delete `test/vendored_mist/`. Remove the `vendored_mist/suite` import and
-   the vendored run block from `test/dream_test.gleam`.
+1. Delete the source files listed in "What is copied", including the two
+   `LICENSE` files.
+2. Delete `test/vendored_mist/` and `test/vendored_glisten/`. Remove the
+   `vendored_mist/suite` import and the vendored run block from
+   `test/dream_test.gleam`.
 3. In `gleam.toml`:
    - add `mist = ">= X.Y.Z and < (X+1).0.0"` to `[dependencies]`;
-   - remove the mist runtime dependencies that Dream does not import itself
-     (`glisten`, `gramps`, `hpack_erl`, `exception`, `logging`; check with
+   - remove the runtime dependencies that Dream does not import itself
+     (`gramps`, `hpack_erl`, `exception`, `logging`; check with
      `grep -r "^import" src/dream` first);
-   - remove the `[erlang] application_start_module` line;
-   - remove `gleam_hackney` from `[dev-dependencies]` if nothing else uses it.
-4. Remove the "Third-party code" section from `README.md`.
-5. Delete this file and its link in `docs/contributing/index.md`.
-6. Regenerate the manifests: run `gleam deps download` in the repository
+   - remove the `[erlang] application_start_module` and
+     `extra_applications` lines;
+   - remove `gleam_hackney` and `hackney` from `[dev-dependencies]` if
+     nothing else uses them.
+4. Remove the vendored-path exclusions from the format check in
+   `.githooks/pre-commit`, the `Makefile` and the CI workflow.
+5. Remove the "Third-party code" section from `README.md`.
+6. Delete this file and its link in `docs/contributing/index.md`.
+7. Regenerate the lock files: run `gleam deps download` in the repository
    root, in every `modules/*` directory and in every `examples/*` directory.
-   Check that `manifest.toml` lists `mist` as a Hex package and has no
-   `source = "git"` entry.
-7. Run `gleam format --check`, `gleam build`, `gleam test`, and the module
+   Check that `manifest.toml` lists `mist` and `glisten` as Hex packages and
+   has no `source = "git"` entry.
+8. Run `gleam format --check`, `gleam build`, `gleam test`, and the module
    and example builds. Run `echo n | gleam publish` and check it reaches the
    confirmation prompt without an error.

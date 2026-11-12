@@ -29,8 +29,14 @@ jobs:
       - name: Download dependencies
         run: gleam deps download
 
+      # Vendored mist and glisten source stays byte-identical to upstream, so the
+      # format check skips it. See docs/contributing/vendored-mist.md.
       - name: Check code format
-        run: gleam format --check
+        env:
+          VENDORED_GLEAM: '^src/(mist|glisten)(\.gleam$|/)'
+        run: |
+          git ls-files -- '*.gleam' | grep -Ev "$VENDORED_GLEAM" \
+            | xargs gleam format --check
 
       - name: Build project
         run: gleam build

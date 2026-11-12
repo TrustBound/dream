@@ -23,12 +23,35 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Vendored mist and glisten source stays byte-identical to upstream, so the
+# format check and the warning check skip it. See docs/contributing/vendored-mist.md.
+VENDORED_PATHS="src/mist.gleam src/mist src/glisten.gleam src/glisten"
+REPO_ROOT=$(pwd)
+
+# Succeeds when the path (relative to the repo root, or absolute) is vendored.
+is_vendored() {
+  local rel=${1#"$REPO_ROOT"/}
+  local vendored
+  for vendored in $VENDORED_PATHS; do
+    case "$rel" in
+      "$vendored" | "$vendored"/*) return 0 ;;
+    esac
+  done
+  return 1
+}
+
 echo "🔍 Running pre-commit checks..."
 echo ""
 
 # Step 1: Check code formatting
 echo "📝 Checking code formatting..."
-if ! gleam format --check; then
+format_files=()
+while IFS= read -r file; do
+  if [ -f "$file" ] && ! is_vendored "$file"; then
+    format_files+=("$file")
+  fi
+done < <(git ls-files --cached --others --exclude-standard -- '*.gleam')
+if ! gleam format --check "${format_files[@]}"; then
   echo ""
   echo -e "${RED}❌ Code is not formatted. Run 'gleam format' to fix.${NC}"
   exit 1
@@ -63,7 +86,7 @@ build_component() {
     for path in $warning_paths; do
       case "$path" in
         */build/packages/*) ;;
-        *) has_non_dependency_warning=1 ;;
+        *) is_vendored "${path%%:*}" || has_non_dependency_warning=1 ;;
       esac
     done
 

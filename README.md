@@ -195,21 +195,24 @@ MIT — see [LICENSE.md](LICENSE.md)
 
 ## Third-party code
 
-Dream ships a temporary copy of the [mist](https://github.com/rawhat/mist) web
-server, by rawhat and the mist contributors, under the
-Apache-2.0 licence. The copy lives in `src/mist.gleam`, `src/mist/` and
-`src/mist_ffi.erl`, and its licence is in [src/mist/LICENSE](src/mist/LICENSE).
+Dream ships temporary copies of the [mist](https://github.com/rawhat/mist) web
+server and the [glisten](https://github.com/rawhat/glisten) socket library, by
+rawhat and their contributors, under the Apache-2.0 licence.
 
-- Upstream version: mist 6.0.3
-- Source: TrustBound/mist branch `feature/svc-680-http2-fixes-on-v6.0.3`,
-  commit `dfba4fe` (upstream 6.0.3 plus our HTTP/2 fixes)
+- mist: `src/mist.gleam`, `src/mist/` and `src/mist_ffi.erl`; licence in
+  [src/mist/LICENSE](src/mist/LICENSE). Upstream 6.0.3 plus our fixes
+  (fix commit `1b3867f`).
+- glisten: `src/glisten.gleam`, `src/glisten/` and `src/glisten_*.erl`;
+  licence in [src/glisten/LICENSE](src/glisten/LICENSE). Upstream 9.0.1 plus
+  our fixes (fix commit `5340a31`).
 
-The copy exists so that Dream can be published to Hex before upstream ships
-the HTTP/2 fixes. It keeps the upstream module names (`mist`,
-`mist/internal/...`), so a project must not depend on both Dream and the
-`mist` Hex package at the same time. See
+Dream needed many HTTP/2 fixes in these libraries. We are contributing them
+back upstream, which takes time for this many changes, and this version of
+Dream could not wait any longer. The copies keep the upstream module names
+(`mist`, `glisten`), so a project must not depend on both Dream and the `mist`
+or `glisten` Hex packages at the same time. See
 [docs/contributing/vendored-mist.md](docs/contributing/vendored-mist.md) for
-the reasons and the removal plan.
+the reasons, the list of changes and the removal plan.
 
 ---
 
