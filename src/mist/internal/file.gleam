@@ -73,8 +73,8 @@ fn send_file(
   options options: List(a),
 ) -> Result(Nil, SocketReason)
 
-@external(erlang, "file", "pread")
-fn pread(
+@external(erlang, "mist_ffi", "file_pread")
+pub fn pread(
   fd: FileDescriptor,
   location: Int,
   bytes: Int,

@@ -1,21 +1,22 @@
-import gleam/bytes_tree.{type BytesTree}
+import exception
+import gleam/bytes_tree
 import gleam/erlang/process.{type Selector, type Subject}
-import gleam/http as ghttp
+import gleam/http.{type Header} as ghttp
 import gleam/http/request.{type Request}
 import gleam/http/response.{type Response}
 import gleam/int
-import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/otp/actor
 import gleam/pair
 import gleam/result
 import gleam/string
 import gleam/uri
+import logging
+import mist/internal/file
 import mist/internal/http.{
-  type Connection, type Handler, type ResponseData, Connection, H2StreamSender,
+  type Connection, type Handler, type ResponseData, Bytes, Connection, File,
   Stream,
 }
-import mist/internal/http2/flow_control
 import mist/internal/http2/frame.{type Frame, type StreamIdentifier}
 
 pub type Message {
@@ -25,22 +26,23 @@ pub type Message {
 
 pub type SendMessage {
   Send(identifier: StreamIdentifier(Frame), resp: Response(ResponseData))
-  StreamHeaders(
+  Reset(identifier: StreamIdentifier(Frame), error: frame.ConnectionError)
+  SendHeaders(
     identifier: StreamIdentifier(Frame),
     status: Int,
-    headers: List(#(String, String)),
+    headers: List(Header),
   )
-  StreamData(
+  SendData(
     identifier: StreamIdentifier(Frame),
-    data: BytesTree,
-    end_stream: Bool,
+    data: BitArray,
+    sent: Subject(Result(Nil, Nil)),
   )
+  ConsumeData(identifier: StreamIdentifier(Frame), size: Int)
 }
 
 pub type StreamState {
   Open
   RemoteClosed
-  LocalClosed
   Closed
 }
 
@@ -50,8 +52,10 @@ pub type State {
     state: StreamState,
     subject: Subject(Message),
     receive_window_size: Int,
+    consumed_size: Int,
     send_window_size: Int,
     pending_content_length: Option(Int),
+    headers_sent: Bool,
   )
 }
 
@@ -62,9 +66,11 @@ pub type InternalState {
 pub fn new(
   identifier: StreamIdentifier(Frame),
   handler: Handler,
-  headers: List(#(String, String)),
+  headers: List(Header),
   connection: Connection,
   sender: Subject(SendMessage),
+  end: Bool,
+  send_timeout: Int,
 ) -> Result(actor.Started(Subject(Message)), actor.StartError) {
   actor.new_with_initialiser(1000, fn(subject) {
     let data_selector =
@@ -79,32 +85,34 @@ pub fn new(
   |> actor.on_message(fn(state, msg) {
     case msg {
       Ready -> {
-        let content_length =
-          headers
-          |> list.key_find("content-length")
-          |> result.try(int.parse)
-          |> result.unwrap(0)
-        let h2_sender =
-          H2StreamSender(
-            send_headers: fn(status, hdrs) {
-              process.send(sender, StreamHeaders(identifier, status, hdrs))
-            },
-            send_data: fn(data, end_stream) {
-              process.send(sender, StreamData(identifier, data, end_stream))
-            },
-          )
+        let self = process.self()
         let conn =
           Connection(
             ..connection,
-            h2_sender: Some(h2_sender),
             body: Stream(
               selector: process.map_selector(state.data_selector, fn(val) {
-                let assert Data(bits, ..) = val
-                bits
+                let assert Data(bits, end) = val
+                #(bits, end)
               }),
               attempts: 0,
               data: <<>>,
-              remaining: content_length,
+              end: end,
+              send_headers: fn(status, headers) {
+                process.send(sender, SendHeaders(identifier, status, headers))
+              },
+              send_data: fn(data) {
+                let open =
+                  process.subject_owner(sender)
+                  |> result.map(process.is_alive)
+                  |> result.unwrap(False)
+                case open && process.is_alive(self) {
+                  True -> send_data(sender, identifier, data, send_timeout)
+                  False -> Error(Nil)
+                }
+              },
+              consume_data: fn(size) {
+                process.send(sender, ConsumeData(identifier, size))
+              },
             ),
           )
 
@@ -115,24 +123,108 @@ pub fn new(
 
         case result {
           Ok(value) -> {
-            let resp = handler(value)
-            process.send(sender, Send(identifier, resp))
+            let resp = case parse_host(value) {
+              Ok(req) ->
+                case exception.rescue(fn() { handler(req) }) {
+                  Ok(resp) -> resp
+                  Error(error) -> {
+                    logging.log(logging.Error, string.inspect(error))
+                    response.new(500)
+                    |> response.set_body(
+                      Bytes(
+                        bytes_tree.from_bit_array(<<
+                          "Internal Server Error":utf8,
+                        >>),
+                      ),
+                    )
+                  }
+                }
+              Error(_nil) -> {
+                logging.log(logging.Debug, "Missing HTTP `host` header")
+                response.new(400)
+                |> response.set_body(Bytes(bytes_tree.new()))
+              }
+            }
+            case resp.body {
+              File(..) -> send_file_body(sender, identifier, resp)
+              _ -> process.send(sender, Send(identifier, resp))
+            }
             actor.stop()
           }
-          Error(err) ->
-            actor.stop_abnormal(
-              "Failed to respond to request: " <> string.inspect(err),
-            )
+          Error(_nil) -> {
+            logging.log(logging.Debug, "Invalid HTTP/2 request")
+            process.send(sender, Reset(identifier, frame.ProtocolError))
+            actor.stop()
+          }
         }
       }
-      _ -> actor.continue(state)
+      _msg -> actor.continue(state)
     }
   })
   |> actor.start
 }
 
+fn send_data(
+  sender: Subject(SendMessage),
+  identifier: StreamIdentifier(Frame),
+  data: BitArray,
+  timeout: Int,
+) -> Result(Nil, Nil) {
+  use connection <- result.try(process.subject_owner(sender))
+  let monitor = process.monitor(connection)
+  let sent = process.new_subject()
+  process.send(sender, SendData(identifier, data, sent))
+  let selector =
+    process.new_selector()
+    |> process.select(sent)
+    |> process.select_specific_monitor(monitor, fn(_down) { Error(Nil) })
+  let reply = case process.selector_receive(selector, timeout) {
+    Ok(reply) -> reply
+    Error(_nil) -> {
+      process.send(sender, Reset(identifier, frame.Cancel))
+      let _ = process.selector_receive(selector, timeout)
+      Error(Nil)
+    }
+  }
+  process.demonitor_process(monitor)
+  reply
+}
+
+fn send_file_body(
+  sender: Subject(SendMessage),
+  identifier: StreamIdentifier(Frame),
+  resp: Response(ResponseData),
+) -> Nil {
+  let assert File(file_descriptor, offset, length) = resp.body
+  let read = file.pread(file_descriptor, offset, length)
+
+  case file.close(file_descriptor) {
+    Ok(_nil) -> Nil
+    Error(reason) -> {
+      logging.log(
+        logging.Error,
+        "Failed to close file: " <> file.error_to_string(reason),
+      )
+    }
+  }
+
+  case read {
+    Ok(bits) -> {
+      let resp = response.set_body(resp, Bytes(bytes_tree.from_bit_array(bits)))
+      process.send(sender, Send(identifier, resp))
+    }
+    Error(reason) -> {
+      logging.log(
+        logging.Error,
+        "Failed to send file: " <> file.error_to_string(reason),
+      )
+      process.send(sender, Reset(identifier, frame.InternalError))
+    }
+  }
+}
+
 pub fn make_request(
-  headers: List(#(String, String)),
+  headers: List(Header),
   req: Request(Connection),
 ) -> Result(Request(Connection), Nil) {
   case headers {
@@ -153,7 +245,7 @@ pub fn make_request(
     }
     [#(":authority", authority), ..rest] -> {
       req
-      |> request.set_host(authority)
+      |> request.set_header("host", authority)
       |> make_request(rest, _)
     }
     [#(":path", path), ..rest] -> {
@@ -186,18 +278,36 @@ pub fn make_request(
   }
 }
 
-pub fn receive_data(state: State, size: Int) -> #(State, Int) {
-  let #(new_window_size, increment) =
-    flow_control.compute_receive_window(state.receive_window_size, size)
+fn parse_host(req: Request(Connection)) -> Result(Request(Connection), Nil) {
+  req
+  |> request.get_header("host")
+  |> result.map(fn(host_header) {
+    let #(hostname, port) =
+      host_header
+      |> string.split_once(":")
+      |> result.unwrap(#(host_header, ""))
 
-  let new_state =
-    State(
-      ..state,
-      receive_window_size: new_window_size,
-      pending_content_length: option.map(state.pending_content_length, fn(val) {
-        val - size
-      }),
-    )
+    let port = case int.parse(port) {
+      Ok(port) -> port
+      Error(_) ->
+        case req.scheme {
+          ghttp.Https -> 443
+          ghttp.Http -> 80
+        }
+    }
 
-  #(new_state, increment)
+    req
+    |> request.set_host(hostname)
+    |> request.set_port(port)
+  })
+}
+
+pub fn receive_data(state: State, length: Int, size: Int) -> State {
+  State(
+    ..state,
+    receive_window_size: state.receive_window_size - length,
+    pending_content_length: option.map(state.pending_content_length, fn(val) {
+      val - size
+    }),
+  )
 }

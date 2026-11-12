@@ -1,873 +1,1758 @@
 import gleam/bit_array
 import gleam/bytes_tree
 import gleam/erlang/process
-import gleam/http/request.{type Request}
+import gleam/http
+import gleam/http/request
 import gleam/http/response
 import gleam/int
 import gleam/list
+import gleam/option.{Some}
 import gleam/otp/actor
+import gleam/string
 import gleam/string_tree
 import mist
-import mist/internal/http.{type Connection}
-import vendored_mist/scaffold
-
-type H2cSocket
-
-@external(erlang, "h2c_ffi", "h2c_connect")
-fn h2c_connect(port: Int) -> H2cSocket
-
-@external(erlang, "h2c_ffi", "h2c_connect_raw")
-fn h2c_connect_raw(port: Int) -> H2cSocket
-
-@external(erlang, "h2c_ffi", "h2c_send_headers")
-fn h2c_send_headers(
-  socket: H2cSocket,
-  stream_id: Int,
-  headers: List(#(String, String)),
-  end_stream: Bool,
-) -> Nil
-
-@external(erlang, "h2c_ffi", "h2c_send_frame")
-fn h2c_send_frame(socket: H2cSocket, frame_bytes: BitArray) -> Nil
-
-@external(erlang, "h2c_ffi", "h2c_recv_frame")
-fn h2c_recv_frame(socket: H2cSocket, timeout: Int) -> #(Int, Int, Int, BitArray)
-
-@external(erlang, "h2c_ffi", "h2c_send_ping")
-fn h2c_send_ping(socket: H2cSocket, data: BitArray) -> Nil
-
-@external(erlang, "h2c_ffi", "h2c_close")
-fn h2c_close(socket: H2cSocket) -> Nil
-
-fn simple_handler(
-  _req: Request(Connection),
-) -> response.Response(mist.ResponseData) {
-  response.new(200)
-  |> response.set_body(mist.Bytes(bytes_tree.from_string("hello")))
-}
-
-pub fn it_responds_to_ping_with_ack_test() {
-  use <- scaffold.open_server(19_001, simple_handler)
-
-  let socket = h2c_connect(19_001)
-  let ping_data = <<1, 2, 3, 4, 5, 6, 7, 8>>
-  h2c_send_ping(socket, ping_data)
-
-  let #(frame_type, flags, stream_id, payload) = h2c_recv_frame(socket, 5000)
-  assert frame_type == 6
-  assert flags == 1
-  assert stream_id == 0
-  assert payload == ping_data
-
-  h2c_close(socket)
-}
-
-pub fn it_sends_settings_ack_test() {
-  use <- scaffold.open_server(19_002, simple_handler)
-
-  let socket = h2c_connect_raw(19_002)
-
-  h2c_send_frame(socket, <<0, 0, 0, 4, 0, 0, 0, 0, 0>>)
-
-  let #(settings_type, settings_flags, settings_stream, _) =
-    h2c_recv_frame(socket, 5000)
-  assert settings_type == 4
-  assert settings_flags == 0
-  assert settings_stream == 0
-
-  h2c_send_frame(socket, <<0, 0, 0, 4, 1, 0, 0, 0, 0>>)
-
-  let #(ack_type, ack_flags, ack_stream, _) = h2c_recv_frame(socket, 5000)
-  assert ack_type == 4
-  assert ack_flags == 1
-  assert ack_stream == 0
-
-  h2c_close(socket)
-}
-
-pub fn it_handles_basic_get_request_test() {
-  use <- scaffold.open_server(19_003, simple_handler)
-
-  let socket = h2c_connect(19_003)
-
-  h2c_send_headers(
-    socket,
-    1,
-    [
-      #(":method", "GET"),
-      #(":path", "/"),
-      #(":scheme", "http"),
-      #(":authority", "localhost"),
-    ],
-    True,
-  )
-
-  let #(headers_type, _headers_flags, headers_stream, _) =
-    h2c_recv_frame(socket, 5000)
-  assert headers_type == 1
-  assert headers_stream == 1
-
-  let #(data_type, _data_flags, data_stream, data_payload) =
-    h2c_recv_frame(socket, 5000)
-  assert data_type == 0
-  assert data_stream == 1
-  assert data_payload == bit_array.from_string("hello")
-
-  h2c_close(socket)
-}
-
-pub fn it_handles_rst_stream_test() {
-  use <- scaffold.open_server(19_004, simple_handler)
-
-  let socket = h2c_connect(19_004)
-
-  h2c_send_headers(
-    socket,
-    1,
-    [
-      #(":method", "GET"),
-      #(":path", "/"),
-      #(":scheme", "http"),
-      #(":authority", "localhost"),
-    ],
-    True,
-  )
-
-  h2c_send_frame(socket, <<0, 0, 4, 3, 0, 0, 0, 0, 1, 0, 0, 0, 8>>)
-
-  let ping_data = <<10, 20, 30, 40, 50, 60, 70, 80>>
-  h2c_send_ping(socket, ping_data)
-
-  drain_until_ping_ack(socket, ping_data)
-
-  h2c_close(socket)
-}
-
-fn drain_until_ping_ack(socket: H2cSocket, expected_data: BitArray) -> Nil {
-  let #(frame_type, flags, _stream_id, payload) = h2c_recv_frame(socket, 5000)
-  case frame_type, flags {
-    6, 1 -> {
-      assert payload == expected_data
-      Nil
-    }
-    _, _ -> drain_until_ping_ack(socket, expected_data)
-  }
-}
-
-pub fn it_sends_goaway_on_protocol_error_test() {
-  use <- scaffold.open_server(19_005, simple_handler)
-
-  let socket = h2c_connect(19_005)
-
-  h2c_send_frame(socket, <<0, 0, 5, 4, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5>>)
-
-  let #(frame_type, _flags, stream_id, payload) = h2c_recv_frame(socket, 5000)
-  assert frame_type == 7
-  assert stream_id == 0
-
-  let assert <<
-    _reserved:size(1),
-    _last_stream_id:size(31),
-    error_code:size(32),
-    _rest:bits,
-  >> = payload
-  assert error_code == 6
-
-  h2c_close(socket)
-}
-
-pub fn it_keeps_connection_alive_after_request_test() {
-  use <- scaffold.open_server(19_006, simple_handler)
-
-  let socket = h2c_connect(19_006)
-
-  h2c_send_headers(
-    socket,
-    1,
-    [
-      #(":method", "GET"),
-      #(":path", "/"),
-      #(":scheme", "http"),
-      #(":authority", "localhost"),
-    ],
-    True,
-  )
-
-  let ping_data = <<11, 22, 33, 44, 55, 66, 77, 88>>
-  h2c_send_ping(socket, ping_data)
-
-  drain_until_ping_ack(socket, ping_data)
-
-  h2c_close(socket)
-}
-
-pub fn it_handles_multiple_requests_same_connection_test() {
-  use <- scaffold.open_server(19_007, simple_handler)
-
-  let socket = h2c_connect(19_007)
-
-  h2c_send_headers(
-    socket,
-    1,
-    [
-      #(":method", "GET"),
-      #(":path", "/"),
-      #(":scheme", "http"),
-      #(":authority", "localhost"),
-    ],
-    True,
-  )
-
-  let #(headers_type_1, _, headers_stream_1, _) = h2c_recv_frame(socket, 5000)
-  assert headers_type_1 == 1
-  assert headers_stream_1 == 1
-
-  let #(data_type_1, _, data_stream_1, data_payload_1) =
-    h2c_recv_frame(socket, 5000)
-  assert data_type_1 == 0
-  assert data_stream_1 == 1
-  assert data_payload_1 == bit_array.from_string("hello")
-
-  h2c_send_headers(
-    socket,
-    3,
-    [
-      #(":method", "GET"),
-      #(":path", "/"),
-      #(":scheme", "http"),
-      #(":authority", "localhost"),
-    ],
-    True,
-  )
-
-  let #(headers_type_2, _, headers_stream_2, _) = h2c_recv_frame(socket, 5000)
-  assert headers_type_2 == 1
-  assert headers_stream_2 == 3
-
-  let #(data_type_2, _, data_stream_2, data_payload_2) =
-    h2c_recv_frame(socket, 5000)
-  assert data_type_2 == 0
-  assert data_stream_2 == 3
-  assert data_payload_2 == bit_array.from_string("hello")
-
-  h2c_close(socket)
-}
-
-pub fn it_ignores_window_update_for_closed_stream_test() {
-  use <- scaffold.open_server(19_008, simple_handler)
-
-  let socket = h2c_connect(19_008)
-
-  h2c_send_headers(
-    socket,
-    1,
-    [
-      #(":method", "GET"),
-      #(":path", "/"),
-      #(":scheme", "http"),
-      #(":authority", "localhost"),
-    ],
-    True,
-  )
-
-  let ping_data_1 = <<1, 1, 1, 1, 1, 1, 1, 1>>
-  h2c_send_ping(socket, ping_data_1)
-  drain_until_ping_ack(socket, ping_data_1)
-
-  h2c_send_frame(socket, <<0, 0, 4, 8, 0, 0, 0, 0, 99, 0, 0, 0, 100>>)
-
-  let ping_data_2 = <<2, 2, 2, 2, 2, 2, 2, 2>>
-  h2c_send_ping(socket, ping_data_2)
-  drain_until_ping_ack(socket, ping_data_2)
-
-  h2c_close(socket)
-}
-
-pub fn it_ignores_unknown_frame_type_test() {
-  use <- scaffold.open_server(19_009, simple_handler)
-
-  let socket = h2c_connect(19_009)
-
-  h2c_send_frame(socket, <<0, 0, 4, 255, 0, 0, 0, 0, 0, 1, 2, 3, 4>>)
-
-  let ping_data = <<3, 3, 3, 3, 3, 3, 3, 3>>
-  h2c_send_ping(socket, ping_data)
-
-  let #(frame_type, flags, _stream_id, payload) = h2c_recv_frame(socket, 5000)
-  assert frame_type == 6
-  assert flags == 1
-  assert payload == ping_data
-
-  h2c_close(socket)
-}
-
-fn many_headers_handler(
-  _req: Request(Connection),
-) -> response.Response(mist.ResponseData) {
-  let headers =
-    int.range(from: 1, to: 30, with: [], run: fn(acc, i) {
-      [
-        #("x-custom-header-" <> int.to_string(i), "value-" <> int.to_string(i)),
-        ..acc
-      ]
-    })
-  response.new(200)
-  |> response.set_body(mist.Bytes(bytes_tree.from_string("ok")))
-  |> fn(resp) { response.Response(..resp, headers: headers) }
-}
-
-pub fn it_sends_continuation_frames_for_large_headers_test() {
-  use <- scaffold.open_server(19_010, many_headers_handler)
-
-  let socket = h2c_connect_raw(19_010)
-
-  let #(settings_type, settings_flags, _, _) = h2c_recv_frame(socket, 5000)
-  assert settings_type == 4
-  assert settings_flags == 0
-
-  h2c_send_frame(socket, <<0, 0, 6, 4, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 64>>)
-
-  h2c_send_frame(socket, <<0, 0, 0, 4, 1, 0, 0, 0, 0>>)
-
-  let #(ack_type, ack_flags, _, _) = h2c_recv_frame(socket, 5000)
-  assert ack_type == 4
-  assert ack_flags == 1
-
-  h2c_send_headers(
-    socket,
-    1,
-    [
-      #(":method", "GET"),
-      #(":path", "/"),
-      #(":scheme", "http"),
-      #(":authority", "localhost"),
-    ],
-    True,
-  )
-
-  let #(first_type, first_flags, first_stream, _) = h2c_recv_frame(socket, 5000)
-  assert first_type == 1
-  assert first_stream == 1
-  let first_end_headers = int.bitwise_and(first_flags, 4) == 4
-  assert first_end_headers == False
-
-  drain_until_end_headers(socket)
-
-  h2c_close(socket)
-}
-
-fn drain_until_end_headers(socket: H2cSocket) -> Nil {
-  let #(frame_type, flags, _stream_id, _payload) = h2c_recv_frame(socket, 5000)
-  case frame_type {
-    9 -> {
-      let end_headers = int.bitwise_and(flags, 4) == 4
-      case end_headers {
-        True -> Nil
-        False -> drain_until_end_headers(socket)
-      }
-    }
-    _ -> drain_until_end_headers(socket)
-  }
-}
-
-type ChunkMessage {
-  SendChunks
-}
-
-fn chunked_handler(
-  req: Request(Connection),
-) -> response.Response(mist.ResponseData) {
-  mist.chunked(
-    request: req,
-    response: response.new(200),
-    init: fn(subj) {
-      process.send(subj, SendChunks)
-      Nil
-    },
-    loop: fn(_state, _msg, conn) {
-      let chunks = [
-        bit_array.from_string("chunk1"),
-        bit_array.from_string("chunk2"),
-        bit_array.from_string("chunk3"),
-      ]
-      list.each(chunks, fn(chunk) {
-        let assert Ok(_nil) = mist.send_chunk(conn, chunk)
-        Nil
-      })
-      mist.chunk_stop()
-    },
-  )
-}
-
-pub fn it_sends_chunked_data_over_h2_test() {
-  use <- scaffold.open_server(19_011, chunked_handler)
-
-  let socket = h2c_connect(19_011)
-
-  h2c_send_headers(
-    socket,
-    1,
-    [
-      #(":method", "GET"),
-      #(":path", "/"),
-      #(":scheme", "http"),
-      #(":authority", "localhost"),
-    ],
-    True,
-  )
-
-  let #(headers_type, _, _, _) = h2c_recv_frame(socket, 5000)
-  assert headers_type == 1
-
-  let data_frames = collect_data_frames(socket, [])
-
-  let non_empty =
-    list.filter(data_frames, fn(payload) { bit_array.byte_size(payload) > 0 })
-  assert list.length(non_empty) >= 2
-
-  let combined =
-    list.fold(data_frames, <<>>, fn(acc, payload) { <<acc:bits, payload:bits>> })
-  assert combined == bit_array.from_string("chunk1chunk2chunk3")
-
-  h2c_close(socket)
-}
-
-fn collect_data_frames(
-  socket: H2cSocket,
-  acc: List(BitArray),
-) -> List(BitArray) {
-  let #(frame_type, flags, _stream_id, payload) = h2c_recv_frame(socket, 5000)
-  case frame_type {
-    0 -> {
-      let end_stream = int.bitwise_and(flags, 1) == 1
-      let new_acc = [payload, ..acc]
-      case end_stream {
-        True -> list.reverse(new_acc)
-        False -> collect_data_frames(socket, new_acc)
-      }
-    }
-    _ -> collect_data_frames(socket, acc)
-  }
-}
-
-// --- SSE-over-HTTP/2 test helpers ---
-
-type SSEMsg {
-  SendEvent
-  StopAfterEvent
-}
-
-fn sse_handler(
-  req: Request(Connection),
-) -> response.Response(mist.ResponseData) {
-  mist.server_sent_events(
-    request: req,
-    initial_response: response.new(200),
-    init: fn(subj) {
-      process.send(subj, SendEvent)
-      Nil
-    },
-    loop: fn(_state, msg, conn) {
-      case msg {
-        SendEvent -> {
-          let _ =
-            mist.send_event(conn, mist.event(string_tree.from_string("hello")))
-          actor.continue(Nil)
-        }
-        StopAfterEvent -> actor.continue(Nil)
-      }
-    },
-  )
-}
-
-fn sse_stop_handler(
-  req: Request(Connection),
-) -> response.Response(mist.ResponseData) {
-  mist.server_sent_events(
-    request: req,
-    initial_response: response.new(200),
-    init: fn(subj) {
-      process.send(subj, StopAfterEvent)
-      Nil
-    },
-    loop: fn(_state, msg, conn) {
-      case msg {
-        StopAfterEvent -> {
-          let _ =
-            mist.send_event(
-              conn,
-              mist.event(string_tree.from_string("goodbye")),
-            )
-          actor.stop()
-        }
-        SendEvent -> {
-          let _ =
-            mist.send_event(conn, mist.event(string_tree.from_string("hello")))
-          actor.continue(Nil)
-        }
-      }
-    },
-  )
-}
-
-fn drain_until_data_on_stream(
-  socket: H2cSocket,
-  target_stream: Int,
-  timeout: Int,
-) -> #(Int, BitArray) {
-  let #(frame_type, flags, stream_id, payload) = h2c_recv_frame(socket, timeout)
-  case frame_type, stream_id {
-    0, id if id == target_stream -> #(flags, payload)
-    _, _ -> drain_until_data_on_stream(socket, target_stream, timeout)
-  }
-}
-
-fn drain_until_headers_on_stream(
-  socket: H2cSocket,
-  target_stream: Int,
-  timeout: Int,
-) -> Int {
-  let #(frame_type, flags, stream_id, _payload) =
-    h2c_recv_frame(socket, timeout)
-  case frame_type, stream_id {
-    1, id if id == target_stream -> flags
-    _, _ -> drain_until_headers_on_stream(socket, target_stream, timeout)
-  }
-}
-
-pub fn it_handles_sse_over_h2c_test() {
-  use <- scaffold.open_server(19_012, sse_handler)
-
-  let socket = h2c_connect(19_012)
-
-  h2c_send_headers(
-    socket,
-    1,
-    [
-      #(":method", "GET"),
-      #(":path", "/"),
-      #(":scheme", "http"),
-      #(":authority", "localhost"),
-    ],
-    True,
-  )
-
-  let _headers_flags = drain_until_headers_on_stream(socket, 1, 5000)
-
-  let #(_data_flags, data_payload) = drain_until_data_on_stream(socket, 1, 5000)
-  assert data_payload == bit_array.from_string("data: hello\n\n")
-
-  let ping_data = <<12, 12, 12, 12, 12, 12, 12, 12>>
-  h2c_send_ping(socket, ping_data)
-  drain_until_ping_ack(socket, ping_data)
-
-  h2c_close(socket)
-}
-
-pub fn it_sse_does_not_crash_concurrent_streams_test() {
-  let combined_handler = fn(req: Request(Connection)) {
-    case req.path {
-      "/sse" -> sse_handler(req)
-      _ -> simple_handler(req)
-    }
-  }
-  use <- scaffold.open_server(19_013, combined_handler)
-
-  let socket = h2c_connect(19_013)
-
-  h2c_send_headers(
-    socket,
-    1,
-    [
-      #(":method", "GET"),
-      #(":path", "/sse"),
-      #(":scheme", "http"),
-      #(":authority", "localhost"),
-    ],
-    True,
-  )
-
-  let _headers_flags = drain_until_headers_on_stream(socket, 1, 5000)
-
-  h2c_send_headers(
-    socket,
-    3,
-    [
-      #(":method", "GET"),
-      #(":path", "/"),
-      #(":scheme", "http"),
-      #(":authority", "localhost"),
-    ],
-    True,
-  )
-
-  let _headers_3_flags = drain_until_headers_on_stream(socket, 3, 5000)
-
-  let #(_data_flags, data_payload) = drain_until_data_on_stream(socket, 3, 5000)
-  assert data_payload == bit_array.from_string("hello")
-
-  let ping_data = <<13, 13, 13, 13, 13, 13, 13, 13>>
-  h2c_send_ping(socket, ping_data)
-  drain_until_ping_ack(socket, ping_data)
-
-  h2c_close(socket)
-}
-
-pub fn it_closes_sse_stream_on_actor_stop_test() {
-  use <- scaffold.open_server(19_014, sse_stop_handler)
-
-  let socket = h2c_connect(19_014)
-
-  h2c_send_headers(
-    socket,
-    1,
-    [
-      #(":method", "GET"),
-      #(":path", "/"),
-      #(":scheme", "http"),
-      #(":authority", "localhost"),
-    ],
-    True,
-  )
-
-  let _headers_flags = drain_until_headers_on_stream(socket, 1, 5000)
-
-  let data_frames = collect_data_frames_on_stream(socket, 1, [])
-
-  let combined =
-    list.fold(data_frames, <<>>, fn(acc, payload) { <<acc:bits, payload:bits>> })
-  let assert True =
-    bit_array.byte_size(combined)
-    >= bit_array.byte_size(<<
-      "data: goodbye\n\n":utf8,
-    >>)
-
-  let ping_data = <<14, 14, 14, 14, 14, 14, 14, 14>>
-  h2c_send_ping(socket, ping_data)
-  drain_until_ping_ack(socket, ping_data)
-
-  h2c_close(socket)
-}
-
-pub fn it_does_not_leak_stream_actors_test() {
-  use <- scaffold.open_server(19_015, simple_handler)
-
-  let socket = h2c_connect(19_015)
-
-  int.range(from: 0, to: 24, with: Nil, run: fn(_acc, i) {
-    let stream_id = i * 2 + 1
-    h2c_send_headers(
-      socket,
-      stream_id,
-      [
-        #(":method", "GET"),
-        #(":path", "/"),
-        #(":scheme", "http"),
-        #(":authority", "localhost"),
-      ],
-      True,
+import mist/internal/http2/frame
+import vendored_mist/scaffold.{bitstring_response_should_equal}
+
+pub fn it_applies_pseudo_headers_test() {
+  let headers = [
+    #(":method", "POST"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/some/path?x=1"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let actual = scaffold.http2_request(headers)
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "42")
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<
+        "POST http://example.com:8080/some/path?x=1":utf8,
+      >>),
     )
-    let _headers_flags = drain_until_headers_on_stream(socket, stream_id, 5000)
-    let #(_flags, payload) = drain_until_data_on_stream(socket, stream_id, 5000)
-    assert payload == bit_array.from_string("hello")
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_rejects_requests_without_host_test() {
+  let headers = [#(":method", "GET"), #(":scheme", "http"), #(":path", "/")]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let actual = scaffold.http2_request(headers)
+
+  let expected =
+    response.new(400)
+    |> response.prepend_header("content-length", "0")
+    |> response.set_body(bytes_tree.from_bit_array(<<>>))
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_ignores_unknown_frames_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let actual =
+    scaffold.http2_request_after(<<0, 0, 1, 255, 0, 0, 0, 0, 1, 0>>, headers)
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "28")
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<"GET http://example.com:8080/":utf8>>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_responds_after_reading_the_body_test() {
+  let headers = [
+    #(":method", "POST"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+    #("content-length", "10"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.default_handler)
+
+  let actual = scaffold.http2_request_with_body(headers, <<"0123456789":utf8>>)
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("host", "example.com:8080")
+    |> response.prepend_header("content-length", "10")
+    |> response.set_body(bytes_tree.from_bit_array(<<"0123456789":utf8>>))
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_ignores_window_updates_on_closed_streams_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let assert [_first, actual] =
+    scaffold.http2_requests([
+      #(<<>>, headers, <<>>),
+      #(<<0, 0, 4, 8, 0, 0, 0, 0, 1, 0, 0, 3, 232>>, headers, <<>>),
+    ])
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "28")
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<"GET http://example.com:8080/":utf8>>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_handles_frames_sent_with_the_preface_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let actual = scaffold.http2_request(headers)
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "28")
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<"GET http://example.com:8080/":utf8>>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_splits_large_bodies_into_frames_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let body = <<string.repeat("a", 60_000):utf8>>
+
+  use <- scaffold.open_server(8888, fn(_req) {
+    response.new(200)
+    |> response.set_body(mist.Bytes(bytes_tree.from_bit_array(body)))
   })
 
-  let ping_data = <<15, 15, 15, 15, 15, 15, 15, 15>>
-  h2c_send_ping(socket, ping_data)
-  drain_until_ping_ack(socket, ping_data)
+  let actual = scaffold.http2_request(headers)
 
-  h2c_close(socket)
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "60000")
+    |> response.set_body(bytes_tree.from_bit_array(body))
+
+  bitstring_response_should_equal(actual, expected)
 }
 
-// Integration test: uses mist.start() (production path) instead of scaffold
-pub fn it_handles_sse_over_h2c_production_path_test() {
-  let handler = fn(req: Request(Connection)) {
-    case request.path_segments(req) {
-      ["sse"] -> sse_handler(req)
-      _ -> simple_handler(req)
-    }
-  }
+pub fn it_splits_large_headers_into_frames_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let value = string.repeat("a", 20_000)
 
-  let assert Ok(_server) =
-    mist.new(handler)
-    |> mist.port(19_020)
-    |> mist.start
+  use <- scaffold.open_server(8888, fn(_req) {
+    response.new(200)
+    |> response.set_header("x-large", value)
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  })
 
-  process.sleep(50)
+  let actual = scaffold.http2_request(headers)
 
-  let socket = h2c_connect(19_020)
+  let expected =
+    response.new(200)
+    |> response.prepend_header("x-large", value)
+    |> response.prepend_header("content-length", "0")
+    |> response.set_body(bytes_tree.from_bit_array(<<>>))
 
-  // First: verify simple requests work
-  h2c_send_headers(
-    socket,
-    1,
-    [
-      #(":method", "GET"),
-      #(":path", "/hello"),
-      #(":scheme", "http"),
-      #(":authority", "localhost"),
-    ],
-    True,
-  )
-  let _headers_flags = drain_until_headers_on_stream(socket, 1, 5000)
-  let #(_data_flags, data_payload) = drain_until_data_on_stream(socket, 1, 5000)
-  assert data_payload == bit_array.from_string("hello")
-
-  // Now: test SSE on the same connection
-  h2c_send_headers(
-    socket,
-    3,
-    [
-      #(":method", "GET"),
-      #(":path", "/sse"),
-      #(":scheme", "http"),
-      #(":authority", "localhost"),
-    ],
-    True,
-  )
-  let _sse_headers_flags = drain_until_headers_on_stream(socket, 3, 5000)
-  let #(_sse_data_flags, sse_data_payload) =
-    drain_until_data_on_stream(socket, 3, 5000)
-  assert sse_data_payload == bit_array.from_string("data: hello\n\n")
-
-  // Verify connection is still alive after SSE
-  let ping_data = <<20, 20, 20, 20, 20, 20, 20, 20>>
-  h2c_send_ping(socket, ping_data)
-  drain_until_ping_ack(socket, ping_data)
-
-  // And verify we can still serve requests after SSE
-  h2c_send_headers(
-    socket,
-    5,
-    [
-      #(":method", "GET"),
-      #(":path", "/hello"),
-      #(":scheme", "http"),
-      #(":authority", "localhost"),
-    ],
-    True,
-  )
-  let _headers5_flags = drain_until_headers_on_stream(socket, 5, 5000)
-  let #(_data5_flags, data5_payload) =
-    drain_until_data_on_stream(socket, 5, 5000)
-  assert data5_payload == bit_array.from_string("hello")
-
-  h2c_close(socket)
+  bitstring_response_should_equal(actual, expected)
 }
 
-// Stress test: multiple concurrent connections, each doing SSE + regular requests
-pub fn it_handles_sse_under_load_production_path_test() {
-  let handler = fn(req: Request(Connection)) {
+pub fn it_resets_data_on_closed_streams_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let assert [_first, actual] =
+    scaffold.http2_requests([
+      #(<<>>, headers, <<>>),
+      #(<<0, 0, 1, 0, 0, 0, 0, 0, 1, 97>>, headers, <<>>),
+    ])
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "28")
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<"GET http://example.com:8080/":utf8>>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_resets_streams_with_invalid_methods_test() {
+  let invalid = [
+    #(":method", "BAD METHOD"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let assert [_reset, actual] =
+    scaffold.http2_requests([#(<<>>, invalid, <<>>), #(<<>>, headers, <<>>)])
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "28")
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<"GET http://example.com:8080/":utf8>>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_responds_to_ping_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let actual =
+    scaffold.http2_request_after(
+      <<0, 0, 8, 6, 0, 0, 0, 0, 0, "pingpong":utf8>>,
+      headers,
+    )
+
+  let expected =
+    response.new(0)
+    |> response.set_body(bytes_tree.from_bit_array(<<"pingpong":utf8>>))
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_stops_reset_streams_test() {
+  let slow = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/slow"),
+  ]
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let pids = process.new_subject()
+
+  use <- scaffold.open_server(8888, fn(req) {
     case request.path_segments(req) {
-      ["sse"] -> sse_handler(req)
-      _ -> simple_handler(req)
+      ["slow"] -> {
+        process.send(pids, process.self())
+        process.sleep_forever()
+        scaffold.uri_echo_handler(req)
+      }
+      _ -> scaffold.uri_echo_handler(req)
     }
+  })
+
+  let assert [_ping, actual] =
+    scaffold.http2_requests([
+      #(<<0, 0, 8, 6, 0, 0, 0, 0, 0, "pingpong":utf8>>, slow, <<>>),
+      #(<<0, 0, 4, 3, 0, 0, 0, 0, 1, 0, 0, 0, 8>>, headers, <<>>),
+    ])
+  let assert Ok(pid) = process.receive(pids, 1000)
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "28")
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<"GET http://example.com:8080/":utf8>>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+  assert !process.is_alive(pid)
+}
+
+pub fn it_ignores_unknown_settings_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let actual =
+    scaffold.http2_request_after(
+      <<0, 0, 6, 4, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 1>>,
+      headers,
+    )
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "28")
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<"GET http://example.com:8080/":utf8>>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_waits_for_window_updates_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let body = <<string.repeat("a", 100_000):utf8>>
+
+  use <- scaffold.open_server(8888, fn(_req) {
+    response.new(200)
+    |> response.set_body(mist.Bytes(bytes_tree.from_bit_array(body)))
+  })
+
+  let actual = scaffold.http2_request(headers)
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "100000")
+    |> response.set_body(bytes_tree.from_bit_array(body))
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_sends_go_away_on_malformed_frames_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let assert [_first, actual] =
+    scaffold.http2_requests([
+      #(<<>>, headers, <<>>),
+      #(<<0, 0, 4, 6, 0, 0, 0, 0, 0, "ping":utf8>>, headers, <<>>),
+    ])
+
+  let expected =
+    response.new(0)
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<
+        0, 0, 8, 7, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 6,
+      >>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_sends_go_away_on_malformed_headers_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let assert [_first, actual] =
+    scaffold.http2_requests([
+      #(<<>>, headers, <<>>),
+      #(
+        <<0, 0, 6, 1, 5, 0, 0, 0, 3, 255, 255, 255, 255, 255, 255>>,
+        headers,
+        <<>>,
+      ),
+    ])
+
+  let expected =
+    response.new(0)
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<
+        0, 0, 8, 7, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 9,
+      >>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_sends_server_sent_events_test() {
+  let events = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/events"),
+  ]
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, fn(req) {
+    case request.path_segments(req) {
+      ["events"] ->
+        mist.server_sent_events(
+          req,
+          response.new(200),
+          init: fn(subj) {
+            process.send(subj, 1)
+            process.send(subj, 2)
+            process.send(subj, 3)
+            Nil
+          },
+          loop: fn(state, message, conn) {
+            let event =
+              mist.event(string_tree.from_string(int.to_string(message)))
+            let assert Ok(_nil) = mist.send_event(conn, event)
+            case message {
+              3 -> actor.stop()
+              _ -> actor.continue(state)
+            }
+          },
+        )
+      _ -> scaffold.uri_echo_handler(req)
+    }
+  })
+
+  let assert [actual, after] =
+    scaffold.http2_requests([#(<<>>, events, <<>>), #(<<>>, headers, <<>>)])
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-type", "text/event-stream")
+    |> response.prepend_header("cache-control", "no-cache")
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<"data: 1\n\ndata: 2\n\ndata: 3\n\n":utf8>>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "28")
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<"GET http://example.com:8080/":utf8>>),
+    )
+
+  bitstring_response_should_equal(after, expected)
+}
+
+pub fn it_sends_chunked_responses_test() {
+  let headers = [
+    #(":method", "POST"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+    #("content-length", "1000"),
+  ]
+  let body = <<string.repeat("a", 1000):utf8>>
+
+  use <- scaffold.open_server(8888, scaffold.chunked_echo_server(100))
+
+  let assert [actual, after] =
+    scaffold.http2_requests([#(<<>>, headers, body), #(<<>>, headers, body)])
+
+  let expected =
+    response.new(200)
+    |> response.set_body(bytes_tree.from_bit_array(body))
+
+  bitstring_response_should_equal(actual, expected)
+  bitstring_response_should_equal(after, expected)
+}
+
+pub fn it_sends_file_responses_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, fn(_req) {
+    let assert Ok(file) =
+      mist.send_file("gleam.toml", offset: 8, limit: Some(4))
+    response.new(200)
+    |> response.set_body(file)
+  })
+
+  let assert [actual, after] =
+    scaffold.http2_requests([#(<<>>, headers, <<>>), #(<<>>, headers, <<>>)])
+
+  let assert Ok(<<_offset:bytes-size(8), body:bytes-size(4), _rest:bits>>) =
+    scaffold.read_file("gleam.toml")
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "4")
+    |> response.set_body(bytes_tree.from_bit_array(body))
+
+  bitstring_response_should_equal(actual, expected)
+  bitstring_response_should_equal(after, expected)
+}
+
+pub fn it_sends_empty_file_responses_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, fn(_req) {
+    let assert Ok(file) =
+      mist.send_file("gleam.toml", offset: 0, limit: Some(0))
+    response.new(200)
+    |> response.set_body(file)
+  })
+
+  let actual = scaffold.http2_request(headers)
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "0")
+    |> response.set_body(bytes_tree.from_bit_array(<<>>))
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_responds_with_500_on_handler_errors_test() {
+  let failing = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/fail"),
+  ]
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, fn(req) {
+    case request.path_segments(req) {
+      ["fail"] -> panic as "handler failed"
+      _ -> scaffold.uri_echo_handler(req)
+    }
+  })
+
+  let assert [actual, after] =
+    scaffold.http2_requests([#(<<>>, failing, <<>>), #(<<>>, headers, <<>>)])
+
+  let expected =
+    response.new(500)
+    |> response.prepend_header("content-length", "21")
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<"Internal Server Error":utf8>>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "28")
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<"GET http://example.com:8080/":utf8>>),
+    )
+
+  bitstring_response_should_equal(after, expected)
+}
+
+pub fn it_resets_streams_on_handler_errors_after_headers_test() {
+  let failing = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/fail"),
+  ]
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, fn(req) {
+    case request.path_segments(req) {
+      ["fail"] -> {
+        let _response =
+          mist.chunked(
+            req,
+            response.new(200),
+            init: fn(subj) { process.send(subj, Nil) },
+            loop: fn(_state, _message, _conn) { mist.chunk_stop() },
+          )
+        panic as "handler failed"
+      }
+      _ -> scaffold.uri_echo_handler(req)
+    }
+  })
+
+  let assert [actual, after] =
+    scaffold.http2_requests([#(<<>>, failing, <<>>), #(<<>>, headers, <<>>)])
+
+  let expected =
+    response.new(200)
+    |> response.set_body(bytes_tree.from_bit_array(<<>>))
+
+  bitstring_response_should_equal(actual, expected)
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "28")
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<"GET http://example.com:8080/":utf8>>),
+    )
+
+  bitstring_response_should_equal(after, expected)
+}
+
+pub fn it_reads_bodies_without_content_length_test() {
+  let headers = [
+    #(":method", "POST"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.default_handler)
+
+  let actual = scaffold.http2_request_with_body(headers, <<"0123456789":utf8>>)
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("host", "example.com:8080")
+    |> response.prepend_header("content-length", "10")
+    |> response.set_body(bytes_tree.from_bit_array(<<"0123456789":utf8>>))
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_limits_bodies_without_content_length_test() {
+  let headers = [
+    #(":method", "POST"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, fn(req) {
+    case mist.read_body(req, 9) {
+      Ok(_req) -> response.new(200)
+      Error(_read_error) -> response.new(413)
+    }
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  })
+
+  let actual = scaffold.http2_request_with_body(headers, <<"0123456789":utf8>>)
+
+  let expected =
+    response.new(413)
+    |> response.prepend_header("content-length", "0")
+    |> response.set_body(bytes_tree.from_bit_array(<<>>))
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_reads_headers_split_into_frames_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+    #("x-large", string.repeat("a", 20_000)),
+  ]
+
+  use <- scaffold.open_server(8888, fn(req) {
+    let assert Ok(large) = request.get_header(req, "x-large")
+    response.new(200)
+    |> response.set_body(
+      mist.Bytes(bytes_tree.from_string(int.to_string(string.length(large)))),
+    )
+  })
+
+  let actual = scaffold.http2_request(headers)
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "5")
+    |> response.set_body(bytes_tree.from_bit_array(<<"20000":utf8>>))
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_sends_go_away_on_frames_inside_headers_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let assert [_first, actual] =
+    scaffold.http2_requests([
+      #(<<>>, headers, <<>>),
+      #(
+        <<
+          0, 0, 1, 1, 1, 0, 0, 0, 3, 0, 0, 0, 8, 6, 0, 0, 0, 0, 0,
+          "pingping":utf8,
+        >>,
+        headers,
+        <<>>,
+      ),
+    ])
+
+  let expected =
+    response.new(0)
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<
+        0, 0, 8, 7, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+      >>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_reads_bodies_ended_by_trailers_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let trailers = [#("x-checksum", "abc")]
+
+  use <- scaffold.open_server(8888, scaffold.default_handler)
+
+  let assert [_first, actual] =
+    scaffold.http2_requests([
+      #(<<>>, headers, <<>>),
+      #(
+        <<
+          0, 0, 66, 1, 4, 0, 0, 0, 3, 0, 7, ":method":utf8, 4, "POST":utf8, 0, 7,
+          ":scheme":utf8, 4, "http":utf8, 0, 10, ":authority":utf8, 16,
+          "example.com:8080":utf8, 0, 5, ":path":utf8, 1, "/":utf8, 0, 0, 10, 0,
+          0, 0, 0, 0, 3, "0123456789":utf8,
+        >>,
+        trailers,
+        <<>>,
+      ),
+    ])
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("host", "example.com:8080")
+    |> response.prepend_header("content-length", "10")
+    |> response.set_body(bytes_tree.from_bit_array(<<"0123456789":utf8>>))
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_sends_go_away_on_oversized_frames_test() {
+  let headers = [
+    #(":method", "POST"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let body = <<string.repeat("a", 16_385):utf8>>
+
+  use <- scaffold.open_server(8888, scaffold.default_handler)
+
+  let actual = scaffold.http2_request_with_body(headers, body)
+
+  let expected =
+    response.new(0)
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<
+        0, 0, 8, 7, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 6,
+      >>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+fn chunk_events_handler(
+  events: process.Subject(String),
+) -> fn(request.Request(mist.Connection)) ->
+  response.Response(mist.ResponseData) {
+  fn(req) {
+    mist.chunked(
+      req,
+      response.new(200),
+      init: fn(subj) { process.send(subj, Nil) },
+      loop: fn(_state, _message, conn) {
+        process.send(events, "sending")
+        case mist.send_chunk(conn, <<"chunk":utf8>>) {
+          Ok(_nil) -> process.send(events, "sent")
+          Error(_nil) -> process.send(events, "failed")
+        }
+        mist.chunk_stop()
+      },
+    )
   }
+}
 
-  let assert Ok(_server) =
-    mist.new(handler)
-    |> mist.port(19_021)
-    |> mist.start
+pub fn it_waits_for_the_window_before_sending_more_chunks_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let events = process.new_subject()
 
-  process.sleep(50)
+  use <- scaffold.open_server(8888, chunk_events_handler(events))
 
-  // Spawn 5 concurrent connections, each doing SSE + regular requests
-  let results =
-    list.map([1, 2, 3, 4, 5], fn(conn_id) {
-      process.spawn_unlinked(fn() {
-        let socket = h2c_connect(19_021)
+  let socket = scaffold.http2_open([frame.InitialWindowSize(0)], headers)
+  let assert Ok("sending") = process.receive(events, 1000)
+  let waiting = process.receive(events, 100)
+  scaffold.http2_send(
+    socket,
+    frame.WindowUpdate(amount: 1000, identifier: frame.stream_identifier(1)),
+  )
+  let assert Ok("sent") = process.receive(events, 1000)
 
-        // First: regular request
-        h2c_send_headers(
-          socket,
-          1,
-          [
-            #(":method", "GET"),
-            #(":path", "/hello"),
-            #(":scheme", "http"),
-            #(":authority", "localhost"),
-          ],
-          True,
-        )
-        let _hf = drain_until_headers_on_stream(socket, 1, 5000)
-        let #(_df, dp) = drain_until_data_on_stream(socket, 1, 5000)
-        assert dp == bit_array.from_string("hello")
+  assert waiting == Error(Nil)
+}
 
-        // SSE request
-        h2c_send_headers(
-          socket,
-          3,
-          [
-            #(":method", "GET"),
-            #(":path", "/sse"),
-            #(":scheme", "http"),
-            #(":authority", "localhost"),
-          ],
-          True,
-        )
-        let _shf = drain_until_headers_on_stream(socket, 3, 5000)
-        let #(_sdf, sdp) = drain_until_data_on_stream(socket, 3, 5000)
-        assert sdp == bit_array.from_string("data: hello\n\n")
+pub fn it_fails_sends_on_reset_streams_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let events = process.new_subject()
 
-        // Another regular request after SSE (tests connection survival)
-        h2c_send_headers(
-          socket,
-          5,
-          [
-            #(":method", "GET"),
-            #(":path", "/hello"),
-            #(":scheme", "http"),
-            #(":authority", "localhost"),
-          ],
-          True,
-        )
-        let _hf2 = drain_until_headers_on_stream(socket, 5, 5000)
-        let #(_df2, dp2) = drain_until_data_on_stream(socket, 5, 5000)
-        assert dp2 == bit_array.from_string("hello")
+  use <- scaffold.open_server(8888, chunk_events_handler(events))
 
-        // Ping to verify connection
-        let ping_data = <<
-          { conn_id * 3 }:8,
-          { conn_id * 3 }:8,
-          { conn_id * 3 }:8,
-          { conn_id * 3 }:8,
-          { conn_id * 3 }:8,
-          { conn_id * 3 }:8,
-          { conn_id * 3 }:8,
-          { conn_id * 3 }:8,
-        >>
-        h2c_send_ping(socket, ping_data)
-        drain_until_ping_ack(socket, ping_data)
+  let socket = scaffold.http2_open([frame.InitialWindowSize(0)], headers)
+  let assert Ok("sending") = process.receive(events, 1000)
+  scaffold.http2_send(
+    socket,
+    frame.Termination(
+      error: frame.Cancel,
+      identifier: frame.stream_identifier(1),
+    ),
+  )
 
-        h2c_close(socket)
-      })
+  assert process.receive(events, 1000) == Ok("failed")
+}
+
+pub fn it_stops_the_handler_when_a_stream_is_reset_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let started = process.new_subject()
+
+  use <- scaffold.open_server(8888, fn(_req) {
+    process.send(started, process.self())
+    process.sleep_forever()
+    response.new(200)
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  })
+
+  let socket = scaffold.http2_open([], headers)
+  let assert Ok(handler) = process.receive(started, 1000)
+  let monitor = process.monitor(handler)
+  scaffold.http2_send(
+    socket,
+    frame.Header(
+      data: frame.Complete(<<0, 10, "x-checksum":utf8, 3, "abc":utf8>>),
+      end_stream: True,
+      identifier: frame.stream_identifier(1),
+      priority: option.None,
+    ),
+  )
+
+  let stopped =
+    process.new_selector()
+    |> process.select_specific_monitor(monitor, fn(_down) { Nil })
+    |> process.selector_receive(1000)
+
+  assert stopped == Ok(Nil)
+}
+
+pub fn it_cancels_sends_that_time_out_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let events = process.new_subject()
+
+  use <- scaffold.open_server_with_send_timeout(
+    8888,
+    chunk_events_handler(events),
+    100,
+  )
+
+  let socket = scaffold.http2_open([frame.InitialWindowSize(0)], headers)
+  let assert Ok("sending") = process.receive(events, 1000)
+  let assert Ok("failed") = process.receive(events, 1000)
+  scaffold.http2_send(
+    socket,
+    frame.WindowUpdate(amount: 1000, identifier: frame.stream_identifier(1)),
+  )
+  let received =
+    scaffold.http2_receive(socket)
+    |> list.filter(fn(received) {
+      case received {
+        frame.Settings(..) | frame.Header(..) -> False
+        _frame -> True
+      }
     })
 
-  // Wait for all connections to finish (monitor each)
-  list.each(results, fn(pid) {
-    let monitor = process.monitor(pid)
-    let selector =
-      process.new_selector()
-      |> process.select_specific_monitor(monitor, fn(_down) { Nil })
-    process.selector_receive(selector, 30_000)
+  assert received
+    == [
+      frame.Termination(
+        error: frame.Cancel,
+        identifier: frame.stream_identifier(1),
+      ),
+    ]
+}
+
+pub fn it_times_out_sends_after_the_send_timeout_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let events = process.new_subject()
+
+  use <- scaffold.start_server(
+    mist.new(chunk_events_handler(events))
+    |> mist.port(8888)
+    |> mist.with_send_timeout(100),
+  )
+
+  let _socket = scaffold.http2_open([frame.InitialWindowSize(0)], headers)
+  let assert Ok("sending") = process.receive(events, 1000)
+  let sent = process.receive(events, 1000)
+
+  assert sent == Ok("failed")
+}
+
+pub fn it_sends_go_away_on_reused_stream_ids_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let assert [_first, actual] =
+    scaffold.http2_requests([
+      #(<<>>, headers, <<>>),
+      #(
+        <<
+          0, 0, 21, 1, 5, 0, 0, 0, 1, 130, 134, 132, 1, 16,
+          "example.com:8080":utf8,
+        >>,
+        headers,
+        <<>>,
+      ),
+    ])
+
+  let expected =
+    response.new(0)
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<
+        0, 0, 8, 7, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+      >>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_sends_go_away_on_continuation_without_headers_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let assert [_first, actual] =
+    scaffold.http2_requests([
+      #(<<>>, headers, <<>>),
+      #(<<0, 0, 1, 9, 4, 0, 0, 0, 3, 0>>, headers, <<>>),
+    ])
+
+  let expected =
+    response.new(0)
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<
+        0, 0, 8, 7, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+      >>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_sends_go_away_on_oversized_header_blocks_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let fragment = <<string.repeat("a", 16_384):utf8>>
+  let header =
+    frame.encode(frame.Header(
+      data: frame.Continued(fragment),
+      end_stream: True,
+      identifier: frame.stream_identifier(3),
+      priority: option.None,
+    ))
+  let continuation =
+    frame.encode(frame.Continuation(
+      data: frame.Continued(fragment),
+      identifier: frame.stream_identifier(3),
+    ))
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let assert [_first, actual] =
+    scaffold.http2_requests([
+      #(<<>>, headers, <<>>),
+      #(
+        <<
+          header:bits, continuation:bits, continuation:bits, continuation:bits,
+          0, 0, 1, 9, 0, 0, 0, 0, 3, 97,
+        >>,
+        headers,
+        <<>>,
+      ),
+    ])
+
+  let expected =
+    response.new(0)
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<
+        0, 0, 8, 7, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 11,
+      >>),
+    )
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_resets_streams_with_wrong_content_length_test() {
+  let headers = [
+    #(":method", "POST"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+    #("content-length", "5"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.default_handler)
+
+  let actual = scaffold.http2_request_with_body(headers, <<"0123456789":utf8>>)
+
+  let expected =
+    response.new(0)
+    |> response.set_body(bytes_tree.from_bit_array(<<>>))
+
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_resets_trailers_with_wrong_content_length_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.default_handler)
+
+  let socket = scaffold.http2_open([], headers)
+  scaffold.http2_send(
+    socket,
+    frame.Header(
+      data: frame.Complete(<<
+        0, 7, ":method":utf8, 4, "POST":utf8, 0, 7, ":scheme":utf8, 4,
+        "http":utf8, 0, 10, ":authority":utf8, 16, "example.com:8080":utf8, 0, 5,
+        ":path":utf8, 1, "/":utf8, 0, 14, "content-length":utf8, 1, "5":utf8,
+      >>),
+      end_stream: False,
+      identifier: frame.stream_identifier(3),
+      priority: option.None,
+    ),
+  )
+  scaffold.http2_send(
+    socket,
+    frame.Data(
+      data: <<"012":utf8>>,
+      end_stream: False,
+      identifier: frame.stream_identifier(3),
+    ),
+  )
+  scaffold.http2_send(
+    socket,
+    frame.Header(
+      data: frame.Complete(<<0, 10, "x-checksum":utf8, 3, "abc":utf8>>),
+      end_stream: True,
+      identifier: frame.stream_identifier(3),
+      priority: option.None,
+    ),
+  )
+  let received =
+    scaffold.http2_receive(socket)
+    |> list.filter(fn(received) {
+      case received {
+        frame.Termination(..) -> True
+        _frame -> False
+      }
+    })
+
+  assert received
+    == [
+      frame.Termination(
+        error: frame.ProtocolError,
+        identifier: frame.stream_identifier(3),
+      ),
+    ]
+}
+
+pub fn it_resets_streams_with_content_length_and_no_body_test() {
+  let headers = [
+    #(":method", "POST"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+    #("content-length", "5"),
+  ]
+  let started = process.new_subject()
+
+  use <- scaffold.open_server(8888, fn(_req) {
+    process.send(started, Nil)
+    response.new(200)
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  })
+
+  let socket = scaffold.http2_open([], headers)
+  let received =
+    scaffold.http2_receive(socket)
+    |> list.filter(fn(received) {
+      case received {
+        frame.Termination(..) -> True
+        _frame -> False
+      }
+    })
+
+  assert received
+    == [
+      frame.Termination(
+        error: frame.ProtocolError,
+        identifier: frame.stream_identifier(1),
+      ),
+    ]
+  assert process.receive(started, 100) == Error(Nil)
+}
+
+pub fn it_keeps_the_connection_after_content_length_without_a_body_test() {
+  let headers = [
+    #(":method", "POST"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let assert [reset, actual] =
+    scaffold.http2_requests([
+      #(<<>>, [#("content-length", "5"), ..headers], <<>>),
+      #(<<>>, [#("content-length", "0"), ..headers], <<>>),
+    ])
+
+  let expected =
+    response.new(200)
+    |> response.prepend_header("content-length", "29")
+    |> response.set_body(bytes_tree.from_string("POST http://example.com:8080/"))
+
+  assert reset.status == 0
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_counts_streams_reset_for_content_length_without_a_body_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, scaffold.uri_echo_handler)
+
+  let assert [reset, actual] =
+    scaffold.http2_requests([
+      #(<<>>, [#("content-length", "5"), ..headers], <<>>),
+      #(
+        <<
+          0, 0, 21, 1, 5, 0, 0, 0, 1, 130, 134, 132, 1, 16,
+          "example.com:8080":utf8,
+        >>,
+        headers,
+        <<>>,
+      ),
+    ])
+
+  let expected =
+    response.new(0)
+    |> response.set_body(
+      bytes_tree.from_bit_array(<<
+        0, 0, 8, 7, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+      >>),
+    )
+
+  assert reset.status == 0
+  bitstring_response_should_equal(actual, expected)
+}
+
+pub fn it_resets_data_on_half_closed_streams_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let started = process.new_subject()
+
+  use <- scaffold.open_server(8888, fn(_req) {
+    process.send(started, Nil)
+    process.sleep_forever()
+    response.new(200)
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  })
+
+  let socket = scaffold.http2_open([], headers)
+  let assert Ok(Nil) = process.receive(started, 1000)
+  scaffold.http2_send(
+    socket,
+    frame.Data(
+      data: <<"012":utf8>>,
+      end_stream: False,
+      identifier: frame.stream_identifier(1),
+    ),
+  )
+  let received =
+    scaffold.http2_receive(socket)
+    |> list.filter(fn(received) {
+      case received {
+        frame.Termination(..) -> True
+        _frame -> False
+      }
+    })
+
+  assert received
+    == [
+      frame.Termination(
+        error: frame.StreamClosed,
+        identifier: frame.stream_identifier(1),
+      ),
+    ]
+}
+
+fn post_headers(identifier: Int) -> frame.Frame {
+  frame.Header(
+    data: frame.Complete(<<
+      0, 7, ":method":utf8, 4, "POST":utf8, 0, 5, ":path":utf8, 1, "/":utf8, 0,
+      7, ":scheme":utf8, 4, "http":utf8, 0, 10, ":authority":utf8, 16,
+      "example.com:8080":utf8,
+    >>),
+    end_stream: False,
+    identifier: frame.stream_identifier(identifier),
+    priority: option.None,
+  )
+}
+
+fn stream_window_updates(
+  frames: List(frame.Frame),
+  identifier: Int,
+) -> List(Int) {
+  let identifier = frame.stream_identifier(identifier)
+  list.filter_map(frames, fn(received) {
+    case received {
+      frame.WindowUpdate(amount: amount, identifier: stream)
+        if stream == identifier
+      -> Ok(amount)
+      _frame -> Error(Nil)
+    }
   })
 }
 
-fn collect_data_frames_on_stream(
-  socket: H2cSocket,
-  target_stream: Int,
-  acc: List(BitArray),
-) -> List(BitArray) {
-  let #(frame_type, flags, stream_id, payload) = h2c_recv_frame(socket, 5000)
-  case frame_type, stream_id {
-    0, id if id == target_stream -> {
-      let end_stream = int.bitwise_and(flags, 1) == 1
-      let new_acc = [payload, ..acc]
-      case end_stream {
-        True -> list.reverse(new_acc)
-        False -> collect_data_frames_on_stream(socket, target_stream, new_acc)
+pub fn it_grants_the_stream_window_as_the_body_is_read_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let started = process.new_subject()
+  let read = process.new_subject()
+
+  use <- scaffold.open_server(8888, fn(req) {
+    case req.method {
+      http.Post -> {
+        let reading = process.new_subject()
+        process.send(started, reading)
+        process.receive_forever(reading)
+        process.send(read, mist.read_body(req, 32_768))
       }
+      _method -> Nil
     }
-    _, _ -> collect_data_frames_on_stream(socket, target_stream, acc)
-  }
+    response.new(200)
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  })
+
+  let socket = scaffold.http2_open([], headers)
+  scaffold.http2_send(socket, post_headers(3))
+  let assert Ok(reading) = process.receive(started, 1000)
+  list.each([<<0:size(131_072)>>, <<0:size(131_072)>>, <<0>>], fn(data) {
+    scaffold.http2_send(
+      socket,
+      frame.Data(
+        data: data,
+        end_stream: False,
+        identifier: frame.stream_identifier(3),
+      ),
+    )
+  })
+  let unread = stream_window_updates(scaffold.http2_receive(socket), 3)
+  process.send(reading, Nil)
+  let assert Ok(Error(mist.ExcessBody)) = process.receive(read, 1000)
+  let consumed = stream_window_updates(scaffold.http2_receive(socket), 3)
+
+  assert unread == []
+  assert consumed == [32_768]
+}
+
+pub fn it_reads_bodies_larger_than_the_stream_window_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let read = process.new_subject()
+
+  use <- scaffold.open_server(8888, fn(req) {
+    let assert Ok(req) = mist.read_body(req, 1_000_000)
+    process.send(read, bit_array.byte_size(req.body))
+    response.new(200)
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  })
+
+  let socket = scaffold.http2_open([], headers)
+  let assert Ok(0) = process.receive(read, 1000)
+  scaffold.http2_send(socket, post_headers(3))
+  scaffold.http2_send_body(socket, 3, <<0:size(1_600_000)>>)
+
+  assert process.receive(read, 1000) == Ok(200_000)
+}
+
+pub fn it_resets_streams_that_exceed_the_receive_window_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, fn(_req) {
+    process.sleep_forever()
+    response.new(200)
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  })
+
+  let socket = scaffold.http2_open([], headers)
+  scaffold.http2_send(socket, post_headers(3))
+  list.each([1, 2, 3, 4], fn(_frame) {
+    scaffold.http2_send(
+      socket,
+      frame.Data(
+        data: <<0:size(131_072)>>,
+        end_stream: False,
+        identifier: frame.stream_identifier(3),
+      ),
+    )
+  })
+  let received =
+    scaffold.http2_receive(socket)
+    |> list.filter(fn(received) {
+      case received {
+        frame.Termination(..) -> True
+        _frame -> False
+      }
+    })
+
+  assert received
+    == [
+      frame.Termination(
+        error: frame.FlowControlError,
+        identifier: frame.stream_identifier(3),
+      ),
+    ]
+}
+
+fn wait_for_handler(started: process.Subject(process.Pid)) -> Nil {
+  let assert Ok(handler) = process.receive(started, 1000)
+  let monitor = process.monitor(handler)
+  let assert Ok(Nil) =
+    process.new_selector()
+    |> process.select_specific_monitor(monitor, fn(_down) { Nil })
+    |> process.selector_receive(1000)
+  Nil
+}
+
+fn stream_frames(
+  frames: List(frame.Frame),
+  identifier: Int,
+) -> List(frame.Frame) {
+  let identifier = frame.stream_identifier(identifier)
+  list.filter(frames, fn(received) {
+    case received {
+      frame.Header(identifier: stream, ..)
+      | frame.Data(identifier: stream, ..)
+      | frame.Termination(identifier: stream, ..) -> stream == identifier
+      _frame -> False
+    }
+  })
+}
+
+pub fn it_closes_streams_answered_before_the_body_ends_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let started = process.new_subject()
+
+  use <- scaffold.open_server(8888, fn(_req) {
+    process.send(started, process.self())
+    response.new(200)
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  })
+
+  let socket = scaffold.http2_open([], headers)
+  wait_for_handler(started)
+  scaffold.http2_send(socket, post_headers(3))
+  wait_for_handler(started)
+  let answered = stream_frames(scaffold.http2_receive(socket), 3)
+  scaffold.http2_send(
+    socket,
+    frame.Header(
+      data: frame.Complete(<<
+        0, 7, ":method":utf8, 3, "GET":utf8, 0, 5, ":path":utf8, 1, "/":utf8, 0,
+        7, ":scheme":utf8, 4, "http":utf8, 0, 10, ":authority":utf8, 16,
+        "example.com:8080":utf8,
+      >>),
+      end_stream: True,
+      identifier: frame.stream_identifier(5),
+      priority: option.None,
+    ),
+  )
+  wait_for_handler(started)
+  let next = stream_frames(scaffold.http2_receive(socket), 5)
+
+  let assert [frame.Header(end_stream: True, ..), reset] = answered
+  assert reset
+    == frame.Termination(
+      error: frame.NoError,
+      identifier: frame.stream_identifier(3),
+    )
+  let assert [frame.Header(end_stream: True, ..)] = next
+}
+
+pub fn it_grants_the_stream_window_for_padding_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let read = process.new_subject()
+
+  use <- scaffold.open_server(8888, fn(req) {
+    case req.method {
+      http.Post -> process.send(read, mist.read_body(req, 32_256))
+      _method -> Nil
+    }
+    response.new(200)
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  })
+
+  let socket = scaffold.http2_open([], headers)
+  scaffold.http2_send(socket, post_headers(3))
+  scaffold.http2_send_padded(socket, 3, <<0:size(129_024)>>, 255)
+  scaffold.http2_send_padded(socket, 3, <<0:size(129_024)>>, 255)
+  scaffold.http2_send(
+    socket,
+    frame.Data(
+      data: <<0>>,
+      end_stream: False,
+      identifier: frame.stream_identifier(3),
+    ),
+  )
+  let assert Ok(Error(mist.ExcessBody)) = process.receive(read, 1000)
+  let updates = stream_window_updates(scaffold.http2_receive(socket), 3)
+
+  assert updates == [32_768]
+}
+
+pub fn it_counts_padding_against_the_receive_window_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, fn(_req) {
+    process.sleep_forever()
+    response.new(200)
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  })
+
+  let socket = scaffold.http2_open([], headers)
+  scaffold.http2_send(socket, post_headers(3))
+  list.each([1, 2, 3, 4], fn(_frame) {
+    scaffold.http2_send(
+      socket,
+      frame.Data(
+        data: <<0:size(131_064)>>,
+        end_stream: False,
+        identifier: frame.stream_identifier(3),
+      ),
+    )
+  })
+  scaffold.http2_send_padded(socket, 3, <<0>>, 2)
+  let received =
+    scaffold.http2_receive(socket)
+    |> list.filter(fn(received) {
+      case received {
+        frame.Termination(..) -> True
+        _frame -> False
+      }
+    })
+
+  assert received
+    == [
+      frame.Termination(
+        error: frame.FlowControlError,
+        identifier: frame.stream_identifier(3),
+      ),
+    ]
+}
+
+fn release_handler(release: process.Subject(Nil)) -> Nil {
+  let assert Ok(handler) = process.subject_owner(release)
+  let monitor = process.monitor(handler)
+  process.send(release, Nil)
+  let assert Ok(Nil) =
+    process.new_selector()
+    |> process.select_specific_monitor(monitor, fn(_down) { Nil })
+    |> process.selector_receive(1000)
+  Nil
+}
+
+pub fn it_refuses_streams_over_the_concurrent_stream_limit_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let started = process.new_subject()
+
+  use <- scaffold.open_server(8888, fn(_req) {
+    let release = process.new_subject()
+    process.send(started, release)
+    process.receive_forever(release)
+    response.new(200)
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  })
+
+  let socket = scaffold.http2_open([], headers)
+  let assert Ok(first) = process.receive(started, 1000)
+  int.range(from: 1, to: 100, with: Nil, run: fn(_nil, n) {
+    scaffold.http2_send(socket, post_headers(n * 2 + 1))
+  })
+  list.each(list.repeat(Nil, 99), fn(_nil) {
+    let assert Ok(_release) = process.receive(started, 1000)
+  })
+  scaffold.http2_send(socket, post_headers(201))
+  let refused = stream_frames(scaffold.http2_receive(socket), 201)
+  release_handler(first)
+  scaffold.http2_send(socket, post_headers(203))
+  let assert Ok(last) = process.receive(started, 1000)
+  release_handler(last)
+  let accepted = stream_frames(scaffold.http2_receive(socket), 203)
+
+  assert refused
+    == [
+      frame.Termination(
+        error: frame.RefusedStream,
+        identifier: frame.stream_identifier(201),
+      ),
+    ]
+  let assert [
+    frame.Header(end_stream: True, ..),
+    frame.Termination(error: frame.NoError, ..),
+  ] = accepted
+}
+
+pub fn it_waits_for_slow_request_bodies_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let read = process.new_subject()
+
+  use <- scaffold.open_server(8888, fn(req) {
+    case req.method {
+      http.Post -> process.send(read, mist.read_body(req, 1000))
+      _method -> Nil
+    }
+    response.new(200)
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  })
+
+  let socket = scaffold.http2_open([], headers)
+  scaffold.http2_send(socket, post_headers(3))
+  scaffold.http2_send(
+    socket,
+    frame.Data(
+      data: <<"012":utf8>>,
+      end_stream: False,
+      identifier: frame.stream_identifier(3),
+    ),
+  )
+  process.sleep(1200)
+  scaffold.http2_send(
+    socket,
+    frame.Data(
+      data: <<"345":utf8>>,
+      end_stream: True,
+      identifier: frame.stream_identifier(3),
+    ),
+  )
+  let assert Ok(Ok(req)) = process.receive(read, 1000)
+
+  assert req.body == <<"012345":utf8>>
+}
+
+pub fn it_times_out_slow_request_bodies_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let read = process.new_subject()
+
+  use <- scaffold.start_server(
+    mist.new(fn(req) {
+      case req.method {
+        http.Post -> process.send(read, mist.read_body(req, 1000))
+        _method -> Nil
+      }
+      response.new(200)
+      |> response.set_body(mist.Bytes(bytes_tree.new()))
+    })
+    |> mist.port(8888)
+    |> mist.with_read_timeout(200),
+  )
+
+  let socket = scaffold.http2_open([], headers)
+  scaffold.http2_send(socket, post_headers(3))
+  scaffold.http2_send(
+    socket,
+    frame.Data(
+      data: <<"012":utf8>>,
+      end_stream: False,
+      identifier: frame.stream_identifier(3),
+    ),
+  )
+  process.sleep(400)
+  scaffold.http2_send(
+    socket,
+    frame.Data(
+      data: <<"345":utf8>>,
+      end_stream: True,
+      identifier: frame.stream_identifier(3),
+    ),
+  )
+  let assert Ok(result) = process.receive(read, 1000)
+
+  assert result == Error(mist.MalformedBody)
 }

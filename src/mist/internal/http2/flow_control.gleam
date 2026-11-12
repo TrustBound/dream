@@ -35,3 +35,13 @@ pub fn update_send_window(
     False -> Ok(update)
   }
 }
+
+pub fn compute_send_size(
+  stream_send_window: Int,
+  connection_send_window: Int,
+  data_size: Int,
+) -> Int {
+  int.min(stream_send_window, connection_send_window)
+  |> int.max(0)
+  |> int.min(data_size)
+}

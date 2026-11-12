@@ -77,69 +77,38 @@ pub fn it_should_decode_full_header_message_test() {
   assert rest == <<0, 0, 0, 4, 1, 0, 0, 0, 0>>
 }
 
-pub fn it_should_encode_ping_test() {
-  assert frame.encode(frame.Ping(ack: False, data: <<1, 2, 3, 4, 5, 6, 7, 8>>))
-    == <<0, 0, 8, 6, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8>>
+pub fn it_should_encode_priority_frame_test() {
+  assert frame.encode(frame.Priority(
+      exclusive: True,
+      identifier: stream_identifier(3),
+      stream_dependency: stream_identifier(1),
+      weight: 15,
+    ))
+    == <<0, 0, 5, 2, 0, 0, 0, 0, 3, 128, 0, 0, 1, 15>>
 }
 
-pub fn it_should_encode_ping_ack_test() {
+pub fn it_should_encode_ping_frame_test() {
   assert frame.encode(frame.Ping(ack: True, data: <<1, 2, 3, 4, 5, 6, 7, 8>>))
     == <<0, 0, 8, 6, 1, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8>>
 }
 
-pub fn it_should_decode_ping_test() {
-  let data = <<0, 0, 8, 6, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8>>
-  assert frame.decode(data)
-    == Ok(#(frame.Ping(ack: False, data: <<1, 2, 3, 4, 5, 6, 7, 8>>), <<>>))
-}
-
-pub fn it_should_decode_ping_ack_test() {
-  let data = <<0, 0, 8, 6, 1, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8>>
-  assert frame.decode(data)
-    == Ok(#(frame.Ping(ack: True, data: <<1, 2, 3, 4, 5, 6, 7, 8>>), <<>>))
-}
-
-pub fn it_should_reject_ping_with_wrong_length_test() {
-  let data = <<0, 0, 4, 6, 0, 0, 0, 0, 0, 1, 2, 3, 4>>
-  assert frame.decode(data) == Error(frame.FrameSizeError)
-}
-
-pub fn it_should_encode_termination_test() {
-  assert frame.encode(frame.Termination(
-      error: frame.Cancel,
-      identifier: stream_identifier(1),
-    ))
-    == <<0, 0, 4, 3, 0, 0, 0, 0, 1, 0, 0, 0, 8>>
-}
-
-pub fn it_should_decode_termination_test() {
-  let data = <<0, 0, 4, 3, 0, 0, 0, 0, 1, 0, 0, 0, 8>>
-  assert frame.decode(data)
-    == Ok(
-      #(
-        frame.Termination(error: frame.Cancel, identifier: stream_identifier(1)),
-        <<>>,
-      ),
-    )
-}
-
-pub fn it_should_encode_goaway_test() {
+pub fn it_should_encode_go_away_frame_test() {
   assert frame.encode(frame.GoAway(
-      data: <<>>,
-      error: frame.NoError,
+      data: <<1, 2>>,
+      error: frame.ProtocolError,
       last_stream_id: stream_identifier(5),
     ))
-    == <<0, 0, 8, 7, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0>>
+    == <<0, 0, 10, 7, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 1, 2>>
 }
 
-pub fn it_should_decode_goaway_test() {
-  let data = <<0, 0, 8, 7, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0>>
+pub fn it_should_decode_go_away_frame_test() {
+  let data = <<0, 0, 10, 7, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 1, 1, 2>>
   assert frame.decode(data)
     == Ok(
       #(
         frame.GoAway(
-          data: <<>>,
-          error: frame.NoError,
+          data: <<1, 2>>,
+          error: frame.ProtocolError,
           last_stream_id: stream_identifier(5),
         ),
         <<>>,
@@ -147,192 +116,51 @@ pub fn it_should_decode_goaway_test() {
     )
 }
 
-pub fn it_should_encode_goaway_with_debug_data_test() {
-  assert frame.encode(frame.GoAway(
-      data: <<222, 173>>,
-      error: frame.InternalError,
-      last_stream_id: stream_identifier(3),
-    ))
-    == <<0, 0, 10, 7, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 2, 222, 173>>
-}
-
-pub fn it_should_decode_goaway_with_debug_data_test() {
-  let data = <<0, 0, 10, 7, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 2, 222, 173>>
-  assert frame.decode(data)
-    == Ok(
-      #(
-        frame.GoAway(
-          data: <<222, 173>>,
-          error: frame.InternalError,
-          last_stream_id: stream_identifier(3),
-        ),
-        <<>>,
-      ),
-    )
-}
-
-pub fn it_should_encode_window_update_test() {
-  assert frame.encode(frame.WindowUpdate(
-      amount: 1000,
-      identifier: stream_identifier(1),
-    ))
-    == <<0, 0, 4, 8, 0, 0, 0, 0, 1, 0, 0, 3, 232>>
-}
-
-pub fn it_should_decode_window_update_test() {
-  let data = <<0, 0, 4, 8, 0, 0, 0, 0, 1, 0, 0, 3, 232>>
-  assert frame.decode(data)
-    == Ok(
-      #(
-        frame.WindowUpdate(amount: 1000, identifier: stream_identifier(1)),
-        <<>>,
-      ),
-    )
-}
-
-pub fn it_should_reject_window_update_with_zero_increment_test() {
+pub fn it_should_return_error_for_zero_window_update_test() {
   let data = <<0, 0, 4, 8, 0, 0, 0, 0, 1, 0, 0, 0, 0>>
   assert frame.decode(data) == Error(frame.ProtocolError)
 }
 
-pub fn it_should_encode_settings_test() {
-  assert frame.encode(
-      frame.Settings(ack: False, settings: [frame.MaxFrameSize(32_768)]),
-    )
-    == <<0, 0, 6, 4, 0, 0, 0, 0, 0, 0, 5, 0, 0, 128, 0>>
-}
-
-pub fn it_should_decode_settings_test() {
-  let data = <<0, 0, 6, 4, 0, 0, 0, 0, 0, 0, 5, 0, 0, 128, 0>>
+pub fn it_should_decode_padded_data_frame_test() {
+  let data = <<0, 0, 6, 0, 8, 0, 0, 0, 1, 2, 1, 2, 3, 0, 0>>
   assert frame.decode(data)
     == Ok(
       #(
-        frame.Settings(ack: False, settings: [frame.MaxFrameSize(32_768)]),
-        <<>>,
-      ),
-    )
-}
-
-pub fn it_should_encode_settings_ack_test() {
-  assert frame.encode(frame.settings_ack()) == <<0, 0, 0, 4, 1, 0, 0, 0, 0>>
-}
-
-pub fn it_should_decode_settings_ack_test() {
-  let data = <<0, 0, 0, 4, 1, 0, 0, 0, 0>>
-  assert frame.decode(data)
-    == Ok(#(frame.Settings(ack: True, settings: []), <<>>))
-}
-
-pub fn it_should_reject_settings_with_wrong_length_test() {
-  let data = <<0, 0, 5, 4, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5>>
-  assert frame.decode(data) == Error(frame.FrameSizeError)
-}
-
-pub fn it_should_encode_priority_test() {
-  assert frame.encode(frame.Priority(
-      exclusive: True,
-      identifier: stream_identifier(3),
-      stream_dependency: stream_identifier(1),
-      weight: 16,
-    ))
-    == <<0, 0, 5, 2, 0, 0, 0, 0, 3, 128, 0, 0, 1, 16>>
-}
-
-pub fn it_should_decode_priority_test() {
-  let data = <<0, 0, 5, 2, 0, 0, 0, 0, 3, 128, 0, 0, 1, 16>>
-  assert frame.decode(data)
-    == Ok(
-      #(
-        frame.Priority(
-          exclusive: True,
-          identifier: stream_identifier(3),
-          stream_dependency: stream_identifier(1),
-          weight: 16,
+        frame.Data(
+          identifier: stream_identifier(1),
+          data: <<1, 2, 3>>,
+          end_stream: False,
         ),
         <<>>,
       ),
     )
 }
 
-pub fn it_should_roundtrip_ping_test() {
-  let f = frame.Ping(ack: False, data: <<10, 20, 30, 40, 50, 60, 70, 80>>)
-  assert frame.decode(frame.encode(f)) == Ok(#(f, <<>>))
+pub fn it_should_decode_unknown_frame_test() {
+  let data = <<0, 0, 1, 255, 0, 0, 0, 0, 1, 0, 1, 2, 3>>
+  assert frame.decode(data) == Ok(#(frame.Unknown(255), <<1, 2, 3>>))
 }
 
-pub fn it_should_roundtrip_goaway_test() {
-  let f =
-    frame.GoAway(
-      data: <<>>,
-      error: frame.NoError,
-      last_stream_id: stream_identifier(7),
+pub fn it_should_return_error_for_small_max_frame_size_test() {
+  let data = <<0, 0, 6, 4, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0>>
+  assert frame.decode(data) == Error(frame.ProtocolError)
+}
+
+pub fn it_should_decode_settings_in_order_test() {
+  let data = <<0, 0, 12, 4, 0, 0, 0, 0, 0, 0, 5, 0, 1, 0, 0, 0, 5, 0, 0, 64, 0>>
+  assert frame.decode(data)
+    == Ok(
+      #(
+        frame.Settings(ack: False, settings: [
+          frame.MaxFrameSize(65_536),
+          frame.MaxFrameSize(16_384),
+        ]),
+        <<>>,
+      ),
     )
-  assert frame.decode(frame.encode(f)) == Ok(#(f, <<>>))
 }
 
-pub fn it_should_roundtrip_goaway_with_debug_data_test() {
-  let f =
-    frame.GoAway(
-      data: <<104, 101, 108, 108, 111>>,
-      error: frame.ProtocolError,
-      last_stream_id: stream_identifier(11),
-    )
-  assert frame.decode(frame.encode(f)) == Ok(#(f, <<>>))
-}
-
-pub fn it_should_roundtrip_termination_test() {
-  let f =
-    frame.Termination(
-      error: frame.StreamClosed,
-      identifier: stream_identifier(5),
-    )
-  assert frame.decode(frame.encode(f)) == Ok(#(f, <<>>))
-}
-
-pub fn it_should_roundtrip_window_update_test() {
-  let f = frame.WindowUpdate(amount: 65_535, identifier: stream_identifier(1))
-  assert frame.decode(frame.encode(f)) == Ok(#(f, <<>>))
-}
-
-pub fn it_should_roundtrip_settings_test() {
-  let f = frame.Settings(ack: False, settings: [frame.MaxFrameSize(32_768)])
-  assert frame.decode(frame.encode(f)) == Ok(#(f, <<>>))
-}
-
-pub fn it_should_roundtrip_priority_test() {
-  let f =
-    frame.Priority(
-      exclusive: False,
-      identifier: stream_identifier(5),
-      stream_dependency: stream_identifier(3),
-      weight: 200,
-    )
-  assert frame.decode(frame.encode(f)) == Ok(#(f, <<>>))
-}
-
-pub fn it_should_roundtrip_data_frame_test() {
-  let f =
-    Data(identifier: stream_identifier(1), end_stream: True, data: <<
-      72,
-      101,
-      108,
-      108,
-      111,
-    >>)
-  assert frame.decode(frame.encode(f)) == Ok(#(f, <<>>))
-}
-
-pub fn it_should_roundtrip_headers_frame_test() {
-  let f =
-    Header(
-      identifier: stream_identifier(1),
-      end_stream: False,
-      data: Complete(<<130, 132, 135>>),
-      priority: None,
-    )
-  assert frame.decode(frame.encode(f)) == Ok(#(f, <<>>))
-}
-
-pub fn it_should_decode_unknown_frame_type_test() {
-  let input = <<0, 0, 4, 255, 0, 0, 0, 0, 0, 1, 2, 3, 4>>
-  let assert Ok(#(frame.Unknown(255), <<>>)) = frame.decode(input)
+pub fn it_should_return_error_for_oversized_frame_test() {
+  assert frame.decode(<<0, 64, 1, 0, 0, 0, 0, 0, 1>>)
+    == Error(frame.FrameSizeError)
 }

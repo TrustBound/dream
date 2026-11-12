@@ -1,11 +1,13 @@
 import gleam/bit_array
 import gleam/bytes_tree.{type BytesTree}
+import gleam/erlang/process
 import gleam/http
 import gleam/http/request
 import gleam/http/response.{type Response, Response}
 import gleam/option.{Some}
 import gleam/string
 import gleam/uri
+import mist
 import vendored_mist/scaffold.{
   bitstring_response_should_equal, make_request, string_response_should_equal,
 }
@@ -237,4 +239,28 @@ pub fn it_sends_back_chunked_responses_test() {
 
   assert resp.status == 200
   assert resp.body == string.repeat("a", 1000)
+}
+
+pub fn it_times_out_slow_request_bodies_test() {
+  let read = process.new_subject()
+
+  use <- scaffold.start_server(
+    mist.new(fn(req) {
+      process.send(read, mist.read_body(req, 1000))
+      response.new(200)
+      |> response.set_body(mist.Bytes(bytes_tree.new()))
+    })
+    |> mist.port(8888)
+    |> mist.with_read_timeout(200),
+  )
+
+  let socket =
+    scaffold.http1_open(<<
+      "POST / HTTP/1.1\r\nhost: localhost:8888\r\ncontent-length: 6\r\n\r\n012":utf8,
+    >>)
+  process.sleep(400)
+  let _sent = scaffold.http1_send(socket, <<"345":utf8>>)
+  let assert Ok(result) = process.receive(read, 1000)
+
+  assert result == Error(mist.MalformedBody)
 }

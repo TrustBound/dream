@@ -2,7 +2,7 @@
 
 -export([binary_match/2, decode_packet/3, decode_atom/1,file_open/1, string_to_int/2, hpack_decode/2,
          hpack_encode/2, hpack_new_max_table_size/2, ets_lookup_element/3, get_path_and_query/1,
-         file_close/1, now/0]).
+         file_close/1, file_pread/3, now/0]).
 
 now() ->
   Timestamp = os:system_time(microsecond),
@@ -70,14 +70,33 @@ file_close(File) ->
       {error, unknown_file_error}
   end.
 
+file_pread(File, Location, Bytes) ->
+  case file:pread(File, Location, Bytes) of
+    {ok, Data} ->
+      {ok, Data};
+    eof ->
+      {ok, <<>>};
+    {error, enoent} ->
+      {error, no_entry};
+    {error, eacces} ->
+      {error, no_access};
+    {error, eisdir} ->
+      {error, is_dir};
+    _ ->
+      {error, unknown_file_error}
+  end.
+
 hpack_decode(Context, Bin) ->
-  case hpack:decode(Bin, Context) of
+  try hpack:decode(Bin, Context) of
     {ok, {Headers, NewContext}} ->
       {ok, {Headers, NewContext}};
     {error, compression_error} ->
       {error, {hpack_error, compression}};
     {error, {compression_error, {bad_header_packet, Binary}}} ->
       {error, {hpack_error, {bad_header_packet, Binary}}}
+  catch
+    error:_ ->
+      {error, {hpack_error, compression}}
   end.
 
 hpack_encode(Context, Headers) ->

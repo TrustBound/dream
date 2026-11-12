@@ -21,6 +21,7 @@ import dream_test/unit.{type UnitTest, describe, it}
 import gleam/erlang/atom.{type Atom}
 import vendored_mist/http1_test
 import vendored_mist/http2_test
+import vendored_mist/mist/file_test
 import vendored_mist/mist/http2/flow_control_test
 import vendored_mist/mist/http2/frame_test
 
@@ -28,7 +29,7 @@ pub type Suite {
   Suite(name: String, tests: UnitTest)
 }
 
-/// One dream_test suite per vendored mist test module.
+/// One dream_test suite per vendored test module.
 pub fn suites() -> List(Suite) {
   [
     Suite(
@@ -66,61 +67,174 @@ pub fn suites() -> List(Suite) {
         it("it sends back chunked responses", fn() {
           run_http1(http1_test.it_sends_back_chunked_responses_test)
         }),
+        it("it times out slow request bodies", fn() {
+          run_http1(http1_test.it_times_out_slow_request_bodies_test)
+        }),
       ]),
     ),
     Suite(
       "vendored_mist/http2",
       describe("vendored_mist/http2", [
-        it("it responds to ping with ack", fn() {
-          run(http2_test.it_responds_to_ping_with_ack_test)
+        it("it applies pseudo headers", fn() {
+          run(http2_test.it_applies_pseudo_headers_test)
         }),
-        it("it sends settings ack", fn() {
-          run(http2_test.it_sends_settings_ack_test)
+        it("it rejects requests without host", fn() {
+          run(http2_test.it_rejects_requests_without_host_test)
         }),
-        it("it handles basic get request", fn() {
-          run(http2_test.it_handles_basic_get_request_test)
+        it("it ignores unknown frames", fn() {
+          run(http2_test.it_ignores_unknown_frames_test)
         }),
-        it("it handles rst stream", fn() {
-          run(http2_test.it_handles_rst_stream_test)
+        it("it responds after reading the body", fn() {
+          run(http2_test.it_responds_after_reading_the_body_test)
         }),
-        it("it sends goaway on protocol error", fn() {
-          run(http2_test.it_sends_goaway_on_protocol_error_test)
+        it("it ignores window updates on closed streams", fn() {
+          run(http2_test.it_ignores_window_updates_on_closed_streams_test)
         }),
-        it("it keeps connection alive after request", fn() {
-          run(http2_test.it_keeps_connection_alive_after_request_test)
+        it("it handles frames sent with the preface", fn() {
+          run(http2_test.it_handles_frames_sent_with_the_preface_test)
         }),
-        it("it handles multiple requests same connection", fn() {
-          run(http2_test.it_handles_multiple_requests_same_connection_test)
+        it("it splits large bodies into frames", fn() {
+          run(http2_test.it_splits_large_bodies_into_frames_test)
         }),
-        it("it ignores window update for closed stream", fn() {
-          run(http2_test.it_ignores_window_update_for_closed_stream_test)
+        it("it splits large headers into frames", fn() {
+          run(http2_test.it_splits_large_headers_into_frames_test)
         }),
-        it("it ignores unknown frame type", fn() {
-          run(http2_test.it_ignores_unknown_frame_type_test)
+        it("it resets data on closed streams", fn() {
+          run(http2_test.it_resets_data_on_closed_streams_test)
         }),
-        it("it sends continuation frames for large headers", fn() {
-          run(http2_test.it_sends_continuation_frames_for_large_headers_test)
+        it("it resets streams with invalid methods", fn() {
+          run(http2_test.it_resets_streams_with_invalid_methods_test)
         }),
-        it("it sends chunked data over h2", fn() {
-          run(http2_test.it_sends_chunked_data_over_h2_test)
+        it("it responds to ping", fn() {
+          run(http2_test.it_responds_to_ping_test)
         }),
-        it("it handles sse over h2c", fn() {
-          run(http2_test.it_handles_sse_over_h2c_test)
+        it("it stops reset streams", fn() {
+          run(http2_test.it_stops_reset_streams_test)
         }),
-        it("it sse does not crash concurrent streams", fn() {
-          run(http2_test.it_sse_does_not_crash_concurrent_streams_test)
+        it("it ignores unknown settings", fn() {
+          run(http2_test.it_ignores_unknown_settings_test)
         }),
-        it("it closes sse stream on actor stop", fn() {
-          run(http2_test.it_closes_sse_stream_on_actor_stop_test)
+        it("it waits for window updates", fn() {
+          run(http2_test.it_waits_for_window_updates_test)
         }),
-        it("it does not leak stream actors", fn() {
-          run(http2_test.it_does_not_leak_stream_actors_test)
+        it("it sends go away on malformed frames", fn() {
+          run(http2_test.it_sends_go_away_on_malformed_frames_test)
         }),
-        it("it handles sse over h2c production path", fn() {
-          run(http2_test.it_handles_sse_over_h2c_production_path_test)
+        it("it sends go away on malformed headers", fn() {
+          run(http2_test.it_sends_go_away_on_malformed_headers_test)
         }),
-        it("it handles sse under load production path", fn() {
-          run(http2_test.it_handles_sse_under_load_production_path_test)
+        it("it sends server sent events", fn() {
+          run(http2_test.it_sends_server_sent_events_test)
+        }),
+        it("it sends chunked responses", fn() {
+          run(http2_test.it_sends_chunked_responses_test)
+        }),
+        it("it sends file responses", fn() {
+          run(http2_test.it_sends_file_responses_test)
+        }),
+        it("it sends empty file responses", fn() {
+          run(http2_test.it_sends_empty_file_responses_test)
+        }),
+        it("it responds with 500 on handler errors", fn() {
+          run(http2_test.it_responds_with_500_on_handler_errors_test)
+        }),
+        it("it resets streams on handler errors after headers", fn() {
+          run(http2_test.it_resets_streams_on_handler_errors_after_headers_test)
+        }),
+        it("it reads bodies without content length", fn() {
+          run(http2_test.it_reads_bodies_without_content_length_test)
+        }),
+        it("it limits bodies without content length", fn() {
+          run(http2_test.it_limits_bodies_without_content_length_test)
+        }),
+        it("it reads headers split into frames", fn() {
+          run(http2_test.it_reads_headers_split_into_frames_test)
+        }),
+        it("it sends go away on frames inside headers", fn() {
+          run(http2_test.it_sends_go_away_on_frames_inside_headers_test)
+        }),
+        it("it reads bodies ended by trailers", fn() {
+          run(http2_test.it_reads_bodies_ended_by_trailers_test)
+        }),
+        it("it sends go away on oversized frames", fn() {
+          run(http2_test.it_sends_go_away_on_oversized_frames_test)
+        }),
+        it("it waits for the window before sending more chunks", fn() {
+          run(
+            http2_test.it_waits_for_the_window_before_sending_more_chunks_test,
+          )
+        }),
+        it("it fails sends on reset streams", fn() {
+          run(http2_test.it_fails_sends_on_reset_streams_test)
+        }),
+        it("it stops the handler when a stream is reset", fn() {
+          run(http2_test.it_stops_the_handler_when_a_stream_is_reset_test)
+        }),
+        it("it cancels sends that time out", fn() {
+          run(http2_test.it_cancels_sends_that_time_out_test)
+        }),
+        it("it sends go away on reused stream ids", fn() {
+          run(http2_test.it_sends_go_away_on_reused_stream_ids_test)
+        }),
+        it("it sends go away on continuation without headers", fn() {
+          run(http2_test.it_sends_go_away_on_continuation_without_headers_test)
+        }),
+        it("it sends go away on oversized header blocks", fn() {
+          run(http2_test.it_sends_go_away_on_oversized_header_blocks_test)
+        }),
+        it("it resets streams with wrong content length", fn() {
+          run(http2_test.it_resets_streams_with_wrong_content_length_test)
+        }),
+        it("it resets trailers with wrong content length", fn() {
+          run(http2_test.it_resets_trailers_with_wrong_content_length_test)
+        }),
+        it("it resets streams with content length and no body", fn() {
+          run(http2_test.it_resets_streams_with_content_length_and_no_body_test)
+        }),
+        it("it keeps the connection after content length without a body", fn() {
+          run(
+            http2_test.it_keeps_the_connection_after_content_length_without_a_body_test,
+          )
+        }),
+        it("it counts streams reset for content length without a body", fn() {
+          run(
+            http2_test.it_counts_streams_reset_for_content_length_without_a_body_test,
+          )
+        }),
+        it("it resets data on half closed streams", fn() {
+          run(http2_test.it_resets_data_on_half_closed_streams_test)
+        }),
+        it("it grants the stream window as the body is read", fn() {
+          run(http2_test.it_grants_the_stream_window_as_the_body_is_read_test)
+        }),
+        it("it reads bodies larger than the stream window", fn() {
+          run(http2_test.it_reads_bodies_larger_than_the_stream_window_test)
+        }),
+        it("it resets streams that exceed the receive window", fn() {
+          run(http2_test.it_resets_streams_that_exceed_the_receive_window_test)
+        }),
+        it("it closes streams answered before the body ends", fn() {
+          run(http2_test.it_closes_streams_answered_before_the_body_ends_test)
+        }),
+        it("it grants the stream window for padding", fn() {
+          run(http2_test.it_grants_the_stream_window_for_padding_test)
+        }),
+        it("it counts padding against the receive window", fn() {
+          run(http2_test.it_counts_padding_against_the_receive_window_test)
+        }),
+        it("it refuses streams over the concurrent stream limit", fn() {
+          run(
+            http2_test.it_refuses_streams_over_the_concurrent_stream_limit_test,
+          )
+        }),
+        it("it waits for slow request bodies", fn() {
+          run(http2_test.it_waits_for_slow_request_bodies_test)
+        }),
+        it("it times out sends after the send timeout", fn() {
+          run(http2_test.it_times_out_sends_after_the_send_timeout_test)
+        }),
+        it("it times out slow request bodies", fn() {
+          run(http2_test.it_times_out_slow_request_bodies_test)
         }),
       ]),
     ),
@@ -148,119 +262,56 @@ pub fn suites() -> List(Suite) {
         it("it should decode full header message", fn() {
           run(frame_test.it_should_decode_full_header_message_test)
         }),
-        it("it should encode ping", fn() {
-          run(frame_test.it_should_encode_ping_test)
+        it("it should encode priority frame", fn() {
+          run(frame_test.it_should_encode_priority_frame_test)
         }),
-        it("it should encode ping ack", fn() {
-          run(frame_test.it_should_encode_ping_ack_test)
+        it("it should encode ping frame", fn() {
+          run(frame_test.it_should_encode_ping_frame_test)
         }),
-        it("it should decode ping", fn() {
-          run(frame_test.it_should_decode_ping_test)
+        it("it should encode go away frame", fn() {
+          run(frame_test.it_should_encode_go_away_frame_test)
         }),
-        it("it should decode ping ack", fn() {
-          run(frame_test.it_should_decode_ping_ack_test)
+        it("it should decode go away frame", fn() {
+          run(frame_test.it_should_decode_go_away_frame_test)
         }),
-        it("it should reject ping with wrong length", fn() {
-          run(frame_test.it_should_reject_ping_with_wrong_length_test)
+        it("it should return error for zero window update", fn() {
+          run(frame_test.it_should_return_error_for_zero_window_update_test)
         }),
-        it("it should encode termination", fn() {
-          run(frame_test.it_should_encode_termination_test)
+        it("it should decode padded data frame", fn() {
+          run(frame_test.it_should_decode_padded_data_frame_test)
         }),
-        it("it should decode termination", fn() {
-          run(frame_test.it_should_decode_termination_test)
+        it("it should decode unknown frame", fn() {
+          run(frame_test.it_should_decode_unknown_frame_test)
         }),
-        it("it should encode goaway", fn() {
-          run(frame_test.it_should_encode_goaway_test)
+        it("it should return error for small max frame size", fn() {
+          run(frame_test.it_should_return_error_for_small_max_frame_size_test)
         }),
-        it("it should decode goaway", fn() {
-          run(frame_test.it_should_decode_goaway_test)
+        it("it should decode settings in order", fn() {
+          run(frame_test.it_should_decode_settings_in_order_test)
         }),
-        it("it should encode goaway with debug data", fn() {
-          run(frame_test.it_should_encode_goaway_with_debug_data_test)
-        }),
-        it("it should decode goaway with debug data", fn() {
-          run(frame_test.it_should_decode_goaway_with_debug_data_test)
-        }),
-        it("it should encode window update", fn() {
-          run(frame_test.it_should_encode_window_update_test)
-        }),
-        it("it should decode window update", fn() {
-          run(frame_test.it_should_decode_window_update_test)
-        }),
-        it("it should reject window update with zero increment", fn() {
-          run(
-            frame_test.it_should_reject_window_update_with_zero_increment_test,
-          )
-        }),
-        it("it should encode settings", fn() {
-          run(frame_test.it_should_encode_settings_test)
-        }),
-        it("it should decode settings", fn() {
-          run(frame_test.it_should_decode_settings_test)
-        }),
-        it("it should encode settings ack", fn() {
-          run(frame_test.it_should_encode_settings_ack_test)
-        }),
-        it("it should decode settings ack", fn() {
-          run(frame_test.it_should_decode_settings_ack_test)
-        }),
-        it("it should reject settings with wrong length", fn() {
-          run(frame_test.it_should_reject_settings_with_wrong_length_test)
-        }),
-        it("it should encode priority", fn() {
-          run(frame_test.it_should_encode_priority_test)
-        }),
-        it("it should decode priority", fn() {
-          run(frame_test.it_should_decode_priority_test)
-        }),
-        it("it should roundtrip ping", fn() {
-          run(frame_test.it_should_roundtrip_ping_test)
-        }),
-        it("it should roundtrip goaway", fn() {
-          run(frame_test.it_should_roundtrip_goaway_test)
-        }),
-        it("it should roundtrip goaway with debug data", fn() {
-          run(frame_test.it_should_roundtrip_goaway_with_debug_data_test)
-        }),
-        it("it should roundtrip termination", fn() {
-          run(frame_test.it_should_roundtrip_termination_test)
-        }),
-        it("it should roundtrip window update", fn() {
-          run(frame_test.it_should_roundtrip_window_update_test)
-        }),
-        it("it should roundtrip settings", fn() {
-          run(frame_test.it_should_roundtrip_settings_test)
-        }),
-        it("it should roundtrip priority", fn() {
-          run(frame_test.it_should_roundtrip_priority_test)
-        }),
-        it("it should roundtrip data frame", fn() {
-          run(frame_test.it_should_roundtrip_data_frame_test)
-        }),
-        it("it should roundtrip headers frame", fn() {
-          run(frame_test.it_should_roundtrip_headers_frame_test)
-        }),
-        it("it should decode unknown frame type", fn() {
-          run(frame_test.it_should_decode_unknown_frame_type_test)
+        it("it should return error for oversized frame", fn() {
+          run(frame_test.it_should_return_error_for_oversized_frame_test)
         }),
       ]),
     ),
     Suite(
       "vendored_mist/mist/http2/flow_control",
       describe("vendored_mist/mist/http2/flow_control", [
-        it("it should not increment window above threshold", fn() {
+        it("it should send up to the smaller window", fn() {
+          run(flow_control_test.it_should_send_up_to_the_smaller_window_test)
+        }),
+        it("it should send nothing with a negative window", fn() {
           run(
-            flow_control_test.it_should_not_increment_window_above_threshold_test,
+            flow_control_test.it_should_send_nothing_with_a_negative_window_test,
           )
         }),
-        it("it should increment window below threshold", fn() {
-          run(flow_control_test.it_should_increment_window_below_threshold_test)
-        }),
-        it("it should update send window", fn() {
-          run(flow_control_test.it_should_update_send_window_test)
-        }),
-        it("it should reject send window overflow", fn() {
-          run(flow_control_test.it_should_reject_send_window_overflow_test)
+      ]),
+    ),
+    Suite(
+      "vendored_mist/mist/file",
+      describe("vendored_mist/mist/file", [
+        it("it should read nothing at end of file", fn() {
+          run(file_test.it_should_read_nothing_at_end_of_file_test)
         }),
       ]),
     ),

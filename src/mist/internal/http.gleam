@@ -33,13 +33,6 @@ pub type ResponseData {
   ServerSentEvents
 }
 
-pub type H2StreamSender {
-  H2StreamSender(
-    send_headers: fn(Int, List(#(String, String))) -> Nil,
-    send_data: fn(BytesTree, Bool) -> Nil,
-  )
-}
-
 pub type Connection {
   Connection(
     body: Body,
@@ -51,7 +44,7 @@ pub type Connection {
         process.Pid,
       ),
     ),
-    h2_sender: Option(H2StreamSender),
+    read_timeout: Int,
   )
 }
 
@@ -88,6 +81,7 @@ pub type DecodeError {
   UnknownMethod
   // TODO:  better name?
   InvalidBody
+  ExcessBody
   DiscardPacket
   NoHostHeader
   InvalidHttpVersion
@@ -104,6 +98,7 @@ pub fn parse_headers(
   socket: Socket,
   transport: Transport,
   headers: Dict(String, String),
+  read_timeout: Int,
 ) -> Result(#(Dict(String, String), BitArray), DecodeError) {
   case decode_packet(HttphBin, bs, []) {
     Ok(BinaryData(HttpHeader(_, _field, field, value), rest)) -> {
@@ -111,7 +106,7 @@ pub fn parse_headers(
       let assert Ok(value) = bit_array.to_string(value)
       headers
       |> dict.insert(field, value)
-      |> parse_headers(rest, socket, transport, _)
+      |> parse_headers(rest, socket, transport, _, read_timeout)
     }
     Ok(EndOfHeaders(rest)) -> Ok(#(headers, rest))
     Ok(MoreData(size)) -> {
@@ -121,8 +116,9 @@ pub fn parse_headers(
         transport,
         Buffer(amount_to_read, bs),
         UnknownHeader,
+        read_timeout,
       ))
-      parse_headers(next, socket, transport, headers)
+      parse_headers(next, socket, transport, headers, read_timeout)
     }
     _other -> Error(UnknownHeader)
   }
@@ -133,13 +129,13 @@ pub fn read_data(
   transport: Transport,
   buffer: Buffer,
   error: DecodeError,
+  read_timeout: Int,
 ) -> Result(BitArray, DecodeError) {
-  // TODO:  don't hard-code these, probably
+  // TODO:  don't hard-code this, probably
   let to_read = int.min(buffer.remaining, 1_000_000)
-  let timeout = 15_000
   use data <- result.try(
     socket
-    |> transport.receive_timeout(transport, _, to_read, timeout)
+    |> transport.receive_timeout(transport, _, to_read, read_timeout)
     |> result.replace_error(error),
   )
   let next_buffer =
@@ -149,7 +145,7 @@ pub fn read_data(
     >>)
 
   case next_buffer.remaining > 0 {
-    True -> read_data(socket, transport, next_buffer, error)
+    True -> read_data(socket, transport, next_buffer, error, read_timeout)
     False -> Ok(next_buffer.data)
   }
 }
@@ -196,6 +192,7 @@ fn read_chunk(
   transport: Transport,
   buffer: Buffer,
   body: BytesTree,
+  read_timeout: Int,
 ) -> Result(BytesTree, DecodeError) {
   case buffer.data, binary_match(buffer.data, crnl) {
     _, Ok(#(offset, _)) -> {
@@ -225,6 +222,7 @@ fn read_chunk(
                 transport,
                 Buffer(0, rest),
                 bytes_tree.append(body, next_chunk),
+                read_timeout,
               )
             _ -> {
               use next <- result.try(read_data(
@@ -232,8 +230,9 @@ fn read_chunk(
                 transport,
                 Buffer(0, buffer.data),
                 InvalidBody,
+                read_timeout,
               ))
-              read_chunk(socket, transport, Buffer(0, next), body)
+              read_chunk(socket, transport, Buffer(0, next), body, read_timeout)
             }
           }
       }
@@ -244,8 +243,9 @@ fn read_chunk(
         transport,
         Buffer(0, data),
         InvalidBody,
+        read_timeout,
       ))
-      read_chunk(socket, transport, Buffer(0, next), body)
+      read_chunk(socket, transport, Buffer(0, next), body, read_timeout)
     }
   }
 }
@@ -313,6 +313,7 @@ pub fn parse_request(
         conn.socket,
         conn.transport,
         dict.new(),
+        conn.read_timeout,
       ))
       use path <- result.try(
         path
@@ -383,6 +384,7 @@ pub fn parse_request(
         conn.transport,
         Buffer(amount_to_read, bs),
         MalformedRequest,
+        conn.read_timeout,
       ))
       parse_request(next, conn)
     }
@@ -393,15 +395,19 @@ pub fn parse_request(
 pub type Body {
   Initial(BitArray)
   Stream(
-    selector: Selector(BitArray),
+    selector: Selector(#(BitArray, Bool)),
     data: BitArray,
-    remaining: Int,
+    end: Bool,
     attempts: Int,
+    send_headers: fn(Int, List(http.Header)) -> Nil,
+    send_data: fn(BitArray) -> Result(Nil, Nil),
+    consume_data: fn(Int) -> Nil,
   )
 }
 
 pub fn read_body(
   req: Request(Connection),
+  max_body_limit: Int,
 ) -> Result(Request(BitArray), DecodeError) {
   let transport = case req.scheme {
     http.Https -> transport.Ssl
@@ -416,6 +422,7 @@ pub fn read_body(
         transport,
         Buffer(remaining: 0, data: rest),
         bytes_tree.new(),
+        req.body.read_timeout,
       ))
       Ok(request.set_body(req, bytes_tree.to_bit_array(chunk)))
     }
@@ -439,6 +446,7 @@ pub fn read_body(
             transport,
             Buffer(remaining, rest),
             InvalidBody,
+            req.body.read_timeout,
           )
       }
       |> result.map(request.set_body(req, _))
@@ -448,29 +456,42 @@ pub fn read_body(
       Stream(
         selector: selector,
         data: data,
-        remaining: remaining,
+        end: False,
         attempts: attempts,
+        send_headers: send_headers,
+        send_data: send_data,
+        consume_data: consume_data,
       )
-      if remaining > 0
     -> {
       let res =
         selector
-        |> process.selector_receive(1000)
+        |> process.selector_receive(req.body.read_timeout)
         |> result.replace_error(InvalidBody)
-      use next <- result.try(res)
-      let got = bit_array.byte_size(next)
-      let left = int.max(remaining - got, 0)
-      let new_data = bit_array.append(data, next)
-      case left {
-        0 -> Ok(request.set_body(req, new_data))
-        _rem ->
-          read_body(request.set_body(
-            req,
-            Connection(
-              ..req.body,
-              body: Stream(selector, new_data, left, attempts + 1),
+      use #(next, end) <- result.try(res)
+      let new_data = <<data:bits, next:bits>>
+      case bit_array.byte_size(new_data) > max_body_limit {
+        True -> Error(ExcessBody)
+        False -> {
+          consume_data(bit_array.byte_size(next))
+          read_body(
+            request.set_body(
+              req,
+              Connection(
+                ..req.body,
+                body: Stream(
+                  selector,
+                  new_data,
+                  end,
+                  attempts + 1,
+                  send_headers,
+                  send_data,
+                  consume_data,
+                ),
+              ),
             ),
-          ))
+            max_body_limit,
+          )
+        }
       }
     }
     _, Stream(data: data, ..) -> {
@@ -681,13 +702,6 @@ fn string_to_int(string string: Charlist, base base: Int) -> Result(Int, Nil)
 
 @external(erlang, "binary", "split")
 fn binary_split(source: BitArray, pattern: BitArray) -> List(BitArray)
-
-@external(erlang, "erlang", "integer_to_list")
-fn integer_to_list(int int: Int, base base: Int) -> String
-
-pub fn int_to_hex(int: Int) -> String {
-  integer_to_list(int, 16)
-}
 
 @external(erlang, "mist_ffi", "get_path_and_query")
 fn get_path_and_query(

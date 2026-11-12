@@ -106,6 +106,7 @@ pub type ConnectionError {
 
 pub fn decode(frame: BitArray) -> Result(#(Frame, BitArray), ConnectionError) {
   case frame {
+    <<length:size(24), _rest:bits>> if length > 16_384 -> Error(FrameSizeError)
     <<
       length:size(24),
       frame_type:size(8),
@@ -165,7 +166,7 @@ fn parse_data(
       if identifier != 0
     -> {
       let data_length = case padding {
-        1 -> length - pad_length
+        1 -> length - pad_length - 1
         0 -> length
         _ -> panic as "Somehow a bit was neither 0 nor 1"
       }
@@ -355,9 +356,7 @@ fn parse_ping(
   payload: BitArray,
 ) -> Result(Frame, ConnectionError) {
   case length, <<flags:bits, payload:bits>> {
-    8, <<_unused:size(7), ack:size(1), data:bits-size(64)>>
-      if identifier == 0
-    -> {
+    8, <<_unused:size(7), ack:size(1), data:bits-size(64)>> if identifier == 0 -> {
       Ok(Ping(ack: ack == 1, data: data))
     }
     8, _ -> Error(ProtocolError)
@@ -371,15 +370,16 @@ fn parse_go_away(
   length: Int,
   payload: BitArray,
 ) -> Result(Frame, ConnectionError) {
+  let data_length = length - 8
   case <<flags:bits, payload:bits>> {
     <<
       _unused:size(8),
       _reserved:size(1),
       last_stream_id:size(31),
       error:size(32),
-      data:bytes-size(length - 8),
+      data:bytes-size(data_length),
     >>
-      if identifier == 0 && length >= 8
+      if identifier == 0
     -> {
       Ok(GoAway(
         data: data,
@@ -554,7 +554,7 @@ pub fn encode(frame: Frame) -> BitArray {
     }
     GoAway(data, error, StreamIdentifier(last_stream_id)) -> {
       let error = encode_error(error)
-      let payload_size = 8 + bit_array.byte_size(data)
+      let payload_size = bit_array.byte_size(data) + 8
       <<
         payload_size:size(24),
         7:size(8),
@@ -592,7 +592,7 @@ pub fn encode(frame: Frame) -> BitArray {
         data:bits,
       >>
     }
-    Unknown(_frame_type) -> panic as "Cannot encode unknown frame"
+    Unknown(..) -> panic as "Cannot encode an unknown frame"
   }
 }
 
@@ -621,7 +621,10 @@ fn get_settings(
   acc: List(Setting),
 ) -> Result(List(Setting), ConnectionError) {
   case data {
-    <<>> -> Ok(acc)
+    <<>> -> Ok(list.reverse(acc))
+    <<identifier:size(16), _value:size(32), rest:bits>>
+      if identifier < 1 || identifier > 6
+    -> get_settings(rest, acc)
     <<identifier:size(16), value:size(32), rest:bits>> -> {
       case get_setting(identifier, value) {
         Ok(setting) -> get_settings(rest, [setting, ..acc])
@@ -632,10 +635,7 @@ fn get_settings(
   }
 }
 
-fn get_setting(
-  identifier: Int,
-  value: Int,
-) -> Result(Setting, ConnectionError) {
+fn get_setting(identifier: Int, value: Int) -> Result(Setting, ConnectionError) {
   case identifier {
     1 -> Ok(HeaderTableSize(value))
     2 ->
@@ -655,7 +655,7 @@ fn get_setting(
     }
     5 -> {
       case value {
-        n if n > 16_777_215 -> Error(ProtocolError)
+        n if n < 16_384 || n > 16_777_215 -> Error(ProtocolError)
         _ -> Ok(MaxFrameSize(value))
       }
     }

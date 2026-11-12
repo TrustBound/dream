@@ -1,5 +1,5 @@
-import gleam/bit_array
 import gleam/bytes_tree.{type BytesTree}
+import gleam/http.{type Header} as _ghttp
 import gleam/http/response.{type Response}
 import gleam/int
 import gleam/list
@@ -11,7 +11,7 @@ import logging
 import mist/internal/http.{type Connection}
 import mist/internal/http2/frame.{
   type Frame, type PushState, type Setting, type StreamIdentifier, Complete,
-  Continued, Data, Header,
+  Continuation, Continued, Data, Header,
 }
 
 pub type Http2Settings {
@@ -60,164 +60,128 @@ pub fn update_settings(
 pub fn send_headers(
   context: HpackContext,
   conn: Connection,
-  headers: List(#(String, String)),
+  headers: List(Header),
   end_stream: Bool,
   stream_identifier: StreamIdentifier(Frame),
   max_frame_size: Int,
 ) -> Result(HpackContext, String) {
-  use pair <- result.try(hpack_encode(context, headers))
-  let #(encoded_headers, new_context) = pair
-  let header_size = bit_array.byte_size(encoded_headers)
-  case header_size <= max_frame_size {
-    True -> {
-      let header_frame =
-        Header(
-          data: Complete(encoded_headers),
-          end_stream: end_stream,
-          identifier: stream_identifier,
-          priority: None,
-        )
+  encode_headers(
+    context,
+    headers,
+    end_stream,
+    stream_identifier,
+    max_frame_size,
+  )
+  |> result.try(fn(pair) {
+    let #(encoded, new_context) = pair
+    send_encoded(conn, encoded)
+    |> result.replace(new_context)
+  })
+}
+
+pub fn send_encoded(conn: Connection, encoded: BitArray) -> Result(Nil, String) {
+  case encoded {
+    <<>> -> Ok(Nil)
+    _ ->
       transport.send(
         conn.transport,
         conn.socket,
-        bytes_tree.from_bit_array(frame.encode(header_frame)),
+        bytes_tree.from_bit_array(encoded),
       )
-      |> result.replace(new_context)
-      |> result.map_error(fn(_) { "Failed to send HTTP/2 headers" })
-    }
-    False -> {
-      let assert Ok(first_chunk) =
-        bit_array.slice(encoded_headers, 0, max_frame_size)
-      let assert Ok(remaining) =
-        bit_array.slice(
-          encoded_headers,
-          max_frame_size,
-          header_size - max_frame_size,
-        )
-      let header_frame =
-        Header(
-          data: Continued(first_chunk),
-          end_stream: end_stream,
-          identifier: stream_identifier,
-          priority: None,
-        )
-      use _nil <- result.try(
-        transport.send(
-          conn.transport,
-          conn.socket,
-          bytes_tree.from_bit_array(frame.encode(header_frame)),
-        )
-        |> result.map_error(fn(_) { "Failed to send HTTP/2 headers" }),
-      )
-      use _nil <- result.try(send_continuations(
-        conn,
-        remaining,
-        stream_identifier,
-        max_frame_size,
-      ))
-      Ok(new_context)
-    }
+      |> result.replace_error("Failed to send HTTP/2 headers")
   }
 }
 
-fn send_continuations(
-  conn: Connection,
-  data: BitArray,
-  identifier: StreamIdentifier(Frame),
+pub fn encode_headers(
+  context: HpackContext,
+  headers: List(Header),
+  end_stream: Bool,
+  stream_identifier: StreamIdentifier(Frame),
   max_frame_size: Int,
-) -> Result(Nil, String) {
-  let size = bit_array.byte_size(data)
-  case size <= max_frame_size {
-    True -> {
-      let cont =
-        frame.Continuation(data: Complete(data), identifier: identifier)
-      transport.send(
-        conn.transport,
-        conn.socket,
-        bytes_tree.from_bit_array(frame.encode(cont)),
+) -> Result(#(BitArray, HpackContext), String) {
+  hpack_encode(context, headers)
+  |> result.map(fn(pair) {
+    let #(headers, new_context) = pair
+    let #(data, continuation) = case headers {
+      <<data:bytes-size(max_frame_size), rest:bits>> if rest != <<>> -> #(
+        Continued(data),
+        encode_continuation(rest, stream_identifier, max_frame_size),
       )
-      |> result.map_error(fn(_) { "Failed to send CONTINUATION frame" })
+      _ -> #(Complete(headers), <<>>)
     }
-    False -> {
-      let assert Ok(chunk) = bit_array.slice(data, 0, max_frame_size)
-      let assert Ok(rest) =
-        bit_array.slice(data, max_frame_size, size - max_frame_size)
-      let cont =
-        frame.Continuation(data: Continued(chunk), identifier: identifier)
-      use _nil <- result.try(
-        transport.send(
-          conn.transport,
-          conn.socket,
-          bytes_tree.from_bit_array(frame.encode(cont)),
-        )
-        |> result.map_error(fn(_) { "Failed to send CONTINUATION frame" }),
+    let header_frame =
+      Header(
+        data: data,
+        end_stream: end_stream,
+        identifier: stream_identifier,
+        priority: None,
       )
-      send_continuations(conn, rest, identifier, max_frame_size)
+    #(<<frame.encode(header_frame):bits, continuation:bits>>, new_context)
+  })
+}
+
+fn encode_continuation(
+  data: BitArray,
+  stream_identifier: StreamIdentifier(Frame),
+  max_frame_size: Int,
+) -> BitArray {
+  case data {
+    <<data:bytes-size(max_frame_size), rest:bits>> if rest != <<>> -> {
+      let continuation =
+        Continuation(data: Continued(data), identifier: stream_identifier)
+      <<
+        frame.encode(continuation):bits,
+        encode_continuation(rest, stream_identifier, max_frame_size):bits,
+      >>
     }
+    _ ->
+      frame.encode(Continuation(
+        data: Complete(data),
+        identifier: stream_identifier,
+      ))
   }
 }
 
-pub fn send_data(
+pub fn send_body(
   conn: Connection,
+  before: BitArray,
   data: BitArray,
   stream_identifier: StreamIdentifier(Frame),
   end_stream: Bool,
   max_frame_size: Int,
 ) -> Result(Nil, String) {
-  let size = bit_array.byte_size(data)
-  case size <= max_frame_size {
-    True -> {
-      let data_frame =
-        Data(data: data, end_stream: end_stream, identifier: stream_identifier)
-      transport.send(
-        conn.transport,
-        conn.socket,
-        bytes_tree.from_bit_array(frame.encode(data_frame)),
-      )
-      |> result.map_error(fn(err) {
-        logging.log(
-          logging.Debug,
-          "Failed to send HTTP/2 data: " <> socket.reason_to_string(err),
-        )
-        "Failed to send HTTP/2 data"
-      })
+  let encoded =
+    bytes_tree.from_bit_array(before)
+    |> encode_body(data, stream_identifier, end_stream, max_frame_size)
+
+  transport.send(conn.transport, conn.socket, encoded)
+  |> result.map_error(fn(err) {
+    logging.log(
+      logging.Debug,
+      "failed to send :(  " <> socket.reason_to_string(err),
+    )
+    "Failed to send HTTP/2 data"
+  })
+}
+
+fn encode_body(
+  encoded: BytesTree,
+  data: BitArray,
+  stream_identifier: StreamIdentifier(Frame),
+  end_stream: Bool,
+  max_frame_size: Int,
+) -> BytesTree {
+  case data {
+    <<data:bytes-size(max_frame_size), rest:bits>> if rest != <<>> -> {
+      Data(data: data, end_stream: False, identifier: stream_identifier)
+      |> frame.encode
+      |> bytes_tree.append(encoded, _)
+      |> encode_body(rest, stream_identifier, end_stream, max_frame_size)
     }
-    False -> {
-      let chunk = bit_array.slice(data, 0, max_frame_size)
-      let rest = bit_array.slice(data, max_frame_size, size - max_frame_size)
-      case chunk, rest {
-        Ok(chunk_data), Ok(rest_data) -> {
-          let chunk_frame =
-            Data(
-              data: chunk_data,
-              end_stream: False,
-              identifier: stream_identifier,
-            )
-          use _nil <- result.try(
-            transport.send(
-              conn.transport,
-              conn.socket,
-              bytes_tree.from_bit_array(frame.encode(chunk_frame)),
-            )
-            |> result.map_error(fn(err) {
-              logging.log(
-                logging.Debug,
-                "Failed to send HTTP/2 data: " <> socket.reason_to_string(err),
-              )
-              "Failed to send HTTP/2 data"
-            }),
-          )
-          send_data(
-            conn,
-            rest_data,
-            stream_identifier,
-            end_stream,
-            max_frame_size,
-          )
-        }
-        _, _ -> Error("Failed to slice HTTP/2 data frame")
-      }
-    }
+    _ ->
+      Data(data: data, end_stream: end_stream, identifier: stream_identifier)
+      |> frame.encode
+      |> bytes_tree.append(encoded, _)
   }
 }
 
@@ -231,35 +195,21 @@ pub fn send_frame(
   transport.send(transport, socket, bytes_tree.from_bit_array(data))
 }
 
-pub fn send_bytes_tree(
+pub fn encode_response(
   resp: Response(BytesTree),
-  conn: Connection,
   context: HpackContext,
   id: StreamIdentifier(Frame),
-  settings: Http2Settings,
-) -> Result(HpackContext, String) {
+  max_frame_size: Int,
+) -> Result(#(BitArray, HpackContext), String) {
   let resp =
     resp
     |> http.add_default_headers(False)
 
   let headers = [#(":status", int.to_string(resp.status)), ..resp.headers]
 
-  case bytes_tree.byte_size(resp.body) {
-    0 -> send_headers(context, conn, headers, True, id, settings.max_frame_size)
-    _ -> {
-      send_headers(context, conn, headers, False, id, settings.max_frame_size)
-      |> result.try(fn(context) {
-        send_data(
-          conn,
-          bytes_tree.to_bit_array(resp.body),
-          id,
-          True,
-          settings.max_frame_size,
-        )
-        |> result.replace(context)
-      })
-    }
-  }
+  let end_stream = bytes_tree.byte_size(resp.body) == 0
+
+  encode_headers(context, headers, end_stream, id, max_frame_size)
 }
 
 pub type HpackContext
@@ -279,10 +229,10 @@ pub type HpackError {
 pub fn hpack_decode(
   context: HpackContext,
   bin: BitArray,
-) -> Result(#(List(#(String, String)), HpackContext), HpackError)
+) -> Result(#(List(Header), HpackContext), HpackError)
 
 @external(erlang, "mist_ffi", "hpack_encode")
 pub fn hpack_encode(
   context: HpackContext,
-  headers: List(#(String, String)),
+  headers: List(Header),
 ) -> Result(#(BitArray, HpackContext), error)

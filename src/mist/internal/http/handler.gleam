@@ -1,6 +1,5 @@
 import exception
 import gleam/bytes_tree.{type BytesTree}
-import gleam/erlang/atom
 import gleam/erlang/process.{type Subject}
 import gleam/http as ghttp
 import gleam/http/request.{type Request}
@@ -90,7 +89,7 @@ fn log_and_error(
     |> encoder.to_bytes_tree(http.version_to_string(version))
     |> transport.send(transport, socket, _)
 
-  lingering_close(transport, socket)
+  let _ = lingering_close(transport, socket)
   Error(error_string)
 }
 
@@ -103,7 +102,7 @@ fn close_or_set_timer(
   // probably listen to them
   case response.get_header(resp, "connection") {
     Ok("close") -> {
-      lingering_close(conn.transport, conn.socket)
+      let _ = lingering_close(conn.transport, conn.socket)
       Error(Ok(Nil))
     }
     _ -> {
@@ -114,43 +113,32 @@ fn close_or_set_timer(
   }
 }
 
-/// How long, in milliseconds, `lingering_close` keeps reading from a
-/// connection before it closes the socket anyway.
-const lingering_close_budget_ms = 5000
+type TimeUnit {
+  Millisecond
+}
 
-/// Close an HTTP/1 connection in stages, as RFC 9112 section 9.6 asks.
-///
-/// Closing a socket while the client is still sending (for example after a
-/// 413 that was answered before the request body was read) makes the kernel
-/// send a TCP reset instead of a normal close, and the reset can erase the
-/// response before the client has read it. So we first half-close the write
-/// side, which tells the client that the response is complete, then read and
-/// discard whatever the client still sends until it closes its side or the
-/// time budget is spent, and only then close the socket.
-fn lingering_close(transport: Transport, socket: Socket) -> Nil {
+const linger_timeout = 5000
+
+// Closing a socket that still has unread data from the client resets the
+// connection, which can throw away the response before the client reads it
+fn lingering_close(
+  transport: Transport,
+  socket: Socket,
+) -> Result(Nil, SocketReason) {
   let _ = transport.shutdown(transport, socket)
-  drain_until(transport, socket, now_ms() + lingering_close_budget_ms)
-  let _ = transport.close(transport, socket)
-  Nil
+  drain(transport, socket, monotonic_time(Millisecond) + linger_timeout)
+  transport.close(transport, socket)
 }
 
-fn drain_until(transport: Transport, socket: Socket, deadline: Int) -> Nil {
-  let remaining = deadline - now_ms()
-  case remaining > 0 {
-    False -> Nil
-    True ->
-      case transport.receive_timeout(transport, socket, 0, remaining) {
-        Ok(_discarded) -> drain_until(transport, socket, deadline)
-        Error(_closed_or_timed_out) -> Nil
+fn drain(transport: Transport, socket: Socket, deadline: Int) -> Nil {
+  case deadline - monotonic_time(Millisecond) {
+    timeout if timeout > 0 ->
+      case transport.receive_timeout(transport, socket, 0, timeout) {
+        Ok(_data) -> drain(transport, socket, deadline)
+        Error(_reason) -> Nil
       }
+    _expired -> Nil
   }
-}
-
-@external(erlang, "erlang", "monotonic_time")
-fn monotonic_time(unit: atom.Atom) -> Int
-
-fn now_ms() -> Int {
-  monotonic_time(atom.create("millisecond"))
 }
 
 fn handle_file_body(
@@ -235,3 +223,6 @@ fn handle_bytes_tree_body(
   |> transport.send(conn.transport, conn.socket, _)
   |> result.replace(resp)
 }
+
+@external(erlang, "erlang", "monotonic_time")
+fn monotonic_time(unit: TimeUnit) -> Int
