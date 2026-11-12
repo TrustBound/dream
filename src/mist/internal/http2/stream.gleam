@@ -1,6 +1,6 @@
 import exception
 import gleam/bytes_tree
-import gleam/erlang/process.{type Selector, type Subject}
+import gleam/erlang/process.{type Pid, type Selector, type Subject}
 import gleam/http.{type Header} as ghttp
 import gleam/http/request.{type Request}
 import gleam/http/response.{type Response}
@@ -14,8 +14,8 @@ import gleam/uri
 import logging
 import mist/internal/file
 import mist/internal/http.{
-  type Connection, type Handler, type ResponseData, Bytes, Connection, File,
-  Stream,
+  type Connection, type Handler, type ResponseData, Bytes, Chunked, Connection,
+  File, ServerSentEvents, Stream,
 }
 import mist/internal/http2/frame.{type Frame, type StreamIdentifier}
 
@@ -86,6 +86,7 @@ pub fn new(
     case msg {
       Ready -> {
         let self = process.self()
+        let responder = process.new_subject()
         let conn =
           Connection(
             ..connection,
@@ -113,6 +114,7 @@ pub fn new(
               consume_data: fn(size) {
                 process.send(sender, ConsumeData(identifier, size))
               },
+              close_after: fn(pid) { process.send(responder, pid) },
             ),
           )
 
@@ -147,6 +149,10 @@ pub fn new(
             }
             case resp.body {
               File(..) -> send_file_body(sender, identifier, resp)
+              Chunked | ServerSentEvents -> {
+                wait_for_responder(responder)
+                process.send(sender, Send(identifier, resp))
+              }
               _ -> process.send(sender, Send(identifier, resp))
             }
             actor.stop()
@@ -188,6 +194,18 @@ fn send_data(
   }
   process.demonitor_process(monitor)
   reply
+}
+
+fn wait_for_responder(responder: Subject(Pid)) -> Nil {
+  case process.receive(responder, 0) {
+    Ok(pid) -> {
+      let monitor = process.monitor(pid)
+      process.new_selector()
+      |> process.select_specific_monitor(monitor, fn(_down) { Nil })
+      |> process.selector_receive_forever
+    }
+    Error(_nil) -> Nil
+  }
 }
 
 fn send_file_body(

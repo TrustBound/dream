@@ -5,7 +5,7 @@ import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode
 import gleam/erlang/atom.{type Atom}
 import gleam/erlang/charlist.{type Charlist}
-import gleam/erlang/process.{type Selector}
+import gleam/erlang/process.{type Pid, type Selector}
 import gleam/http
 import gleam/http/request.{type Request}
 import gleam/http/response.{type Response, Response}
@@ -402,6 +402,7 @@ pub type Body {
     send_headers: fn(Int, List(http.Header)) -> Nil,
     send_data: fn(BitArray) -> Result(Nil, Nil),
     consume_data: fn(Int) -> Nil,
+    close_after: fn(Pid) -> Nil,
   )
 }
 
@@ -461,6 +462,7 @@ pub fn read_body(
         send_headers: send_headers,
         send_data: send_data,
         consume_data: consume_data,
+        close_after: close_after,
       )
     -> {
       let res =
@@ -486,6 +488,7 @@ pub fn read_body(
                   send_headers,
                   send_data,
                   consume_data,
+                  close_after,
                 ),
               ),
             ),

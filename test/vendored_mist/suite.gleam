@@ -251,6 +251,14 @@ pub fn suites() -> List(Suite) {
             http2_test.it_resets_streams_that_exceed_the_configured_window_test,
           )
         }),
+        it("it sends chunks sent after chunked returns", fn() {
+          run(http2_test.it_sends_chunks_sent_after_chunked_returns_test)
+        }),
+        it("it sends events sent after server sent events returns", fn() {
+          run(
+            http2_test.it_sends_events_sent_after_server_sent_events_returns_test,
+          )
+        }),
       ]),
     ),
     Suite(
