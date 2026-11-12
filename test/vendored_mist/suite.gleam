@@ -237,6 +237,20 @@ pub fn suites() -> List(Suite) {
         it("it times out slow request bodies", fn() {
           run(http2_test.it_times_out_slow_request_bodies_test)
         }),
+        it("it advertises the initial window size", fn() {
+          run(http2_test.it_advertises_the_initial_window_size_test)
+        }),
+        it("it receives bodies larger than the default window", fn() {
+          run(http2_test.it_receives_bodies_larger_than_the_default_window_test)
+        }),
+        it("it advertises the configured initial window size", fn() {
+          run(http2_test.it_advertises_the_configured_initial_window_size_test)
+        }),
+        it("it resets streams that exceed the configured window", fn() {
+          run(
+            http2_test.it_resets_streams_that_exceed_the_configured_window_test,
+          )
+        }),
       ]),
     ),
     Suite(

@@ -63,7 +63,7 @@ them as before.
 ### mist
 
 - Upstream base: mist 6.0.3 (upstream commit `6be7897`)
-- Copied from: our fix branch `http2-review-fixes`, commit `1b3867f`, which is
+- Copied from: our fix branch `http2-review-fixes`, commit `50660e9`, which is
   that release plus the changes below, one commit each
 
 What the changes do:
@@ -93,12 +93,16 @@ What the changes do:
   (15 seconds by default, for HTTP/1 and HTTP/2), and
   `mist.with_send_timeout` sets how long an HTTP/2 chunked or
   server-sent-events send waits for the client (30 seconds by default).
+- Uploads: the HTTP/2 receive window for a request body is 1 MiB, where the
+  protocol default is 65,535 bytes, so a large upload needs far fewer round
+  trips. `mist.with_initial_window_size` changes it. The server may hold up
+  to this many unread bytes for each stream.
 - Slow clients: a chunked or server-sent-events response waits for the client
   and no longer piles up in server memory; a send that times out is cancelled.
 - Tests: the test server no longer races the tests for its port.
 
 The commit list is the authority. Read it with
-`git log --oneline 6be7897..1b3867f` in the fix repository.
+`git log --oneline 6be7897..50660e9` in the fix repository.
 
 ### glisten
 

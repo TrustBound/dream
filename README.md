@@ -201,7 +201,7 @@ rawhat and their contributors, under the Apache-2.0 licence.
 
 - mist: `src/mist.gleam`, `src/mist/` and `src/mist_ffi.erl`; licence in
   [src/mist/LICENSE](src/mist/LICENSE). Upstream 6.0.3 plus our fixes
-  (fix commit `1b3867f`).
+  (fix commit `50660e9`).
 - glisten: `src/glisten.gleam`, `src/glisten/` and `src/glisten_*.erl`;
   licence in [src/glisten/LICENSE](src/glisten/LICENSE). Upstream 9.0.1 plus
   our fixes (fix commit `5340a31`).

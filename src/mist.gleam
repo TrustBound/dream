@@ -453,6 +453,7 @@ pub opaque type Builder(request_body, response_body) {
     tls_options: Option(TlsOptions),
     read_timeout: Int,
     send_timeout: Int,
+    initial_window_size: Int,
   )
 }
 
@@ -481,6 +482,7 @@ pub fn new(handler: fn(Request(in)) -> Response(out)) -> Builder(in, out) {
     tls_options: None,
     read_timeout: 15_000,
     send_timeout: 30_000,
+    initial_window_size: 1_048_576,
   )
 }
 
@@ -570,6 +572,21 @@ pub fn with_send_timeout(
   Builder(..builder, send_timeout: timeout)
 }
 
+/// Set the HTTP/2 stream receive window, in bytes. This is how much of a
+/// request body the client can send before the handler reads it. The default
+/// is 1 MiB. A larger window makes uploads faster, but the server may hold up
+/// to this many unread bytes for each stream. The value must be between 1 and
+/// 2,147,483,647. An invalid value will cause the application to crash.
+pub fn with_initial_window_size(
+  builder: Builder(in, out),
+  size: Int,
+) -> Builder(in, out) {
+  case size > 0 && size <= 2_147_483_647 {
+    True -> Builder(..builder, initial_window_size: size)
+    False -> panic as "Initial window size must be between 1 and 2147483647"
+  }
+}
+
 fn convert_body_types(
   resp: Response(ResponseData),
 ) -> Response(InternalResponseData) {
@@ -603,6 +620,7 @@ pub fn start(
         factory_name,
         builder.read_timeout,
         builder.send_timeout,
+        builder.initial_window_size,
       )
       |> glisten.new(handler.init, _)
       |> glisten.bind(builder.interface)

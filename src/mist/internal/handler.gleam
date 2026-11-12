@@ -56,6 +56,7 @@ pub fn with_func(
   ),
   read_timeout: Int,
   send_timeout: Int,
+  initial_window_size: Int,
 ) -> Loop(State, SendMessage) {
   fn(state: State, msg, conn: glisten.Connection(SendMessage)) {
     let sender = conn.subject
@@ -230,7 +231,13 @@ pub fn with_func(
                 Http1(state: new_state, self: self)
               })
             http.Upgrade(data) ->
-              http2_handler.upgrade(data, conn, self, send_timeout)
+              http2_handler.upgrade(
+                data,
+                conn,
+                self,
+                send_timeout,
+                initial_window_size,
+              )
               |> result.map_error(Error)
               |> result.try(fn(state) {
                 http2_handler.call(state, conn, handler)

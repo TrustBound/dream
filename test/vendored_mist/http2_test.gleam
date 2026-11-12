@@ -1363,7 +1363,7 @@ pub fn it_grants_the_stream_window_as_the_body_is_read_test() {
         let reading = process.new_subject()
         process.send(started, reading)
         process.receive_forever(reading)
-        process.send(read, mist.read_body(req, 32_768))
+        process.send(read, mist.read_body(req, 524_288))
       }
       _method -> Nil
     }
@@ -1374,7 +1374,8 @@ pub fn it_grants_the_stream_window_as_the_body_is_read_test() {
   let socket = scaffold.http2_open([], headers)
   scaffold.http2_send(socket, post_headers(3))
   let assert Ok(reading) = process.receive(started, 1000)
-  list.each([<<0:size(131_072)>>, <<0:size(131_072)>>, <<0>>], fn(data) {
+  let body = list.append(list.repeat(<<0:size(131_072)>>, 32), [<<0>>])
+  list.each(body, fn(data) {
     scaffold.http2_send(
       socket,
       frame.Data(
@@ -1390,7 +1391,7 @@ pub fn it_grants_the_stream_window_as_the_body_is_read_test() {
   let consumed = stream_window_updates(scaffold.http2_receive(socket), 3)
 
   assert unread == []
-  assert consumed == [32_768]
+  assert consumed == [524_288]
 }
 
 pub fn it_reads_bodies_larger_than_the_stream_window_test() {
@@ -1403,7 +1404,7 @@ pub fn it_reads_bodies_larger_than_the_stream_window_test() {
   let read = process.new_subject()
 
   use <- scaffold.open_server(8888, fn(req) {
-    let assert Ok(req) = mist.read_body(req, 1_000_000)
+    let assert Ok(req) = mist.read_body(req, 10_000_000)
     process.send(read, bit_array.byte_size(req.body))
     response.new(200)
     |> response.set_body(mist.Bytes(bytes_tree.new()))
@@ -1412,9 +1413,185 @@ pub fn it_reads_bodies_larger_than_the_stream_window_test() {
   let socket = scaffold.http2_open([], headers)
   let assert Ok(0) = process.receive(read, 1000)
   scaffold.http2_send(socket, post_headers(3))
-  scaffold.http2_send_body(socket, 3, <<0:size(1_600_000)>>)
+  scaffold.http2_send_body(socket, 3, <<0:size(16_000_000)>>)
 
-  assert process.receive(read, 1000) == Ok(200_000)
+  assert process.receive(read, 1000) == Ok(2_000_000)
+}
+
+pub fn it_advertises_the_initial_window_size_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.open_server(8888, fn(_req) {
+    response.new(200)
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  })
+
+  let socket = scaffold.http2_open([], headers)
+  let settings =
+    scaffold.http2_receive(socket)
+    |> list.filter(fn(received) {
+      case received {
+        frame.Settings(ack: False, ..) -> True
+        _frame -> False
+      }
+    })
+
+  assert settings
+    == [
+      frame.Settings(ack: False, settings: [
+        frame.MaxConcurrentStreams(100),
+        frame.InitialWindowSize(1_048_576),
+      ]),
+    ]
+}
+
+pub fn it_receives_bodies_larger_than_the_default_window_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+  let started = process.new_subject()
+  let read = process.new_subject()
+
+  use <- scaffold.open_server(8888, fn(req) {
+    case req.method {
+      http.Post -> {
+        let reading = process.new_subject()
+        process.send(started, reading)
+        process.receive_forever(reading)
+        let assert Ok(req) = mist.read_body(req, 1_000_000)
+        process.send(read, bit_array.byte_size(req.body))
+      }
+      _method -> Nil
+    }
+    response.new(200)
+    |> response.set_body(mist.Bytes(bytes_tree.new()))
+  })
+
+  let socket = scaffold.http2_open([], headers)
+  scaffold.http2_send(socket, post_headers(3))
+  let assert Ok(reading) = process.receive(started, 1000)
+  list.each(list.repeat(Nil, 8), fn(_frame) {
+    scaffold.http2_send(
+      socket,
+      frame.Data(
+        data: <<0:size(131_072)>>,
+        end_stream: False,
+        identifier: frame.stream_identifier(3),
+      ),
+    )
+  })
+  scaffold.http2_send(
+    socket,
+    frame.Data(
+      data: <<0>>,
+      end_stream: True,
+      identifier: frame.stream_identifier(3),
+    ),
+  )
+  let _received = scaffold.http2_receive(socket)
+  process.send(reading, Nil)
+
+  assert process.receive(read, 1000) == Ok(131_073)
+}
+
+pub fn it_advertises_the_configured_initial_window_size_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.start_server(
+    mist.new(fn(_req) {
+      response.new(200)
+      |> response.set_body(mist.Bytes(bytes_tree.new()))
+    })
+    |> mist.port(8888)
+    |> mist.with_initial_window_size(131_072),
+  )
+
+  let socket = scaffold.http2_open([], headers)
+  let settings =
+    scaffold.http2_receive(socket)
+    |> list.filter(fn(received) {
+      case received {
+        frame.Settings(ack: False, ..) -> True
+        _frame -> False
+      }
+    })
+
+  assert settings
+    == [
+      frame.Settings(ack: False, settings: [
+        frame.MaxConcurrentStreams(100),
+        frame.InitialWindowSize(131_072),
+      ]),
+    ]
+}
+
+pub fn it_resets_streams_that_exceed_the_configured_window_test() {
+  let headers = [
+    #(":method", "GET"),
+    #(":scheme", "http"),
+    #(":authority", "example.com:8080"),
+    #(":path", "/"),
+  ]
+
+  use <- scaffold.start_server(
+    mist.new(fn(_req) {
+      process.sleep_forever()
+      response.new(200)
+      |> response.set_body(mist.Bytes(bytes_tree.new()))
+    })
+    |> mist.port(8888)
+    |> mist.with_initial_window_size(131_072),
+  )
+
+  let socket = scaffold.http2_open([], headers)
+  scaffold.http2_send(socket, post_headers(3))
+  list.each(list.repeat(Nil, 8), fn(_frame) {
+    scaffold.http2_send(
+      socket,
+      frame.Data(
+        data: <<0:size(131_072)>>,
+        end_stream: False,
+        identifier: frame.stream_identifier(3),
+      ),
+    )
+  })
+  scaffold.http2_send(
+    socket,
+    frame.Data(
+      data: <<0>>,
+      end_stream: False,
+      identifier: frame.stream_identifier(3),
+    ),
+  )
+  let received =
+    scaffold.http2_receive(socket)
+    |> list.filter(fn(received) {
+      case received {
+        frame.Termination(..) -> True
+        _frame -> False
+      }
+    })
+
+  assert received
+    == [
+      frame.Termination(
+        error: frame.FlowControlError,
+        identifier: frame.stream_identifier(3),
+      ),
+    ]
 }
 
 pub fn it_resets_streams_that_exceed_the_receive_window_test() {
@@ -1433,7 +1610,7 @@ pub fn it_resets_streams_that_exceed_the_receive_window_test() {
 
   let socket = scaffold.http2_open([], headers)
   scaffold.http2_send(socket, post_headers(3))
-  list.each([1, 2, 3, 4], fn(_frame) {
+  list.each(list.repeat(Nil, 64), fn(_frame) {
     scaffold.http2_send(
       socket,
       frame.Data(
@@ -1443,6 +1620,14 @@ pub fn it_resets_streams_that_exceed_the_receive_window_test() {
       ),
     )
   })
+  scaffold.http2_send(
+    socket,
+    frame.Data(
+      data: <<0>>,
+      end_stream: False,
+      identifier: frame.stream_identifier(3),
+    ),
+  )
   let received =
     scaffold.http2_receive(socket)
     |> list.filter(fn(received) {
@@ -1542,7 +1727,7 @@ pub fn it_grants_the_stream_window_for_padding_test() {
 
   use <- scaffold.open_server(8888, fn(req) {
     case req.method {
-      http.Post -> process.send(read, mist.read_body(req, 32_256))
+      http.Post -> process.send(read, mist.read_body(req, 516_096))
       _method -> Nil
     }
     response.new(200)
@@ -1551,8 +1736,9 @@ pub fn it_grants_the_stream_window_for_padding_test() {
 
   let socket = scaffold.http2_open([], headers)
   scaffold.http2_send(socket, post_headers(3))
-  scaffold.http2_send_padded(socket, 3, <<0:size(129_024)>>, 255)
-  scaffold.http2_send_padded(socket, 3, <<0:size(129_024)>>, 255)
+  list.each(list.repeat(<<0:size(129_024)>>, 32), fn(data) {
+    scaffold.http2_send_padded(socket, 3, data, 255)
+  })
   scaffold.http2_send(
     socket,
     frame.Data(
@@ -1564,7 +1750,7 @@ pub fn it_grants_the_stream_window_for_padding_test() {
   let assert Ok(Error(mist.ExcessBody)) = process.receive(read, 1000)
   let updates = stream_window_updates(scaffold.http2_receive(socket), 3)
 
-  assert updates == [32_768]
+  assert updates == [524_288]
 }
 
 pub fn it_counts_padding_against_the_receive_window_test() {
@@ -1583,7 +1769,7 @@ pub fn it_counts_padding_against_the_receive_window_test() {
 
   let socket = scaffold.http2_open([], headers)
   scaffold.http2_send(socket, post_headers(3))
-  list.each([1, 2, 3, 4], fn(_frame) {
+  list.each(list.repeat(Nil, 64), fn(_frame) {
     scaffold.http2_send(
       socket,
       frame.Data(
@@ -1593,7 +1779,7 @@ pub fn it_counts_padding_against_the_receive_window_test() {
       ),
     )
   })
-  scaffold.http2_send_padded(socket, 3, <<0>>, 2)
+  scaffold.http2_send_padded(socket, 3, <<0>>, 63)
   let received =
     scaffold.http2_receive(socket)
     |> list.filter(fn(received) {
