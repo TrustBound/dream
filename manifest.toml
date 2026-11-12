@@ -31,7 +31,6 @@ packages = [
   { name = "gleam_time", version = "1.8.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "gleam_time", source = "hex", outer_checksum = "533D8723774D61AD4998324F5DD1DABDCDBFABAFB9E87CB5D03C6955448FC97D" },
   { name = "gleam_yielder", version = "1.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "gleam_yielder", source = "hex", outer_checksum = "8E4E4ECFA7982859F430C57F549200C7749823C106759F4A19A78AEA6687717A" },
   { name = "glexer", version = "2.5.0", build_tools = ["gleam"], requirements = ["gleam_stdlib", "splitter"], otp_app = "glexer", source = "hex", outer_checksum = "D423CF63B8D4F9654EF53D0AF4904B249EB0679BD41C63440170AC508C9CC65E" },
-  { name = "glisten", version = "9.0.1", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_otp", "gleam_stdlib", "logging"], otp_app = "glisten", source = "hex", outer_checksum = "7795AA50830656F3A0316A6B26595F893C83272DA901B3405E31339CAA31A10B" },
   { name = "gramps", version = "6.0.1", build_tools = ["gleam"], requirements = ["gleam_crypto", "gleam_erlang", "gleam_http", "gleam_stdlib"], otp_app = "gramps", source = "hex", outer_checksum = "D55636072DEE173F6586A5679D3C02EC7A0DE3F8646B78C351B72908FF223DF7" },
   { name = "gun", version = "2.2.0", build_tools = ["make", "rebar3"], requirements = ["cowlib"], otp_app = "gun", source = "hex", outer_checksum = "76022700C64287FEB4DF93A1795CFF6741B83FB37415C40C34C38D2A4645261A" },
   { name = "hackney", version = "1.25.0", build_tools = ["rebar3"], requirements = ["certifi", "idna", "metrics", "mimerl", "parse_trans", "ssl_verify_fun", "unicode_util_compat"], otp_app = "hackney", source = "hex", outer_checksum = "7209BFD75FD1F42467211FF8F59EA74D6F2A9E81CBCEE95A56711EE79FD6B1D4" },
@@ -72,7 +71,6 @@ gleam_otp = { version = ">= 1.2.0 and < 2.0.0" }
 gleam_stdlib = { version = ">= 1.0.0 and < 2.0.0" }
 gleam_time = { version = ">= 1.5.0 and < 2.0.0" }
 gleam_yielder = { version = ">= 1.1.0 and < 2.0.0" }
-glisten = { version = ">= 9.0.0 and < 10.0.0" }
 gramps = { version = ">= 6.0.0 and < 7.0.0" }
 hackney = { version = ">= 1.25.0 and < 2.0.0" }
 hpack_erl = { version = ">= 0.3.0 and < 1.0.0" }

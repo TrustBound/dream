@@ -9,15 +9,17 @@ links = [
 ]
 
 # Starts the vendored mist clock (date-header cache) when the dream
-# application starts, as mist's own gleam.toml does.
+# application starts, as mist's own gleam.toml does. The vendored glisten
+# needs the ssl application, as glisten's own gleam.toml declares.
 [erlang]
 application_start_module = "mist@internal@clock"
+extra_applications = ["ssl"]
 
 [dependencies]
 gleam_stdlib = ">= 1.0.0 and < 2.0.0"
-# mist is vendored under src/mist* (see docs/contributing/vendored-mist.md).
-# These are mist 6.0.3's own runtime dependencies, with its ranges.
-glisten = ">= 9.0.0 and < 10.0.0"
+# mist and glisten are vendored under src/mist* and src/glisten* (see
+# docs/contributing/vendored-mist.md). These are their own runtime
+# dependencies, with their ranges.
 gramps = ">= 6.0.0 and < 7.0.0"
 hpack_erl = ">= 0.3.0 and < 1.0.0"
 exception = ">= 2.1.0 and < 3.0.0"

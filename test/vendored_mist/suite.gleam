@@ -19,6 +19,7 @@
 import dream_test/types.{type AssertionResult, AssertionOk}
 import dream_test/unit.{type UnitTest, describe, it}
 import gleam/erlang/atom.{type Atom}
+import vendored_glisten/glisten_test
 import vendored_mist/http1_test
 import vendored_mist/http2_test
 import vendored_mist/mist/file_test
@@ -313,6 +314,27 @@ pub fn suites() -> List(Suite) {
         it("it should read nothing at end of file", fn() {
           run(file_test.it_should_read_nothing_at_end_of_file_test)
         }),
+      ]),
+    ),
+    Suite(
+      "vendored_glisten/glisten",
+      describe("vendored_glisten/glisten", [
+        it("it echoes messages", fn() {
+          run(glisten_test.it_echoes_messages_test)
+        }),
+        it("it accepts from the pool", fn() {
+          run(glisten_test.it_accepts_from_the_pool_test)
+        }),
+        it("it keeps the default socket buffer", fn() {
+          run(glisten_test.it_keeps_the_default_socket_buffer_test)
+        }),
+        it("it sets the socket buffer size", fn() {
+          run(glisten_test.it_sets_the_socket_buffer_size_test)
+        }),
+        it("ip address to string", fn() {
+          run(glisten_test.ip_address_to_string_test)
+        }),
+        it("merge type lists", fn() { run(glisten_test.merge_type_lists_test) }),
       ]),
     ),
   ]
