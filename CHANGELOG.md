@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Dream now depends on `dream_http_server` (mist 6.0.3 plus our fixes) and,
-  through it, on `dream_socket_server` (glisten 9.0.1 plus a socket buffer
-  fix), and no longer on a git fork of mist, so Dream can be published to
-  Hex. The fixes make HTTP/2 work for requests with bodies, large responses,
+- Dream's Mist server adapter now uses `dream_http_server` (mist 6.0.3 plus
+  our fixes) and, through it, `dream_socket_server` (glisten 9.0.1 plus a
+  socket buffer fix), in place of a git fork of mist, so Dream can be
+  published to Hex. The fixes make HTTP/2 work for requests with bodies, large responses,
   server-sent events, chunked and file responses, bound memory for slow
   clients, and answer bad input with the errors the HTTP/2 specification
   asks for. The two packages keep the module names `mist` and `glisten`, so

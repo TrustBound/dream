@@ -1,24 +1,27 @@
 # Dream's HTTP server packages
 
-Dream runs on two libraries by Alex Manning (rawhat) and their contributors:
-[mist](https://github.com/rawhat/mist), the HTTP server, and
-[glisten](https://github.com/rawhat/glisten), the socket server that mist
-runs on. Both are licensed under Apache-2.0.
+Dream's router, controllers and HTTP types do not depend on any web server.
+The server is an adapter, under `src/dream/servers/`. The one adapter Dream
+ships today is for [mist](https://github.com/rawhat/mist), the HTTP server,
+which runs on [glisten](https://github.com/rawhat/glisten), the socket
+server. Both are by Alex Manning (rawhat) and their contributors, and both
+are licensed under Apache-2.0.
 
-Dream does not depend on the `mist` and `glisten` Hex packages directly. It
-depends on two forks that we publish:
+The Mist adapter does not use the `mist` and `glisten` Hex packages
+directly. It uses two forks that we publish:
 
 | Package | What it is | Fork and branch |
 |---------|------------|-----------------|
 | `dream_http_server` | mist 6.0.3 plus 47 fixes, most of them for HTTP/2 | [TrustBound/mist](https://github.com/TrustBound/mist), `dream-http-server` |
 | `dream_socket_server` | glisten 9.0.1 plus a socket buffer fix | [TrustBound/glisten](https://github.com/TrustBound/glisten), `dream-socket-server` |
 
-Dream depends on `dream_http_server`, and `dream_http_server` depends on
+The `dream` package depends on `dream_http_server`, because the adapter is
+part of the package, and `dream_http_server` depends on
 `dream_socket_server`.
 
 ## Why forks
 
-1. **Dream needed many fixes, not one.** HTTP/2 in mist 6.0.3 was not
+1. **The adapter needed many fixes, not one.** HTTP/2 in mist 6.0.3 was not
    finished. Requests with a body got no response, every request left a
    process behind, large responses stalled, and several kinds of client input
    closed or crashed the whole connection. The fixes are listed in the
@@ -39,7 +42,7 @@ Dream depends on `dream_http_server`, and `dream_http_server` depends on
 
 The forks are named for what they do, so they do not appear when people
 search Hex for mist or glisten. They are temporary: when upstream releases
-contain the fixes, Dream goes back to `mist` and `glisten`.
+contain the fixes, the adapter goes back to `mist` and `glisten`.
 
 ## What this means for you
 

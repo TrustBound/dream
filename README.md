@@ -195,14 +195,16 @@ MIT — see [LICENSE.md](LICENSE.md)
 
 ## Third-party code
 
-Dream runs on the [mist](https://github.com/rawhat/mist) HTTP server and the
-[glisten](https://github.com/rawhat/glisten) socket server, by rawhat and
-their contributors, under the Apache-2.0 licence.
+Dream does not depend on any one web server: the server is an adapter. The
+adapter Dream ships today is for the [mist](https://github.com/rawhat/mist)
+HTTP server, which runs on the [glisten](https://github.com/rawhat/glisten)
+socket server. Both are by rawhat and their contributors, under the
+Apache-2.0 licence.
 
-Dream needed many HTTP/2 fixes in these libraries. We are contributing them
+The adapter needed many HTTP/2 fixes in these libraries. We are contributing them
 back upstream, which takes time for this many changes, and this version of
 Dream could not wait any longer. Until upstream releases contain the fixes,
-Dream depends on two forks that we publish to Hex: `dream_http_server` (mist
+the adapter uses two forks that we publish to Hex: `dream_http_server` (mist
 6.0.3 plus the fixes) and `dream_socket_server` (glisten 9.0.1 plus a socket
 buffer fix). They keep the upstream module names (`mist`, `glisten`), so a
 project must not depend on both Dream and the `mist` or `glisten` Hex
