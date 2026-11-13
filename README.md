@@ -195,29 +195,20 @@ MIT — see [LICENSE.md](LICENSE.md)
 
 ## Third-party code
 
-Dream ships temporary copies of the [mist](https://github.com/rawhat/mist) web
-server and the [glisten](https://github.com/rawhat/glisten) socket library, by
-rawhat and their contributors, under the Apache-2.0 licence.
-
-- mist: `src/mist.gleam`, `src/mist/` and `src/mist_ffi.erl`; licence in
-  [src/mist/LICENSE](src/mist/LICENSE). Upstream 6.0.3 plus our fixes
-  (fix commit `4aebd5f`).
-- glisten: `src/glisten.gleam`, `src/glisten/` and `src/glisten_*.erl`;
-  licence in [src/glisten/LICENSE](src/glisten/LICENSE). Upstream 9.0.1 plus
-  our fixes (fix commit `5340a31`).
-
-The copies are generated from two git submodules, `vendor/mist` and
-`vendor/glisten`, which point at our forks and pin those commits. Run
-`git submodule update --init` after you clone. `make vendor-check` fails when
-a copy differs from its submodule.
+Dream runs on the [mist](https://github.com/rawhat/mist) HTTP server and the
+[glisten](https://github.com/rawhat/glisten) socket server, by rawhat and
+their contributors, under the Apache-2.0 licence.
 
 Dream needed many HTTP/2 fixes in these libraries. We are contributing them
 back upstream, which takes time for this many changes, and this version of
-Dream could not wait any longer. The copies keep the upstream module names
-(`mist`, `glisten`), so a project must not depend on both Dream and the `mist`
-or `glisten` Hex packages at the same time. See
-[docs/contributing/vendored-mist.md](docs/contributing/vendored-mist.md) for
-the reasons, the list of changes and the removal plan.
+Dream could not wait any longer. Until upstream releases contain the fixes,
+Dream depends on two forks that we publish to Hex: `dream_http_server` (mist
+6.0.3 plus the fixes) and `dream_socket_server` (glisten 9.0.1 plus a socket
+buffer fix). They keep the upstream module names (`mist`, `glisten`), so a
+project must not depend on both Dream and the `mist` or `glisten` Hex
+packages at the same time. See
+[docs/contributing/http-server-packages.md](docs/contributing/http-server-packages.md)
+for the reasons and for how to go back.
 
 ---
 

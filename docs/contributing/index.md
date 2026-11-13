@@ -8,7 +8,7 @@
 
 **Publishing modules?** See [Publishing Strategy](publishing.md)
 
-**Why are mist and glisten in `src/`?** See [Vendored mist and glisten](vendored-mist.md)
+**Why does Dream depend on `dream_http_server` and not on mist?** See [Dream's HTTP server packages](http-server-packages.md)
 
 ---
 

@@ -8,22 +8,11 @@ links = [
     { title = "GitHub", href = "https://github.com/TrustBound/dream" },
 ]
 
-# Starts the vendored mist clock (date-header cache) when the dream
-# application starts, as mist's own gleam.toml does. The vendored glisten
-# needs the ssl application, as glisten's own gleam.toml declares.
-[erlang]
-application_start_module = "mist@internal@clock"
-extra_applications = ["ssl"]
-
 [dependencies]
 gleam_stdlib = ">= 1.0.0 and < 2.0.0"
-# mist and glisten are vendored under src/mist* and src/glisten* (see
-# docs/contributing/vendored-mist.md). These are their own runtime
-# dependencies, with their ranges.
-gramps = ">= 6.0.0 and < 7.0.0"
-hpack_erl = ">= 0.3.0 and < 1.0.0"
-exception = ">= 2.1.0 and < 3.0.0"
-logging = ">= 1.0.0 and < 2.0.0"
+# dream's HTTP server: a fork of mist 6.0.3 with HTTP/2 fixes, published under
+# its own name with mist's module names.
+dream_http_server = ">= 1.0.0 and < 2.0.0"
 gleam_http = ">= 4.3.0 and < 5.0.0"
 gleam_otp = ">= 1.2.0 and < 2.0.0"
 gleam_erlang = ">= 1.0.0 and < 2.0.0"
@@ -36,9 +25,4 @@ simplifile = ">= 2.3.0 and < 3.0.0"
 [dev-dependencies]
 squirrel = ">= 4.0.0 and < 5.0.0"
 dream_test = ">= 1.0.3 and < 2.0.0"
-gleam_hackney = ">= 1.2.0 and < 1.4.0"
-# The vendored mist HTTP/1 tests assert the exact hackney client behaviour
-# (user-agent header, chunked uploads) of the hackney 1.x line that the mist
-# fork locked. hackney 4.x changes both, so keep the test client on 1.x.
-hackney = ">= 1.25.0 and < 2.0.0"
 dream_http_client = { path = "modules/http_client" }

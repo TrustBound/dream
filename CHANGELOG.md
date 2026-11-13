@@ -9,15 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Vendored mist 6.0.3 and glisten 9.0.1 with our fixes into `src/mist*` and
-  `src/glisten*`, and removed the mist git dependency and the glisten Hex
-  dependency, so Dream can be published to Hex. The fixes make HTTP/2 work
-  for requests with bodies, large responses, server-sent events, chunked and
-  file responses, bound memory for slow clients, and answer bad input with
-  the errors the HTTP/2 specification asks for. A project must not depend on
-  both Dream and the `mist` or `glisten` Hex packages; run
-  `gleam deps update dream` once if an existing lock file still lists them.
-  See `docs/contributing/vendored-mist.md`.
+- Dream now depends on `dream_http_server` (mist 6.0.3 plus our fixes) and,
+  through it, on `dream_socket_server` (glisten 9.0.1 plus a socket buffer
+  fix), and no longer on a git fork of mist, so Dream can be published to
+  Hex. The fixes make HTTP/2 work for requests with bodies, large responses,
+  server-sent events, chunked and file responses, bound memory for slow
+  clients, and answer bad input with the errors the HTTP/2 specification
+  asks for. The two packages keep the module names `mist` and `glisten`, so
+  a project must not depend on both Dream and the `mist` or `glisten` Hex
+  packages; run `gleam deps update dream` once if an existing lock file
+  still lists them. See `docs/contributing/http-server-packages.md`.
 - Updated mist streaming adapter to use actor-based `mist.chunked()` API
   instead of the removed `mist.Streaming` response variant. Dream's public
   streaming API (`stream_response`, `sse_response`, `ResponseBody.Stream`)
