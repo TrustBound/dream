@@ -38,26 +38,29 @@ Dream is a web toolkit for building servers. It's not a framework—you control 
 Here is the smallest useful Dream server. It responds with `"Hello, world!"`.
 
 ```gleam
-import dream/http.{text_response, ok}
+import dream/http.{ok, text_response}
 import dream/http/request.{Get}
-import dream/router.{router, route}
+import dream/router.{route, router}
 import dream/servers/mist/server
 
 fn index(_request, _context, _services) {
   text_response(ok, "Hello, world!")
 }
 
-pub fn main() {
-  let app_router =
-    router()
-    |> route(method: Get, path: "/", controller: index, middleware: [])
+pub fn app_router() {
+  router()
+  |> route(method: Get, path: "/", controller: index, middleware: [])
+}
 
+pub fn main() {
   server.new()
-  |> server.router(app_router)
+  |> server.router(app_router())
   |> server.bind("localhost")
   |> server.listen(3000)
 }
 ```
+
+<sub>🧪 [Tested source](https://github.com/TrustBound/dream/blob/main/test/snippets/readme_hello_server.gleam)</sub>
 
 **Run this:** `gleam run` → Visit `http://localhost:3000/` → See `Hello, world!`
 
@@ -81,12 +84,35 @@ Dream also includes **named HTTP status constants** (like `ok`, `not_found`, and
 Dream is more than "Hello, world". Here are a few small examples of
 what it helps you build.
 
-### JSON APIs
+### JSON APIs <a href="https://github.com/TrustBound/dream/blob/main/test/snippets/readme_json_api.gleam"><img align="right" alt="Tested source" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-source-lightgreen.svg"></a>
 
 ```gleam
-fn get_user(request, context, services) {
-  let user = find_user(services.db, id: 1)
-  json_response(ok, user_to_json(user))
+import dream/http.{json_response, not_found, ok}
+import gleam/json
+import gleam/list
+
+pub type User {
+  User(id: Int, name: String)
+}
+
+pub type Services {
+  Services(db: List(User))
+}
+
+pub fn get_user(_request, _context, services: Services) {
+  case find_user(services.db, id: 1) {
+    Ok(user) -> json_response(ok, user_to_json(user))
+    Error(Nil) -> json_response(not_found, "{}")
+  }
+}
+
+fn find_user(db: List(User), id id: Int) -> Result(User, Nil) {
+  list.find(db, fn(user) { user.id == id })
+}
+
+fn user_to_json(user: User) -> String {
+  json.object([#("id", json.int(user.id)), #("name", json.string(user.name))])
+  |> json.to_string
 }
 ```
 
@@ -97,11 +123,26 @@ fn get_user(request, context, services) {
 ### Streaming responses
 
 ```gleam
-fn download_log(request, context, services) {
+import dream/http.{ok, stream_response}
+import gleam/bit_array
+import gleam/yielder
+
+pub type Services {
+  Services(log_store: List(String))
+}
+
+pub fn download_log(_request, _context, services: Services) {
   let stream = make_log_stream(services.log_store)
   stream_response(ok, stream, "text/plain")
 }
+
+fn make_log_stream(lines: List(String)) -> yielder.Yielder(BitArray) {
+  yielder.from_list(lines)
+  |> yielder.map(fn(line) { bit_array.from_string(line <> "\n") })
+}
 ```
+
+<sub>🧪 [Tested source](https://github.com/TrustBound/dream/blob/main/test/snippets/readme_streaming.gleam)</sub>
 
 - Send large responses as a stream of chunks.
 - Use the BEAM's strengths for long-running, memory-efficient
@@ -110,16 +151,61 @@ fn download_log(request, context, services) {
 ### WebSockets
 
 ```gleam
-fn chat(request, context, services) {
+import dream/http/request.{type Request, get_query_param}
+import dream/servers/mist/websocket
+import gleam/erlang/process.{type Selector}
+import gleam/option.{type Option, None}
+
+pub type Dependencies {
+  Dependencies(user_name: String)
+}
+
+pub fn chat(request, _context, _services) {
   websocket.upgrade_websocket(
     request,
-    dependencies: make_dependencies(request, services),
+    dependencies: make_dependencies(request),
     on_init: handle_init,
     on_message: handle_message,
     on_close: handle_close,
   )
 }
+
+fn make_dependencies(request: Request) -> Dependencies {
+  let user_name =
+    get_query_param(request.query, "user")
+    |> option.unwrap("guest")
+  Dependencies(user_name:)
+}
+
+fn handle_init(
+  _connection: websocket.Connection,
+  _deps: Dependencies,
+) -> #(Nil, Option(Selector(Nil))) {
+  #(Nil, None)
+}
+
+fn handle_message(
+  state: Nil,
+  message: websocket.Message(Nil),
+  connection: websocket.Connection,
+  deps: Dependencies,
+) -> websocket.Action(Nil, Nil) {
+  case message {
+    websocket.TextMessage(text) -> {
+      let _ = websocket.send_text(connection, deps.user_name <> ": " <> text)
+      websocket.continue_connection(state)
+    }
+    websocket.ConnectionClosed -> websocket.stop_connection()
+    _ -> websocket.continue_connection(state)
+  }
+}
+
+fn handle_close(_state: Nil, _deps: Dependencies) -> Nil {
+  Nil
+}
 ```
+
+<sub>🧪 [Tested source](https://github.com/TrustBound/dream/blob/main/test/snippets/readme_websocket_chat.gleam)</sub>
 
 - Upgrade an HTTP request to a typed WebSocket connection.
 - Use explicit `Dependencies` instead of closures, so it’s clear what
@@ -195,22 +281,17 @@ MIT — see [LICENSE.md](LICENSE.md)
 
 ## Third-party code
 
-Dream does not depend on any one web server: the server is an adapter. The
-adapter Dream ships today is for the [mist](https://github.com/rawhat/mist)
-HTTP server, which runs on the [glisten](https://github.com/rawhat/glisten)
-socket server. Both are by rawhat and their contributors, under the
-Apache-2.0 licence.
+Dream's server adapter is built on [mist](https://github.com/rawhat/mist) and
+[glisten](https://github.com/rawhat/glisten), by Alex Manning and
+contributors (Apache-2.0).
 
-The adapter needed many HTTP/2 fixes in these libraries. We are contributing them
-back upstream, which takes time for this many changes, and this version of
-Dream could not wait any longer. Until upstream releases contain the fixes,
-the adapter uses two forks that we publish to Hex: `dream_http_server` (mist
-6.0.3 plus the fixes) and `dream_socket_server` (glisten 9.0.1 plus a socket
-buffer fix). They keep the upstream module names (`mist`, `glisten`), so a
-project must not depend on both Dream and the `mist` or `glisten` Hex
-packages at the same time. See
-[docs/contributing/http-server-packages.md](docs/contributing/http-server-packages.md)
-for the reasons and for how to go back.
+Right now it uses our own builds of both,
+[`dream_http_server`](https://hex.pm/packages/dream_http_server) and
+[`dream_socket_server`](https://hex.pm/packages/dream_socket_server), which
+add the HTTP/2 fixes we needed. They use the same module names as mist and
+glisten, so don't add `mist` or `glisten` to a project that uses Dream.
+
+[More about the server packages →](https://github.com/TrustBound/dream/blob/main/docs/contributing/http-server-packages.md)
 
 ---
 
