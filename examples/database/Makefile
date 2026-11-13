@@ -52,7 +52,7 @@ test-integration:
 		export DATABASE_URL="$(DATABASE_URL)" && gleam run -m cigogne all || { echo "Migration failed"; docker-compose down; exit 1; }; \
 	fi
 	echo "Building Gleam application..."; \
-	make clean > /dev/null 2>&1 || true; \
+	rm -rf build/dev build/prod; \
 	gleam build > /dev/null 2>&1; \
 	echo "Starting server in background..."; \
 	gleam run -m main > /tmp/database_test.log 2>&1 & \

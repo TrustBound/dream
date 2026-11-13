@@ -17,7 +17,7 @@ test-integration:
 		sleep 2; \
 	fi
 	@echo "Building Gleam application..."
-	@make clean > /dev/null 2>&1 || true
+	@rm -rf build/dev build/prod
 	@gleam build > /dev/null 2>&1
 	@echo "Starting server in background..."
 	@gleam run -m main > /tmp/streaming_capabilities_test.log 2>&1 & \

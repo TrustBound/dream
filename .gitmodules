@@ -1,8 +1,0 @@
-[submodule "vendor/mist"]
-	path = vendor/mist
-	url = git@github.com:TrustBound/mist.git
-	branch = http2-review-fixes
-[submodule "vendor/glisten"]
-	path = vendor/glisten
-	url = git@github.com:TrustBound/glisten.git
-	branch = socket-buffer-9.0.1

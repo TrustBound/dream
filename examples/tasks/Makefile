@@ -25,7 +25,7 @@ test-integration:
 	@echo "Compiling matcha templates..."
 	@make matcha > /dev/null 2>&1
 	@echo "Building Gleam application..."
-	@make clean > /dev/null 2>&1 || true
+	@rm -rf build/dev build/prod
 	@make build > /dev/null 2>&1
 	@echo "Starting server in background..."
 	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m main > /tmp/tasks_test.log 2>&1 &
@@ -147,7 +147,7 @@ e2e-test:
 	@echo "Compiling matcha templates..."
 	@make matcha > /dev/null 2>&1
 	@echo "Building Gleam application..."
-	@make clean > /dev/null 2>&1 || true
+	@rm -rf build/dev build/prod
 	@make build > /dev/null 2>&1
 	@echo "Starting server in background..."
 	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m main > /tmp/tasks_e2e.log 2>&1 &
