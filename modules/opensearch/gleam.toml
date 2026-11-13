@@ -1,5 +1,5 @@
 name = "dream_opensearch"
-version = "2.1.0"
+version = "2.0.0"
 description = "Simple OpenSearch client for Gleam"
 licences = ["MIT"]
 repository = { type = "github", user = "TrustBound", repo = "dream" }
