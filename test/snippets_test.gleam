@@ -13,6 +13,7 @@ import dream_test/assertions/should.{be_ok, equal, or_fail_with, should}
 import dream_test/unit.{type UnitTest, describe, it}
 import fixtures/request as test_request
 import gleam/bit_array
+import gleam/erlang/atom
 import gleam/option.{Some}
 import gleam/yielder
 import matchers/extract_body_text.{extract_body_text}
@@ -21,6 +22,7 @@ import snippets/readme_hello_server
 import snippets/readme_json_api.{Services as JsonServices, User}
 import snippets/readme_streaming.{Services as LogServices}
 import snippets/readme_websocket_chat
+import snippets/server_tls
 import snippets/sse_action_builders
 import snippets/sse_event_builders
 
@@ -42,6 +44,7 @@ pub fn tests() -> UnitTest {
     readme_json_api_tests(),
     readme_streaming_tests(),
     readme_websocket_chat_tests(),
+    server_tls_tests(),
   ])
 }
 
@@ -243,3 +246,33 @@ fn send_text_and_receive(
   text: String,
   timeout: Int,
 ) -> Result(String, String)
+
+fn server_tls_tests() -> UnitTest {
+  describe("server tls", [
+    it("serves GET / over HTTP/2 with TLS", fn() {
+      // Arrange
+      let #(certfile, keyfile) = write_certificate("build/test_tls")
+      let assert Ok(handle) = server_tls.start(certfile, keyfile, 19_994)
+
+      // Act
+      let result = tls_request(19_994, atom.create("http2"), "/")
+      server.stop(handle)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Ok(#(atom.create("http2"), 200, <<"Hello over HTTPS":utf8>>)))
+      |> or_fail_with("GET / should answer over HTTP/2 with TLS")
+    }),
+  ])
+}
+
+@external(erlang, "dream_tls_test_ffi", "write_certificate")
+fn write_certificate(directory: String) -> #(String, String)
+
+@external(erlang, "dream_tls_test_ffi", "request")
+fn tls_request(
+  port: Int,
+  protocol: atom.Atom,
+  path: String,
+) -> Result(#(atom.Atom, Int, BitArray), Nil)

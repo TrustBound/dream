@@ -76,7 +76,16 @@ pub opaque type Dream(server, context, services) {
     services: option.Option(services),
     max_body_size: Int,
     bind_interface: option.Option(String),
+    tls: option.Option(Tls),
   )
+}
+
+/// The certificate and key files a server uses to serve HTTPS
+///
+/// Both are paths to PEM files. Set them with
+/// `dream/servers/mist/server.tls()`.
+pub type Tls {
+  Tls(certfile: String, keyfile: String)
 }
 
 // Accessor functions for internal use by server modules
@@ -122,6 +131,7 @@ pub fn create(
     services: services,
     max_body_size: max_body_size,
     bind_interface: bind_interface,
+    tls: option.None,
   )
 }
 
@@ -269,6 +279,24 @@ pub fn get_bind_interface(
   dream: Dream(server, context, services),
 ) -> option.Option(String) {
   dream.bind_interface
+}
+
+/// Set the certificate and key files for serving HTTPS
+///
+/// This is a low-level function for server adapters. Use
+/// `dream/servers/mist/server.tls()` in your application.
+pub fn set_tls(
+  dream: Dream(server, context, services),
+  tls: option.Option(Tls),
+) -> Dream(server, context, services) {
+  Dream(..dream, tls: tls)
+}
+
+/// Get the certificate and key files for serving HTTPS, if any
+///
+/// Returns `None` when the server serves plain HTTP.
+pub fn get_tls(dream: Dream(server, context, services)) -> option.Option(Tls) {
+  dream.tls
 }
 
 /// Route a request through the router

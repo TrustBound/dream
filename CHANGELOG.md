@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `server.tls(certfile:, keyfile:)` serves HTTPS. Clients that ask for
+  HTTP/2 in the TLS handshake (ALPN), such as browsers, get HTTP/2, and the
+  rest get HTTP/1.1. A missing certificate or key file is a start error.
+  Server adapters read the setting with `dream.get_tls`.
+- New guide: `docs/guides/http2.md`.
+
 ### Changed
 
 - Dream's Mist server adapter now uses `dream_http_server` (mist 6.0.3 plus
