@@ -100,70 +100,111 @@ examples/static/
 
 ## Using in Your Own App
 
-### Simple Setup
+Write a controller that calls `static.serve`. `get_param` gives the captured path, and `param.raw` is the path as the client sent it:
+
+### Simple Setup: controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/static/src/controllers/static_controller.gleam#L11-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// 1. Create controller
-import dream/controllers/static
-import dream/http.{type Request, type Response, get_param}
-
-pub fn serve_static(request: Request, context, services) -> Response {
-  let assert Ok(filepath) = get_param(request, "filepath")
-  static.serve(
-    request: request,
-    context: context,
-    services: services,
-    root: "./public",
-    filepath: filepath,
-    config: static.default_config(),
-  )
+/// Serve files from /public with directory listing
+pub fn serve_public(
+  request: Request,
+  context: EmptyContext,
+  services: EmptyServices,
+) -> Response {
+  case get_param(request, "filepath") {
+    Ok(param) ->
+      static.serve(
+        request: request,
+        context: context,
+        services: services,
+        root: "./public",
+        filepath: param.raw,
+        config: static.default_config() |> static.with_directory_listing(),
+      )
+    Error(error_msg) ->
+      html_response(
+        status.bad_request,
+        "<h1>Error</h1><p>" <> error_msg <> "</p>",
+      )
+  }
 }
+```
 
-// 2. Add route
-import dream/http/request.{Get}
-import dream/router.{route, router}
+Then send a wildcard route to the controller:
 
-pub fn create_router() {
+### Simple Setup: route <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/static/src/router.gleam#L6-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn create_router() -> Router(EmptyContext, EmptyServices) {
   router()
+  // Multi-segment named wildcard: **filepath
   |> route(
     method: Get,
     path: "/public/**filepath",
-    controller: serve_static,
+    controller: static_controller.serve_public,
     middleware: [],
   )
-}
 ```
 
 ### With Configuration
 
+Chain options onto `static.default_config()`. `with_directory_listing()` makes directory indexes (`serve_public` above uses it). `without_index()` stops the automatic `index.html` (`serve_assets` uses it). `with_custom_404(handler)` sets the page for a missing file:
+
+#### Custom 404 page <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/static/src/controllers/static_controller.gleam#L158-L186"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-static.serve(
-  request: request,
-  context: context,
-  services: services,
-  root: "./public",
-  filepath: filepath,
-  config: static.default_config()
-    |> static.with_directory_listing()  // Enable directory indexes
-    |> static.without_index()            // Don't auto-serve index.html
-    |> static.with_custom_404(custom_404_handler),
-)
+/// Serve with custom 404
+pub fn serve_with_custom_404(
+  request: Request,
+  context: EmptyContext,
+  services: EmptyServices,
+) -> Response {
+  case get_param(request, "filepath") {
+    Ok(param) ->
+      static.serve(
+        request: request,
+        context: context,
+        services: services,
+        root: "./public",
+        filepath: param.raw,
+        config: static.default_config()
+          |> static.with_custom_404(fn(_req, _ctx, _svc) {
+            html_response(
+              status.not_found,
+              "<h1>Custom 404</h1><p>The requested file does not exist.</p>",
+            )
+          }),
+      )
+    Error(error_msg) ->
+      html_response(
+        status.bad_request,
+        "<h1>Error</h1><p>" <> error_msg <> "</p>",
+      )
+  }
+}
 ```
 
 ### Extension Filtering
 
-Use router patterns instead of controller logic:
+Use router patterns instead of controller logic. These routes match only image files:
+
+#### Image routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/static/src/router.gleam#L43-L56"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// Serve only images
-router
-|> route(Get, "/images/**/*.{jpg,png,gif,svg}", serve_images, [])
-
-// Serve only CSS/JS
-|> route(Get, "/assets/**/*.{css,js}", serve_assets, [])
-
-// Serve everything else
-|> route(Get, "/public/**filepath", serve_all, [])
+  // Brace expansion extension: *.{ext1,ext2}
+  |> route(
+    method: Get,
+    path: "/images/*.{jpg,png,gif,svg}",
+    controller: static_controller.serve_image_file,
+    middleware: [],
+  )
+  // Multi-wildcard + extension in middle
+  |> route(
+    method: Get,
+    path: "/photos/**/*.{jpg,png}",
+    controller: static_controller.serve_photo,
+    middleware: [],
+  )
 ```
 
 ## MIME Types

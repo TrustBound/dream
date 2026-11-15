@@ -42,6 +42,7 @@ import snippets/streaming_api_test
 import snippets_test
 import streaming_snippets_test
 import testing_controllers_uploads_snippets_test
+import websocket_chat_readme_snippets_test
 
 pub fn main() {
   let all_tests =
@@ -109,6 +110,10 @@ pub fn main() {
       unit.to_test_cases(
         "contributing_snippets",
         contributing_snippets_test.tests(),
+      ),
+      unit.to_test_cases(
+        "websocket_chat_readme_snippets",
+        websocket_chat_readme_snippets_test.tests(),
       ),
     ]
     |> list.flatten
