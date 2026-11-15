@@ -531,7 +531,7 @@ get_transport_config() ->
             %% Gleam TransportConfig tuple: {transport_config, MaxConn, IdleTimeout, DefaultConnTimeout,
             %%   DomainLookupTimeout, TlsHandshakeTimeout, Retry, RetryTimeout, Keepalive,
             %%   KeepaliveTolerance, MaxConcurrentStreams, InitConnWindowSize, InitStreamWindowSize,
-            %%   ClosingTimeout}
+            %%   ClosingTimeout, LogLevel, DefaultCertificateAuthorityFile}
             #{max_connections => element(2, Config),
               idle_timeout => element(3, Config),
               connect_timeout => element(4, Config),
@@ -544,7 +544,8 @@ get_transport_config() ->
               max_concurrent_streams => element(11, Config),
               initial_connection_window_size => element(12, Config),
               initial_stream_window_size => element(13, Config),
-              closing_timeout => element(14, Config)};
+              closing_timeout => element(14, Config),
+              certificate_authority_file => element(16, Config)};
         [] ->
             #{max_connections => 50,
               idle_timeout => 60000,
@@ -558,7 +559,8 @@ get_transport_config() ->
               max_concurrent_streams => 100,
               initial_connection_window_size => 65535,
               initial_stream_window_size => 65535,
-              closing_timeout => 15000}
+              closing_timeout => 15000,
+              certificate_authority_file => none}
     end.
 
 %% ============================================================================
@@ -567,14 +569,26 @@ get_transport_config() ->
 
 get_or_open_connection(Scheme, Host, Port, GunOpts) ->
     TransportConfig = get_transport_config(),
-    FullOpts = maps:merge(TransportConfig, GunOpts),
+    %% The client-wide certificate authority file is `none` or `{some, File}`.
+    %% A per-request file in GunOpts wins over it.
+    Defaults = case maps:get(certificate_authority_file, TransportConfig) of
+        {some, File} -> TransportConfig#{certificate_authority_file => File};
+        none -> maps:remove(certificate_authority_file, TransportConfig)
+    end,
+    FullOpts = maps:merge(Defaults, GunOpts),
     dream_http_conn_manager:ensure_connection(Scheme, Host, Port, FullOpts).
 
-build_gun_opts(ConnectTimeoutMs, Protocols) ->
+%% Settings is the Gleam `internal.ConnectionSettings` record:
+%% {connection_settings, Protocols, CertificateAuthorityFile}.
+build_gun_opts(ConnectTimeoutMs, {connection_settings, Protocols, CertificateAuthorityFile}) ->
     Opts = #{connect_timeout => ConnectTimeoutMs},
-    case Protocols of
+    WithProtocols = case Protocols of
         default -> Opts;
         _ -> Opts#{protocols => Protocols}
+    end,
+    case CertificateAuthorityFile of
+        none -> WithProtocols;
+        {some, File} -> WithProtocols#{certificate_authority_file => File}
     end.
 
 send_request(ConnPid, Method, PathQs, Headers, Body) ->

@@ -5,7 +5,12 @@ All notable changes to `dream_http_client` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 5.2.0 - 2026-03-25
+## 6.0.0 - Unreleased
+
+This release was first prepared as 5.2.0 and never published. It changes four
+public types (`SendError.RequestError`, `StreamMessage.StreamError`, the
+`on_stream_error` callback, and `stream_yielder` errors), so it is a major
+version.
 
 ### Fixed
 
@@ -15,13 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Requests that trust different certificate authorities no longer share a
+  pooled connection.
 - **HTTP backend replaced: `httpc` → `gun`.** The underlying HTTP client has
   been swapped from Erlang's `httpc` to [gun](https://github.com/ninenines/gun),
   a production-grade HTTP/1.1 and HTTP/2 client. This enables native HTTP/2
   multiplexing for high-concurrency workloads (10k+ concurrent requests over
-  a single TCP connection to HTTP/2 servers). All public API contracts are
-  preserved — `send()`, `stream_yielder()`, and `start_stream()` behave
-  identically from the caller's perspective.
+  a single TCP connection to HTTP/2 servers). `send()`, `stream_yielder()`,
+  and `start_stream()` keep their behaviour, apart from the error type
+  changes below.
 - **`SendError.RequestError` from `message: String` to `error: TransportError`**
   for structured transport error classification. Pattern match on `TransportError`
   variants for programmatic error handling, or use `transport_error_to_string`
@@ -41,6 +48,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `certificate_authority_file(request, path)` makes one request trust only the
+  certificate authorities in a PEM file, in place of the system ones, the same
+  as `curl --cacert`. Use it for services with a private certificate authority
+  and for test servers with their own certificate.
+- `default_certificate_authority_file(config, path)` sets the same for every
+  request, through `configure_transport()`. A request's own setting wins.
+- `get_certificate_authority_file` and `get_default_certificate_authority_file`.
 - **Per-request protocol preference.** `protocols(preference)` controls which
   HTTP protocol version gun negotiates per connection. `Http1Only` forces
   HTTP/1.1, `Http2Only` enables h2c (HTTP/2 over cleartext, RFC 7540

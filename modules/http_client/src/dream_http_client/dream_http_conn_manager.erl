@@ -75,7 +75,9 @@ handle_call({ensure_connection, Scheme, Host, Port, GunOpts}, _From, State) ->
     end,
     Protocols = resolve_protocols(GunOpts, Transport),
     ResolvedOpts = GunOpts#{protocols => Protocols},
-    Key = {Scheme, Host, Port, Protocols},
+    %% Requests that trust different certificate authorities never share a
+    %% connection.
+    Key = {Scheme, Host, Port, Protocols, maps:get(certificate_authority_file, GunOpts, system)},
     Existing = ets:lookup(?TABLE, Key),
     %% Clean up dead connections first
     Alive = [E || {_, Pid, _, _, _} = E <- Existing, erlang:is_process_alive(Pid)],
@@ -181,9 +183,13 @@ open_connection(Scheme, Host, Port, GunOpts) ->
     TlsOpts = case Transport of
         tls ->
             AlpnProtocols = resolve_alpn(Protocols),
+            Trusted = case maps:get(certificate_authority_file, GunOpts, system) of
+                system -> {cacerts, public_key:cacerts_get()};
+                File -> {cacertfile, File}
+            end,
             Opts#{tls_opts => [
                 {verify, verify_peer},
-                {cacerts, public_key:cacerts_get()},
+                Trusted,
                 {depth, 3},
                 {customize_hostname_check, [{match_fun, public_key:pkix_verify_hostname_match_fun(https)}]},
                 {alpn_advertised_protocols, AlpnProtocols}
