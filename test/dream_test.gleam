@@ -32,6 +32,7 @@ import dream_test/runner
 import dream_test/unit
 import gleam/io
 import gleam/list
+import naming_snippets_test
 import snippets_test
 
 pub fn main() {
@@ -80,6 +81,7 @@ pub fn main() {
         doc_server_snippets_test.tests(),
       ),
       unit.to_test_cases("doc_core_snippets", doc_core_snippets_test.tests()),
+      unit.to_test_cases("snippets/naming", naming_snippets_test.tests()),
     ]
     |> list.flatten
 

@@ -12,19 +12,28 @@ This document outlines the naming conventions for functions in the Dream web fra
 
 The module name provides the namespace, so functions must **not** be prefixed with the module name.
 
-✅ **Good:**
-```gleam
-import router
+### ✅ Good: the module name is the namespace <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_module_namespace.gleam#L11-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-router.create_router()
-router.route(my_router, method: Get, path: "/", controller: controller_fn, middleware: [])
+```gleam
+pub fn show_user(id: Int) -> Result(User, Nil) {
+  user.find(id)
+}
+
+pub fn app_router() {
+  router.router()
+  |> router.route(method: Get, path: "/", controller: index, middleware: [])
+}
 ```
 
-❌ **Bad:**
+### ❌ Bad: the function repeats the module name <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_module_namespace.gleam#L20-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-router.router_create_router()  // Redundant module prefix
-router.router_add_route()      // Redundant module prefix
+pub fn show_user_with_module_prefix(id: Int) -> Result(User, Nil) {
+  user.user_find(id)
+}
 ```
+
+`user.user_find(id)` says "user" two times. The module name already says it, so the name `find` is enough.
 
 ## Prefix Categories
 
@@ -35,11 +44,20 @@ router.router_add_route()      // Redundant module prefix
 
 **Use when:** Instantiating a type directly with constructor parameters or simple factory functions.
 
-**Examples:**
+##### Creating a response, a cookie and a header <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_creation.gleam#L18-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn create_router() -> Router
-pub fn create_response(status: Status) -> Response
-pub fn create_cookie(name: String, value: String) -> Cookie
+pub fn create_response(status: Int) -> Response {
+  response.empty_response(status)
+}
+
+pub fn create_cookie(name: String, value: String) -> Cookie {
+  cookie.simple_cookie(name, value)
+}
+
+pub fn create_header(name: String, value: String) -> Header {
+  Header(name:, value:)
+}
 ```
 
 **Do NOT use when:** Building from a builder pattern (use `build_{noun}` instead).
@@ -49,10 +67,18 @@ pub fn create_cookie(name: String, value: String) -> Cookie
 
 **Use when:** Converting a builder type into its final built type.
 
-**Examples:**
+##### Building a response and a cookie from builders <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_creation.gleam#L30-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn build(builder: RouteBuilder) -> Result(Route, String)
-pub fn build_response(builder: ResponseBuilder) -> Response
+pub fn build_response(builder: ResponseBuilder) -> Response {
+  let text = response.text_response(builder.status, builder.body)
+  Response(..text, headers: builder.headers)
+}
+
+pub fn build_cookie(builder: CookieBuilder) -> Cookie {
+  let simple = cookie.simple_cookie(builder.name, builder.value)
+  Cookie(..simple, secure: builder.secure)
+}
 ```
 
 **Do NOT use when:** Creating instances directly (use `create_{noun}` instead).
@@ -66,12 +92,12 @@ pub fn build_response(builder: ResponseBuilder) -> Response
 
 **Use when:** Looking up items in lists, maps, or other collections using a name, key, or identifier.
 
-**Examples:**
+##### Getting a header, a cookie and a query parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_retrieval.gleam#L18-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn get_header(headers: List(Header), name: String) -> Option(String)
-pub fn get_cookie(cookies: List(Cookie), name: String) -> Option(Cookie)
-pub fn get_query_param(query: String, name: String) -> Option(String)
-pub fn get_route_by_path(router: Router, path: String) -> Option(Route)
+  let content_type = http.get_header(request.headers, "Content-Type")
+  let session = http.get_cookie(request.cookies, "session")
+  let page = http.get_query_param(request.query, "page")
 ```
 
 **Do NOT use when:** Extracting a property from a single item (use `{noun}_name` or `{noun}_value` instead).
@@ -81,11 +107,11 @@ pub fn get_route_by_path(router: Router, path: String) -> Option(Route)
 
 **Use when:** Extracting the name field from a single record/type instance.
 
-**Examples:**
+##### Reading the name of a cookie and a header <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_retrieval.gleam#L25-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn cookie_name(cookie: Cookie) -> String
-pub fn header_name(header: Header) -> String
-pub fn route_name(route: Route) -> String
+  let cookie_name = http.cookie_name(cookie)
+  let header_name = http.header_name(header)
 ```
 
 **Do NOT use when:** Searching for an item in a collection (use `get_{noun}` instead).
@@ -95,10 +121,11 @@ pub fn route_name(route: Route) -> String
 
 **Use when:** Extracting the value field from a single record/type instance.
 
-**Examples:**
+##### Reading the value of a cookie and a header <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_retrieval.gleam#L31-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn cookie_value(cookie: Cookie) -> String
-pub fn header_value(header: Header) -> String
+  let cookie_value = http.cookie_value(cookie)
+  let header_value = http.header_value(header)
 ```
 
 **Do NOT use when:** Searching for an item in a collection (use `get_{noun}` instead).
@@ -112,11 +139,12 @@ pub fn header_value(header: Header) -> String
 
 **Use when:** Updating a value that may already exist, replacing the old value if present.
 
-**Examples:**
+##### Setting a header and a cookie <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_modification.gleam#L13-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn set_header(headers: List(Header), name: String, value: String) -> List(Header)
-pub fn set_cookie(cookies: List(Cookie), cookie: Cookie) -> List(Cookie)
-pub fn set_config(config: Config, key: String, value: String) -> Config
+  let headers = header.set_header(request.headers, "Cache-Control", "no-store")
+  let cookies =
+    cookie.set_cookie(request.cookies, cookie.simple_cookie("theme", "dark"))
 ```
 
 **Do NOT use when:** Adding a new item that may not exist (use `add_{noun}` instead).
@@ -126,17 +154,14 @@ pub fn set_config(config: Config, key: String, value: String) -> Config
 
 **Use when:** Appending or inserting items into collections where duplicates are allowed or desired.
 
-**Examples:**
+##### Adding a header and a route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_modification.gleam#L20-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn add_header(headers: List(Header), name: String, value: String) -> List(Header)
-pub fn route(
-  router: Router,
-  method: Method,
-  path: String,
-  controller: fn(Request) -> Response,
-  middleware: List(Middleware),
-) -> Router
-pub fn add_middleware(builder: RouteBuilder, middleware: Middleware) -> RouteBuilder
+  let headers =
+    header.add_header(request.headers, "Link", "</app.css>; rel=preload")
+  let app_router =
+    router.router()
+    |> router.route(method: Get, path: "/", controller: index, middleware: [])
 ```
 
 **Do NOT use when:** Replacing an existing value (use `set_{noun}` instead).
@@ -146,11 +171,11 @@ pub fn add_middleware(builder: RouteBuilder, middleware: Middleware) -> RouteBui
 
 **Use when:** Deleting items from collections by identifier/key.
 
-**Examples:**
+##### Removing a header and a cookie <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_modification.gleam#L29-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn remove_header(headers: List(Header), name: String) -> List(Header)
-pub fn remove_cookie(cookies: List(Cookie), name: String) -> List(Cookie)
-pub fn remove_route(router: Router, path: String) -> Router
+  let headers = header.remove_header(request.headers, "X-Tracking-Id")
+  let cookies = cookie.remove_cookie(request.cookies, "tracking")
 ```
 
 ---
@@ -162,11 +187,20 @@ pub fn remove_route(router: Router, path: String) -> Router
 
 **Use when:** Transforming between types that represent the same concept but are from different modules or libraries.
 
-**Examples:**
+##### Converting a method and a cookie <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_conversion.gleam#L25-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn convert_method(http_method: HttpMethod) -> Method
-pub fn convert_request_to_response(request: Request) -> Response
-pub fn convert_status_to_code(status: Status) -> Int
+pub fn convert_http_method_to_method(
+  http_method: gleam_http.Method,
+) -> Option(Method) {
+  http_method
+  |> gleam_http.method_to_string
+  |> request.parse_method
+}
+
+pub fn convert_cookie_to_header(cookie: Cookie) -> Header {
+  Header(name: "Set-Cookie", value: format_cookie_header(cookie))
+}
 ```
 
 **Do NOT use when:** Parsing from strings (use `parse_{noun}` instead) or formatting to strings (use `format_{noun}` instead).
@@ -176,12 +210,12 @@ pub fn convert_status_to_code(status: Status) -> Int
 
 **Use when:** Converting unstructured text or binary data into typed structures.
 
-**Examples:**
+##### Parsing cookies and a method <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_conversion.gleam#L38-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn parse_cookie_string(cookie_string: String) -> List(Cookie)
-pub fn parse_query_string(query: String) -> Map(String, String)
-pub fn parse_json(json_string: String) -> Result(Value, String)
-pub fn parse_cookies_from_headers(headers: List(Header)) -> List(Cookie)
+  let cookies = dream.parse_cookie_string("theme=dark; session=abc123")
+  let method = request.parse_method("POST")
+  let header_cookies = dream.parse_cookies_from_headers(headers)
 ```
 
 **Do NOT use when:** Converting between two structured types (use `convert_{from}_to_{to}` instead).
@@ -191,11 +225,23 @@ pub fn parse_cookies_from_headers(headers: List(Header)) -> List(Cookie)
 
 **Use when:** Converting typed structures into strings or bytes for output or transmission.
 
-**Examples:**
+##### Formatting a cookie header and a query string <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_conversion.gleam#L44-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn format_cookie_header(cookie: Cookie) -> String
-pub fn format_status_code(status: Status) -> String
-pub fn format_query_string(params: Map(String, String)) -> String
+pub fn format_cookie_header(cookie: Cookie) -> String {
+  cookie.name <> "=" <> cookie.value
+}
+
+pub fn format_query_string(parameters: List(#(String, String))) -> String {
+  parameters
+  |> list.map(format_query_parameter)
+  |> string.join("&")
+}
+
+fn format_query_parameter(parameter: #(String, String)) -> String {
+  let #(name, value) = parameter
+  uri.percent_encode(name) <> "=" <> uri.percent_encode(value)
+}
 ```
 
 **Do NOT use when:** Converting between two structured types (use `convert_{from}_to_{to}` instead).
@@ -205,11 +251,17 @@ pub fn format_query_string(params: Map(String, String)) -> String
 
 **Use when:** Converting between types where the relationship is obvious and the full `convert_{from}_to_{to}` would be verbose.
 
-**Examples:**
+##### Converting a header to a pair and back <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_conversion.gleam#L59-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn method_to_string(method: Method) -> String
-pub fn string_to_method(str: String) -> Option(Method)
-pub fn status_to_code(status: Status) -> Int
+pub fn header_to_pair(header: Header) -> #(String, String) {
+  #(header.name, header.value)
+}
+
+pub fn pair_to_header(pair: #(String, String)) -> Header {
+  let #(name, value) = pair
+  Header(name:, value:)
+}
 ```
 
 **Do NOT use when:** Converting between external library types (use `convert_{from}_to_{to}` instead).
@@ -223,12 +275,20 @@ pub fn status_to_code(status: Status) -> Int
 
 **Use when:** Evaluating a characteristic or condition of a single item.
 
-**Examples:**
+##### Checking a request, a cookie and a response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_checks.gleam#L10-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn is_method(request: Request, method: Method) -> Bool
-pub fn is_secure(cookie: Cookie) -> Bool
-pub fn is_authenticated(user: User) -> Bool
-pub fn is_valid(response: Response) -> Bool
+pub fn is_post(request: Request) -> Bool {
+  http.is_method(request, Post)
+}
+
+pub fn is_secure(cookie: Cookie) -> Bool {
+  cookie.secure
+}
+
+pub fn is_json(response: Response) -> Bool {
+  response.content_type == Some("application/json; charset=utf-8")
+}
 ```
 
 **Do NOT use when:** Checking if a collection contains an item (use `has_{noun}` instead).
@@ -238,12 +298,20 @@ pub fn is_valid(response: Response) -> Bool
 
 **Use when:** Testing for presence or existence in collections or composite types.
 
-**Examples:**
+##### Checking for a body, a header and a cookie <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_checks.gleam#L22-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn has_content_type(request: Request, content_type: String) -> Bool
-pub fn has_header(headers: List(Header), name: String) -> Bool
-pub fn has_cookie(cookies: List(Cookie), name: String) -> Bool
-pub fn has_middleware(route: Route) -> Bool
+pub fn has_json_body(request: Request) -> Bool {
+  http.has_content_type(request, "application/json")
+}
+
+pub fn has_header(headers: List(Header), name: String) -> Bool {
+  option.is_some(http.get_header(headers, name))
+}
+
+pub fn has_cookie(cookies: List(Cookie), name: String) -> Bool {
+  option.is_some(http.get_cookie(cookies, name))
+}
 ```
 
 **Do NOT use when:** Checking a property of a single item (use `is_{adjective}` instead).
@@ -257,11 +325,26 @@ pub fn has_middleware(route: Route) -> Bool
 
 **Use when:** Implementing request handlers, middleware, or response processors that contain logic.
 
-**Examples:**
+##### Handling a request, an error and authentication <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_processing.gleam#L16-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn handle_request(request: Request) -> Response
-pub fn handle_error(error: Error) -> Response
-pub fn handle_authentication(request: Request) -> Result(Request, Error)
+pub fn handle_request(request: Request) -> Response {
+  case handle_authentication(request) {
+    Ok(_request) -> http.text_response(http.ok, "Welcome")
+    Error(error) -> handle_error(error)
+  }
+}
+
+pub fn handle_error(error: Error) -> Response {
+  http.text_response(to_status_code(error), message(error))
+}
+
+pub fn handle_authentication(request: Request) -> Result(Request, Error) {
+  case http.get_header(request.headers, "Authorization") {
+    Some(_token) -> Ok(request)
+    None -> Error(Unauthorized("Missing Authorization header"))
+  }
+}
 ```
 
 **Do NOT use when:** Simply routing requests (use `route_{noun}` instead).
@@ -271,10 +354,15 @@ pub fn handle_authentication(request: Request) -> Result(Request, Error)
 
 **Use when:** Finding and dispatching requests to handlers based on path, method, or other criteria.
 
-**Examples:**
+##### Routing a request to its controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_processing.gleam#L34-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn route_request(router: Router, request: Request) -> Response
-pub fn route_path(path: String, routes: List(Route)) -> Option(Route)
+pub fn respond(request: Request) -> Response {
+  let app_router =
+    router.router()
+    |> router.route(method: Get, path: "/", controller: home, middleware: [])
+  dream.route_request(app_router, request, Nil, Nil)
+}
 ```
 
 **Do NOT use when:** Processing request logic (use `handle_{noun}` instead).
@@ -284,11 +372,24 @@ pub fn route_path(path: String, routes: List(Route)) -> Option(Route)
 
 **Use when:** Testing if a value matches a pattern, path template, or condition.
 
-**Examples:**
+##### Matching a method and a path <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_processing.gleam#L41-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn match_path(pattern: String, path: String) -> Bool
-pub fn match_method(allowed: List(Method), method: Method) -> Bool
-pub fn match_route(route: Route, request: Request) -> Bool
+pub fn match_method(allowed: List(Method), method: Method) -> Bool {
+  list.contains(allowed, method)
+}
+
+pub fn match_path(pattern: String, path: String) -> Bool {
+  let pattern_segments = string.split(pattern, "/")
+  let path_segments = string.split(path, "/")
+  list.length(pattern_segments) == list.length(path_segments)
+  && list.all(list.zip(pattern_segments, path_segments), match_segment)
+}
+
+fn match_segment(segments: #(String, String)) -> Bool {
+  let #(pattern_segment, path_segment) = segments
+  string.starts_with(pattern_segment, ":") || pattern_segment == path_segment
+}
 ```
 
 **Do NOT use when:** Routing requests (use `route_{noun}` instead).
@@ -302,11 +403,19 @@ pub fn match_route(route: Route, request: Request) -> Bool
 
 **Use when:** Implementing error recovery or transformation logic for specific error types.
 
-**Examples:**
+##### Handling a parse error and an authentication error <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_errors.gleam#L19-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn handle_parse_error(error: ParseError) -> Result(Value, String)
-pub fn handle_auth_error(error: AuthError) -> Response
-pub fn handle_validation_error(error: ValidationError) -> Result(Validated, Error)
+pub fn handle_parse_error(_error: json.DecodeError) -> Response {
+  http.text_response(http.bad_request, "The body is not valid JSON")
+}
+
+pub fn handle_auth_error(error: AuthError) -> Response {
+  case error {
+    MissingToken -> http.text_response(http.unauthorized, "Sign in first")
+    ExpiredToken -> http.text_response(http.unauthorized, "Sign in again")
+  }
+}
 ```
 
 **Do NOT use when:** Recovering from errors (use `recover_from_{noun}` instead).
@@ -316,10 +425,28 @@ pub fn handle_validation_error(error: ValidationError) -> Result(Validated, Erro
 
 **Use when:** Implementing retry logic or fallback mechanisms.
 
-**Examples:**
+##### Recovering from a timeout and a connection error <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_errors.gleam#L30-L48"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn recover_from_timeout(error: TimeoutError) -> Result(Response, Error)
-pub fn recover_from_connection_error(error: ConnectionError) -> Result(Connection, Error)
+pub fn recover_from_timeout(
+  result: Result(String, FetchError),
+  retry: fn() -> Result(String, FetchError),
+) -> Result(String, FetchError) {
+  case result {
+    Error(Timeout) -> retry()
+    _ -> result
+  }
+}
+
+pub fn recover_from_connection_error(
+  result: Result(String, FetchError),
+  cached: String,
+) -> Result(String, FetchError) {
+  case result {
+    Error(ConnectionRefused) -> Ok(cached)
+    _ -> result
+  }
+}
 ```
 
 **Do NOT use when:** Handling errors without recovery (use `handle_{noun}_error` instead).
@@ -333,11 +460,29 @@ pub fn recover_from_connection_error(error: ConnectionError) -> Result(Connectio
 
 **Use when:** Validating user identity, checking passwords, or verifying tokens.
 
-**Examples:**
+##### Authenticating a user, a token and a request <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_auth.gleam#L42-L61"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn authenticate_user(credentials: Credentials) -> Result(User, AuthError)
-pub fn authenticate_token(token: String) -> Result(User, AuthError)
-pub fn authenticate_request(request: Request) -> Result(AuthenticatedRequest, Error)
+pub fn authenticate_user(credentials: Credentials) -> Result(User, AuthError) {
+  case credentials {
+    Credentials(username: "ada", password: "correct-horse") -> Ok(ada)
+    _ -> Error(InvalidCredentials)
+  }
+}
+
+pub fn authenticate_token(token: String) -> Result(User, AuthError) {
+  case token {
+    "token-ada" -> Ok(ada)
+    _ -> Error(InvalidToken)
+  }
+}
+
+pub fn authenticate_request(request: Request) -> Result(User, AuthError) {
+  case http.get_header(request.headers, "Authorization") {
+    Some("Bearer " <> token) -> authenticate_token(token)
+    _ -> Error(InvalidToken)
+  }
+}
 ```
 
 **Do NOT use when:** Checking permissions (use `authorize_{noun}` or `check_{noun}_permission` instead).
@@ -347,10 +492,23 @@ pub fn authenticate_request(request: Request) -> Result(AuthenticatedRequest, Er
 
 **Use when:** Verifying access rights for resources or operations.
 
-**Examples:**
+##### Authorizing a user and a request <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_auth.gleam#L63-L76"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn authorize_user(user: User, resource: Resource) -> Result(Unit, AuthError)
-pub fn authorize_request(request: AuthenticatedRequest, action: Action) -> Result(Unit, Error)
+pub fn authorize_user(user: User, article: Article) -> Result(Nil, AuthError) {
+  case user.id == article.author_id || user.role == Editor {
+    True -> Ok(Nil)
+    False -> Error(Forbidden)
+  }
+}
+
+pub fn authorize_request(
+  request: Request,
+  article: Article,
+) -> Result(Nil, AuthError) {
+  use user <- result.try(authenticate_request(request))
+  authorize_user(user, article)
+}
 ```
 
 **Do NOT use when:** Verifying identity (use `authenticate_{noun}` instead).
@@ -360,10 +518,22 @@ pub fn authorize_request(request: AuthenticatedRequest, action: Action) -> Resul
 
 **Use when:** Testing for a particular permission flag or capability.
 
-**Examples:**
+##### Checking a user permission and a request permission <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_auth.gleam#L78-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn check_user_permission(user: User, permission: Permission) -> Bool
-pub fn check_request_permission(request: Request, permission: Permission) -> Bool
+pub fn check_user_permission(user: User, permission: Permission) -> Bool {
+  list.contains(role_permissions(user.role), permission)
+}
+
+pub fn check_request_permission(
+  request: Request,
+  permission: Permission,
+) -> Bool {
+  case authenticate_request(request) {
+    Ok(user) -> check_user_permission(user, permission)
+    Error(_error) -> False
+  }
+}
 ```
 
 **Do NOT use when:** Performing full authorization (use `authorize_{noun}` instead).
@@ -377,11 +547,25 @@ pub fn check_request_permission(request: Request, permission: Permission) -> Boo
 
 **Use when:** Performing comprehensive validation that may return multiple errors or detailed error information.
 
-**Examples:**
+##### Validating a signup and a cookie <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_validation.gleam#L19-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn validate_request(request: Request) -> Result(ValidatedRequest, List(ValidationError))
-pub fn validate_cookie(cookie: Cookie) -> Result(Cookie, ValidationError)
-pub fn validate_config(config: Config) -> Result(Config, List(Error))
+pub fn validate_signup(signup: Signup) -> Result(Signup, List(SignupError)) {
+  let errors =
+    [email_error(signup.email), password_error(signup.password)]
+    |> option.values
+  case errors {
+    [] -> Ok(signup)
+    _ -> Error(errors)
+  }
+}
+
+pub fn validate_cookie(cookie: Cookie) -> Result(Cookie, String) {
+  case cookie.secure {
+    True -> Ok(cookie)
+    False -> Error("The " <> cookie.name <> " cookie must be secure")
+  }
+}
 ```
 
 **Do NOT use when:** Simple boolean checks (use `is_{adjective}` or `has_{noun}` instead).
@@ -395,10 +579,14 @@ pub fn validate_config(config: Config) -> Result(Config, List(Error))
 
 **Use when:** Initiating servers, background tasks, or services.
 
-**Examples:**
+##### Starting a server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_lifecycle.gleam#L24-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn start_server(config: ServerConfig) -> Result(Server, Error)
-pub fn start_background_task(task: Task) -> Result(TaskHandle, Error)
+pub fn start_server(port: Int) {
+  server.new()
+  |> server.router(app_router())
+  |> server.listen_with_handle(port)
+}
 ```
 
 **Do NOT use when:** Initializing resources (use `init_{noun}` instead).
@@ -408,10 +596,12 @@ pub fn start_background_task(task: Task) -> Result(TaskHandle, Error)
 
 **Use when:** Halting services or processes without graceful cleanup.
 
-**Examples:**
+##### Stopping a server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_lifecycle.gleam#L30-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn stop_server(server: Server) -> Result(Unit, Error)
-pub fn stop_task(handle: TaskHandle) -> Result(Unit, Error)
+pub fn stop_server(handle: server.ServerHandle) -> Nil {
+  server.stop(handle)
+}
 ```
 
 **Do NOT use when:** Gracefully shutting down (use `shutdown_{noun}` instead).
@@ -421,11 +611,20 @@ pub fn stop_task(handle: TaskHandle) -> Result(Unit, Error)
 
 **Use when:** Setting up resources, loading configuration, or preparing for use.
 
-**Examples:**
+##### Initializing a database and services <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_lifecycle.gleam#L34-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn init_database(config: DatabaseConfig) -> Result(Database, Error)
-pub fn init_logger(config: LoggerConfig) -> Result(Logger, Error)
-pub fn init_services(config: Config) -> Result(Services, Error)
+pub fn init_database(config: DatabaseConfig) -> Result(Database, String) {
+  case config.pool_size > 0 {
+    True -> Ok(Database(url: config.url, connections: config.pool_size))
+    False -> Error("pool_size must be greater than 0")
+  }
+}
+
+pub fn init_services(config: DatabaseConfig) -> Result(Services, String) {
+  use database <- result.try(init_database(config))
+  Ok(Services(database:))
+}
 ```
 
 **Do NOT use when:** Starting services (use `start_{noun}` instead).
@@ -435,10 +634,16 @@ pub fn init_services(config: Config) -> Result(Services, Error)
 
 **Use when:** Stopping services with proper cleanup, saving state, or closing connections.
 
-**Examples:**
+##### Shutting down a database and services <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_lifecycle.gleam#L46-L52"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn shutdown_server(server: Server) -> Result(Unit, Error)
-pub fn shutdown_database(database: Database) -> Result(Unit, Error)
+pub fn shutdown_database(database: Database) -> Database {
+  Database(..database, connections: 0)
+}
+
+pub fn shutdown_services(services: Services) -> Services {
+  Services(database: shutdown_database(services.database))
+}
 ```
 
 **Do NOT use when:** Immediate stopping (use `stop_{noun}` instead).
@@ -452,11 +657,17 @@ pub fn shutdown_database(database: Database) -> Result(Unit, Error)
 
 **Use when:** Encoding data for storage or transmission.
 
-**Examples:**
+##### Serializing a user and a session <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_serialization.gleam#L21-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn serialize_response(response: Response) -> Bytes
-pub fn serialize_config(config: Config) -> String
-pub fn serialize_user(user: User) -> Bytes
+pub fn serialize_user(user: User) -> String {
+  json.object([#("id", json.int(user.id)), #("name", json.string(user.name))])
+  |> json.to_string
+}
+
+pub fn serialize_session(session: Session) -> BitArray {
+  bit_array.from_string(session.id <> ":" <> int.to_string(session.user_id))
+}
 ```
 
 **Do NOT use when:** Formatting for display (use `format_{noun}` instead).
@@ -466,11 +677,19 @@ pub fn serialize_user(user: User) -> Bytes
 
 **Use when:** Decoding data from storage or transmission.
 
-**Examples:**
+##### Deserializing a user and a session <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_serialization.gleam#L30-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn deserialize_response(bytes: Bytes) -> Result(Response, Error)
-pub fn deserialize_config(json: String) -> Result(Config, Error)
-pub fn deserialize_user(bytes: Bytes) -> Result(User, Error)
+pub fn deserialize_user(text: String) -> Result(User, json.DecodeError) {
+  json.parse(text, user_decoder())
+}
+
+pub fn deserialize_session(bytes: BitArray) -> Result(Session, Nil) {
+  use text <- result.try(bit_array.to_string(bytes))
+  use #(id, user_id_text) <- result.try(string.split_once(text, ":"))
+  use user_id <- result.try(int.parse(user_id_text))
+  Ok(Session(id:, user_id:))
+}
 ```
 
 **Do NOT use when:** Parsing from strings with complex structure (use `parse_{noun}` instead).
@@ -484,11 +703,16 @@ pub fn deserialize_user(bytes: Bytes) -> Result(User, Error)
 
 **Use when:** Retrieving data from databases, files, or other persistent storage.
 
-**Examples:**
+##### Loading a user and a config file <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_state.gleam#L24-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn load_user(id: UserId) -> Result(User, Error)
-pub fn load_config(path: String) -> Result(Config, Error)
-pub fn load_settings(key: String) -> Result(Settings, Error)
+pub fn load_user(database: Database, id: Int) -> Result(User, Nil) {
+  dict.get(database.users, id)
+}
+
+pub fn load_config(path: String) -> Result(String, simplifile.FileError) {
+  simplifile.read(path)
+}
 ```
 
 **Do NOT use when:** Retrieving from memory/cache (use `get_{noun}` instead).
@@ -498,10 +722,19 @@ pub fn load_settings(key: String) -> Result(Settings, Error)
 
 **Use when:** Writing data to databases, files, or other persistent storage.
 
-**Examples:**
+##### Saving a user and a config file <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_state.gleam#L32-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn save_user(user: User) -> Result(UserId, Error)
-pub fn save_config(config: Config, path: String) -> Result(Unit, Error)
+pub fn save_user(database: Database, user: User) -> Database {
+  Database(users: dict.insert(database.users, user.id, user))
+}
+
+pub fn save_config(
+  config: String,
+  path: String,
+) -> Result(Nil, simplifile.FileError) {
+  simplifile.write(to: path, contents: config)
+}
 ```
 
 **Do NOT use when:** Storing in memory (use `store_{noun}` instead).
@@ -511,10 +744,15 @@ pub fn save_config(config: Config, path: String) -> Result(Unit, Error)
 
 **Use when:** Keeping data in memory, cache, or temporary storage.
 
-**Examples:**
+##### Storing a session in memory <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_state.gleam#L43-L48"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn store_session(key: String, session: Session) -> Result(Unit, Error)
-pub fn store_cache(key: String, value: Value) -> Result(Unit, Error)
+pub fn store_session(
+  sessions: Dict(String, Session),
+  session: Session,
+) -> Dict(String, Session) {
+  dict.insert(sessions, session.id, session)
+}
 ```
 
 **Do NOT use when:** Persisting to storage (use `save_{noun}` instead).
@@ -524,10 +762,20 @@ pub fn store_cache(key: String, value: Value) -> Result(Unit, Error)
 
 **Use when:** Recovering from backups, checkpoints, or saved states.
 
-**Examples:**
+##### Restoring sessions and a config file <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_state.gleam#L50-L60"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn restore_database(backup_id: String) -> Result(Database, Error)
-pub fn restore_session(session_id: String) -> Result(Session, Error)
+pub fn restore_sessions(snapshot: List(Session)) -> Dict(String, Session) {
+  list.fold(snapshot, dict.new(), store_session)
+}
+
+pub fn restore_config(
+  backup_path: String,
+  path: String,
+) -> Result(Nil, simplifile.FileError) {
+  use backup <- result.try(simplifile.read(backup_path))
+  simplifile.write(to: path, contents: backup)
+}
 ```
 
 **Do NOT use when:** Loading current data (use `load_{noun}` instead).
@@ -541,16 +789,17 @@ pub fn restore_session(session_id: String) -> Result(Session, Error)
 
 **Use when:** Constructing HTTP responses with specific content types or formats.
 
-**Examples:**
+##### Making responses of each content type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_responses.gleam#L8-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn text_response(status: Status, body: String) -> Response
-pub fn json_response(status: Status, body: String) -> Response
-pub fn html_response(status: Status, body: String) -> Response
-pub fn redirect_response(status: Status, location: String) -> Response
-pub fn empty_response(status: Status) -> Response
+  let text = http.text_response(http.ok, "Hello")
+  let json = http.json_response(http.ok, "{\"message\":\"Hello\"}")
+  let html = http.html_response(http.ok, "<h1>Hello</h1>")
+  let redirect = http.redirect_response(http.see_other, "/login")
+  let empty = http.empty_response(http.no_content)
 ```
 
-**Do NOT use when:** Creating generic responses (use `create_response` instead).
+**Do NOT use when:** The response has no single content type. Then build the `Response` record directly. The helpers in `dream/http/response` are `text_response`, `json_response`, `html_response`, `binary_response`, `redirect_response`, `empty_response`, `stream_response` and `sse_response`.
 
 ---
 
@@ -558,14 +807,13 @@ pub fn empty_response(status: Status) -> Response
 
 For fluent builder APIs, simple action verbs without nouns are acceptable when the builder type provides context:
 
-✅ **Acceptable:**
+#### ✅ Acceptable: the server builder <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_builder.gleam#L12-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-builder
-  |> method(Get)
-  |> path("/")
-  |> handler(fn(req) { ... })
-  |> bind("localhost")
-  |> listen(3000)
+  server.new()
+  |> server.router(app_router())
+  |> server.bind("localhost")
+  |> server.listen_with_handle(port)
 ```
 
 This exception applies only to:
@@ -581,19 +829,11 @@ This exception applies only to:
 
 For factory functions that create instances where context makes it unambiguous, `create_{noun}` can be shortened to just `{noun}`:
 
-✅ **Acceptable:**
+#### ✅ Acceptable: the router constructor <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_factory.gleam#L24-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-// Status constructors - context is clear from module and return type
-pub fn ok() -> Success
-pub fn not_found() -> ClientError
-pub fn internal_server_error() -> ServerError
-
-// Router constructor - clearly creates a Router in router module
-pub fn router() -> Router
-
-// Other simple factories where context is obvious
-pub fn empty() -> List(a)
-pub fn none() -> Option(a)
+  // Router constructor: the router module creates a Router
+  let app_router = router.router()
 ```
 
 **This exception applies when:**
@@ -608,33 +848,37 @@ pub fn none() -> Option(a)
 - The context doesn't clearly indicate what's being constructed
 - The function name doesn't correspond to what's being created
 
-❌ **Not acceptable - ambiguous:**
-```gleam
-// Ambiguous - what does this initialize?
-pub fn initialize() -> Result(System, Error)  // Use create_system or init_system instead
+#### ❌ Not acceptable: ambiguous factories <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_factory.gleam#L30-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-// Ambiguous - which user? from where?
-pub fn user() -> Result(User, Error)  // Use create_user, load_user, etc. instead
-```
-
-✅ **Acceptable - unambiguous:**
 ```gleam
-// In router module - clearly creates a Router
-pub fn router() -> Router {
-  Router(routes: [], middleware: [], config: default_config())
+// Ambiguous: what does this initialize?
+// Use create_services or init_services instead.
+pub fn initialize() -> Result(Services, String) {
+  Ok(Services(users: []))
 }
 
-// In database module - clearly creates a Database
-pub fn database(url: String) -> Result(Database, Error) {
-  // ... complex initialization logic
-  Ok(Database(...))
+// Ambiguous: which user? From where?
+// Use create_user or load_user instead.
+pub fn user() -> Result(User, String) {
+  Ok(User(id: 1, name: "Ada"))
+}
+```
+
+#### ✅ Acceptable: an unambiguous factory <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_factory.gleam#L42-L48"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+// Clearly creates a Database
+pub fn database(url: String) -> Result(Database, String) {
+  case string.starts_with(url, "postgres://") {
+    True -> Ok(Database(url:))
+    False -> Error("The database URL must start with postgres://")
+  }
 }
 ```
 
 **Examples that follow the exception:**
-- Status constructors: `ok()`, `created()`, `not_found()`, `bad_request()`
-- Type constructors in their own modules: `router()`, `database()`, `server()`
-- Standard library patterns: `none()`, `empty()`, `default()`, `zero()`
+- Type constructors in their own modules: `router.router()`, `database()`
+- Standard library patterns: `dict.new()`, `set.new()`, `list.new()`, and the `option.None` constructor
 
 ---
 
@@ -642,47 +886,56 @@ pub fn database(url: String) -> Result(Database, Error) {
 
 Variables and parameters must use full, descriptive names without abbreviations, but should remain concise. Context provides meaning - don't encode everything in the variable name.
 
-✅ **Good - Full words, concise:**
-```gleam
-pub fn handler(route: Route, handler_function: fn(Request) -> Response) -> Route
-pub fn method(route: Route, method: Method) -> Route
+### ✅ Good: full words, concise <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_variables_good.gleam#L7-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-fn process(request: Request, response: Response) -> Response {
-  let result = {
-    use user_id <- result.try(require_int(request, "id"))
-    let header = get_header(request.headers, "content-type")
-    use user <- result.try(authenticate(request))
-    Ok(#(user_id, user))
+```gleam
+pub fn show_user(request: Request, _context, services: Services) -> Response {
+  let user_result = {
+    use user_id <- result.try(http.require_int(request, "id"))
+    find_user(services.users, user_id)
   }
-  // ...
+  respond_with_user(user_result)
 }
 ```
 
-❌ **Bad - Abbreviated:**
-```gleam
-pub fn handler(r: Route, h: fn(Request) -> Response) -> Route
-pub fn method(rt: Route, m: Method) -> Route
+### ❌ Bad: abbreviated <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_variables_abbreviated.gleam#L7-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-fn process(request: Request, response: Response) -> Response {
-  let user_id_result = require_int(request, "id")  // Use user_id (not uid), and use require_int
-  let header = get_header(request.headers, "content-type")  // Use header (not hdr), use full name
-  let user_result = authenticate(request)  // Use user (not u)
-  // ...
+```gleam
+pub fn show_user(req: Request, _ctx, svcs: Services) -> Response {
+  let res = {
+    use uid <- result.try(http.require_int(req, "id"))
+    find_user(svcs.users, uid)
+  }
+  respond_with_user(res)
 }
 ```
 
-❌ **Bad - Overly verbose:**
+`req`, `ctx`, `svcs`, `res` and `uid` save a few letters, but the reader must guess each word.
+
+### ❌ Bad: overly verbose <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_variables_verbose.gleam#L7-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-fn process(
+pub fn show_user(
   incoming_http_request: Request,
-  outgoing_http_response: Response
+  _request_context_value,
+  application_services_record: Services,
 ) -> Response {
-  let user_identifier_from_path_params_result = require_int(request, "id")
-  let user_with_verified_email_and_password = authenticate(request)
+  let user_lookup_result_from_services = {
+    use user_identifier_from_path_parameters <- result.try(http.require_int(
+      incoming_http_request,
+      "id",
+    ))
+    find_user(
+      application_services_record.users,
+      user_identifier_from_path_parameters,
+    )
+  }
   // When you get the message, hang up!
-  // ...
+  respond_with_user(user_lookup_result_from_services)
 }
 ```
+
+Each name repeats what the types and the function already say. The extra words make the code harder to read.
 
 **Rules:**
 1. **Full words required:** `request` not `req`, `response` not `resp`, `router` not `rtr`
