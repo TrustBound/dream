@@ -13,7 +13,7 @@
 ////   
 ////   case result {
 ////     Ok(id) -> json_response(ok, user_to_json(id))
-////     Error(msg) -> json_response(bad_request, error_json(msg))
+////     Error(message) -> json_response(bad_request, error_json(message))
 ////   }
 //// }
 //// ```
@@ -33,7 +33,7 @@
 ////     // param.as_int is Ok(123)
 ////     use_param_data(param)
 ////   }
-////   Error(msg) -> handle_param_error(msg)
+////   Error(message) -> handle_param_error(message)
 //// }
 //// ```
 ////
@@ -385,8 +385,8 @@ pub fn method_to_string(method: Method) -> String {
 }
 
 /// Parse a string to Method (case-insensitive)
-pub fn parse_method(str: String) -> option.Option(Method) {
-  case string.lowercase(str) {
+pub fn parse_method(method_name: String) -> option.Option(Method) {
+  case string.lowercase(method_name) {
     "get" -> option.Some(Get)
     "post" -> option.Some(Post)
     "put" -> option.Some(Put)
@@ -486,7 +486,7 @@ fn parse_path_param(raw: String) -> PathParam {
   // Split on last dot to extract format extension
   let parts = string.split(raw, ".")
   let #(value, format) = case parts {
-    [val, ext] -> #(val, option.Some(ext))
+    [base_value, extension] -> #(base_value, option.Some(extension))
     _ -> #(raw, option.None)
   }
 
@@ -518,7 +518,7 @@ fn parse_path_param(raw: String) -> PathParam {
 ///     param.value  // "123"
 ///     param.as_int // Ok(123)
 ///   }
-///   Error(msg) -> // handle error
+///   Error(message) -> // handle error
 /// }
 /// ```
 ///
@@ -531,7 +531,7 @@ fn parse_path_param(raw: String) -> PathParam {
 ///     param.format // Some("json")
 ///     param.as_int // Ok(123)
 ///   }
-///   Error(msg) -> // handle error
+///   Error(message) -> // handle error
 /// }
 /// ```
 ///
@@ -539,7 +539,7 @@ fn parse_path_param(raw: String) -> PathParam {
 /// // For simple integer extraction, use get_int_param:
 /// case get_int_param(request, "id") {
 ///   Ok(id) -> show_user(id)
-///   Error(msg) -> json_response(status.bad_request, error_json(msg))
+///   Error(message) -> json_response(status.bad_request, error_json(message))
 /// }
 /// ```
 pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
@@ -561,7 +561,7 @@ pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
 /// // Request: /users/123
 /// case get_int_param(request, "id") {
 ///   Ok(id) -> show_user(id)
-///   Error(msg) -> json_response(status.bad_request, error_json(msg))
+///   Error(message) -> json_response(status.bad_request, error_json(message))
 /// }
 /// ```
 pub fn get_int_param(request: Request, name: String) -> Result(Int, String) {
@@ -589,7 +589,7 @@ fn param_to_int(param: PathParam, name: String) -> Result(Int, String) {
 /// // Request: /users/john
 /// case get_string_param(request, "name") {
 ///   Ok(name) -> show_user_by_name(name)
-///   Error(msg) -> json_response(status.bad_request, error_json(msg))
+///   Error(message) -> json_response(status.bad_request, error_json(message))
 /// }
 /// ```
 pub fn get_string_param(

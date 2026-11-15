@@ -228,7 +228,7 @@ pub fn route(
   router_value: Router(context, services),
   method method_value: Method,
   path path_pattern: String,
-  controller controller_fn: fn(Request, context, services) -> Response,
+  controller controller_function: fn(Request, context, services) -> Response,
   middleware middleware_list: List(
     fn(Request, context, services, fn(Request, context, services) -> Response) ->
       Response,
@@ -241,7 +241,7 @@ pub fn route(
 
   let handler =
     RouteHandler(
-      controller: controller_fn,
+      controller: controller_function,
       middleware: middleware_wrappers,
       streaming: False,
       param_names: param_names,
@@ -283,7 +283,7 @@ pub fn stream_route(
   router_value: Router(context, services),
   method method_value: Method,
   path path_pattern: String,
-  controller controller_fn: fn(Request, context, services) -> Response,
+  controller controller_function: fn(Request, context, services) -> Response,
   middleware middleware_list: List(
     fn(Request, context, services, fn(Request, context, services) -> Response) ->
       Response,
@@ -296,7 +296,7 @@ pub fn stream_route(
 
   let handler =
     RouteHandler(
-      controller: controller_fn,
+      controller: controller_function,
       middleware: middleware_wrappers,
       streaming: True,
       param_names: param_names,
@@ -380,8 +380,8 @@ fn split_path(path: String) -> List(String) {
 }
 
 /// Check if a segment is non-empty
-fn is_non_empty_segment(seg: String) -> Bool {
-  seg != ""
+fn is_non_empty_segment(segment: String) -> Bool {
+  segment != ""
 }
 
 /// Extract param names from segments in path order
@@ -395,7 +395,7 @@ fn extract_param_names_from_segments(segments: List(Segment)) -> List(String) {
       let rest_names = extract_param_names_from_segments(rest)
       let name = extract_param_name_from_segment(segment)
       case name {
-        option.Some(n) -> [n, ..rest_names]
+        option.Some(param_name) -> [param_name, ..rest_names]
         option.None -> rest_names
       }
     }
@@ -473,11 +473,11 @@ fn build_chain_recursive(
 ) -> fn(Request, context, services) -> Response {
   case middleware {
     [] -> controller
-    [mw, ..rest] -> {
-      case mw {
-        Middleware(middleware_fn) -> {
+    [first_middleware, ..rest] -> {
+      case first_middleware {
+        Middleware(middleware_function) -> {
           let wrapped_controller =
-            create_wrapped_controller(middleware_fn, controller)
+            create_wrapped_controller(middleware_function, controller)
           build_chain_recursive(rest, wrapped_controller)
         }
       }
@@ -487,7 +487,7 @@ fn build_chain_recursive(
 
 /// Wrap a controller with a middleware function
 fn create_wrapped_controller(
-  middleware_fn: fn(
+  middleware_function: fn(
     Request,
     context,
     services,
@@ -495,14 +495,14 @@ fn create_wrapped_controller(
   ) -> Response,
   controller: fn(Request, context, services) -> Response,
 ) -> fn(Request, context, services) -> Response {
-  wrap_controller_with_middleware(middleware_fn, controller)
+  wrap_controller_with_middleware(middleware_function, controller)
 }
 
 /// Create a wrapped controller that applies middleware
 ///
 /// This is a named function to avoid anonymous functions in production code.
 fn wrap_controller_with_middleware(
-  middleware_fn: fn(
+  middleware_function: fn(
     Request,
     context,
     services,
@@ -510,12 +510,12 @@ fn wrap_controller_with_middleware(
   ) -> Response,
   controller: fn(Request, context, services) -> Response,
 ) -> fn(Request, context, services) -> Response {
-  apply_middleware_to_controller(middleware_fn, controller)
+  apply_middleware_to_controller(middleware_function, controller)
 }
 
 /// Apply middleware to a controller, creating a wrapped controller function
 fn apply_middleware_to_controller(
-  middleware_fn: fn(
+  middleware_function: fn(
     Request,
     context,
     services,
@@ -524,7 +524,7 @@ fn apply_middleware_to_controller(
   controller: fn(Request, context, services) -> Response,
 ) -> fn(Request, context, services) -> Response {
   fn(request, context, services) {
-    middleware_fn(request, context, services, controller)
+    middleware_function(request, context, services, controller)
   }
 }
 
@@ -534,10 +534,14 @@ fn apply_middleware_to_controller(
 
 /// Wrap a middleware function in the Middleware type
 fn wrap_middleware(
-  mw: fn(Request, context, services, fn(Request, context, services) -> Response) ->
-    Response,
+  middleware_function: fn(
+    Request,
+    context,
+    services,
+    fn(Request, context, services) -> Response,
+  ) -> Response,
 ) -> Middleware(context, services) {
-  Middleware(mw)
+  Middleware(middleware_function)
 }
 
 /// Convert an HTTP method to its string representation

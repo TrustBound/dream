@@ -1,6 +1,7 @@
 //// Main test entry point using dream_test framework.
 
 import benchmarks/router_benchmark
+import doc_server_snippets_test
 import dream/context_test
 import dream/dream_test as dream_module_test
 import dream/http/cookie_test
@@ -21,6 +22,7 @@ import dream/servers/mist/response_test as mist_response_test
 import dream/servers/mist/server_test
 import dream/servers/mist/sse_test
 import dream/servers/mist/tls_test
+import dream/services/broadcaster_test
 import dream/streaming_test
 import dream_test/reporter/bdd
 import dream_test/runner
@@ -61,9 +63,14 @@ pub fn main() {
       unit.to_test_cases("dream/servers/mist/server", server_test.tests()),
       unit.to_test_cases("dream/servers/mist/tls", tls_test.tests()),
       unit.to_test_cases("dream/servers/mist/sse", sse_test.tests()),
+      unit.to_test_cases("dream/services/broadcaster", broadcaster_test.tests()),
       unit.to_test_cases("dream/streaming", streaming_test.tests()),
       unit.to_test_cases("benchmarks/router", router_benchmark.tests()),
       unit.to_test_cases("snippets", snippets_test.tests()),
+      unit.to_test_cases(
+        "doc_server_snippets",
+        doc_server_snippets_test.tests(),
+      ),
     ]
     |> list.flatten
 

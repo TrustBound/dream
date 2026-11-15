@@ -25,13 +25,15 @@ NC='\033[0m' # No Color
 REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$REPO_ROOT"
 
-FORK_PACKAGES="dream_socket_server dream_http_server"
-FORK_VERSION="1.0.0"
+# Each package with the version that dream's gleam.toml needs.
+FORK_RELEASES="dream_socket_server:1.0.0 dream_http_server:1.2.0"
 PAUSE_SECONDS=70
 
 # Step 1: Refuse to run before both packages are on Hex. One request each.
 echo "🔍 Checking that the forked packages are on Hex..."
-for package in $FORK_PACKAGES; do
+for release in $FORK_RELEASES; do
+  package=${release%%:*}
+  FORK_VERSION=${release##*:}
   url="https://hex.pm/api/packages/$package/releases/$FORK_VERSION"
   status=$(curl --silent --output /dev/null --write-out '%{http_code}' "$url" || true)
   if [ "$status" != "200" ]; then
@@ -59,7 +61,14 @@ for project in $projects; do
   fi
 
   echo "📦 Resolving $project..."
-  if ! output=$(cd "$project" && gleam deps download 2>&1); then
+  # A project that already locks dream_http_server must unlock it, or the
+  # old locked version conflicts with the version dream's gleam.toml needs.
+  if grep -q 'name = "dream_http_server"' "$project/manifest.toml" 2>/dev/null; then
+    command="gleam update dream_http_server"
+  else
+    command="gleam deps download"
+  fi
+  if ! output=$(cd "$project" && $command 2>&1); then
     echo "$output"
     echo ""
     echo -e "${RED}❌ Failed in $project. Fix it, then run this script again.${NC}"

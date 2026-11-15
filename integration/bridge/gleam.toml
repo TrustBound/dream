@@ -1,0 +1,10 @@
+name = "integration_bridge"
+version = "1.0.0"
+description = "Test-only bridge: lets Dream's Elixir integration tests send requests with dream_http_client"
+target = "erlang"
+
+[dependencies]
+gleam_stdlib = ">= 1.0.0 and < 2.0.0"
+gleam_http = ">= 4.3.0 and < 5.0.0"
+gleam_erlang = ">= 1.1.0 and < 2.0.0"
+dream_http_client = { path = "../../modules/http_client" }

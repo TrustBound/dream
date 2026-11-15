@@ -7,7 +7,7 @@
 //// then pipe the results through your business logic using gleam/result.
 
 import dream/http/error.{type Error, BadRequest}
-import dream/http/request.{type Request}
+import dream/http/request.{type Request, get_int_param, get_string_param}
 import gleam/int
 import gleam/list
 import gleam/option.{type Option}
@@ -29,8 +29,8 @@ import gleam/uri
 ///   // ... rest of logic with id : Int
 /// }
 /// ```
-pub fn require_int(req: Request, name: String) -> Result(Int, Error) {
-  request.get_int_param(req, name)
+pub fn require_int(request: Request, name: String) -> Result(Int, Error) {
+  get_int_param(request, name)
   |> result_string_to_error
 }
 
@@ -44,8 +44,8 @@ pub fn require_int(req: Request, name: String) -> Result(Int, Error) {
 /// use name <- result.try(params.require_string(request, "name"))
 /// // ... rest of logic with name : String
 /// ```
-pub fn require_string(req: Request, name: String) -> Result(String, Error) {
-  request.get_string_param(req, name)
+pub fn require_string(request: Request, name: String) -> Result(String, Error) {
+  get_string_param(request, name)
   |> result_string_to_error
 }
 
@@ -60,8 +60,10 @@ pub fn require_string(req: Request, name: String) -> Result(String, Error) {
 /// use form <- result.try(params.require_form(request))
 /// use title <- result.try(params.require_field(form, "title"))
 /// ```
-pub fn require_form(req: Request) -> Result(List(#(String, String)), Error) {
-  case req.body {
+pub fn require_form(
+  request: Request,
+) -> Result(List(#(String, String)), Error) {
+  case request.body {
     "" -> Error(BadRequest("Request body is empty"))
     body -> Ok(parse_form_body(body))
   }
@@ -112,7 +114,7 @@ pub fn require_field_int(
 
 fn parse_int_field(value: String, name: String) -> Result(Int, Error) {
   case int.parse(value) {
-    Ok(i) -> Ok(i)
+    Ok(number) -> Ok(number)
     Error(_) -> Error(BadRequest("Field '" <> name <> "' must be an integer"))
   }
 }
@@ -120,7 +122,7 @@ fn parse_int_field(value: String, name: String) -> Result(Int, Error) {
 fn result_string_to_error(result: Result(a, String)) -> Result(a, Error) {
   case result {
     Ok(value) -> Ok(value)
-    Error(msg) -> Error(BadRequest(msg))
+    Error(message) -> Error(BadRequest(message))
   }
 }
 
@@ -169,7 +171,7 @@ fn add_parsed_pair(
   rest_parsed: List(#(String, String)),
 ) -> List(#(String, String)) {
   case parse_form_pair(pair) {
-    option.Some(kv) -> [kv, ..rest_parsed]
+    option.Some(key_value) -> [key_value, ..rest_parsed]
     option.None -> rest_parsed
   }
 }

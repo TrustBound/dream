@@ -6,6 +6,8 @@
 ////
 //// Most applications will import this module as:
 ////
+//// ### Import the module <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_websocket_chat.gleam#L6"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
 //// import dream/servers/mist/websocket
 //// ```
@@ -33,10 +35,11 @@
 ////
 //// ## Example (echo chat)
 ////
+//// ### Echo chat <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_websocket_chat.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
-//// import dream/http/request.{type Request}
-//// import dream/http/response.{type Response, text_response}
-//// import dream/http/status
+//// import dream/http/request.{type Request, get_query_param}
+//// import dream/http/response.{type Response}
 //// import dream/servers/mist/websocket
 //// import gleam/erlang/process
 //// import gleam/option
@@ -45,14 +48,14 @@
 ////   Dependencies(user_name: String)
 //// }
 ////
-//// pub fn handle_upgrade(request: Request, context, services) -> Response {
-////   let user = request.get_query_param(request.query, "user")
+//// pub fn handle_upgrade(request: Request, _context, _services) -> Response {
+////   let user = get_query_param(request.query, "user")
 ////   let user = option.unwrap(user, "Anonymous")
-////   let deps = Dependencies(user_name: user)
+////   let dependencies = Dependencies(user_name: user)
 ////
 ////   websocket.upgrade_websocket(
 ////     request,
-////     dependencies: deps,
+////     dependencies: dependencies,
 ////     on_init: handle_init,
 ////     on_message: handle_message,
 ////     on_close: handle_close,
@@ -61,9 +64,9 @@
 ////
 //// fn handle_init(
 ////   _connection: websocket.Connection,
-////   _deps: Dependencies,
+////   _dependencies: Dependencies,
 //// ) -> #(String, option.Option(process.Selector(String))) {
-////   // Initial state is the username, no extra messages yet
+////   // Initial state is an empty string, no extra messages yet
 ////   #("", option.None)
 //// }
 ////
@@ -71,11 +74,11 @@
 ////   state: String,
 ////   message: websocket.Message(String),
 ////   connection: websocket.Connection,
-////   deps: Dependencies,
+////   dependencies: Dependencies,
 //// ) -> websocket.Action(String, String) {
 ////   case message {
 ////     websocket.TextMessage(text) -> {
-////       let reply = deps.user_name <> ": " <> text
+////       let reply = dependencies.user_name <> ": " <> text
 ////       let _ = websocket.send_text(connection, reply)
 ////       websocket.continue_connection(state)
 ////     }
@@ -84,7 +87,7 @@
 ////   }
 //// }
 ////
-//// fn handle_close(_state: String, _deps: Dependencies) -> Nil {
+//// fn handle_close(_state: String, _dependencies: Dependencies) -> Nil {
 ////   Nil
 //// }
 //// ```
@@ -147,27 +150,33 @@ pub opaque type Action(state, custom) {
 ///
 /// ## Example
 ///
-/// ```gleam
-/// websocket.upgrade_websocket(
-///   request,
-///   dependencies: services,
-///   on_init: init_handler,
-///   on_message: message_handler,
-///   on_close: close_handler,
-/// )
+/// ### Upgrade to a WebSocket <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_websocket_upgrade.gleam#L6-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
-/// fn init_handler(connection, services) {
-///   #(initial_state, None)
+/// ```gleam
+/// pub fn connect(request, _context, services) {
+///   websocket.upgrade_websocket(
+///     request,
+///     dependencies: services,
+///     on_init: init_handler,
+///     on_message: message_handler,
+///     on_close: close_handler,
+///   )
 /// }
 ///
-/// fn message_handler(state, message, connection, services) {
+/// fn init_handler(_connection, _services) {
+///   #(0, None)
+/// }
+///
+/// fn message_handler(state, message, connection, _services) {
 ///   case message {
 ///     websocket.TextMessage(text) -> {
 ///       // Handle text message
-///       websocket.continue_connection(state)
+///       let _ = websocket.send_text(connection, text)
+///       websocket.continue_connection(state + 1)
 ///     }
-///     websocket.CustomMessage(msg) -> {
+///     websocket.CustomMessage(custom_message) -> {
 ///       // Handle custom message from selector
+///       let _ = websocket.send_text(connection, custom_message)
 ///       websocket.continue_connection(state)
 ///     }
 ///     websocket.ConnectionClosed -> websocket.stop_connection()
@@ -175,7 +184,7 @@ pub opaque type Action(state, custom) {
 ///   }
 /// }
 ///
-/// fn close_handler(state, services) {
+/// fn close_handler(_state, _services) {
 ///   Nil
 /// }
 /// ```
@@ -198,20 +207,20 @@ pub fn upgrade_websocket(
   // 3. Wrap handlers to convert between Dream and Mist types
   // Note: These closures are necessary to integrate with Mist's API.
   // This is the ONLY place closures are allowed - see standards.md exception.
-  let wrapped_on_init = fn(mist_conn: WebsocketConnection) {
-    let dream_conn = Connection(internal: mist_conn)
-    on_init(dream_conn, dependencies)
+  let wrapped_on_init = fn(mist_connection: WebsocketConnection) {
+    let dream_connection = Connection(internal: mist_connection)
+    on_init(dream_connection, dependencies)
   }
 
   let wrapped_handler = fn(
     state: state,
-    mist_msg: WebsocketMessage(custom),
-    mist_conn: WebsocketConnection,
+    mist_message: WebsocketMessage(custom),
+    mist_connection: WebsocketConnection,
   ) {
-    let dream_conn = Connection(internal: mist_conn)
-    let dream_msg = convert_mist_message_to_dream(mist_msg)
+    let dream_connection = Connection(internal: mist_connection)
+    let dream_message = convert_mist_message_to_dream(mist_message)
     let Action(mist_action) =
-      on_message(state, dream_msg, dream_conn, dependencies)
+      on_message(state, dream_message, dream_connection, dependencies)
     mist_action
   }
 
@@ -256,18 +265,25 @@ pub fn stop_connection() -> Action(state, custom) {
 ///
 /// ## Example
 ///
+/// ### Send text <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_websocket_send.gleam#L9-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// case websocket.send_text(connection, "Hello!") {
-///   Ok(Nil) -> // Message sent successfully
-///   Error(reason) -> // Handle send error
+/// pub fn send_greeting(
+///   state: Nil,
+///   connection: websocket.Connection,
+/// ) -> websocket.Action(Nil, Nil) {
+///   case websocket.send_text(connection, "Hello!") {
+///     Ok(Nil) -> websocket.continue_connection(state)
+///     Error(_reason) -> websocket.stop_connection()
+///   }
 /// }
 /// ```
 pub fn send_text(
   connection: Connection,
   message: String,
 ) -> Result(Nil, SendError) {
-  let Connection(internal: mist_conn) = connection
-  mist.send_text_frame(mist_conn, message)
+  let Connection(internal: mist_connection) = connection
+  mist.send_text_frame(mist_connection, message)
   |> convert_socket_error
 }
 
@@ -275,18 +291,26 @@ pub fn send_text(
 ///
 /// ## Example
 ///
+/// ### Send binary data <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_websocket_send.gleam#L19-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// case websocket.send_binary(connection, data) {
-///   Ok(Nil) -> // Message sent successfully
-///   Error(reason) -> // Handle send error
+/// pub fn send_data(
+///   state: Nil,
+///   connection: websocket.Connection,
+///   data: BitArray,
+/// ) -> websocket.Action(Nil, Nil) {
+///   case websocket.send_binary(connection, data) {
+///     Ok(Nil) -> websocket.continue_connection(state)
+///     Error(_reason) -> websocket.stop_connection()
+///   }
 /// }
 /// ```
 pub fn send_binary(
   connection: Connection,
   message: BitArray,
 ) -> Result(Nil, SendError) {
-  let Connection(internal: mist_conn) = connection
-  mist.send_binary_frame(mist_conn, message)
+  let Connection(internal: mist_connection) = connection
+  mist.send_binary_frame(mist_connection, message)
   |> convert_socket_error
 }
 
@@ -295,9 +319,9 @@ pub fn send_binary(
 // ============================================================================
 
 fn convert_mist_message_to_dream(
-  mist_msg: WebsocketMessage(custom),
+  mist_message: WebsocketMessage(custom),
 ) -> Message(custom) {
-  case mist_msg {
+  case mist_message {
     mist.Text(text) -> TextMessage(text)
     mist.Binary(data) -> BinaryMessage(data)
     mist.Custom(custom) -> CustomMessage(custom)
