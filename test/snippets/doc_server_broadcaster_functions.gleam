@@ -42,3 +42,9 @@ pub fn initial_state(
   let selector = broadcaster.channel_to_selector(channel)
   #(0, Some(selector))
 }
+
+pub fn listener_count(
+  my_broadcaster: broadcaster.Broadcaster(message),
+) -> Result(Int, Nil) {
+  broadcaster.count_subscribers(my_broadcaster)
+}
