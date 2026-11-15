@@ -1,0 +1,987 @@
+//// Tests for the snippets shown in the doc comments of `dream/http/cookie`,
+//// `error`, `params`, `transaction` and `validation`. Each snippet is in
+//// test/snippets/doc_http_data_*.gleam.
+
+import dream/http/cookie.{Cookie, Lax, Strict}
+import dream/http/error
+import dream/http/request.{type Request, Get, Post, Request}
+import dream/http/transaction
+import dream/http/validation
+import dream_test/assertions/should.{equal, or_fail_with, should}
+import dream_test/unit.{type UnitTest, describe, it}
+import fixtures/request as test_request
+import gleam/dynamic/decode
+import gleam/json
+import gleam/option.{None, Some}
+import matchers/extract_body_text.{extract_body_text}
+import snippets/doc_http_data_cookie_module
+import snippets/doc_http_data_cookie_name
+import snippets/doc_http_data_cookie_same_site
+import snippets/doc_http_data_cookie_type
+import snippets/doc_http_data_cookie_value
+import snippets/doc_http_data_error_bad_request
+import snippets/doc_http_data_error_forbidden
+import snippets/doc_http_data_error_internal_server_error
+import snippets/doc_http_data_error_message
+import snippets/doc_http_data_error_module
+import snippets/doc_http_data_error_not_found
+import snippets/doc_http_data_error_response
+import snippets/doc_http_data_error_unauthorized
+import snippets/doc_http_data_error_unprocessable_content
+import snippets/doc_http_data_field_optional
+import snippets/doc_http_data_get_cookie
+import snippets/doc_http_data_get_cookie_value
+import snippets/doc_http_data_remove_cookie
+import snippets/doc_http_data_require_field_int
+import snippets/doc_http_data_require_form
+import snippets/doc_http_data_require_int
+import snippets/doc_http_data_require_string
+import snippets/doc_http_data_secure_cookie
+import snippets/doc_http_data_set_cookie
+import snippets/doc_http_data_simple_cookie
+import snippets/doc_http_data_to_status_code
+import snippets/doc_http_data_transaction_format
+import snippets/doc_http_data_transaction_params
+import snippets/doc_http_data_transaction_path
+import snippets/doc_http_data_transaction_set_header
+import snippets/doc_http_data_validate_json
+import snippets/doc_http_data_validation_error
+import snippets/doc_http_data_validation_module
+
+pub fn tests() -> UnitTest {
+  describe("doc comment snippets for dream/http data modules", [
+    cookie_tests(),
+    error_tests(),
+    params_tests(),
+    transaction_tests(),
+    validation_tests(),
+  ])
+}
+
+fn params_request(params: List(#(String, String))) -> Request {
+  test_request.create_request_with_params(Get, "/", params)
+}
+
+fn form_request(body: String) -> Request {
+  test_request.create_request_with_body(Post, "/tasks", body)
+}
+
+fn json_request(body: String) -> Request {
+  test_request.create_request_with_body(Post, "/", body)
+}
+
+fn transaction_request(params: List(#(String, String))) -> transaction.Request {
+  transaction.Request(
+    method: transaction.Get,
+    protocol: transaction.Http,
+    version: transaction.Http1,
+    path: "/users",
+    query: "",
+    params: params,
+    host: None,
+    port: None,
+    remote_address: None,
+    body: "",
+    headers: [],
+    cookies: [],
+    content_type: None,
+    content_length: None,
+  )
+}
+
+fn cookie_tests() -> UnitTest {
+  describe("dream/http/cookie", [
+    it("module example builds a simple and a secure cookie", fn() {
+      // Act
+      let cookies = doc_http_data_cookie_module.new_cookies()
+
+      // Assert
+      cookies
+      |> should()
+      |> equal([
+        cookie.simple_cookie("theme", "dark"),
+        cookie.secure_cookie("session_id", "abc123"),
+      ])
+      |> or_fail_with("new_cookies should hold theme and session_id")
+    }),
+    it("module example reads the session cookie from the request", fn() {
+      // Arrange
+      let request =
+        Request(..test_request.create_request(Get, "/"), cookies: [
+          cookie.secure_cookie("session_id", "abc123"),
+        ])
+
+      // Act
+      let status = doc_http_data_cookie_module.session_status(request)
+
+      // Assert
+      status
+      |> should()
+      |> equal("Session abc123")
+      |> or_fail_with("session_status should read abc123")
+    }),
+    it("module example reports a missing session cookie", fn() {
+      // Arrange
+      let request = test_request.create_request(Get, "/")
+
+      // Act
+      let status = doc_http_data_cookie_module.session_status(request)
+
+      // Assert
+      status
+      |> should()
+      |> equal("No session cookie")
+      |> or_fail_with("session_status should report no cookie")
+    }),
+    it("SameSite example sets Lax", fn() {
+      // Act
+      let session_cookie = doc_http_data_cookie_same_site.session_cookie()
+
+      // Assert
+      session_cookie
+      |> should()
+      |> equal(
+        Cookie(
+          ..cookie.secure_cookie("session", "abc123"),
+          same_site: Some(Lax),
+        ),
+      )
+      |> or_fail_with("session_cookie should be secure with Lax")
+    }),
+    it("Cookie example builder makes a secure cookie", fn() {
+      // Act
+      let auth_cookie = doc_http_data_cookie_type.builder_cookie()
+
+      // Assert
+      auth_cookie
+      |> should()
+      |> equal(cookie.secure_cookie("auth_token", "xyz789"))
+      |> or_fail_with("builder_cookie should be a secure cookie")
+    }),
+    it("Cookie example constructor sets a one hour max age", fn() {
+      // Act
+      let auth_cookie = doc_http_data_cookie_type.manual_cookie()
+
+      // Assert
+      auth_cookie
+      |> should()
+      |> equal(
+        Cookie(
+          ..cookie.secure_cookie("auth_token", "xyz789"),
+          max_age: Some(3600),
+          path: Some("/"),
+        ),
+      )
+      |> or_fail_with(
+        "manual_cookie should be secure with max_age 3600 and path /",
+      )
+    }),
+    it("cookie_name example returns the name", fn() {
+      // Act
+      let name = doc_http_data_cookie_name.session_cookie_name()
+
+      // Assert
+      name
+      |> should()
+      |> equal("session_id")
+      |> or_fail_with("cookie_name should return session_id")
+    }),
+    it("cookie_value example returns the value", fn() {
+      // Act
+      let value = doc_http_data_cookie_value.session_cookie_value()
+
+      // Assert
+      value
+      |> should()
+      |> equal("abc123")
+      |> or_fail_with("cookie_value should return abc123")
+    }),
+    it("simple_cookie example builds preference cookies", fn() {
+      // Act
+      let cookies = doc_http_data_simple_cookie.preference_cookies()
+
+      // Assert
+      cookies
+      |> should()
+      |> equal([
+        Cookie("theme", "dark", None, None, None, None, False, False, None),
+        Cookie("lang", "en", None, None, None, None, False, False, None),
+      ])
+      |> or_fail_with("preference_cookies should be two plain cookies")
+    }),
+    it("secure_cookie example builds secure cookies", fn() {
+      // Act
+      let cookies =
+        doc_http_data_secure_cookie.login_cookies("s-1", "jwt-1", "csrf-1")
+
+      // Assert
+      cookies
+      |> should()
+      |> equal([
+        Cookie(
+          "session_id",
+          "s-1",
+          None,
+          None,
+          None,
+          None,
+          True,
+          True,
+          Some(Strict),
+        ),
+        Cookie(
+          "auth_token",
+          "jwt-1",
+          None,
+          None,
+          None,
+          None,
+          True,
+          True,
+          Some(Strict),
+        ),
+        Cookie(
+          "csrf_token",
+          "csrf-1",
+          None,
+          None,
+          None,
+          None,
+          True,
+          True,
+          Some(Strict),
+        ),
+      ])
+      |> or_fail_with("login_cookies should be three secure cookies")
+    }),
+    it("get_cookie example finds the session value", fn() {
+      // Arrange
+      let cookies = doc_http_data_get_cookie.example_cookies()
+
+      // Act
+      let value = doc_http_data_get_cookie.session_value(cookies)
+
+      // Assert
+      value
+      |> should()
+      |> equal("abc123")
+      |> or_fail_with("session_value should be abc123")
+    }),
+    it("get_cookie example returns no session for an empty list", fn() {
+      // Arrange
+      let cookies = []
+
+      // Act
+      let value = doc_http_data_get_cookie.session_value(cookies)
+
+      // Assert
+      value
+      |> should()
+      |> equal("no session")
+      |> or_fail_with("session_value should be no session")
+    }),
+    it("get_cookie example ignores case", fn() {
+      // Arrange
+      let cookies = doc_http_data_get_cookie.example_cookies()
+
+      // Act
+      let found = doc_http_data_get_cookie.theme_cookie(cookies)
+
+      // Assert
+      found
+      |> should()
+      |> equal(Some(cookie.simple_cookie("theme", "dark")))
+      |> or_fail_with("THEME should find the theme cookie")
+    }),
+    it("get_cookie_value example finds theme and not missing", fn() {
+      // Act
+      let lookups = doc_http_data_get_cookie_value.lookups()
+
+      // Assert
+      lookups
+      |> should()
+      |> equal(#(Some("dark"), None))
+      |> or_fail_with("lookups should be Some(dark) and None")
+    }),
+    it("set_cookie example replaces and adds", fn() {
+      // Act
+      let cookies = doc_http_data_set_cookie.updated_cookies()
+
+      // Assert
+      cookies
+      |> should()
+      |> equal([
+        cookie.secure_cookie("session_id", "abc123"),
+        cookie.simple_cookie("theme", "dark"),
+      ])
+      |> or_fail_with("updated_cookies should be session_id then theme")
+    }),
+    it("remove_cookie example removes theme", fn() {
+      // Act
+      let cookies = doc_http_data_remove_cookie.without_theme()
+
+      // Assert
+      cookies
+      |> should()
+      |> equal([cookie.secure_cookie("session_id", "abc123")])
+      |> or_fail_with("without_theme should keep session_id only")
+    }),
+    it("remove_cookie example expires the session cookie", fn() {
+      // Act
+      let expired = doc_http_data_remove_cookie.expired_session()
+
+      // Assert
+      expired
+      |> should()
+      |> equal(
+        Cookie(..cookie.secure_cookie("session_id", ""), max_age: Some(0)),
+      )
+      |> or_fail_with("expired_session should have max_age 0")
+    }),
+  ])
+}
+
+fn error_tests() -> UnitTest {
+  describe("dream/http/error", [
+    it("module example finds a user", fn() {
+      // Arrange
+      let users = [doc_http_data_error_module.User(1, "Alice")]
+
+      // Act
+      let result = doc_http_data_error_module.get_user(users, 1)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Ok(doc_http_data_error_module.User(1, "Alice")))
+      |> or_fail_with("get_user should find Alice")
+    }),
+    it("module example returns NotFound", fn() {
+      // Arrange
+      let users = []
+
+      // Act
+      let result = doc_http_data_error_module.get_user(users, 1)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.NotFound("User not found")))
+      |> or_fail_with("get_user should return NotFound")
+    }),
+    it("module example rejects an empty name", fn() {
+      // Arrange
+      let users = []
+
+      // Act
+      let result = doc_http_data_error_module.create_user(users, "")
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.BadRequest("Name must not be empty")))
+      |> or_fail_with("create_user should reject an empty name")
+    }),
+    it("module example creates a user", fn() {
+      // Arrange
+      let users = [doc_http_data_error_module.User(1, "Alice")]
+
+      // Act
+      let result = doc_http_data_error_module.create_user(users, "Bob")
+
+      // Assert
+      result
+      |> should()
+      |> equal(Ok(doc_http_data_error_module.User(2, "Bob")))
+      |> or_fail_with("create_user should create Bob with id 2")
+    }),
+    it("response example sends the user", fn() {
+      // Arrange
+      let result = Ok("Alice")
+
+      // Act
+      let response = doc_http_data_error_response.user_response(result)
+
+      // Assert
+      response
+      |> should()
+      |> extract_body_text()
+      |> equal("{\"name\":\"Alice\"}")
+      |> or_fail_with("user_response should send Alice")
+    }),
+    it("response example maps the error status", fn() {
+      // Arrange
+      let result = Error(error.NotFound("User not found"))
+
+      // Act
+      let response = doc_http_data_error_response.user_response(result)
+
+      // Assert
+      response.status
+      |> should()
+      |> equal(404)
+      |> or_fail_with("user_response should return 404")
+    }),
+    it("response example sends the error message", fn() {
+      // Arrange
+      let result = Error(error.NotFound("User not found"))
+
+      // Act
+      let response = doc_http_data_error_response.user_response(result)
+
+      // Assert
+      response
+      |> should()
+      |> extract_body_text()
+      |> equal("{\"error\":\"User not found\"}")
+      |> or_fail_with("user_response should send the message")
+    }),
+    it("BadRequest example requires an email", fn() {
+      // Act
+      let result = doc_http_data_error_bad_request.check_signup("", 1)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.BadRequest("Field 'email' is required")))
+      |> or_fail_with("check_signup should require an email")
+    }),
+    it("BadRequest example requires a positive id", fn() {
+      // Act
+      let result =
+        doc_http_data_error_bad_request.check_signup("a@example.com", 0)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.BadRequest("ID must be a positive integer")))
+      |> or_fail_with("check_signup should require a positive id")
+    }),
+    it("Unauthorized example requires a token", fn() {
+      // Act
+      let result = doc_http_data_error_unauthorized.authenticate("", ["t-1"])
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.Unauthorized("Authentication token required")))
+      |> or_fail_with("authenticate should require a token")
+    }),
+    it("Unauthorized example rejects an unknown token", fn() {
+      // Act
+      let result = doc_http_data_error_unauthorized.authenticate("t-2", ["t-1"])
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.Unauthorized("Invalid or expired token")))
+      |> or_fail_with("authenticate should reject t-2")
+    }),
+    it("Forbidden example requires an admin", fn() {
+      // Act
+      let result = doc_http_data_error_forbidden.require_admin(False)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.Forbidden("Admin access required")))
+      |> or_fail_with("require_admin should refuse a non-admin")
+    }),
+    it("Forbidden example protects another user's post", fn() {
+      // Act
+      let result = doc_http_data_error_forbidden.check_post_owner(1, 2)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.Forbidden("Cannot delete another user's post")))
+      |> or_fail_with("check_post_owner should refuse user 1")
+    }),
+    it("NotFound example reports a missing user", fn() {
+      // Act
+      let result = doc_http_data_error_not_found.find_user([], 7)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.NotFound("User not found")))
+      |> or_fail_with("find_user should return NotFound")
+    }),
+    it("NotFound example names the missing post", fn() {
+      // Act
+      let result = doc_http_data_error_not_found.find_post([], 123)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.NotFound("Post with ID 123 does not exist")))
+      |> or_fail_with("find_post should name post 123")
+    }),
+    it("UnprocessableContent example rejects a taken email", fn() {
+      // Act
+      let result =
+        doc_http_data_error_unprocessable_content.check_email("a@example.com", [
+          "a@example.com",
+        ])
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.UnprocessableContent("Email already registered")))
+      |> or_fail_with("check_email should reject a taken email")
+    }),
+    it("UnprocessableContent example rejects reversed dates", fn() {
+      // Act
+      let result = doc_http_data_error_unprocessable_content.check_dates(5, 1)
+
+      // Assert
+      result
+      |> should()
+      |> equal(
+        Error(error.UnprocessableContent("Start date must be before end date")),
+      )
+      |> or_fail_with("check_dates should reject 5 to 1")
+    }),
+    it("InternalServerError example wraps a database failure", fn() {
+      // Act
+      let result =
+        doc_http_data_error_internal_server_error.load_users(Error(Nil))
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.InternalServerError("Database connection failed")))
+      |> or_fail_with("load_users should return InternalServerError")
+    }),
+    it("InternalServerError example wraps a payment failure", fn() {
+      // Act
+      let result = doc_http_data_error_internal_server_error.charge(Error(Nil))
+
+      // Assert
+      result
+      |> should()
+      |> equal(
+        Error(error.InternalServerError("External payment API unavailable")),
+      )
+      |> or_fail_with("charge should return InternalServerError")
+    }),
+    it("to_status_code example returns 404", fn() {
+      // Act
+      let response = doc_http_data_to_status_code.not_found_response()
+
+      // Assert
+      response.status
+      |> should()
+      |> equal(404)
+      |> or_fail_with("not_found_response should return 404")
+    }),
+    it("to_status_code example sends the message", fn() {
+      // Act
+      let response = doc_http_data_to_status_code.not_found_response()
+
+      // Assert
+      response
+      |> should()
+      |> extract_body_text()
+      |> equal("{\"error\":\"User not found\"}")
+      |> or_fail_with("not_found_response should send the message")
+    }),
+    it("message example builds the error JSON", fn() {
+      // Act
+      let error_json = doc_http_data_error_message.bad_request_json()
+
+      // Assert
+      json.to_string(error_json)
+      |> should()
+      |> equal("{\"error\":\"Invalid email format\",\"status\":400}")
+      |> or_fail_with("bad_request_json should hold message and 400")
+    }),
+  ])
+}
+
+fn params_tests() -> UnitTest {
+  describe("dream/http/params", [
+    it("require_int example builds the user path", fn() {
+      // Arrange
+      let request = params_request([#("id", "42")])
+
+      // Act
+      let result = doc_http_data_require_int.user_path(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Ok("/users/42"))
+      |> or_fail_with("user_path should be /users/42")
+    }),
+    it("require_int example rejects a bad id", fn() {
+      // Arrange
+      let request = params_request([#("id", "abc")])
+
+      // Act
+      let result = doc_http_data_require_int.user_path(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.BadRequest("id must be an integer")))
+      |> or_fail_with("user_path should reject abc")
+    }),
+    it("require_string example greets the user", fn() {
+      // Arrange
+      let request = params_request([#("name", "john")])
+
+      // Act
+      let result = doc_http_data_require_string.greeting(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Ok("Hello, john"))
+      |> or_fail_with("greeting should greet john")
+    }),
+    it("require_string example reports a missing name", fn() {
+      // Arrange
+      let request = params_request([])
+
+      // Act
+      let result = doc_http_data_require_string.greeting(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.BadRequest("Missing name parameter")))
+      |> or_fail_with("greeting should report a missing name")
+    }),
+    it("require_form example reads the title", fn() {
+      // Arrange
+      let request = form_request("title=Buy+milk")
+
+      // Act
+      let result = doc_http_data_require_form.task_title(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Ok("Buy milk"))
+      |> or_fail_with("task_title should be Buy milk")
+    }),
+    it("require_form example rejects an empty body", fn() {
+      // Arrange
+      let request = form_request("")
+
+      // Act
+      let result = doc_http_data_require_form.task_title(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.BadRequest("Request body is empty")))
+      |> or_fail_with("task_title should reject an empty body")
+    }),
+    it("require_field example reports a missing title", fn() {
+      // Arrange
+      let request = form_request("priority=1")
+
+      // Act
+      let result = doc_http_data_require_form.task_title(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.BadRequest("Missing required field: title")))
+      |> or_fail_with("task_title should report a missing title")
+    }),
+    it("require_field_int example reads the priority", fn() {
+      // Arrange
+      let request = form_request("priority=3")
+
+      // Act
+      let result = doc_http_data_require_field_int.task_priority(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Ok(3))
+      |> or_fail_with("task_priority should be 3")
+    }),
+    it("require_field_int example rejects a bad priority", fn() {
+      // Arrange
+      let request = form_request("priority=high")
+
+      // Act
+      let result = doc_http_data_require_field_int.task_priority(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(error.BadRequest("Field 'priority' must be an integer")))
+      |> or_fail_with("task_priority should reject high")
+    }),
+    it("field_optional example reads the description", fn() {
+      // Arrange
+      let form = [#("description", "Weekly")]
+
+      // Act
+      let result = doc_http_data_field_optional.task_description(form)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Some("Weekly"))
+      |> or_fail_with("task_description should be Weekly")
+    }),
+    it("field_optional example treats empty as missing", fn() {
+      // Arrange
+      let form = [#("description", "")]
+
+      // Act
+      let result = doc_http_data_field_optional.task_description(form)
+
+      // Assert
+      result
+      |> should()
+      |> equal(None)
+      |> or_fail_with("task_description should be None")
+    }),
+  ])
+}
+
+fn transaction_tests() -> UnitTest {
+  describe("dream/http/transaction", [
+    it("path example sends the user", fn() {
+      // Arrange
+      let request = transaction_request([#("id", "123")])
+
+      // Act
+      let response = doc_http_data_transaction_path.show_user(request, Nil, Nil)
+
+      // Assert
+      response
+      |> should()
+      |> extract_body_text()
+      |> equal("{\"id\":123}")
+      |> or_fail_with("show_user should send id 123")
+    }),
+    it("path example rejects a bad id", fn() {
+      // Arrange
+      let request = transaction_request([#("id", "abc")])
+
+      // Act
+      let response = doc_http_data_transaction_path.show_user(request, Nil, Nil)
+
+      // Assert
+      response.status
+      |> should()
+      |> equal(400)
+      |> or_fail_with("show_user should return 400")
+    }),
+    it("format example reads the json extension", fn() {
+      // Arrange
+      let request = transaction_request([#("id", "123.json")])
+
+      // Act
+      let description = doc_http_data_transaction_format.describe_id(request)
+
+      // Assert
+      description
+      |> should()
+      |> equal("123 as json")
+      |> or_fail_with("describe_id should find json")
+    }),
+    it("format example reports a missing parameter", fn() {
+      // Arrange
+      let request = transaction_request([])
+
+      // Act
+      let description = doc_http_data_transaction_format.describe_id(request)
+
+      // Assert
+      description
+      |> should()
+      |> equal("Error: Missing required path parameter: id")
+      |> or_fail_with("describe_id should report the missing id")
+    }),
+    it("get_param example reads value and integer", fn() {
+      // Arrange
+      let request = transaction_request([#("id", "123")])
+
+      // Act
+      let result = doc_http_data_transaction_params.read_id(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Ok(#("123", Ok(123))))
+      |> or_fail_with("read_id should be 123")
+    }),
+    it("get_param example reads the format", fn() {
+      // Arrange
+      let request = transaction_request([#("id", "123.json")])
+
+      // Act
+      let result = doc_http_data_transaction_params.read_id_with_format(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Ok(#("123", Some("json"), Ok(123))))
+      |> or_fail_with("read_id_with_format should find json")
+    }),
+    it("get_param example uses get_int_param", fn() {
+      // Arrange
+      let request = transaction_request([#("id", "123")])
+
+      // Act
+      let response = doc_http_data_transaction_params.show(request)
+
+      // Assert
+      response
+      |> should()
+      |> extract_body_text()
+      |> equal("{\"id\":123}")
+      |> or_fail_with("show should send id 123")
+    }),
+    it("get_int_param example rejects a bad id", fn() {
+      // Arrange
+      let request = transaction_request([#("id", "abc")])
+
+      // Act
+      let response = doc_http_data_transaction_params.show_by_id(request)
+
+      // Assert
+      response
+      |> should()
+      |> extract_body_text()
+      |> equal("{\"error\":\"id must be an integer\"}")
+      |> or_fail_with("show_by_id should reject abc")
+    }),
+    it("get_string_param example sends the name", fn() {
+      // Arrange
+      let request = transaction_request([#("name", "john")])
+
+      // Act
+      let response = doc_http_data_transaction_params.show_by_name(request)
+
+      // Assert
+      response
+      |> should()
+      |> extract_body_text()
+      |> equal("{\"name\":\"john\"}")
+      |> or_fail_with("show_by_name should send john")
+    }),
+    it("set_header example sets both headers", fn() {
+      // Arrange
+      let response =
+        transaction.Response(
+          status: 200,
+          body: transaction.Text(""),
+          headers: [transaction.Header("Cache-Control", "no-cache")],
+          cookies: [],
+          content_type: None,
+        )
+
+      // Act
+      let headers = doc_http_data_transaction_set_header.cache_headers(response)
+
+      // Assert
+      headers
+      |> should()
+      |> equal([
+        transaction.Header("X-Custom-Header", "value"),
+        transaction.Header("Cache-Control", "max-age=3600"),
+      ])
+      |> or_fail_with(
+        "cache_headers should replace Cache-Control and add X-Custom-Header",
+      )
+    }),
+  ])
+}
+
+fn validation_tests() -> UnitTest {
+  describe("dream/http/validation", [
+    it("module example creates the user", fn() {
+      // Arrange
+      let request =
+        json_request(
+          "{\"name\":\"Ann\",\"email\":\"ann@example.com\",\"age\":30}",
+        )
+
+      // Act
+      let response = doc_http_data_validation_module.create(request, Nil, Nil)
+
+      // Assert
+      response.status
+      |> should()
+      |> equal(201)
+      |> or_fail_with("create should return 201")
+    }),
+    it("module example reports the bad field", fn() {
+      // Arrange
+      let request =
+        json_request(
+          "{\"name\":\"Ann\",\"email\":\"ann@example.com\",\"age\":\"old\"}",
+        )
+
+      // Act
+      let response = doc_http_data_validation_module.create(request, Nil, Nil)
+
+      // Assert
+      response
+      |> should()
+      |> extract_body_text()
+      |> equal("{\"error\":\"Expected Int but found String at age\"}")
+      |> or_fail_with("create should report age")
+    }),
+    it("ValidationError example matches validate_json output", fn() {
+      // Arrange
+      let decoder = {
+        use email <- decode.subfield(["user", "email"], decode.string)
+        decode.success(email)
+      }
+
+      // Act
+      let result = validation.validate_json("{\"user\":{\"email\":1}}", decoder)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(doc_http_data_validation_error.email_error()))
+      |> or_fail_with("validate_json should return email_error")
+    }),
+    it("validate_json example creates the post", fn() {
+      // Arrange
+      let request =
+        json_request("{\"title\":\"Hi\",\"body\":\"Text\",\"published\":true}")
+
+      // Act
+      let response = doc_http_data_validate_json.create_post(request, Nil, Nil)
+
+      // Assert
+      response
+      |> should()
+      |> extract_body_text()
+      |> equal("{\"title\":\"Hi\",\"body\":\"Text\",\"published\":true}")
+      |> or_fail_with("create_post should send the post")
+    }),
+    it("validate_json example reports the bad field", fn() {
+      // Arrange
+      let request =
+        json_request(
+          "{\"title\":\"Hi\",\"body\":\"Text\",\"published\":\"yes\"}",
+        )
+
+      // Act
+      let response = doc_http_data_validate_json.create_post(request, Nil, Nil)
+
+      // Assert
+      response
+      |> should()
+      |> extract_body_text()
+      |> equal(
+        "{\"error\":\"Expected Bool but found String at published\",\"field\":\"published\"}",
+      )
+      |> or_fail_with("create_post should report published")
+    }),
+  ])
+}
