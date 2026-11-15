@@ -28,31 +28,13 @@ test-integration:
 	@rm -rf build/dev build/prod
 	@make build > /dev/null 2>&1
 	@echo "Starting server in background..."
-	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m main > /tmp/tasks_test.log 2>&1 &
-	@SERVER_PID=$$!; \
-	echo "Waiting for server to be ready..."; \
-	for i in $$(seq 1 30); do \
-		if curl -s http://localhost:3000/ > /dev/null 2>&1; then \
-			echo "Server is ready!"; \
-			break; \
-		fi; \
-		if [ $$i -eq 30 ]; then \
-			echo "Server failed to start"; \
-			tail -20 /tmp/tasks_test.log; \
-			kill $$SERVER_PID 2>/dev/null || true; \
-			make db-down > /dev/null 2>&1 || true; \
-			exit 1; \
-		fi; \
-		sleep 1; \
-	done; \
-	echo "Running Cucumber tests..."; \
-	export DATABASE_URL="$(DATABASE_URL)"; \
-	mix deps.get > /dev/null 2>&1 && MIX_ENV=test mix test; \
-	TEST_EXIT=$$?; \
-	echo "Stopping server..."; \
-	kill $$SERVER_PID 2>/dev/null || true; \
+	@export DATABASE_URL="$(DATABASE_URL)"; \
+	../../integration/run-scenarios.sh tasks 3000 main http1; \
+	FIRST_EXIT=$$?; \
+	../../integration/run-scenarios.sh tasks 3000 tls_main http2; \
+	SECOND_EXIT=$$?; \
 	make db-down > /dev/null 2>&1 || true; \
-	exit $$TEST_EXIT
+	[ $$FIRST_EXIT -eq 0 ] && [ $$SECOND_EXIT -eq 0 ]
 
 clean:
 	@gleam clean
