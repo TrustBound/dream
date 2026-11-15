@@ -1,7 +1,7 @@
 //// Parameter validation and extraction utilities
 ////
 //// This module provides safe parameter extraction from HTTP requests,
-//// returning Result types with dream.Error instead of crashing on missing or invalid data.
+//// returning Result types with `dream/http/error.Error` instead of crashing on missing or invalid data.
 ////
 //// Use these helpers to validate path parameters and form data in controllers,
 //// then pipe the results through your business logic using gleam/result.
@@ -17,16 +17,25 @@ import gleam/uri
 
 /// Require a path parameter as an integer
 ///
-/// Returns a Result with dream.Error if the parameter is missing
+/// Returns a Result with `BadRequest` if the parameter is missing
 /// or cannot be converted to an integer.
 ///
 /// ## Examples
 ///
+/// ### Require an integer parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_require_int.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// // Using with gleam/result pipeline
-/// let result = {
+/// import dream/http/error.{type Error}
+/// import dream/http/params
+/// import dream/http/request.{type Request}
+/// import gleam/int
+/// import gleam/result
+///
+/// pub fn user_path(request: Request) -> Result(String, Error) {
+///   // Using with gleam/result pipeline
 ///   use id <- result.try(params.require_int(request, "id"))
 ///   // ... rest of logic with id : Int
+///   Ok("/users/" <> int.to_string(id))
 /// }
 /// ```
 pub fn require_int(request: Request, name: String) -> Result(Int, Error) {
@@ -36,13 +45,23 @@ pub fn require_int(request: Request, name: String) -> Result(Int, Error) {
 
 /// Require a path parameter as a string
 ///
-/// Returns a Result with dream.Error if the parameter is missing.
+/// Returns a Result with `BadRequest` if the parameter is missing.
 ///
 /// ## Examples
 ///
+/// ### Require a string parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_require_string.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// use name <- result.try(params.require_string(request, "name"))
-/// // ... rest of logic with name : String
+/// import dream/http/error.{type Error}
+/// import dream/http/params
+/// import dream/http/request.{type Request}
+/// import gleam/result
+///
+/// pub fn greeting(request: Request) -> Result(String, Error) {
+///   use name <- result.try(params.require_string(request, "name"))
+///   // ... rest of logic with name : String
+///   Ok("Hello, " <> name)
+/// }
 /// ```
 pub fn require_string(request: Request, name: String) -> Result(String, Error) {
   get_string_param(request, name)
@@ -52,13 +71,24 @@ pub fn require_string(request: Request, name: String) -> Result(String, Error) {
 /// Require and parse form data from request body
 ///
 /// Returns a Result containing the parsed form data as key-value pairs.
-/// Returns an error if the body is empty or invalid.
+/// Returns an error only if the body is empty. A pair with more than one `=`
+/// is skipped, not reported.
 ///
 /// ## Examples
 ///
+/// ### Require form data <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_require_form.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// use form <- result.try(params.require_form(request))
-/// use title <- result.try(params.require_field(form, "title"))
+/// import dream/http/error.{type Error}
+/// import dream/http/params
+/// import dream/http/request.{type Request}
+/// import gleam/result
+///
+/// pub fn task_title(request: Request) -> Result(String, Error) {
+///   use form <- result.try(params.require_form(request))
+///   use title <- result.try(params.require_field(form, "title"))
+///   Ok(title)
+/// }
 /// ```
 pub fn require_form(
   request: Request,
@@ -75,9 +105,19 @@ pub fn require_form(
 ///
 /// ## Examples
 ///
+/// ### Require a form field <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_require_form.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// use form <- result.try(params.require_form(request))
-/// use title <- result.try(params.require_field(form, "title"))
+/// import dream/http/error.{type Error}
+/// import dream/http/params
+/// import dream/http/request.{type Request}
+/// import gleam/result
+///
+/// pub fn task_title(request: Request) -> Result(String, Error) {
+///   use form <- result.try(params.require_form(request))
+///   use title <- result.try(params.require_field(form, "title"))
+///   Ok(title)
+/// }
 /// ```
 pub fn require_field(
   form: List(#(String, String)),
@@ -97,9 +137,19 @@ pub fn require_field(
 ///
 /// ## Examples
 ///
+/// ### Require an integer field <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_require_field_int.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// use form <- result.try(params.require_form(request))
-/// use priority <- result.try(params.require_field_int(form, "priority"))
+/// import dream/http/error.{type Error}
+/// import dream/http/params
+/// import dream/http/request.{type Request}
+/// import gleam/result
+///
+/// pub fn task_priority(request: Request) -> Result(Int, Error) {
+///   use form <- result.try(params.require_form(request))
+///   use priority <- result.try(params.require_field_int(form, "priority"))
+///   Ok(priority)
+/// }
 /// ```
 pub fn require_field_int(
   form: List(#(String, String)),
@@ -133,8 +183,16 @@ fn result_string_to_error(result: Result(a, String)) -> Result(a, Error) {
 ///
 /// ## Examples
 ///
+/// ### Read an optional field <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_field_optional.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let description = params.field_optional(form, "description")
+/// import dream/http/params
+/// import gleam/option.{type Option}
+///
+/// pub fn task_description(form: List(#(String, String))) -> Option(String) {
+///   let description = params.field_optional(form, "description")
+///   description
+/// }
 /// ```
 pub fn field_optional(
   form: List(#(String, String)),

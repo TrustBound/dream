@@ -1,6 +1,7 @@
 //// Main test entry point using dream_test framework.
 
 import benchmarks/router_benchmark
+import doc_http_data_snippets_test
 import doc_http_snippets_test
 import dream/context_test
 import dream/dream_test as dream_module_test
@@ -66,6 +67,10 @@ pub fn main() {
       unit.to_test_cases("benchmarks/router", router_benchmark.tests()),
       unit.to_test_cases("snippets", snippets_test.tests()),
       unit.to_test_cases("doc_http_snippets", doc_http_snippets_test.tests()),
+      unit.to_test_cases(
+        "doc http data snippets",
+        doc_http_data_snippets_test.tests(),
+      ),
     ]
     |> list.flatten
 
