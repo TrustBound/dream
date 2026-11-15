@@ -183,10 +183,7 @@ pub fn upgrade_to_sse(
   let mist_request: http_request.Request(Connection) =
     internal.unsafe_coerce(raw_request)
 
-  let wrapped_init = fn(subj: Subject(message)) {
-    let #(state, _maybe_selector) = on_init(subj, dependencies)
-    state
-  }
+  let wrapped_init = fn(subj: Subject(message)) { on_init(subj, dependencies) }
 
   let wrapped_loop = fn(
     state: state,
@@ -203,7 +200,7 @@ pub fn upgrade_to_sse(
       list.fold(headers, http_response.new(200), fn(resp, h) {
         http_response.set_header(resp, h.0, h.1)
       })
-    mist.server_sent_events(
+    mist.server_sent_events_with_selector(
       request: mist_request,
       initial_response: initial_response,
       init: wrapped_init,
