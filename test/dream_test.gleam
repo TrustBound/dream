@@ -1,6 +1,7 @@
 //// Main test entry point using dream_test framework.
 
 import benchmarks/router_benchmark
+import contributing_snippets_test
 import doc_core_snippets_test
 import doc_http_data_snippets_test
 import doc_http_snippets_test
@@ -105,6 +106,10 @@ pub fn main() {
         guides_deployment_templates_snippets_test.tests(),
       ),
       unit.to_test_cases("learning snippets", learning_snippets_test.tests()),
+      unit.to_test_cases(
+        "contributing_snippets",
+        contributing_snippets_test.tests(),
+      ),
     ]
     |> list.flatten
 
