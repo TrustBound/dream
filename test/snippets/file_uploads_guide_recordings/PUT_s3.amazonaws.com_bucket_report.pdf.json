@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "request": {
+        "method": "PUT",
+        "scheme": "https",
+        "host": "s3.amazonaws.com",
+        "port": null,
+        "path": "/bucket/report.pdf",
+        "query": null,
+        "headers": [["Content-Type", "application/octet-stream"]],
+        "body": "PDF content"
+      },
+      "response": {
+        "mode": "blocking",
+        "status": 200,
+        "headers": [],
+        "body": ""
+      }
+    }
+  ]
+}

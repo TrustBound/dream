@@ -2,75 +2,103 @@
 
 Handle multipart form uploads in Dream.
 
-## Basic Upload
+## Basic Upload <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_upload.gleam#L1-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{type Request, type Response, json_response, created, bad_request, internal_server_error}
-import dream/context.{AppContext}
-import gleam/http
-import services.{Services}
+import dream/context.{type AppContext}
+import dream/http.{
+  type Request, type Response, bad_request, created, internal_server_error,
+  json_response,
+}
+import gleam/bit_array
+import gleam/json
+import gleam/list
+import gleam/option
+import gleam/result
+import gleam/string
 import simplifile
 
 pub type FileData {
-  FileData(
-    original_name: String,
-    content: BitArray,
-    content_type: String,
-  )
+  FileData(original_name: String, content: BitArray, content_type: String)
 }
 
-pub fn upload(request: Request, context: AppContext, services: Services) -> Response {
-  case parse_multipart(request.body) {
-    Ok(file_data) -> save_file(file_data)
+pub fn upload(
+  request: Request,
+  _context: AppContext,
+  services: Services,
+) -> Response {
+  case parse_multipart(request) {
+    Ok(file_data) -> save_file(file_data, services.upload_directory)
     Error(_) -> json_response(bad_request, "{\"error\": \"Invalid file\"}")
   }
 }
 
-fn save_file(file_data: FileData) -> Response {
+pub fn save_file(file_data: FileData, directory: String) -> Response {
   let filename = generate_filename(file_data.original_name)
-  let path = "uploads/" <> filename
+  let path = directory <> "/" <> filename
 
   case simplifile.write_bits(path, file_data.content) {
     Ok(_) -> json_response(created, success_json(filename))
-    Error(_) -> json_response(internal_server_error, "{\"error\": \"Save failed\"}")
+    Error(_) ->
+      json_response(internal_server_error, "{\"error\": \"Save failed\"}")
   }
 }
 
 fn success_json(filename: String) -> String {
-  "{\"filename\": \"" <> filename <> "\"}"
+  json.object([#("filename", json.string(filename))])
+  |> json.to_string()
 }
 ```
 
+The upload directory comes from your `Services`. Dream has no multipart
+parser, so `parse_multipart` and `generate_filename` are small helpers in the
+snippet file. Dream gives a buffered route the request body as a `String`, so
+these examples only handle files whose content is valid UTF-8.
+
 ## Validation
 
-### File Size
+### File Size <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_validation.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{type Request, type Response, json_response, bad_request, payload_too_large, unsupported_media_type}
-import dream/context.{AppContext}
+import dream/context.{type AppContext}
+import dream/http.{type Request, type Response, bad_request, json_response}
 import gleam/bit_array.{byte_size}
-import services.{Services}
+import gleam/json
+import snippets/file_uploads_guide_file_type.{validate_file_type}
+import snippets/file_uploads_guide_upload.{
+  type FileData, type Services, parse_multipart, save_file,
+}
 
-const max_file_size = 10_000_000  // 10MB
+// Dream has no constants for these status codes
+const payload_too_large = 413
 
-pub fn upload(request: Request, context: AppContext, services: Services) -> Response {
-  case parse_multipart(request.body) {
-    Ok(file_data) -> validate_and_save(file_data)
+const unsupported_media_type = 415
+
+// 10MB
+const max_file_size = 10_000_000
+
+pub fn upload(
+  request: Request,
+  _context: AppContext,
+  services: Services,
+) -> Response {
+  case parse_multipart(request) {
+    Ok(file_data) -> validate_and_save(file_data, services.upload_directory)
     Error(_) -> json_response(bad_request, "{\"error\": \"Invalid file\"}")
   }
 }
 
-fn validate_and_save(file_data: FileData) -> Response {
+fn validate_and_save(file_data: FileData, directory: String) -> Response {
   case validate_file_size(file_data.content) {
     Error(msg) -> json_response(payload_too_large, error_json(msg))
-    Ok(_) -> check_file_type(file_data)
+    Ok(_) -> check_file_type(file_data, directory)
   }
 }
 
-fn check_file_type(file_data: FileData) -> Response {
+fn check_file_type(file_data: FileData, directory: String) -> Response {
   case validate_file_type(file_data.content_type) {
     Error(msg) -> json_response(unsupported_media_type, error_json(msg))
-    Ok(_) -> save_file(file_data)
+    Ok(_) -> save_file(file_data, directory)
   }
 }
 
@@ -83,18 +111,24 @@ fn validate_file_size(content: BitArray) -> Result(Nil, String) {
 }
 
 fn error_json(message: String) -> String {
-  "{\"error\": \"" <> message <> "\"}"
+  json.object([#("error", json.string(message))])
+  |> json.to_string()
 }
 ```
 
-### File Type
+### File Type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_file_type.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import gleam/list.{contains}
 
-const allowed_types = ["image/jpeg", "image/png", "image/gif", "application/pdf"]
+const allowed_types = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "application/pdf",
+]
 
-fn validate_file_type(content_type: String) -> Result(Nil, String) {
+pub fn validate_file_type(content_type: String) -> Result(Nil, String) {
   case contains(allowed_types, content_type) {
     True -> Ok(Nil)
     False -> Error("Unsupported file type")
@@ -102,65 +136,83 @@ fn validate_file_type(content_type: String) -> Result(Nil, String) {
 }
 ```
 
-## Secure Filenames
+## Secure Filenames <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_upload.gleam#L117-L154"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import gleam/string.{split}
-import gleam/regexp.{from_string, replace}
-import youid
-
-fn generate_filename(original_name: String) -> String {
-  let extension = get_extension(original_name)
-  let unique_id = youid.v4()
-
-  unique_id <> extension
+/// Make a random file name that keeps the original extension.
+pub fn generate_filename(original_name: String) -> String {
+  let unique_id = string.lowercase(bit_array.base16_encode(random_bytes(16)))
+  unique_id <> get_extension(original_name)
 }
 
 fn get_extension(filename: String) -> String {
-  case split(filename, ".") {
-    [..., ext] -> "." <> ext
+  case string.split(filename, ".") {
+    [_, _, ..] as parts -> "." <> sanitize_filename(last_part(parts))
     _ -> ""
   }
 }
 
-fn sanitize_filename(filename: String) -> String {
-  let assert Ok(re) = from_string("[^a-zA-Z0-9._-]")
-  replace(re, filename, "_")
+fn last_part(parts: List(String)) -> String {
+  list.last(parts) |> result.unwrap("")
 }
+
+/// Replace every character that is not a letter, digit, dot, underscore or
+/// dash with an underscore.
+pub fn sanitize_filename(filename: String) -> String {
+  filename
+  |> string.to_graphemes()
+  |> list.map(replace_unsafe_character)
+  |> string.concat()
+}
+
+fn replace_unsafe_character(character: String) -> String {
+  case string.contains(safe_characters, character) {
+    True -> character
+    False -> "_"
+  }
+}
+
+const safe_characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+
+/// Random bytes from Erlang's crypto module.
+@external(erlang, "crypto", "strong_rand_bytes")
+fn random_bytes(count: Int) -> BitArray
 ```
 
 ## Storage Options
 
-### Local Disk
+### Local Disk <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_multiple.gleam#L40-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-fn save_to_disk(path: String, content: BitArray) -> Result(String, Error) {
-  case simplifile.write_bits(path, content) {
-    Ok(_) -> Ok(path)
-    Error(_) -> Error(FileSystemError)
-  }
+fn save_to_disk(path: String, content: BitArray) -> Result(String, FileError) {
+  simplifile.write_bits(path, content)
+  |> result.replace(path)
 }
 ```
 
-### S3 (or Compatible)
+### S3 (or Compatible) <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_s3.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream_http_client/client
-import dream_http_client/client.{add_header, body, host, method, path, scheme, send}
+import dream_http_client/client.{
+  type ClientRequest, type SendError, add_header, body, host, method, path,
+  scheme, send,
+}
 import gleam/http
 import gleam/result
 
-fn save_to_s3(
+pub fn save_to_s3(
+  s3_client: ClientRequest,
   filename: String,
   content: String,
-) -> Result(String, FileError) {
+) -> Result(String, SendError) {
+  // Pass client.new() as s3_client, or a client with a recorder in tests.
   // For clarity, we build the URL parts directly.
   // If you need true binary uploads, consider base64 encoding the payload or
   // using a client that supports binary request bodies.
   let s3_host = "s3.amazonaws.com"
   let s3_path = "/bucket/" <> filename
 
-  client.new()
+  s3_client
   |> method(http.Put)
   |> scheme(http.Https)
   |> host(s3_host)
@@ -172,70 +224,76 @@ fn save_to_s3(
 }
 ```
 
-## Multiple Files
+## Multiple Files <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_multiple.gleam#L1-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{type Request, type Response, json_response, created, bad_request, internal_server_error}
-import dream/context.{AppContext}
-import gleam/list.{List, map, all, filter_map}
-import gleam/result.{is_ok}
-import gleam/string.{join}
-import services.{Services}
+import dream/context.{type AppContext}
+import dream/http.{
+  type Request, type Response, bad_request, created, internal_server_error,
+  json_response,
+}
+import gleam/json
+import gleam/list
+import gleam/result
+import simplifile.{type FileError}
+import snippets/file_uploads_guide_upload.{
+  type FileData, type Services, generate_filename, parse_multipart_files,
+}
 
 pub fn upload_multiple(
   request: Request,
-  context: AppContext,
+  _context: AppContext,
   services: Services,
 ) -> Response {
-  case parse_multipart_multiple(request.body) {
-    Ok(files) -> save_all_files(files)
+  case parse_multipart_files(request) {
+    Ok(files) -> save_all_files(files, services.upload_directory)
     Error(_) -> json_response(bad_request, "{\"error\": \"Invalid files\"}")
   }
 }
 
-fn save_all_files(files: List(FileData)) -> Response {
-  let results = map(files, save_file_result)
+fn save_all_files(files: List(FileData), directory: String) -> Response {
+  let results = list.map(files, save_file_result(_, directory))
 
-  case all(results, is_ok) {
-    True -> create_success_response(results)
-    False -> json_response(internal_server_error, "{\"error\": \"Some files failed\"}")
+  case result.all(results) {
+    Ok(filenames) -> json_response(created, filenames_json(filenames))
+    Error(_) ->
+      json_response(internal_server_error, "{\"error\": \"Some files failed\"}")
   }
-}
-
-fn extract_ok_value(result: Result(String, FileError)) -> Option(String) {
-  case result {
-    Ok(value) -> Some(value)
-    Error(_) -> None
-  }
-}
-
-fn create_success_response(results: List(Result(String, FileError))) -> Response {
-  let filenames = filter_map(results, extract_ok_value)
-  json_response(created, filenames_json(filenames))
 }
 
 fn filenames_json(filenames: List(String)) -> String {
-  "{\"filenames\": [" <> join(filenames, ",") <> "]}"
+  json.object([#("filenames", json.array(filenames, json.string))])
+  |> json.to_string()
 }
 ```
 
-## Download Endpoint
+## Download Endpoint <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_download.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{require_string, type Request, type Response}
-import dream/http.{type Request, type Response, text_response, ok, not_found}
-import dream/context.{AppContext}
+import dream/context.{type AppContext}
+import dream/http.{type Request, type Response, get_param, ok}
+import dream/http/error.{type Error, BadRequest, NotFound}
+import dream/http/header.{Header}
+import dream/http/response.{Bytes, Response}
 import gleam/option.{Some}
 import gleam/result
-import services.{Services}
 import simplifile
-import utilities/response_helpers
+import snippets/controllers_guide_response_helpers as response_helpers
+import snippets/file_uploads_guide_upload.{type Services, sanitize_filename}
 
-pub fn download(request: Request, context: AppContext, services: Services) -> Response {
+pub fn download(
+  request: Request,
+  _context: AppContext,
+  services: Services,
+) -> Response {
   let result = {
-    use filename <- result.try(require_string(request, "filename"))
-    let path = "uploads/" <> sanitize_filename(filename)
-    use content <- result.try(simplifile.read_bits(path))
+    // require_string would drop the extension, so read the raw parameter
+    use param <- result.try(
+      get_param(request, "filename") |> result.map_error(BadRequest),
+    )
+    let filename = sanitize_filename(param.raw)
+    let path = services.upload_directory <> "/" <> filename
+    use content <- result.try(read_upload(path))
     Ok(#(content, filename))
   }
 
@@ -245,13 +303,25 @@ pub fn download(request: Request, context: AppContext, services: Services) -> Re
   }
 }
 
-fn file_response(status_code: Int, content: BitArray, filename: String) -> Response {
+fn read_upload(path: String) -> Result(BitArray, Error) {
+  simplifile.read_bits(path)
+  |> result.replace_error(NotFound("File not found"))
+}
+
+fn file_response(
+  status_code: Int,
+  content: BitArray,
+  filename: String,
+) -> Response {
   Response(
     status: status_code,
     body: Bytes(content),
     headers: [
       Header("Content-Type", "application/octet-stream"),
-      Header("Content-Disposition", "attachment; filename=\"" <> filename <> "\""),
+      Header(
+        "Content-Disposition",
+        "attachment; filename=\"" <> filename <> "\"",
+      ),
     ],
     cookies: [],
     content_type: Some("application/octet-stream"),
@@ -259,41 +329,75 @@ fn file_response(status_code: Int, content: BitArray, filename: String) -> Respo
 }
 ```
 
-## Image Resizing
+## Image Resizing <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_image.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{type Request, type Response, json_response, bad_request, unsupported_media_type, internal_server_error}
-import dream/context.{AppContext}
-import services.{Services}
+import dream/context.{type AppContext}
+import dream/http.{
+  type Request, type Response, bad_request, internal_server_error, json_response,
+}
+import gleam/json
+import gleam/list
+import snippets/file_uploads_guide_upload.{
+  type FileData, type Services, FileData, parse_multipart, save_file,
+}
+
+// Dream has no constant for this status code
+const unsupported_media_type = 415
 
 // For image processing, use FFI to call ImageMagick or similar
-@external(erlang, "image_ffi", "resize")
-pub fn resize_image(content: BitArray, width: Int, height: Int) -> Result(BitArray, FileError)
+@external(erlang, "file_uploads_guide_image_ffi", "resize")
+pub fn resize_image(
+  content: BitArray,
+  width: Int,
+  height: Int,
+) -> Result(BitArray, Nil)
 
-pub fn upload_image(request: Request, context: AppContext, services: Services) -> Response {
-  case parse_multipart(request.body) {
-    Ok(file_data) -> validate_and_resize(file_data)
+pub fn upload_image(
+  request: Request,
+  _context: AppContext,
+  services: Services,
+) -> Response {
+  case parse_multipart(request) {
+    Ok(file_data) -> validate_and_resize(file_data, services.upload_directory)
     Error(_) -> json_response(bad_request, "{\"error\": \"Invalid file\"}")
   }
 }
 
-fn validate_and_resize(file_data: FileData) -> Response {
+fn validate_and_resize(file_data: FileData, directory: String) -> Response {
   case validate_image_type(file_data.content_type) {
     Error(msg) -> json_response(unsupported_media_type, error_json(msg))
-    Ok(_) -> resize_and_save(file_data)
+    Ok(_) -> resize_and_save(file_data, directory)
   }
 }
 
-fn resize_and_save(file_data: FileData) -> Response {
+fn resize_and_save(file_data: FileData, directory: String) -> Response {
   case resize_image(file_data.content, 800, 600) {
-    Ok(resized) -> save_file_data(file_data, resized)
-    Error(_) -> json_response(internal_server_error, "{\"error\": \"Resize failed\"}")
+    Ok(resized) -> save_file_data(file_data, resized, directory)
+    Error(_) ->
+      json_response(internal_server_error, "{\"error\": \"Resize failed\"}")
   }
 }
 
-fn save_file_data(file_data: FileData, content: BitArray) -> Response {
+fn save_file_data(
+  file_data: FileData,
+  content: BitArray,
+  directory: String,
+) -> Response {
   let updated_file = FileData(..file_data, content: content)
-  save_file(updated_file)
+  save_file(updated_file, directory)
+}
+
+fn validate_image_type(content_type: String) -> Result(Nil, String) {
+  case list.contains(["image/jpeg", "image/png", "image/gif"], content_type) {
+    True -> Ok(Nil)
+    False -> Error("Unsupported image type")
+  }
+}
+
+fn error_json(message: String) -> String {
+  json.object([#("error", json.string(message))])
+  |> json.to_string()
 }
 ```
 
