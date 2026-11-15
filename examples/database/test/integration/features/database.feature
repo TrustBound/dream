@@ -4,6 +4,11 @@ Feature: Database Example
         Given the server is running on port 3002
         And the database is clean
 
+    Scenario: GET health endpoint reports a healthy database
+        When I send a GET request to "/health"
+        Then the response status should be 200
+        And the JSON response should contain field "status" with value "healthy"
+
     Scenario: GET users endpoint returns list
         When I send a GET request to "/users"
         Then the response status should be 200

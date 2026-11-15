@@ -32,6 +32,7 @@ import dream_test/runner
 import dream_test/unit
 import gleam/io
 import gleam/list
+import guides_sse_websockets_rest_snippets_test
 import naming_snippets_test
 import reference_snippets_test
 import snippets/streaming_api_test
@@ -88,6 +89,10 @@ pub fn main() {
       unit.to_test_cases("reference snippets", reference_snippets_test.tests()),
       unit.to_test_cases("snippets/streaming_api", streaming_api_test.tests()),
       unit.to_test_cases("streaming_snippets", streaming_snippets_test.tests()),
+      unit.to_test_cases(
+        "guide snippets",
+        guides_sse_websockets_rest_snippets_test.tests(),
+      ),
     ]
     |> list.flatten
 
