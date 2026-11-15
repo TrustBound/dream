@@ -1,7 +1,7 @@
 defmodule HttpSteps do
   use Cucumber.StepDefinition
 
-  alias HTTPoison, as: HTTP
+  alias DreamHttp, as: HTTP
   alias Jason
 
   @base_url "http://localhost:3000"

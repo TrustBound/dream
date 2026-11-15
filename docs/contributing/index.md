@@ -8,6 +8,8 @@
 
 **Publishing modules?** See [Publishing Strategy](publishing.md)
 
+**Why does Dream depend on `dream_http_server` and not on mist?** See [Dream's HTTP server packages](http-server-packages.md)
+
 ---
 
 **Quick tasks:**

@@ -21,6 +21,20 @@ import gleam/option
 import gleam/result
 import gleam/string
 
+/// The settings that decide which connection a request uses
+///
+/// `protocols` is the protocol preference (`default`, `http1_only`,
+/// `http2_only` or `http2_preferred`). `certificate_authority_file` is the
+/// PEM file of the certificate authorities to trust over TLS, in place of the
+/// system ones. `None` uses the client-wide default, and if that is not set,
+/// the system certificate authorities.
+pub type ConnectionSettings {
+  ConnectionSettings(
+    protocols: atom.Atom,
+    certificate_authority_file: option.Option(String),
+  )
+}
+
 // Erlang externals for streaming HTTP requests
 @external(erlang, "dream_http_shim", "request_stream")
 fn request_stream(
@@ -32,7 +46,7 @@ fn request_stream(
   timeout_ms: Int,
   connect_timeout_ms: Int,
   autoredirect: Bool,
-  protocols: atom.Atom,
+  connection_settings: ConnectionSettings,
 ) -> d.Dynamic
 
 @external(erlang, "dream_http_shim", "fetch_next")
@@ -90,7 +104,7 @@ pub fn start_gun_stream(
   timeout_ms: Int,
   connect_timeout_ms: Int,
   autoredirect: Bool,
-  protocols_atom: atom.Atom,
+  connection_settings: ConnectionSettings,
 ) -> d.Dynamic {
   let port_string = case request.port {
     option.Some(port) -> ":" <> int.to_string(port)
@@ -119,7 +133,7 @@ pub fn start_gun_stream(
     timeout_ms,
     connect_timeout_ms,
     autoredirect,
-    protocols_atom,
+    connection_settings,
   )
 }
 
@@ -297,7 +311,7 @@ pub fn start_stream_messages(
   timeout_ms: Int,
   connect_timeout_ms: Int,
   autoredirect: Bool,
-  protocols: atom.Atom,
+  connection_settings: ConnectionSettings,
 ) -> d.Dynamic
 
 /// Cancel a streaming request

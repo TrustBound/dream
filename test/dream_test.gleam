@@ -20,6 +20,7 @@ import dream/servers/mist/request_test as mist_request_test
 import dream/servers/mist/response_test as mist_response_test
 import dream/servers/mist/server_test
 import dream/servers/mist/sse_test
+import dream/servers/mist/tls_test
 import dream/streaming_test
 import dream_test/reporter/bdd
 import dream_test/runner
@@ -58,6 +59,7 @@ pub fn main() {
         mist_response_test.tests(),
       ),
       unit.to_test_cases("dream/servers/mist/server", server_test.tests()),
+      unit.to_test_cases("dream/servers/mist/tls", tls_test.tests()),
       unit.to_test_cases("dream/servers/mist/sse", sse_test.tests()),
       unit.to_test_cases("dream/streaming", streaming_test.tests()),
       unit.to_test_cases("benchmarks/router", router_benchmark.tests()),

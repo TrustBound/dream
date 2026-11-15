@@ -52,11 +52,13 @@ import gleam/erlang/process
 import gleam/http/request as http_request
 import gleam/http/response as http_response
 import gleam/int
+import gleam/list
 import gleam/option
 import gleam/otp/actor
 import gleam/result
 import gleam/string
 import mist.{type Connection, type ResponseData, Bytes, start}
+import simplifile
 
 /// Handle to a running server process
 ///
@@ -153,6 +155,7 @@ pub fn context(
     max_body_size: dream.get_max_body_size(dream_instance),
     bind_interface: dream.get_bind_interface(dream_instance),
   )
+  |> dream.set_tls(dream.get_tls(dream_instance))
 }
 
 /// Provide your application's services
@@ -197,6 +200,7 @@ pub fn services(
     max_body_size: dream.get_max_body_size(dream_instance),
     bind_interface: dream.get_bind_interface(dream_instance),
   )
+  |> dream.set_tls(dream.get_tls(dream_instance))
 }
 
 /// Provide your application's router
@@ -237,6 +241,7 @@ pub fn router(
     max_body_size: dream.get_max_body_size(dream_instance),
     bind_interface: dream.get_bind_interface(dream_instance),
   )
+  |> dream.set_tls(dream.get_tls(dream_instance))
 }
 
 /// Set the network interface to bind to
@@ -276,6 +281,7 @@ pub fn bind(
     max_body_size: dream.get_max_body_size(dream_instance),
     bind_interface: option.Some(interface),
   )
+  |> dream.set_tls(dream.get_tls(dream_instance))
 }
 
 /// Set maximum request body size in bytes
@@ -312,6 +318,56 @@ pub fn max_body_size(
     services: dream.get_services(dream_instance),
     max_body_size: size,
     bind_interface: dream.get_bind_interface(dream_instance),
+  )
+  |> dream.set_tls(dream.get_tls(dream_instance))
+}
+
+/// Serve HTTPS with a certificate and key
+///
+/// Both arguments are paths to PEM files. Over HTTPS, clients and the server
+/// agree on HTTP/2 during the TLS handshake (ALPN), and clients that do not
+/// ask for HTTP/2 get HTTP/1.1. Browsers use HTTP/2 only over HTTPS.
+///
+/// Without `tls()`, the server serves plain HTTP: HTTP/1.1, and HTTP/2 for
+/// clients that send it from the start (prior knowledge).
+///
+/// If a file does not exist, `listen()` panics and `listen_with_handle()`
+/// returns an error.
+///
+/// ### Serve HTTPS <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/server_tls.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http.{ok, text_response}
+/// import dream/http/request.{Get}
+/// import dream/router.{route, router}
+/// import dream/servers/mist/server
+///
+/// fn index(_request, _context, _services) {
+///   text_response(ok, "Hello over HTTPS")
+/// }
+///
+/// pub fn start(certfile: String, keyfile: String, port: Int) {
+///   server.new()
+///   |> server.router(
+///     router()
+///     |> route(method: Get, path: "/", controller: index, middleware: []),
+///   )
+///   |> server.tls(certfile:, keyfile:)
+///   |> server.listen_with_handle(port)
+/// }
+/// ```
+pub fn tls(
+  dream_instance: dream.Dream(
+    mist.Builder(Connection, ResponseData),
+    context,
+    services,
+  ),
+  certfile certfile: String,
+  keyfile keyfile: String,
+) -> dream.Dream(mist.Builder(Connection, ResponseData), context, services) {
+  dream.set_tls(
+    dream_instance,
+    option.Some(dream.Tls(certfile: certfile, keyfile: keyfile)),
   )
 }
 
@@ -484,7 +540,28 @@ fn build_server(
     option.Some(interface) -> mist.bind(server_with_handler, interface)
     option.None -> server_with_handler
   }
-  mist.port(server_with_interface, port)
+  let server_with_tls = case dream.get_tls(dream_instance) {
+    option.Some(dream.Tls(certfile:, keyfile:)) ->
+      mist.with_tls(server_with_interface, certfile:, keyfile:)
+    option.None -> server_with_interface
+  }
+  mist.port(server_with_tls, port)
+}
+
+fn check_tls_files(
+  tls: option.Option(dream.Tls),
+) -> Result(Nil, actor.StartError) {
+  case tls {
+    option.None -> Ok(Nil)
+    option.Some(dream.Tls(certfile:, keyfile:)) ->
+      [certfile, keyfile]
+      |> list.find(fn(path) { simplifile.is_file(path) != Ok(True) })
+      |> result.map(fn(path) {
+        actor.InitFailed("TLS file not found: " <> path)
+      })
+      |> result.map(Error)
+      |> result.unwrap(Ok(Nil))
+  }
 }
 
 fn handle_blocking(block_forever: Bool) -> Nil {
@@ -530,6 +607,7 @@ fn listen_internal(
   let bind_interface = dream.get_bind_interface(dream_instance)
   let bind_interface_label = bind_label(bind_interface)
 
+  use Nil <- result.try(check_tls_files(dream.get_tls(dream_instance)))
   case port_probe.is_in_use(bind_interface, port) {
     True -> Error(port_in_use_error(port, bind_interface_label))
     False -> {

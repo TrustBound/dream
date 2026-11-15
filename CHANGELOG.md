@@ -7,8 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `server.tls(certfile:, keyfile:)` serves HTTPS. Clients that ask for
+  HTTP/2 in the TLS handshake (ALPN), such as browsers, get HTTP/2, and the
+  rest get HTTP/1.1. A missing certificate or key file is a start error.
+  Server adapters read the setting with `dream.get_tls`.
+- New guide: `docs/guides/http2.md`.
+
 ### Changed
 
+- Dream's Mist server adapter now uses `dream_http_server` (mist 6.0.3 plus
+  our fixes) and, through it, `dream_socket_server` (glisten 9.0.1 plus a
+  socket buffer fix), in place of a git fork of mist, so Dream can be
+  published to Hex. The fixes make HTTP/2 work for requests with bodies, large responses,
+  server-sent events, chunked and file responses, bound memory for slow
+  clients, and answer bad input with the errors the HTTP/2 specification
+  asks for. The two packages keep the module names `mist` and `glisten`, so
+  a project must not depend on both Dream and the `mist` or `glisten` Hex
+  packages; run `gleam deps update dream` once if an existing lock file
+  still lists them. See `docs/contributing/http-server-packages.md`.
 - Updated mist streaming adapter to use actor-based `mist.chunked()` API
   instead of the removed `mist.Streaming` response variant. Dream's public
   streaming API (`stream_response`, `sse_response`, `ResponseBody.Stream`)

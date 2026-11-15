@@ -15,7 +15,9 @@ runs:
       run: |
         if [ -f gleam.toml.bak ]; then
           mv gleam.toml.bak gleam.toml
-          # Clean build cache to avoid conflicts with restored dependencies
-          gleam clean
+          # Remove compiled output to avoid conflicts with restored dependencies.
+          # Keep build/packages (downloaded packages and path dependency
+          # fingerprints), so the next build does not ask Hex to resolve again.
+          rm -rf build/dev build/prod
         fi
 

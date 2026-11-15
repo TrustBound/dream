@@ -444,6 +444,7 @@ pub opaque type ClientRequest {
     on_stream_end: Option(fn(List(Header)) -> Nil),
     on_stream_error: Option(fn(StreamFailure) -> Nil),
     protocols: Option(Protocols),
+    certificate_authority_file: Option(String),
   )
 }
 
@@ -492,6 +493,7 @@ pub fn new() -> ClientRequest {
     on_stream_end: None,
     on_stream_error: None,
     protocols: None,
+    certificate_authority_file: None,
   )
 }
 
@@ -878,6 +880,26 @@ pub fn protocols(
   ClientRequest(..client_request, protocols: option.Some(preference))
 }
 
+/// Trust only the certificate authorities in a PEM file for this request
+///
+/// Over HTTPS, the client checks the server's certificate against the system
+/// certificate authorities. With this setting, the request trusts the
+/// certificate authorities in `path` in their place, the same as
+/// `curl --cacert`. Use it for services with a private certificate
+/// authority, and for test servers with their own certificate.
+///
+/// This setting wins over `default_certificate_authority_file()`. Requests
+/// with different settings never share a connection. Plain HTTP requests
+/// ignore it.
+///
+/// If the file cannot be read, the request fails with a transport error.
+pub fn certificate_authority_file(
+  client_request: ClientRequest,
+  path: String,
+) -> ClientRequest {
+  ClientRequest(..client_request, certificate_authority_file: option.Some(path))
+}
+
 // ============================================================================
 // Transport Configuration
 // ============================================================================
@@ -920,6 +942,7 @@ pub opaque type TransportConfig {
     initial_stream_window_size: Int,
     closing_timeout: Int,
     log_level: LogLevel,
+    default_certificate_authority_file: Option(String),
   )
 }
 
@@ -940,6 +963,8 @@ pub opaque type TransportConfig {
 /// - initial_stream_window_size: 65_535 (HTTP/2 per-stream flow control)
 /// - closing_timeout: 15_000ms (graceful shutdown wait)
 /// - log_level: LogInfo (minimum severity for dream log output)
+/// - default_certificate_authority_file: None (trust the system certificate
+///   authorities over TLS)
 pub fn transport_config() -> TransportConfig {
   TransportConfig(
     max_connections: 50,
@@ -956,6 +981,7 @@ pub fn transport_config() -> TransportConfig {
     initial_stream_window_size: 65_535,
     closing_timeout: 15_000,
     log_level: LogInfo,
+    default_certificate_authority_file: None,
   )
 }
 
@@ -1237,6 +1263,31 @@ pub fn get_initial_stream_window_size(config: TransportConfig) -> Int {
 /// Get the configured graceful shutdown timeout in milliseconds
 pub fn get_closing_timeout(config: TransportConfig) -> Int {
   config.closing_timeout
+}
+
+/// Set the certificate authorities that every HTTPS request trusts
+///
+/// By default, the client checks servers' certificates against the system
+/// certificate authorities. With this setting, every request trusts the
+/// certificate authorities in the PEM file at `path` in their place, unless
+/// the request sets its own with `certificate_authority_file()`.
+pub fn default_certificate_authority_file(
+  config: TransportConfig,
+  path: String,
+) -> TransportConfig {
+  TransportConfig(
+    ..config,
+    default_certificate_authority_file: option.Some(path),
+  )
+}
+
+/// Get the client-wide certificate authority file, if one is set
+///
+/// Returns `None` when requests trust the system certificate authorities.
+pub fn get_default_certificate_authority_file(
+  config: TransportConfig,
+) -> Option(String) {
+  config.default_certificate_authority_file
 }
 
 /// Get the configured minimum log level
@@ -1617,6 +1668,15 @@ pub fn get_protocols(client_request: ClientRequest) -> Option(Protocols) {
   client_request.protocols
 }
 
+/// Get the certificate authority file for this request, if one is set
+///
+/// Returns `None` when the request uses the client-wide default.
+pub fn get_certificate_authority_file(
+  client_request: ClientRequest,
+) -> Option(String) {
+  client_request.certificate_authority_file
+}
+
 /// Get the recorder from a request
 ///
 /// Returns the optional recorder attached to the request for recording or playback.
@@ -1934,7 +1994,7 @@ fn send_client_request_via_gun_with_meta(
   let timeout_value = resolve_timeout(client_request)
   let connect_timeout_value = resolve_connect_timeout(client_request)
   let auto_redirect_value = resolve_auto_redirect(client_request)
-  let protocols_value = resolve_protocols(client_request)
+  let connection_settings = resolve_connection_settings(client_request)
 
   case
     send_sync(
@@ -1945,7 +2005,7 @@ fn send_client_request_via_gun_with_meta(
       timeout_value,
       connect_timeout_value,
       auto_redirect_value,
-      protocols_value,
+      connection_settings,
     )
   {
     Ok(#(status, headers, response_body)) ->
@@ -1997,13 +2057,19 @@ fn resolve_auto_redirect(client_request: ClientRequest) -> Bool {
   }
 }
 
-fn resolve_protocols(request: ClientRequest) -> atom.Atom {
-  case request.protocols {
+fn resolve_connection_settings(
+  request: ClientRequest,
+) -> internal.ConnectionSettings {
+  let protocols = case request.protocols {
     option.Some(Http1Only) -> atom.create("http1_only")
     option.Some(Http2Only) -> atom.create("http2_only")
     option.Some(Http2Preferred) -> atom.create("http2_preferred")
     option.None -> atom.create("default")
   }
+  internal.ConnectionSettings(
+    protocols: protocols,
+    certificate_authority_file: request.certificate_authority_file,
+  )
 }
 
 @external(erlang, "dream_http_shim", "request_sync")
@@ -2015,7 +2081,7 @@ fn send_sync(
   timeout_ms: Int,
   connect_timeout_ms: Int,
   autoredirect: Bool,
-  protocols: atom.Atom,
+  connection_settings: internal.ConnectionSettings,
 ) -> Result(#(Int, List(#(String, String)), BitArray), d.Dynamic)
 
 /// Stream HTTP response chunks using a yielder
@@ -2172,7 +2238,7 @@ fn create_stream_yielder_from_client_request(
   let timeout_value = resolve_timeout(client_request)
   let connect_timeout_value = resolve_connect_timeout(client_request)
   let auto_redirect_value = resolve_auto_redirect(client_request)
-  let protocols_value = resolve_protocols(client_request)
+  let connection_settings = resolve_connection_settings(client_request)
 
   case client_request.recorder {
     option.Some(recorder_instance) ->
@@ -2183,7 +2249,7 @@ fn create_stream_yielder_from_client_request(
         timeout_value,
         connect_timeout_value,
         auto_redirect_value,
-        protocols_value,
+        connection_settings,
       )
     option.None ->
       create_plain_yielder(
@@ -2191,7 +2257,7 @@ fn create_stream_yielder_from_client_request(
         timeout_value,
         connect_timeout_value,
         auto_redirect_value,
-        protocols_value,
+        connection_settings,
       )
   }
 }
@@ -2203,7 +2269,7 @@ fn stream_yielder_with_record_mode(
   timeout_value: Int,
   connect_timeout_value: Int,
   auto_redirect_value: Bool,
-  protocols_value: atom.Atom,
+  connection_settings: internal.ConnectionSettings,
 ) -> yielder.Yielder(Result(bytes_tree.BytesTree, StreamFailure)) {
   case recorder.is_record_mode(recorder_instance) {
     True -> {
@@ -2215,7 +2281,7 @@ fn stream_yielder_with_record_mode(
           timeout_ms: timeout_value,
           connect_timeout_ms: connect_timeout_value,
           auto_redirect: auto_redirect_value,
-          protocols_atom: protocols_value,
+          connection_settings: connection_settings,
           recorder: recorder_instance,
           recorded_request: recorded_request,
           start_headers: [],
@@ -2230,7 +2296,7 @@ fn stream_yielder_with_record_mode(
         timeout_value,
         connect_timeout_value,
         auto_redirect_value,
-        protocols_value,
+        connection_settings,
       )
   }
 }
@@ -2240,7 +2306,7 @@ fn create_plain_yielder(
   timeout_value: Int,
   connect_timeout_value: Int,
   auto_redirect_value: Bool,
-  protocols_value: atom.Atom,
+  connection_settings: internal.ConnectionSettings,
 ) -> yielder.Yielder(Result(bytes_tree.BytesTree, StreamFailure)) {
   let initial_state =
     YielderState(
@@ -2249,7 +2315,7 @@ fn create_plain_yielder(
       timeout_ms: timeout_value,
       connect_timeout_ms: connect_timeout_value,
       auto_redirect: auto_redirect_value,
-      protocols_atom: protocols_value,
+      connection_settings: connection_settings,
     )
   yielder.unfold(initial_state, handle_yielder_unfold_with_deps)
 }
@@ -2277,7 +2343,7 @@ type YielderState {
     timeout_ms: Int,
     connect_timeout_ms: Int,
     auto_redirect: Bool,
-    protocols_atom: atom.Atom,
+    connection_settings: internal.ConnectionSettings,
   )
 }
 
@@ -2288,7 +2354,7 @@ type RecordingYielderState {
     timeout_ms: Int,
     connect_timeout_ms: Int,
     auto_redirect: Bool,
-    protocols_atom: atom.Atom,
+    connection_settings: internal.ConnectionSettings,
     recorder: recorder.Recorder,
     recorded_request: recording.RecordedRequest,
     start_headers: List(#(String, String)),
@@ -2353,7 +2419,7 @@ fn handle_yielder_start_with_state(
       state.timeout_ms,
       state.connect_timeout_ms,
       state.auto_redirect,
-      state.protocols_atom,
+      state.connection_settings,
     )
   let owner = internal.extract_owner_pid(request_result)
   case internal.receive_next(owner, state.timeout_ms) {
@@ -2419,7 +2485,7 @@ fn handle_recording_yielder_start(
       state.timeout_ms,
       state.connect_timeout_ms,
       state.auto_redirect,
-      state.protocols_atom,
+      state.connection_settings,
     )
   let owner = internal.extract_owner_pid(request_result)
   let start_headers = case
@@ -2587,7 +2653,7 @@ fn send_stream_messages_via_gun(
   let timeout_value = resolve_timeout(client_request)
   let connect_timeout_value = resolve_connect_timeout(client_request)
   let auto_redirect_value = resolve_auto_redirect(client_request)
-  let protocols_value = resolve_protocols(client_request)
+  let connection_settings = resolve_connection_settings(client_request)
 
   let start_result =
     internal.start_stream_messages(
@@ -2599,7 +2665,7 @@ fn send_stream_messages_via_gun(
       timeout_value,
       connect_timeout_value,
       auto_redirect_value,
-      protocols_value,
+      connection_settings,
     )
 
   case parse_stream_start_result(start_result) {

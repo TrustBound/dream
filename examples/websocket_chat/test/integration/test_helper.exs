@@ -1,3 +1,7 @@
+# Requests go through dream_http_client (see integration/elixir/dream_http.exs)
+Code.require_file("../../../../integration/elixir/dream_http.exs", __DIR__)
+DreamHttp.setup()
+
 # Configure Cucumber
 feature_pattern =
   case System.get_env("CUCUMBER_FEATURE") do

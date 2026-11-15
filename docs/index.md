@@ -40,6 +40,7 @@ After that, dip into the sections below whenever you need more detail.
 - [Testing](guides/testing.md) - Unit and Integration Testing
 - [REST API](guides/rest-api.md) - Production API patterns
 - [Deployment](guides/deployment.md) - Production deployment
+- [HTTP/2](guides/http2.md) - HTTPS and HTTP/2
 
 ### 📖 [Concepts](concepts.md)
 **Core concepts explained.** Understanding how Dream works.
