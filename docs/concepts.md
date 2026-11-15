@@ -8,33 +8,48 @@ Everything you need to understand Dream. Read this, then explore the examples.
 
 A controller is a module that contains action functions—public functions that handle HTTP requests. Each action takes a request, some context about that request, and your app's shared services (like a database connection), then returns a response.
 
+### The controller action type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_signatures.gleam#L9-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-fn(Request, Context, Services) -> Response
+pub type Action =
+  fn(Request, Context, Services) -> Response
 ```
 
 That's it. No magic, no hidden state. The Request has the HTTP method, path, headers, and body. Context holds per-request data like the authenticated user. Services are your shared dependencies—database, cache, HTTP clients—things that don't change between requests.
 
-Here's what a controller module looks like with two actions:
+Here's what a controller module (`controllers/hello_controller.gleam`) looks like with two actions:
+
+### A controller with two actions <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_hello_controller.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// controllers/hello_controller.gleam
-import dream/http.{type Request, type Response, text_response, ok}
-import dream/context.{type AppContext}
+import dream/context.{type EmptyContext}
+import dream/http.{type Request, type Response, require_string, text_response}
+import dream/http/error
+import dream/http/status
 import dream/router.{type EmptyServices}
+import gleam/result
 
-pub fn hello_world(_request: Request, _context: EmptyContext, _services: EmptyServices) -> Response {
+pub fn greet_world(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
   text_response(status.ok, "Hello, World!")
 }
 
-pub fn hello_name(request: Request, _context: EmptyContext, _services: EmptyServices) -> Response {
+pub fn greet_person(
+  request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
   let result = {
     use name <- result.try(require_string(request, "name"))
     Ok(name)
   }
-  
+
   case result {
     Ok(name) -> text_response(status.ok, "Hello, " <> name <> "!")
-    Error(err) -> response_helpers.handle_error(err)
+    Error(err) -> text_response(error.to_status_code(err), error.message(err))
   }
 }
 ```
@@ -118,6 +133,8 @@ Context holds per-request data that changes for each request. Request A's authen
 
 Dream provides `EmptyContext` for simple apps that don't need per-request data:
 
+### EmptyContext <a href="https://github.com/TrustBound/dream/blob/2.5.0/src/dream/context.gleam#L116-L118"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 pub type EmptyContext {
   EmptyContext
@@ -125,6 +142,8 @@ pub type EmptyContext {
 ```
 
 This is the default when you call `server.new()`. For apps that need request tracking, Dream also provides `AppContext`:
+
+### AppContext <a href="https://github.com/TrustBound/dream/blob/2.5.0/src/dream/context.gleam#L124-L126"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type AppContext {
@@ -134,19 +153,20 @@ pub type AppContext {
 
 But you'll probably want to add authentication with your own custom type:
 
+### A custom AuthContext <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_context.gleam#L12-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 pub type AuthContext {
-  AuthContext(
-    request_id: String,
-    user: Option(User),
-  )
+  AuthContext(request_id: String, user: Option(User))
 }
 ```
 
 Middleware enriches the context before it reaches controllers. Here's how an auth middleware might work:
 
+### An auth middleware that enriches the context <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_context.gleam#L16-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn auth_middleware(request, context, services, next) {
+pub fn auth_middleware(request: Request, context, services, next) {
   case get_header(request.headers, "Authorization") {
     None -> unauthorized_response()
     Some(token) -> handle_token(request, context, services, next, token)
@@ -158,7 +178,8 @@ fn handle_token(request, context, services, next, token) {
     Ok(user) -> {
       // Enrich context with authenticated user
       let enriched = AuthContext(..context, user: Some(user))
-      next(request, enriched, services)  // Controller receives enriched context
+      // Controller receives enriched context
+      next(request, enriched, services)
     }
     Error(_) -> unauthorized_response()
   }
@@ -186,8 +207,12 @@ Middleware wraps controller actions to handle cross-cutting concerns. Instead of
 
 A middleware function has this signature:
 
+### The middleware type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_signatures.gleam#L12-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-fn(Request, Context, Services, fn(Request, Context, Services) -> Response) -> Response
+pub type Middleware =
+  fn(Request, Context, Services, fn(Request, Context, Services) -> Response) ->
+    Response
 ```
 
 The fourth parameter is a function that represents the next middleware or controller action in the chain.
@@ -196,30 +221,41 @@ You get the request, context, services, and a `next` function. You can modify th
 
 Here's a logging middleware:
 
+### A logging middleware <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_middleware.gleam#L13-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 pub fn logging_middleware(request, context, services, next) {
-  let start_time = timestamp.now()
-  
+  let start_time = timestamp.system_time()
+
   // Call next (could be another middleware or the controller action)
   let response = next(request, context, services)
-  
-  let duration = timestamp.difference(timestamp.now(), start_time)
+
+  let duration = timestamp.difference(start_time, timestamp.system_time())
   log_request(request, response, duration)
-  
-  response  // Return (possibly modified) response
+
+  // Return (possibly modified) response
+  response
 }
 ```
 
 Apply middleware to routes:
 
+### Middleware on routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_middleware.gleam#L26-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-router
-|> route(method: Get, path: "/", controller: home, middleware: [])  // Public
-|> route(method: Post, path: "/admin", controller: admin, middleware: [
-  auth_middleware,       // Run first
-  admin_check_middleware, // Run second
-  logging_middleware,    // Run third
-])
+pub fn create_router() -> Router(AuthContext, services) {
+  router()
+  // Public
+  |> route(method: Get, path: "/", controller: home, middleware: [])
+  |> route(method: Post, path: "/admin", controller: admin, middleware: [
+    // Run first
+    auth_middleware,
+    // Run second
+    admin_check_middleware,
+    // Run third
+    logging_middleware,
+  ])
+}
 ```
 
 Execution flows like an onion:
@@ -371,8 +407,9 @@ Models take connections as parameters, return domain types (not DB types), and h
 
 Views format domain types into strings. JSON, HTML, CSV—whatever format you need. They're pure functions: take a domain type, return a string. No Result types, no HTTP knowledge.
 
+### A view for JSON, CSV and HTML <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_user_view.gleam#L16-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-// views/user_view.gleam
 pub fn respond(user: User, param: PathParam) -> Response {
   case param.format {
     Some("json") -> json_response(status.ok, to_json(user))
@@ -418,11 +455,13 @@ Dream enforces clear boundaries between layers.
 
 Keep validation and response building separate. Validation takes a string and a decoder, returns `Result(T, ValidationError)`. Response building takes a status and body, returns a `Response`. Controllers connect them explicitly:
 
+### Validate, then build the response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_validation.gleam#L24-L27"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-case validate_json(request.body, decoder) {
-  Ok(data) -> create_with_data(services, data)
-  Error(err) -> json_response(status.bad_request, error_json(err))
-}
+  case validate_json(request.body, decoder) {
+    Ok(data) -> create_with_data(services, data)
+    Error(err) -> json_response(status.bad_request, error_json(err))
+  }
 ```
 
 **Models ≠ Views**

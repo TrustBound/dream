@@ -25,18 +25,17 @@ Right now, anyone can create or delete users. You need:
 
 Create `src/context.gleam`:
 
+### The AuthContext type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_adding_auth_context.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import gleam/option.{type Option, None, Some}
+import gleam/option.{type Option, None}
 
 pub type User {
   User(id: String, email: String, role: String)
 }
 
 pub type AuthContext {
-  AuthContext(
-    request_id: String,
-    user: Option(User),
-  )
+  AuthContext(request_id: String, user: Option(User))
 }
 
 pub const context = AuthContext(request_id: "", user: None)
@@ -44,10 +43,10 @@ pub const context = AuthContext(request_id: "", user: None)
 
 **What changed:**
 
-In Lessons 1-2, you used `AppContext` (Dream's default with just `request_id`).
+In Lessons 1-2, you used `EmptyContext` (Dream's default, which holds no data).
 
 Now you have `AuthContext` with:
-- `request_id` - Still here for tracking requests
+- `request_id` - For tracking requests
 - `user` - Added for authenticated user info
 
 This is **per-request data** - it changes for each request. The user making request A is different from request B.
@@ -61,17 +60,22 @@ This is **per-request data** - it changes for each request. The user making requ
 
 Create `src/middleware/auth_middleware.gleam`:
 
+### The auth middleware <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_adding_auth_middleware.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import context.{type AuthContext, type User}
-import dream/http.{type Request, type Response, text_response, unauthorized, get_header}
-import gleam/option.{None, Some}
-import services.{type Services}
+import dream/http.{
+  type Request, type Response, get_header, text_response, unauthorized,
+}
+import gleam/option.{type Option, None, Some}
+import snippets/learn_adding_auth_context.{
+  type AuthContext, type User, AuthContext, User,
+}
 
 pub fn auth_middleware(
   request: Request,
   context: AuthContext,
-  services: Services,
-  next: fn(Request, AuthContext, Services) -> Response,
+  services: services,
+  next: fn(Request, AuthContext, services) -> Response,
 ) -> Response {
   case get_header(request.headers, "Authorization") {
     None -> text_response(unauthorized, "Missing Authorization header")
@@ -82,9 +86,9 @@ pub fn auth_middleware(
 fn verify_token(
   request: Request,
   context: AuthContext,
-  services: Services,
+  services: services,
   token: String,
-  next: fn(Request, AuthContext, Services) -> Response,
+  next: fn(Request, AuthContext, services) -> Response,
 ) -> Response {
   case validate_token(token) {
     None -> text_response(unauthorized, "Invalid token")
@@ -105,6 +109,11 @@ fn validate_token(token: String) -> Option(User) {
   }
 }
 ```
+
+The tested snippet imports the context from `snippets/learn_adding_auth_context`.
+In your app, import it from the `context` module. The middleware does not
+use `services`, so its type is the type variable `services`: the middleware
+works with any services type.
 
 **What's happening here:**
 

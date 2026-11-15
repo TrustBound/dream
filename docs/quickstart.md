@@ -28,12 +28,14 @@ gleam add dream
 
 Replace `src/hello_dream.gleam`:
 
+### The server file <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/quickstart_hello_server.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream/context.{type EmptyContext}
-import dream/http.{type Request, type Response, text_response, ok}
+import dream/http.{type Request, type Response, ok, text_response}
 import dream/http/request.{Get}
-import dream/router.{type EmptyServices, route, router as create_router}
-import dream/servers/mist/server.{bind, listen, router}
+import dream/router.{type EmptyServices, type Router, route, router}
+import dream/servers/mist/server
 
 fn index(
   _request: Request,
@@ -43,15 +45,16 @@ fn index(
   text_response(ok, "Hello, World!")
 }
 
-pub fn main() {
-  let app_router =
-    create_router()
-    |> route(method: Get, path: "/", controller: index, middleware: [])
+pub fn create_app_router() -> Router(EmptyContext, EmptyServices) {
+  router()
+  |> route(method: Get, path: "/", controller: index, middleware: [])
+}
 
+pub fn main() {
   server.new()
-  |> router(app_router)
-  |> bind("localhost")
-  |> listen(3000)
+  |> server.router(create_app_router())
+  |> server.bind("localhost")
+  |> server.listen(3000)
 }
 ```
 
@@ -69,33 +72,37 @@ Let’s walk through the file from top to bottom.
 
 ### Imports
 
+#### The imports <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/quickstart_hello_server.gleam#L5-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import dream/http.{type Request, type Response, text_response, ok}
+import dream/context.{type EmptyContext}
+import dream/http.{type Request, type Response, ok, text_response}
 import dream/http/request.{Get}
-import dream/router.{type EmptyServices, route, router}
-import dream/servers/mist/server.{
-  bind, listen, new, router as set_router, services,
-} as server
+import dream/router.{type EmptyServices, type Router, route, router}
+import dream/servers/mist/server
 ```
 
 In words:
 
+- `dream/context` gives you `EmptyContext`, the default context type.
 - `dream/http` gives you the **Request** and **Response** types plus
   helpers like `text_response` and common status codes like `ok`.
 - `dream/http/request.{Get}` brings in the HTTP method you will use in
   the router.
-- `dream/router` gives you the router type and the `router()` and
-  `route(...)` functions.
+- `dream/router` gives you the `Router` and `EmptyServices` types and
+  the `router()` and `route(...)` functions.
 - `dream/servers/mist/server` is the entrypoint for running Dream on
-  the Mist HTTP server. We import it as `server` and pull in the
-  builder-style functions we need.
+  the Mist HTTP server. We call its builder functions with the module
+  name, for example `server.new()` and `server.router(...)`.
 
 ### The controller
+
+#### The index controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/quickstart_hello_server.gleam#L11-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn index(
   _request: Request,
-  _context: dream/context.AppContext,
+  _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
   text_response(ok, "Hello, World!")
@@ -115,14 +122,16 @@ You can imagine it as:
 
 ### The router
 
+#### The app router <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/quickstart_hello_server.gleam#L19-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn main() {
-  let app_router =
-    router()
-    |> route(method: Get, path: "/", controller: index, middleware: [])
+pub fn create_app_router() -> Router(EmptyContext, EmptyServices) {
+  router()
+  |> route(method: Get, path: "/", controller: index, middleware: [])
+}
 ```
 
-`router()` creates an empty router.
+`create_app_router()` returns the router. `router()` creates an empty router.
 
 `route(...)` adds one route:
 
@@ -137,20 +146,25 @@ right. You can read it as “then”.
 
 So:
 
+#### An empty router, then a route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/quickstart_hello_server.gleam#L20-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-router()
-|> route(...)
+  router()
+  |> route(method: Get, path: "/", controller: index, middleware: [])
 ```
 
 means “start with an empty router, **then** add this route”.
 
 ### The server
 
+#### Starting the server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/quickstart_hello_server.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
+pub fn main() {
   server.new()
-  |> router(app_router)
-  |> bind("localhost")
-  |> listen(3000)
+  |> server.router(create_app_router())
+  |> server.bind("localhost")
+  |> server.listen(3000)
 }
 ```
 
@@ -158,15 +172,15 @@ Here we build and start the server:
 
 - `server.new()` – create a Dream server with default context and
   services.
-- `|> router(app_router)` – attach the router you just built.
-- `|> bind("localhost")` – listen only on the local machine.
-- `|> listen(3000)` – start listening on port 3000 and block forever.
+- `|> server.router(create_app_router())` – attach the router.
+- `|> server.bind("localhost")` – listen only on the local machine.
+- `|> server.listen(3000)` – start listening on port 3000 and block forever.
 
 Because Dream uses a **builder pattern**, each call returns a new value
 with more configuration applied. There is no global state.
 
-> Note: When using Dream’s default `AppContext`, you don’t need to call
-> `context()` explicitly – it is set up automatically.
+> Note: When using Dream’s default `EmptyContext`, you don’t need to call
+> `server.context()` explicitly – it is set up automatically.
 
 ### A note on performance
 

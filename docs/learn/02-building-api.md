@@ -197,39 +197,43 @@ This creates `src/sql.gleam` with type-safe functions: `create_user()`, `get_use
 
 Create `src/services.gleam`:
 
+### Services with a database pool <a href="https://github.com/TrustBound/dream/blob/2.5.0/modules/postgres/test/snippets/learn_building_api_services.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import gleam/erlang/process.{new_name}
+import gleam/erlang/process
 import gleam/option.{Some}
-import gleam/otp/actor.{Started}
-import pog.{Connection, default_config, host, port, database, user, password, pool_size, start}
+import gleam/otp/actor
+import gleam/result
+import pog
 
 pub type Services {
-  Services(db: Connection)
+  Services(db: pog.Connection)
 }
 
-pub fn initialize_services() -> Services {
-  let pool_name = new_name("db_pool")
-  
-  let config =
-    default_config(pool_name: pool_name)
-    |> host("localhost")
-    |> port(5432)
-    |> database("myapp")
-    |> user("postgres")
-    |> password(Some("postgres"))
-    |> pool_size(10)
-  
-  let assert Ok(Started(_pid, connection)) = start(config)
-  
-  Services(db: connection)
+pub fn initialize_services() -> Result(Services, actor.StartError) {
+  create_database_config()
+  |> pog.start()
+  |> result.map(fn(started) { Services(db: started.data) })
+}
+
+pub fn create_database_config() -> pog.Config {
+  pog.default_config(pool_name: process.new_name("db_pool"))
+  |> pog.host("localhost")
+  |> pog.port(5432)
+  |> pog.database("myapp")
+  |> pog.user("postgres")
+  |> pog.password(Some("postgres"))
+  |> pog.pool_size(10)
 }
 ```
 
 **What's happening here:**
 
 1. `Services` type holds the database connection.
-2. `initialize_services()` builds a configuration for Pog (the
-   PostgreSQL driver) and starts a connection pool.
+2. `create_database_config()` builds a configuration for Pog (the
+   PostgreSQL driver). `initialize_services()` starts a connection pool
+   with it. Starting the pool can fail, so `initialize_services()`
+   returns a `Result` and does not crash your app.
 3. This code runs once when the server starts.
 4. Every controller gets access to `services.db` – a pooled database
    connection – as an argument.
@@ -249,16 +253,13 @@ Services solves this with type safety. The compiler verifies every controller ge
 
 Create `src/types/user.gleam`:
 
+### The User type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_building_api_user.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import gleam/time/timestamp.{type Timestamp}
 
 pub type User {
-  User(
-    id: Int,
-    name: String,
-    email: String,
-    created_at: Timestamp,
-  )
+  User(id: Int, name: String, email: String, created_at: Timestamp)
 }
 ```
 
@@ -357,11 +358,11 @@ This keeps database concerns in one place.
 
 Create `src/views/user_view.gleam`:
 
+### The user view <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_building_api_user_view.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import types/user.{type User}
-import gleam/int.{to_string}
 import gleam/json
-import gleam/list.{type List, map}
+import snippets/learn_building_api_user.{type User}
 
 pub fn to_json(user: User) -> String {
   user_to_json_object(user)
@@ -369,8 +370,7 @@ pub fn to_json(user: User) -> String {
 }
 
 pub fn list_to_json(users: List(User)) -> String {
-  map(users, user_to_json_object)
-  |> json.array(from: _, of: identity)
+  json.array(users, user_to_json_object)
   |> json.to_string()
 }
 
@@ -381,11 +381,10 @@ fn user_to_json_object(user: User) -> json.Json {
     #("email", json.string(user.email)),
   ])
 }
-
-fn identity(x: a) -> a {
-  x
-}
 ```
+
+The tested snippet imports `User` from `snippets/learn_building_api_user`.
+In your app, import it from the `types/user` module.
 
 **What's happening here:**
 
@@ -495,8 +494,10 @@ otherwise carry on”, without deeply nested `case` expressions.
 
 **The require_* pattern (recommended):**
 
+#### Reading a path parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_building_api_show_user.gleam#L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-use id <- result.try(require_int(request, "id"))
+    use id <- result.try(require_int(request, "id"))
 ```
 
 This pattern:
