@@ -14,15 +14,21 @@
 ////
 //// ## Examples
 ////
+//// ### Parse patterns <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_parser.gleam#L6-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
-//// parse_pattern("/users/:id")
-//// // [Literal("users"), Param("id")]
+//// pub fn module_examples() -> List(List(Segment)) {
+////   let users = parse_pattern("/users/:id")
+////   // [Literal("users"), Param("id")]
 ////
-//// parse_pattern("/files/**path")
-//// // [Literal("files"), MultiWildcard(Some("path"))]
+////   let files = parse_pattern("/files/**path")
+////   // [Literal("files"), MultiWildcard(Some("path"))]
 ////
-//// parse_pattern("/images/*.{jpg,png}")
-//// // [Literal("images"), ExtensionPattern(["jpg", "png"])]
+////   let images = parse_pattern("/images/*.{jpg,png}")
+////   // [Literal("images"), ExtensionPattern(["jpg", "png"])]
+////
+////   [users, files, images]
+//// }
 //// ```
 ////
 //// ## Pattern Precedence
@@ -31,8 +37,11 @@
 //// 1. Literal segments (highest priority)
 //// 2. Parameters
 //// 3. Single wildcards
-//// 4. Extension patterns
-//// 5. Multi-segment wildcards (lowest priority)
+//// 4. Multi-segment wildcards (lowest priority)
+////
+//// A segment with an extension, such as `photo.jpg`, uses a different order:
+//// literal, extension pattern, single wildcard, multi-segment wildcard, and
+//// parameter last.
 
 import dream/router/trie.{
   type Segment, ExtensionPattern, Literal, LiteralExtension, MultiWildcard,
@@ -62,22 +71,28 @@ import gleam/string
 ///
 /// ## Examples
 ///
+/// ### Parse each kind of segment <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_parser.gleam#L19-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// // Simple literal path
-/// parse_pattern("/users")
-/// // [Literal("users")]
+/// pub fn parse_pattern_examples() -> List(List(Segment)) {
+///   // Simple literal path
+///   let users = parse_pattern("/users")
+///   // [Literal("users")]
 ///
-/// // Parameter capture
-/// parse_pattern("/users/:id")
-/// // [Literal("users"), Param("id")]
+///   // Parameter capture
+///   let user = parse_pattern("/users/:id")
+///   // [Literal("users"), Param("id")]
 ///
-/// // Multi-segment wildcard
-/// parse_pattern("/public/**filepath")
-/// // [Literal("public"), MultiWildcard(Some("filepath"))]
+///   // Multi-segment wildcard
+///   let files = parse_pattern("/public/**filepath")
+///   // [Literal("public"), MultiWildcard(Some("filepath"))]
 ///
-/// // Extension matching
-/// parse_pattern("/images/*.{jpg,png}")
-/// // [Literal("images"), ExtensionPattern(["jpg", "png"])]
+///   // Extension matching
+///   let images = parse_pattern("/images/*.{jpg,png}")
+///   // [Literal("images"), ExtensionPattern(["jpg", "png"])]
+///
+///   [users, user, files, images]
+/// }
 /// ```
 ///
 /// ## Pattern Details
@@ -172,9 +187,14 @@ fn parse_extension_pattern(extension_pattern: String) -> Segment {
 ///
 /// ## Example
 ///
+/// ### Trim spaces in extensions <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_parser.gleam#L39-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// parse_brace_extensions("{jpg, png, gif}")
-/// // ExtensionPattern(["jpg", "png", "gif"])
+/// pub fn brace_extensions() -> List(Segment) {
+///   // Spaces after the commas are trimmed
+///   parse_pattern("/images/*.{jpg, png, gif}")
+///   // [Literal("images"), ExtensionPattern(["jpg", "png", "gif"])]
+/// }
 /// ```
 fn parse_brace_extensions(brace_pattern: String) -> Segment {
   let inner =
