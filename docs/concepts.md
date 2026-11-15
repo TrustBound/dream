@@ -305,87 +305,70 @@ Use middleware for cross-cutting concerns like logging and auth, or for request/
 
 ## Operations
 
-Sometimes a controller action needs to coordinate multiple services with complex business rules. That doesn't belong in an action.
+Sometimes a controller action must coordinate more than one model, or more than one step. That logic doesn't belong in the action.
 
-Say you need to publish a post:
-1. Get post from database
-2. Verify user is the author
-3. Update post status
-4. Index in search engine
-5. Broadcast event to subscribers
+Say the task page shows a task card. The card needs:
+1. The task, from the task model
+2. The task's tags, from the tag model
 
-That's coordinating Postgres, OpenSearch, and SSE with authorization logic. Extract it to an operation:
+Extract that to an operation. The controller action stays thin, with only HTTP work:
+
+### Controller action calls the operation <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/controllers/tasks_controller.gleam#L19-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{require_int, type Request, type Response}
-import dream/http.{json_response, ok}
-import gleam/option
-import gleam/result
-import operations/publish_post
-import utilities/response_helpers
-import views/post_view
-
-// Controller action stays thin - just HTTP concerns
-pub fn publish(request: Request, context: Context, services: Services) -> Response {
+/// Show single task
+pub fn show(
+  request: http.Request,
+  _context: TasksContext,
+  services: Services,
+) -> http.Response {
   let result = {
-    use id <- result.try(require_int(request, "id"))
-    use user <- result.try(
-      case context.user {
-        option.Some(u) -> Ok(u)
-        option.None -> Error(error.Unauthorized("Authentication required"))
-      }
-    )
-    publish_post.execute(id, user.id, services)
+    use task_id <- result.try(http.require_int(request, "task_id"))
+    task_operations.get_task_with_tags(services.db, task_id)
   }
-  
+
   case result {
-    Ok(post) -> json_response(ok, post_view.to_json(post))
+    Ok(#(task, tags)) -> http.html_response(http.ok, task_view.card(task, tags))
     Error(err) -> response_helpers.handle_error(err)
   }
 }
 ```
 
+The operation holds the logic, with no HTTP. If the task does not exist, it returns the error. If the tags query fails, it shows the task with no tags:
+
+### Operation coordinates two models <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/operations/task_operations.gleam#L33-L45"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import dream/http/error.{type Error, Forbidden, NotFound, InternalServerError}
-import gleam/result
+/// Get a task with its tags
+pub fn get_task_with_tags(
+  db: Connection,
+  task_id: Int,
+) -> Result(#(Task, List(Tag)), Error) {
+  use task <- result.try(task_model.get(db, task_id))
 
-// Operation handles business logic - no HTTP
-pub fn execute(post_id: Int, user_id: Int, services: Services) -> Result(Post, Error) {
-  use post <- result.try(post_model.get(services.db, post_id))
-  use _ <- result.try(check_authorization(user_id, post))
-  use published <- result.try(post_model.publish(services.db, post_id))
-  
-  // Side effects
-  let _ = search.index_post(services.search, published)
-  let _ = events.broadcast(services.events, PostPublished(published))
-  
-  Ok(published)
-}
+  let tags =
+    tag_model.get_tags_for_task(db, task.id)
+    |> result.unwrap([])
 
-fn check_authorization(user_id: Int, post: Post) -> Result(Nil, Error) {
-  case user_id == post.author_id {
-    True -> Ok(Nil)
-    False -> Error(Forbidden("Not authorized to publish this post"))
-  }
+  Ok(#(task, tags))
 }
 ```
 
-The big win? Operations are testable without HTTP. No mocking requests, no building Request objects—just test the business logic:
+The operation takes a database connection and a task ID. It doesn't need a Request object. The tasks example tests it through the HTTP API, with a Cucumber scenario in [test/integration/features/tasks.feature](../examples/tasks/test/integration/features/tasks.feature):
 
-```gleam
-pub fn publish_post_with_wrong_user_returns_forbidden_test() {
-  let services = test_services()
-  let post = create_test_post(services)
-  
-  let result = publish_post.execute(post.id, wrong_user_id, services)
-  
-  assert Error(error.Forbidden(_)) = result
-}
+```gherkin
+Scenario: Get task by ID returns correct task
+    Given a task exists with title "Specific Task"
+    When I send a GET request to "/tasks/1"
+    Then the response status should be 200
+    And the response should contain "Specific Task"
 ```
 
-Use operations when you're coordinating 2+ models, have complex business rules spanning entities, or need side effects like events, emails, or search indexing. Don't use them for simple CRUD—most controller actions don't need operations. Only extract when complexity demands it.
+Run `make test-integration` in `examples/tasks` to run the scenarios.
 
-**See:** [examples/cms/src/operations/](../examples/cms/src/operations/)
+Use operations when you coordinate 2 or more models, when an action has steps that must happen in order, or when a business rule spans entities. Don't use them for simple CRUD. Most controller actions don't need operations. Only extract when the logic demands it.
+
+**See:** [examples/tasks/src/operations/](../examples/tasks/src/operations/)
 
 ---
 
