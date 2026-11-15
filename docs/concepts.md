@@ -66,16 +66,33 @@ Use controllers for simple CRUD operations, single-model operations, or any dire
 
 The router matches incoming requests to your controller actions based on HTTP method and path pattern. You define routes like this:
 
+### A router <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/custom_context/src/router.gleam#L9-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn create_router() -> Router(AppContext, Services) {
+pub fn create_router() -> Router(AuthContext, Services) {
   router()
-  |> route(method: Get, path: "/users", controller: users_controller.index, middleware: [])
-  |> route(method: Get, path: "/users/:id", controller: users_controller.show, middleware: [])
-  |> route(method: Post, path: "/users", controller: users_controller.create, middleware: [])
+  |> route(
+    method: Get,
+    path: "/",
+    controller: posts_controller.index,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/users/:id/posts/:post_id",
+    controller: posts_controller.show,
+    middleware: [auth_middleware],
+  )
+  |> route(
+    method: Get,
+    path: "/admin",
+    controller: posts_controller.index,
+    middleware: [auth_middleware, admin_middleware],
+  )
 }
 ```
 
-Path parameters like `:id` get extracted automatically. So `/users/:id` matches `/users/123` and makes `id` available via `require_int(request, "id")` or `require_string(request, "id")`. These functions safely extract and validate parameters, returning `Result` types for error handling. You can have multiple parameters too—`/posts/:post_id/comments/:id` extracts both.
+Path parameters like `:id` get extracted automatically. So `/users/:id/posts/:post_id` matches `/users/1/posts/2` and makes `id` and `post_id` available via `require_string(request, "id")` and `require_string(request, "post_id")`, or via `require_int` for numbers. These functions safely extract and validate parameters, returning `Result` types for error handling.
 
 The router is generic over your Context and Services types. This means the compiler verifies every controller action has the right signature. Change your Context or Services type? The compiler will tell you exactly which actions need updating.
 
@@ -83,7 +100,7 @@ The router is generic over your Context and Services types. This means the compi
 
 **Router Performance:** Dream uses a radix trie for O(path depth) route matching. Benchmarks show consistent ~1.3-1.5μs lookup times whether you have 100 or 1000 routes. The router is fast enough that it won't be your bottleneck.
 
-**See:** [examples/simple/src/router.gleam](../examples/simple/src/router.gleam)
+**See:** [examples/custom_context/src/router.gleam](../examples/custom_context/src/router.gleam)
 
 ---
 
@@ -91,31 +108,39 @@ The router is generic over your Context and Services types. This means the compi
 
 Your controller actions need things like database connections, HTTP clients, and caches. You could pass these through every function call, but that gets messy fast. You could use global variables, but Gleam doesn't have safe globals. You could use Erlang's process dictionary, but that's not type-safe.
 
-Services solves this with type-safe dependency injection. You define what your app needs:
+Services solves this with type-safe dependency injection. You define what your app needs as fields of one type. The database example needs one service:
+
+### The Services type <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/services.gleam#L8-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Services {
-  Services(
-    db: pog.Connection,
-    cache: ets.Table,
-  )
+  Services(database: DatabaseService)
 }
 ```
 
 Initialize it once at startup:
 
+### Initializing services <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/services.gleam#L14-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 pub fn initialize_services() -> Services {
-  let assert Ok(db) = init_database()
-  let assert Ok(cache) = init_cache()
-  Services(db: db, cache: cache)
+  let assert Ok(database_service) = database.init_database()
+  Services(database: database_service)
 }
+```
 
+Then give it to the server in `main`:
+
+### Passing services to the server <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/main.gleam#L15-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
 pub fn main() {
-  server.new()
-  |> services(initialize_services())  // Called once
+  dream.new()
+  |> context(db_context.context)
+  |> services(initialize_services())
   |> router(create_router())
-  |> listen(3000)
+  |> bind("localhost")
+  |> listen(3002)
 }
 ```
 
@@ -368,10 +393,10 @@ Use operations when you're coordinating 2+ models, have complex business rules s
 
 Models handle data access. They take a database connection (explicit dependency, no globals), run queries, and convert database rows into your domain types. Controller actions call models, not SQL directly.
 
-```gleam
-// models/user/user.gleam
-import dream/http/error.{type Error, NotFound, InternalServerError}
+### Model functions <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/models/user.gleam#L23-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
+```gleam
+/// Get a single user by ID
 pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
@@ -379,20 +404,30 @@ pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
   }
 }
 
-pub fn create(db: pog.Connection, data: UserData) -> Result(User, Error) {
-  case sql.create_user(db, data.email, data.name) {
-    Ok(returned) -> extract_first_user(returned)
+/// Create a new user
+pub fn create(
+  db: pog.Connection,
+  name: String,
+  email: String,
+) -> Result(User, Error) {
+  case sql.create_user(db, name, email) {
+    Ok(returned) -> extract_created_user(returned)
     Error(_) -> Error(InternalServerError("Database error"))
   }
 }
+```
 
-// Convert Squirrel row to domain type
+A private function converts each Squirrel row to the domain type:
+
+### Converting a row to a domain type <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/models/user.gleam#L107-L114"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
 fn row_to_user(row: sql.GetUserRow) -> User {
   User(
     id: row.id,
-    email: row.email,
     name: row.name,
-    created_at: row.created_at,
+    email: row.email,
+    created_at: option.unwrap(row.created_at, timestamp.system_time()),
   )
 }
 ```

@@ -43,7 +43,7 @@ pub const context = AuthContext(request_id: "", user: None)
 
 **What changed:**
 
-In Lessons 1-2, you used `EmptyContext` (Dream's default, which holds no data).
+In Lesson 1, you used `EmptyContext` (Dream's default, which holds no data). In Lesson 2, `DatabaseContext` held only a request ID.
 
 Now you have `AuthContext` with:
 - `request_id` - For tracking requests
@@ -139,117 +139,157 @@ Middleware lets you write it once and apply to any route.
 
 ## Step 3: Use Middleware in Routes
 
+From this step on, the lesson uses the app in
+[examples/custom_context](https://github.com/TrustBound/dream/tree/2.5.0/examples/custom_context/src).
+Its `context.gleam` and `auth_middleware.gleam` are almost the same as
+the files from Steps 1 and 2. Its middleware uses the app's own
+`Services` type in place of the type variable `services`. The app has
+no database, so its routes are not the users routes from Lesson 2. To
+protect your users API, put `[auth_middleware]` on the users routes
+that change data in the same way.
+
 Update `src/router.gleam`:
 
+### Routes with and without middleware <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/custom_context/src/router.gleam#L1-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import dream/http/request.{Delete, Get, Post}
-import dream/router.{type Router, route, router}
 import context.{type AuthContext}
-import controllers/users_controller.{index, show, create, delete}
+import controllers/posts_controller
+import dream/http/request.{Get}
+import dream/router.{type Router, route, router}
+import middleware/admin_middleware.{admin_middleware}
 import middleware/auth_middleware.{auth_middleware}
 import services.{type Services}
 
 pub fn create_router() -> Router(AuthContext, Services) {
   router()
-  // Public route - no auth needed
-  |> route(method: Get, path: "/users", controller: index, middleware: [])
-  
-  // Protected routes - auth required
-  |> route(method: Get, path: "/users/:id", controller: show, middleware: [auth_middleware])
-  |> route(method: Post, path: "/users", controller: create, middleware: [auth_middleware])
-  |> route(method: Delete, path: "/users/:id", controller: delete, middleware: [auth_middleware])
+  |> route(
+    method: Get,
+    path: "/",
+    controller: posts_controller.index,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/users/:id/posts/:post_id",
+    controller: posts_controller.show,
+    middleware: [auth_middleware],
+  )
+  |> route(
+    method: Get,
+    path: "/admin",
+    controller: posts_controller.index,
+    middleware: [auth_middleware, admin_middleware],
+  )
 }
 ```
 
 Notice:
 - `Router(AuthContext, Services)` - Using custom context now
-- `[auth_middleware]` - Applied to protected routes
+- `[auth_middleware]` - Applied to the protected route
+- `[auth_middleware, admin_middleware]` - Two middleware on the admin route
 - Public route has `[]` - no middleware
 
-## Step 4: Access User in Controller
+## Step 4: Read the User from Context
 
-Update `src/controllers/users_controller.gleam`:
+After `auth_middleware` runs, `context.user` holds the authenticated
+user. The next middleware or the controller reads it from there. The
+example's `src/middleware/admin_middleware.gleam` reads the user's
+role:
+
+### Reading the user from context <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/custom_context/src/middleware/admin_middleware.gleam#L13-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{type Request, type Response, json_response, created, validate_json}
-import dream/http/error.{type Error, Unauthorized}
-import context.{type AuthContext, type User}
-import gleam/option
-import gleam/result
-import models/user.{decoder, create}
-import services.{type Services}
-import utilities/response_helpers
-import views/user_view.{to_json}
-
-pub fn create(
+pub fn admin_middleware(
   request: Request,
   context: AuthContext,
   services: Services,
+  next: fn(Request, AuthContext, Services) -> Response,
 ) -> Response {
-  let result = {
-    use user <- result.try(
-      case context.user {
-        option.Some(u) -> Ok(u)
-        option.None -> Error(error.Unauthorized("Authentication required"))
-      }
-    )
-    use data <- result.try(validate_json(request.body, decoder()))
-    let #(name, email) = data
-    let db = services.database.connection
-    use created_user <- result.try(create(db, name, email))
-    Ok(created_user)
-  }
-  
-  case result {
-    Ok(created) -> json_response(created, to_json(created))
-    Error(err) -> response_helpers.handle_error(err)
+  // Check user role from context (auth_middleware should have populated this)
+  case context.user {
+    option.None ->
+      text_response(status.unauthorized, "Unauthorized: Not authenticated")
+    option.Some(User(_id, _email, role)) ->
+      check_role(role, request, context, services, next)
   }
 }
 ```
 
 **What's happening:**
 
-The controller uses a flat `use` chain to:
-1. Extract the authenticated user from context (returns `Unauthorized` if missing)
-2. Validate the JSON request body
-3. Create the user in the database
-4. Handle all errors uniformly through `response_helpers.handle_error`
+1. `auth_middleware` ran first, and put the user into the context.
+2. If `context.user` is `None`, the request has no authenticated user,
+   so the middleware returns `401 Unauthorized`.
+3. If `context.user` is `Some(User(...))`, the middleware takes the
+   role from it, and `check_role` lets only the `admin` role through.
+   Other roles get `403 Forbidden`.
 
-This pattern keeps the controller thin and readable, avoiding nested `case` statements. The middleware populated `context.user`, so if it's `None`, that indicates the middleware didn't run or auth failed (shouldn't happen if middleware is on the route).
+A controller reads `context.user` in the same way, with a `case` on
+the `Option`.
 
 ## Step 5: Update Main
 
 Update `src/main.gleam`:
 
+### Main with a custom context <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/custom_context/src/main.gleam#L3-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import dream/servers/mist/server.{bind, context, listen, new, router, services} as server
-import context.{context}
-import router.{create_router}
-import services.{initialize_services}
+import context as app_context
+import dream/servers/mist/server.{bind, context, listen, router, services} as dream
+import gleam/io
+import gleam/option
+import router as app_router
+import services as app_services
 
 pub fn main() {
-  server.new()
-  |> context(context)              // Custom context, not AppContext
-  |> services(initialize_services())
-  |> router(create_router())
+  // Initialize services
+  let app_services = app_services.initialize_services()
+
+  // Start the server
+  dream.new()
+  |> context(app_context.AuthContext(request_id: "", user: option.None))
+  |> services(app_services)
+  |> router(app_router.create_router())
   |> bind("localhost")
-  |> listen(3000)
+  |> listen(3001)
+
+  io.println("Custom context example server listening on http://localhost:3001")
+  io.println("Try:")
+  io.println("  GET /                          - Public endpoint")
+  io.println(
+    "  GET /users/1/posts/2           - Requires auth (Bearer user-token)",
+  )
+  io.println(
+    "  GET /admin                     - Requires admin (Bearer admin-token)",
+  )
 }
 ```
+
+`context(...)` gives the server the starting context for each request:
+no request ID and no user. The module `context.gleam` also defines
+this value as the constant `context`.
 
 Test it:
 
 ```bash
-# Without token - fails
-curl -X POST http://localhost:3000/users \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Bob","email":"bob@example.com"}'
+# Public route - succeeds
+curl http://localhost:3001/
+
+# Without token - fails with 401
+curl http://localhost:3001/users/1/posts/2
 
 # With valid token - succeeds
-curl -X POST http://localhost:3000/users \
-  -H "Authorization: Bearer admin-token" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Bob","email":"bob@example.com"}'
+curl http://localhost:3001/users/1/posts/2 \
+  -H "Authorization: Bearer user-token"
+
+# User token on the admin route - fails with 403
+curl http://localhost:3001/admin \
+  -H "Authorization: Bearer user-token"
+
+# Admin token on the admin route - succeeds
+curl http://localhost:3001/admin \
+  -H "Authorization: Bearer admin-token"
 ```
 
 ## How Middleware Works
@@ -272,20 +312,26 @@ Middleware can:
 
 ## Multiple Middleware
 
-You can chain middleware:
+You can chain middleware. The example's admin route uses two:
+
+### Two middleware on one route <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/custom_context/src/router.gleam#L23-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-route(method: Post, path: "/admin/users", controller: users_controller.create, middleware: [
-  auth_middleware,
-  admin_middleware,
-  logging_middleware,
-])
+  |> route(
+    method: Get,
+    path: "/admin",
+    controller: posts_controller.index,
+    middleware: [auth_middleware, admin_middleware],
+  )
 ```
 
 They run in order:
 ```
-Request → auth → admin → logging → controller → logging → admin → auth → Response
+Request → auth → admin → controller → admin → auth → Response
 ```
+
+`admin_middleware` needs the user that `auth_middleware` put into the
+context, so `auth_middleware` must come first.
 
 Each wraps the next, creating an onion of concerns.
 

@@ -30,25 +30,22 @@ That's 5 steps coordinating 3 services (Postgres, OpenSearch, SSE). **This is to
 ## When to Use Operations
 
 **Keep it in the controller:**
-```gleam
-import dream/http.{require_int, type Request, type Response, json_response, ok}
-import dream/context.{type AppContext}
-import gleam/result
-import models/user.{get}
-import services.{type Services}
-import utilities/response_helpers
-import views/user_view.{to_json}
 
-// Simple: one model, one action
-pub fn show(request: Request, context: AppContext, services: Services) -> Response {
-  let result = {
-    use id <- result.try(require_int(request, "id"))
-    let db = services.database.connection
-    get(db, id)
-  }
-  
-  case result {
-    Ok(user) -> json_response(ok, to_json(user))
+The project list in
+[examples/tasks](https://github.com/TrustBound/dream/tree/2.5.0/examples/tasks/src)
+calls one model and formats the result. It needs no operation:
+
+### One model, one action <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/controllers/projects_controller.gleam#L18-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn index(
+  _request: http.Request,
+  _context: TasksContext,
+  services: Services,
+) -> http.Response {
+  case project_model.list(services.db) {
+    Ok(projects) ->
+      http.html_response(http.ok, project_view.list_page(projects))
     Error(err) -> response_helpers.handle_error(err)
   }
 }
