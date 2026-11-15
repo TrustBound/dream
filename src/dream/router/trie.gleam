@@ -16,10 +16,14 @@
 //// 1. Literal matches (exact string match)
 //// 2. Parameter matches (:id)
 //// 3. Single wildcards (*)
-//// 4. Extension patterns (*.jpg)
-//// 5. Multi-wildcards (**)
+//// 4. Multi-wildcards (**)
 ////
-//// This ensures the most specific route always wins when multiple routes could match.
+//// A segment with an extension, such as `photo.jpg`, uses a different order:
+//// literal, extension pattern (*.jpg), single wildcard, multi-wildcard, and
+//// parameter last.
+////
+//// The lookup does not go back to try a node of lower priority when a deeper
+//// segment fails to match, so a route of lower priority can be missed.
 ////
 //// ## Example
 ////
@@ -136,9 +140,15 @@ pub type Match(route) {
 ///
 /// ## Example
 ///
+/// ### Create a trie <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_trie.gleam#L6-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let trie = new()
-/// |> insert("GET", [Literal("users")], user_handler)
+/// pub fn users_trie(user_handler) {
+///   let trie =
+///     new()
+///     |> insert("GET", [Literal("users")], user_handler)
+///   trie
+/// }
 /// ```
 pub fn new() -> RadixTrie(route) {
   RadixTrie(root: empty_node())
@@ -171,10 +181,16 @@ fn empty_node() -> TrieNode(route) {
 ///
 /// ## Example
 ///
+/// ### Insert routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_trie.gleam#L13-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let trie = new()
-/// |> insert("GET", [Literal("users"), Param("id")], handler)
-/// |> insert("POST", [Literal("users")], create_handler)
+/// pub fn user_trie(handler, create_handler) {
+///   let trie =
+///     new()
+///     |> insert("GET", [Literal("users"), Param("id")], handler)
+///     |> insert("POST", [Literal("users")], create_handler)
+///   trie
+/// }
 /// ```
 pub fn insert(
   trie: RadixTrie(route),
@@ -491,14 +507,20 @@ fn update_extension_children(
 ///
 /// ## Example
 ///
+/// ### Look up a path <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_trie.gleam#L21-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let result = lookup(trie, "GET", ["users", "123"])
-/// case result {
-///   Some(Match(route, params)) -> {
-///     // params = [#("id", "123")]
-///     // route is the handler
+/// pub fn find_user(trie) {
+///   let result = lookup(trie, "GET", ["users", "123"])
+///   case result {
+///     Some(Match(route, params)) -> {
+///       // params = [#("id", "123")]
+///       // route is the handler
+///       Ok(#(route, params))
+///     }
+///     // No matching route
+///     None -> Error(Nil)
 ///   }
-///   None -> // No matching route
 /// }
 /// ```
 pub fn lookup(
