@@ -2,9 +2,9 @@
 
 Dream's router, controllers and HTTP types do not depend on any web server.
 The server is an adapter, under `src/dream/servers/`. The one adapter Dream
-ships today is for [mist](https://github.com/rawhat/mist), the HTTP server,
-which runs on [glisten](https://github.com/rawhat/glisten), the socket
-server. Both are by Alex Manning (rawhat) and their contributors, and both
+ships today is built on [mist](https://github.com/rawhat/mist), the HTTP
+server, and mist is built on [glisten](https://github.com/rawhat/glisten),
+the socket server. Both are by Alex Manning (rawhat) and their contributors, and both
 are licensed under Apache-2.0.
 
 The Mist adapter does not use the `mist` and `glisten` Hex packages
@@ -71,8 +71,8 @@ contain the fixes, the adapter goes back to `mist` and `glisten`.
    because every resolution asks the Hex API about every package and Hex
    limits those calls. `scripts/after-fork-publish.sh` does this.
 5. Run `make test-unit`. The module tests matter: `modules/http_client`
-   drives a real HTTP/2 client against the mock server, which runs on the
-   HTTP server package.
+   drives a real HTTP/2 client against the mock server, which serves its
+   requests through the HTTP server package.
 
 ## How to go back to mist and glisten
 

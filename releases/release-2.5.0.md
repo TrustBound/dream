@@ -86,7 +86,7 @@ The large memory gain is mostly a macOS effect. Linux gets a smaller one, about 
 
 ### Dream's HTTP Server Packages
 
-Dream's router, controllers and HTTP types do not depend on any web server. The server is an adapter, and the one Dream ships today is for [mist](https://github.com/rawhat/mist), the HTTP server, which runs on [glisten](https://github.com/rawhat/glisten), the socket server. Both are by Alex Manning (rawhat) and their contributors. We chose mist for the adapter because we would rather support the libraries the Gleam community already shares than go our own way.
+Dream's router, controllers and HTTP types do not depend on any web server. The server is an adapter, and the one Dream ships today is built on [mist](https://github.com/rawhat/mist), the HTTP server, and mist is built on [glisten](https://github.com/rawhat/glisten), the socket server. Both are by Alex Manning (rawhat) and their contributors. We chose mist for the adapter because we would rather support the libraries the Gleam community already shares than go our own way.
 
 The adapter needed many HTTP/2 fixes in mist and one fix in glisten. We are giving all of them back upstream, which takes time for this many changes. Until upstream releases contain them, the adapter uses two forks that we publish:
 
@@ -120,7 +120,7 @@ Over HTTP/1.1, a response sent just before the connection closed could be lost t
 ## Testing
 
 - Dream's own tests: 264 run, 0 failed
-- `dream_http_client`: 268 passed. Its `h2c_test` drives a real HTTP/2 client against the mock server, which runs on Dream's server
+- `dream_http_client`: 268 passed. Its `h2c_test` drives a real HTTP/2 client against the mock server, which serves its requests through Dream's server adapter
 - `dream_mock_server`: 25 passed
 - `dream_http_server`: 89 passed, on Gleam 1.17.0 and on Gleam 1.14.0 with OTP 28. Each of its fixes has a test that fails without the fix
 - `dream_socket_server`: 6 passed
