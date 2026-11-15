@@ -26,12 +26,12 @@
 ////   
 ////   case validation_result {
 ////     Ok(user) -> create_user(services.db, user)
-////     Error(err) -> create_validation_error_response(err)
+////     Error(validation_error) -> create_validation_error_response(validation_error)
 ////   }
 //// }
 //// 
-//// fn create_validation_error_response(err: ValidationError) -> Response {
-////   response.json_response(status.bad_request, error_json(err.message))
+//// fn create_validation_error_response(validation_error: ValidationError) -> Response {
+////   response.json_response(status.bad_request, error_json(validation_error.message))
 //// }
 //// ```
 ////
@@ -122,10 +122,10 @@ pub type ValidationError {
 ///       json_response(created, post_to_json(created))
 ///     }
 ///     
-///     Error(err) -> {
-///       let field_json = format_field_as_json(err.field)
+///     Error(validation_error) -> {
+///       let field_json = format_field_as_json(validation_error.field)
 ///       let error_json = json.object([
-///         #("error", json.string(err.message)),
+///         #("error", json.string(validation_error.message)),
 ///         #("field", field_json)
 ///       ])
 ///       json_response(bad_request, json.to_string(error_json))
@@ -159,18 +159,18 @@ fn json_error_to_validation(json_error: json.DecodeError) -> ValidationError {
 }
 
 fn decode_with_decoder(
-  json_obj: dynamic.Dynamic,
+  json_value: dynamic.Dynamic,
   decoder: decode.Decoder(decoded_type),
 ) -> Result(decoded_type, ValidationError) {
-  decode.run(json_obj, decoder)
+  decode.run(json_value, decoder)
   |> result.map_error(format_decode_errors)
 }
 
 fn format_json_error(error: json.DecodeError) -> String {
   case error {
     json.UnexpectedEndOfInput -> "Unexpected end of JSON input"
-    json.UnexpectedByte(msg) -> "Unexpected byte: " <> msg
-    json.UnexpectedSequence(msg) -> "Unexpected sequence: " <> msg
+    json.UnexpectedByte(byte) -> "Unexpected byte: " <> byte
+    json.UnexpectedSequence(sequence) -> "Unexpected sequence: " <> sequence
     json.UnableToDecode(errors) ->
       "Unable to decode: " <> string.inspect(errors)
   }

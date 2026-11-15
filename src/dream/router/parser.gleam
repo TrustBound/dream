@@ -101,8 +101,8 @@ pub fn parse_pattern(pattern: String) -> List(Segment) {
 /// Check if a segment is non-empty
 ///
 /// Used to filter out empty segments from multiple slashes or leading/trailing slashes.
-fn is_non_empty_segment(seg: String) -> Bool {
-  seg != ""
+fn is_non_empty_segment(segment: String) -> Bool {
+  segment != ""
 }
 
 /// Parse a single segment string into a Segment type
@@ -119,7 +119,7 @@ fn parse_segment(segment: String) -> Segment {
     "**" <> name -> MultiWildcard(Some(name))
 
     // Extension pattern: *.ext or *.{ext1,ext2}
-    "*." <> ext_pattern -> parse_extension_pattern(ext_pattern)
+    "*." <> extension_pattern -> parse_extension_pattern(extension_pattern)
 
     // Single wildcard: * or *name
     "*" -> SingleWildcard(None)
@@ -158,10 +158,10 @@ fn parse_literal_or_extension(segment: String) -> Segment {
 /// Parse extension pattern from the part after "*."
 ///
 /// Handles both single extensions (*.jpg) and multiple extensions (*.{jpg,png}).
-fn parse_extension_pattern(ext_pattern: String) -> Segment {
-  case string.starts_with(ext_pattern, "{") {
-    True -> parse_brace_extensions(ext_pattern)
-    False -> ExtensionPattern([ext_pattern])
+fn parse_extension_pattern(extension_pattern: String) -> Segment {
+  case string.starts_with(extension_pattern, "{") {
+    True -> parse_brace_extensions(extension_pattern)
+    False -> ExtensionPattern([extension_pattern])
   }
 }
 

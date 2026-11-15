@@ -23,7 +23,7 @@
 ////         filepath: path,
 ////         config: default_config(),
 ////       )
-////     Error(msg) -> json_response(bad_request, error_json(msg))
+////     Error(message) -> json_response(bad_request, error_json(message))
 ////   }
 //// }
 ////
@@ -135,7 +135,7 @@ pub fn without_index(
 ///         filepath: filepath,
 ///         config: default_config(),
 ///       )
-///     Error(msg) -> json_response(bad_request, error_json(msg))
+///     Error(message) -> json_response(bad_request, error_json(message))
 ///   }
 /// }
 /// ```
@@ -347,7 +347,7 @@ fn is_safe_path(filepath: String) -> Bool {
 fn mime_type(filepath: String) -> String {
   // Extract extension from filepath
   case string.split(filepath, ".") |> list.last {
-    Ok(ext) -> marceau.extension_to_mime_type(ext)
+    Ok(extension) -> marceau.extension_to_mime_type(extension)
     Error(_) -> "application/octet-stream"
   }
 }
