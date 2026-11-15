@@ -10,29 +10,40 @@ Dream is a composable library built on simple principles: builder patterns, expl
 
 The router matches HTTP requests to controllers.
 
-**Type:**
+`Router(context, services)` is an opaque type. Inside, it is a radix trie of routes. You build it with `router()` and `route()`, and you do not read its fields. Each controller has the type `fn(Request, context, services) -> Response`:
+
+#### Typed controllers <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_router.gleam#L15-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub type Router(context, services) {
-  Router(routes: List(Route(context, services)))
+pub fn show_home(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  text_response(ok, "Home")
 }
 
-pub type Route(context, services) {
-  Route(
-    method: Method,
-    path: String,
-    controller: fn(Request, context, services) -> Response,
-    middleware: List(Middleware(context, services)),
-  )
+pub fn create_user(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
+  text_response(created, "User created")
 }
 ```
 
 **Builder pattern:**
 
+#### Build a router <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_router.gleam#L43-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-router()
-|> route(method: Get, path: "/", controller: index, middleware: [])
-|> route(method: Post, path: "/users", controller: create, middleware: [auth])
+pub fn create_router() -> Router(EmptyContext, EmptyServices) {
+  router()
+  |> route(method: Get, path: "/", controller: show_home, middleware: [])
+  |> route(method: Post, path: "/users", controller: create_user, middleware: [
+    require_token,
+  ])
+}
 ```
 
 **Path parameters:**
@@ -47,36 +58,38 @@ Paths like `/users/:id/posts/:post_id` are parsed into patterns. Parameters are 
 
 Dream provides a Mist HTTP server adapter. Mist is the underlying BEAM web server.
 
-**Type:**
+`Dream(server, context, services)` is an opaque type. You build it with the functions in `dream/servers/mist/server`. With no context or services, its type is `Dream(Builder(Connection, ResponseData), EmptyContext, EmptyServices)`:
+
+#### Server with no context or services <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_server.gleam#L49-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub type Dream(server, context, services) {
-  Dream(
-    server: server,
-    router: Option(Router(context, services)),
-    context: context,
-    services: Option(services),
-    max_body_size: Int,
-  )
+pub fn create_simple_server() -> Dream(
+  Builder(Connection, ResponseData),
+  EmptyContext,
+  EmptyServices,
+) {
+  server.new()
+  |> server.router(create_router())
+  |> server.bind("localhost")
 }
 ```
 
 **Builder pattern:**
 
-```gleam
-// Simple apps (no custom context or services needed)
-dream.new()
-|> router(create_router())
-|> bind("localhost")
-|> listen(3000)
+#### Server with context and services <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_server.gleam#L69-L79"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-// With custom context and services
-dream.new()
-|> context(MyContext(request_id: "", user: None))
-|> services(initialize_services())
-|> router(create_router())
-|> bind("localhost")
-|> listen(3000)
+```gleam
+pub fn create_custom_server() -> Dream(
+  Builder(Connection, ResponseData),
+  MyContext,
+  Services,
+) {
+  server.new()
+  |> server.context(MyContext(request_id: "", user: None))
+  |> server.services(initialize_services())
+  |> server.router(create_router())
+  |> server.bind("localhost")
+}
 ```
 
 ### 3. Middleware
@@ -85,12 +98,18 @@ Middleware intercepts requests before they reach controllers.
 
 **Signature:**
 
-```gleam
-fn(Request, Context, Services, NextHandler) -> Response
+#### Middleware signature <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_context.gleam#L26-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-where NextHandler is:
-  fn(Request, Context, Services) -> Response
+```gleam
+pub fn auth_middleware(
+  request: Request,
+  context: AuthContext,
+  services: Services,
+  next: fn(Request, AuthContext, Services) -> Response,
+) -> Response {
 ```
+
+`next` has the controller type: `fn(Request, context, services) -> Response`.
 
 **Execution:**
 
@@ -100,15 +119,29 @@ Middleware chains in the order listed. Each middleware can:
 
 **Example:**
 
+#### Auth middleware that updates the context <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_context.gleam#L26-L46"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn auth_middleware(request, context, services, next) {
-  case validate_token(request) {
+pub fn auth_middleware(
+  request: Request,
+  context: AuthContext,
+  services: Services,
+  next: fn(Request, AuthContext, Services) -> Response,
+) -> Response {
+  case find_user(request, services) {
     Ok(user) -> {
-      let updated_context = add_user_to_context(context, user)
+      let updated_context = AuthContext(..context, user: Some(user))
       next(request, updated_context, services)
     }
-    Error(_) -> unauthorized_response()
+    Error(Nil) -> text_response(unauthorized, "Unauthorized")
   }
+}
+
+fn find_user(request: Request, services: Services) -> Result(User, Nil) {
+  use token <- result.try(
+    get_header(request.headers, "Authorization") |> option.to_result(Nil),
+  )
+  list.key_find(services.users_by_token, token)
 }
 ```
 
@@ -116,22 +149,33 @@ pub fn auth_middleware(request, context, services, next) {
 
 Context holds per-request data that middleware can modify.
 
-**Default context:**
+Dream uses `EmptyContext` until you set a context. Dream also provides `AppContext(request_id: String)` in `dream/context`:
+
+#### Use AppContext <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_server.gleam#L59-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub type AppContext {
-  AppContext(request_id: String)
+pub fn create_app_context_server() -> Dream(
+  Builder(Connection, ResponseData),
+  AppContext,
+  EmptyServices,
+) {
+  server.new()
+  |> server.context(AppContext(request_id: ""))
+  |> server.router(create_router())
 }
 ```
 
 **Custom context:**
 
+#### A custom context <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_context.gleam#L14-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
+pub type User {
+  User(name: String)
+}
+
 pub type AuthContext {
-  AuthContext(
-    request_id: String,
-    user: Option(User),
-  )
+  AuthContext(request_id: String, user: Option(User))
 }
 ```
 
@@ -143,27 +187,44 @@ Services are application-level dependencies injected at startup.
 
 **Pattern:**
 
+#### Services built once <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_server.gleam#L23-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
+pub type Database {
+  Database(users: List(User))
+}
+
 pub type Services {
-  Services(
-    database: DatabaseService,
-    // ... other services
-  )
+  Services(database: Database)
 }
 
 pub fn initialize_services() -> Services {
-  let assert Ok(db) = init_database()
-  Services(database: db)
+  let database = Database(users: [User(name: "Ada")])
+  Services(database: database)
 }
 ```
 
 Injected once in `main()`, used everywhere:
 
+#### Inject services at startup <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_server.gleam#L69-L84"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-dream.new()
-|> services(initialize_services())
-|> router(create_router())
-|> listen(3000)
+pub fn create_custom_server() -> Dream(
+  Builder(Connection, ResponseData),
+  MyContext,
+  Services,
+) {
+  server.new()
+  |> server.context(MyContext(request_id: "", user: None))
+  |> server.services(initialize_services())
+  |> server.router(create_router())
+  |> server.bind("localhost")
+}
+
+pub fn main() {
+  create_custom_server()
+  |> server.listen(3000)
+}
 ```
 
 #### Singleton / Global Services
@@ -197,15 +258,36 @@ The compiler catches most errors before runtime.
 
 Every configurable component uses the builder pattern:
 
+### Server, router and HTTP client builders <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_builders.gleam#L35-L61"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 // Server
-dream.new() |> router(...) |> bind(...) |> listen(3000)
+pub fn create_server() -> Dream(
+  Builder(Connection, ResponseData),
+  EmptyContext,
+  EmptyServices,
+) {
+  server.new()
+  |> server.router(create_router())
+  |> server.bind("localhost")
+}
 
 // Router
-router() |> route(...) |> route(...)
+pub fn create_router() -> Router(EmptyContext, EmptyServices) {
+  router()
+  |> route(method: Get, path: "/", controller: show_home, middleware: [])
+  |> route(method: Get, path: "/about", controller: show_about, middleware: [])
+}
 
-// HTTP Client
-client.new() |> method(...) |> host(...) |> path(...)
+// HTTP client
+pub fn create_users_request() -> ClientRequest {
+  client.new()
+  |> client.method(http.Get)
+  |> client.scheme(http.Https)
+  |> client.host("api.example.com")
+  |> client.path("/users")
+  |> client.timeout(5000)
+}
 ```
 
 Same pattern. Predictable API. Easy to learn.
@@ -245,7 +327,7 @@ Dream encourages a clean separation of concerns using the Model-View-Controller 
 **Models** handle data access:
 - Execute database queries (using `dream_postgres` and `squirrel`)
 - Convert database rows to domain types
-- Return `Result(domain_type, dream.Error)`
+- Return `Result(domain_type, Error)`, with `Error` from `dream/http/error`
 - Know nothing about HTTP, views, or business logic
 
 **Views** handle presentation:
@@ -271,36 +353,37 @@ Here's how a typical request flows through the MVC layers:
 
 Let's trace through a complete example showing all three layers working together:
 
-**Model** (`models/task/task_model.gleam`):
+All three layers share the type `Task(id: Int, title: String, completed: Bool)`. The model reads from a list so that the example runs anywhere. A real model runs a Squirrel query through `dream_postgres`.
+
+#### Model: find a task <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_task_model.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import dream/http/error.{type Error, NotFound, InternalServerError}
-import dream_postgres/client.{type Connection}
-import dream_postgres/query
-import models/task/sql
-import types/task.{type Task}
+//// Architecture reference: a model
+////
+//// Finds a task and returns a domain type or a Dream error. It reads from a
+//// list so that the example runs anywhere; a real model runs a query.
 
-pub fn get(db: Connection, task_id: Int) -> Result(Task, Error) {
-  case sql.get_task(db, task_id) |> query.first_row() {
-    Ok(row) -> Ok(row_to_task(row))
-    Error(query.NotFound) -> Error(NotFound("Task not found"))
-    Error(query.DatabaseError) -> Error(InternalServerError("Database error"))
-  }
-}
+import dream/http/error.{type Error, NotFound}
+import gleam/list
+import gleam/result
+import snippets/architecture_task.{type Task}
 
-fn row_to_task(row: sql.GetTaskRow) -> Task {
-  Task(
-    id: row.id,
-    title: row.title,
-    completed: row.completed,
-    // ... other fields
-  )
+pub fn get_task(tasks: List(Task), task_id: Int) -> Result(Task, Error) {
+  list.find(tasks, fn(task) { task.id == task_id })
+  |> result.replace_error(NotFound("Task not found"))
 }
 ```
 
-**View** (`views/task_view.gleam`):
+#### View: format a task <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_task_view.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
+//// Architecture reference: a view
+////
+//// Pure functions that format a task as JSON or as HTML.
+
 import gleam/json
-import types/task.{type Task}
+import gleam/string
+import snippets/architecture_task.{type Task}
 
 pub fn to_json(task: Task) -> String {
   json.object([
@@ -311,41 +394,65 @@ pub fn to_json(task: Task) -> String {
   |> json.to_string()
 }
 
-pub fn card(task: Task, tags: List(Tag)) -> String {
-  // Composes template components into HTML
-  task_components.task_card(task, tags)
+pub fn to_html(task: Task) -> String {
+  "<li class=\"task\">" <> escape_html(task.title) <> "</li>"
+}
+
+fn escape_html(text: String) -> String {
+  text
+  |> string.replace("&", "&amp;")
+  |> string.replace("<", "&lt;")
+  |> string.replace(">", "&gt;")
+  |> string.replace("\"", "&quot;")
 }
 ```
 
-**Controller** (`controllers/tasks_controller.gleam`):
-```gleam
-import dream/http.{type Request, type Response, require_int, json_response, html_response, ok}
-import gleam/result
-import models/task/task_model
-import utilities/response_helpers
-import views/task_view
+#### Controller: show a task <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_tasks_controller.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-pub fn show(
+```gleam
+//// Architecture reference: a controller
+////
+//// Reads the path parameter, calls the model, and calls the view for the
+//// format that the client asks for.
+
+import dream/context.{type EmptyContext}
+import dream/http.{
+  type Request, type Response, html_response, json_response, ok, require_int,
+  text_response,
+}
+import dream/http/error
+import dream/http/header.{get_header}
+import gleam/option.{Some}
+import gleam/result
+import snippets/architecture_task.{type Task}
+import snippets/architecture_task_model as task_model
+import snippets/architecture_task_view as task_view
+
+pub type Services {
+  Services(tasks: List(Task))
+}
+
+pub fn show_task(
   request: Request,
-  _context: Context,
+  _context: EmptyContext,
   services: Services,
 ) -> Response {
-  let result = {
+  let task_result = {
     use task_id <- result.try(require_int(request, "id"))
-    let db = services.database.connection
-    use task <- result.try(task_model.get(db, task_id))
-    Ok(task)
+    task_model.get_task(services.tasks, task_id)
   }
 
-  case result {
-    Ok(task) -> {
-      // Check format for content negotiation
-      case request.format {
-        Some("json") -> json_response(ok, task_view.to_json(task))
-        _ -> html_response(ok, task_view.card(task, []))
-      }
-    }
-    Error(err) -> response_helpers.handle_error(err)
+  case task_result {
+    Ok(task) -> respond_with_task(request, task)
+    Error(http_error) ->
+      text_response(error.to_status_code(http_error), error.message(http_error))
+  }
+}
+
+fn respond_with_task(request: Request, task: Task) -> Response {
+  case get_header(request.headers, "Accept") {
+    Some("application/json") -> json_response(ok, task_view.to_json(task))
+    _ -> html_response(ok, task_view.to_html(task))
   }
 }
 ```
@@ -393,11 +500,11 @@ This coordination belongs in an Operation, not a Controller. See [Operations Gui
 - Keep them thin—coordinate, don't calculate
 - Use `require_*` functions for parameter validation
 - Use flat `use` chains instead of nested `case` statements
-- Handle all errors uniformly via `response_helpers.handle_error`
+- Map errors to responses in one place, for example with `error.to_status_code` and `error.message` from `dream/http/error`
 
 **Models:**
 - Return domain types, not SQL row types
-- Convert database errors to `dream.Error`
+- Convert database errors to `Error` from `dream/http/error`
 - Keep database logic isolated from business logic
 - Use type-safe SQL with `squirrel`
 
@@ -429,18 +536,28 @@ Separating them makes the distinction clear.
 
 Closures hide dependencies. Explicit parameters make dependencies visible:
 
+#### A closure versus a parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_closures.gleam#L20-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-// Bad (closure hides db)
-pub fn make_handler(db: Database) -> fn(Request) -> Response {
-  fn(request) { use_database(db) }  // db captured in closure
+// Bad: the closure hides the database
+pub fn create_handler(
+  database: Database,
+) -> fn(Request, EmptyContext, EmptyServices) -> Response {
+  fn(_request, _context, _services) { count_users(database) }
 }
 
-// Good (explicit parameter)
-pub fn handler(request: Request, services: Services) -> Response {
-  let db = services.database
-  use_database(db)
+// Good: the database comes in as a parameter
+pub fn handle_request(
+  _request: Request,
+  _context: EmptyContext,
+  services: Services,
+) -> Response {
+  let database = services.database
+  count_users(database)
 }
 ```
+
+`create_handler` returns a controller that holds the database, but the controller's type does not show it. `handle_request` gets the database from `Services`, so its signature shows where the data comes from.
 
 The same rule applies to WebSocket handlers: instead of capturing services in
 closures, bundle them into a `Dependencies` type and pass that into
@@ -486,29 +603,76 @@ The core `dream` package provides:
 - Connection pooling support
 - Works with Squirrel-generated SQL queries
 
-```gleam
-import dream_postgres/client
-import dream_postgres/query
+#### Connect and query with dream_postgres <a href="https://github.com/TrustBound/dream/blob/2.5.0/modules/postgres/test/snippets/architecture_postgres.gleam#L6-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-let db = client.from_url("postgresql://localhost/db")
-case sql.get_user(db, id) |> query.first_row() {
-  Ok(row) -> // Process row
-  Error(query.NotFound) -> // Handle not found
-  Error(query.DatabaseError) -> // Handle error
+```gleam
+import dream_postgres/client.{
+  type Config, type Connection, type QueryError, type Returned,
+}
+import dream_postgres/query
+import gleam/dynamic/decode
+import gleam/erlang/process
+import gleam/otp/actor
+import pog
+
+pub fn create_database_config() -> Config {
+  client.new(process.new_name("app_database"))
+  |> client.host("localhost")
+  |> client.database("app")
+  |> client.pool_size(10)
+}
+
+pub fn connect_database() -> Result(Connection, actor.StartError) {
+  create_database_config()
+  |> client.connect()
+}
+
+pub fn find_user_name(db: Connection, id: Int) -> String {
+  pog.query("SELECT name FROM users WHERE id = $1")
+  |> pog.parameter(pog.int(id))
+  |> pog.returning(decode.at([0], decode.string))
+  |> pog.execute(db)
+  |> describe_user_name()
+}
+
+pub fn describe_user_name(
+  result: Result(Returned(String), QueryError),
+) -> String {
+  case query.first_row(result) {
+    Ok(name) -> name
+    Error(query.NotFound) -> "No such user"
+    Error(query.DatabaseError) -> "The database query failed"
+  }
 }
 ```
+
+`client.from_url` also exists, but it panics when the pool does not start. The builder returns a `Result` that you can handle.
 
 **`dream_opensearch`** - OpenSearch client
 - Document indexing and search
 - Query builders (match_all, term, match)
 - HTTP wrapper for OpenSearch API
 
-```gleam
-import dream_opensearch/client
-import dream_opensearch/document
+#### Index a document with dream_opensearch <a href="https://github.com/TrustBound/dream/blob/2.5.0/modules/opensearch/test/snippets/architecture_opensearch.gleam#L5-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-let opensearch = client.new("http://localhost:9200")
-document.index(opensearch, "logs", "doc-id-123", json_string)
+```gleam
+import dream_opensearch/client.{type Client}
+import dream_opensearch/document
+import gleam/json
+
+pub fn create_client() -> Client {
+  client.new("http://localhost:9200")
+}
+
+pub fn index_log_entry(
+  opensearch: Client,
+  message: String,
+) -> Result(String, String) {
+  let document_json =
+    json.object([#("message", json.string(message))])
+    |> json.to_string()
+  document.index(opensearch, "logs", "doc-id-123", document_json)
+}
 ```
 
 ### Utility Modules
@@ -520,35 +684,47 @@ document.index(opensearch, "logs", "doc-id-123", json_string)
 - HTTPS support, configurable timeouts, builder pattern
 - Built on Erlang's battle-tested `httpc`
 
-```gleam
-import dream_http_client/client
-import gleam/http
+#### Build and send a request <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_builders.gleam#L53-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-// Blocking request
-let response = client.new()
+```gleam
+// HTTP client
+pub fn create_users_request() -> ClientRequest {
+  client.new()
   |> client.method(http.Get)
   |> client.scheme(http.Https)
   |> client.host("api.example.com")
   |> client.path("/users")
-  |> client.timeout(5000)  // 5 second timeout
-  |> client.send()
+  |> client.timeout(5000)
+}
 
-// Streaming request (see module docs for stream_yielder and start_stream)
+pub fn fetch_users() -> Result(HttpResponse, SendError) {
+  create_users_request()
+  |> client.send()
+}
 ```
+
+Each builder step returns a new request. `client.send()` sends it and returns `Result(HttpResponse, SendError)`. For streaming, see `stream_yielder` and `start_stream` in the module docs.
 
 **`dream_config`** - Configuration management
 - Environment variable loading
 - .env file support
 - Type-safe configuration loading
 
+#### Load configuration with dream_config <a href="https://github.com/TrustBound/dream/blob/2.5.0/modules/config/test/snippets/architecture_config.gleam#L6-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream_config/loader
+import gleam/result
+
+pub type AppConfig {
+  AppConfig(database_url: String, port: Int)
+}
 
 pub fn load_config() -> Result(AppConfig, String) {
-  loader.load_dotenv()
-  use db_url <- result.try(loader.get_required("DATABASE_URL"))
+  use _ <- result.try(loader.load_dotenv())
+  use database_url <- result.try(loader.get_required("DATABASE_URL"))
   let port = loader.get_int("PORT") |> result.unwrap(3000)
-  Ok(AppConfig(database_url: db_url, port: port))
+  Ok(AppConfig(database_url: database_url, port: port))
 }
 ```
 
@@ -556,15 +732,24 @@ pub fn load_config() -> Result(AppConfig, String) {
 - JSON encoders for optional values and timestamps
 - Convenience functions for common JSON encoding patterns
 
+#### Encode optional fields with dream_json <a href="https://github.com/TrustBound/dream/blob/2.5.0/modules/json/test/snippets/architecture_json.gleam#L5-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream_json/json_encoders
 import gleam/json
-import gleam/option
+import gleam/option.{type Option}
 
-json.object([
-  #("email", json_encoders.optional_string(option.Some("user@example.com"))),
-  #("age", json_encoders.optional_int(option.None)),
-])
+pub type Profile {
+  Profile(email: Option(String), age: Option(Int))
+}
+
+pub fn profile_to_json(profile: Profile) -> String {
+  json.object([
+    #("email", json_encoders.optional_string(profile.email)),
+    #("age", json_encoders.optional_int(profile.age)),
+  ])
+  |> json.to_string()
+}
 ```
 
 **`dream_ets`** - ETS (Erlang Term Storage) utilities
