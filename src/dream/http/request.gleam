@@ -11,13 +11,13 @@
 //// pub fn show_user(request: Request, context, services) {
 ////   let result = {
 ////     use id <- result.try(get_int_param(request, "id"))
-////     let db = services.database.connection
-////     user_operations.get_user(db, id)
+////     let connection = services.database.connection
+////     user_operations.get_user(connection, id)
 ////   }
 ////   
 ////   case result {
 ////     Ok(user) -> json_response(status.ok, user_to_json(user))
-////     Error(err) -> handle_error(err)
+////     Error(error) -> handle_error(error)
 ////   }
 //// }
 //// ```
@@ -136,7 +136,7 @@ pub type Version {
 ///   // Extract path parameter
 ///   case get_int_param(request, "id") {
 ///     Ok(id) -> show_user_by_id(services.db, id)
-///     Error(msg) -> error_response(msg)
+///     Error(message) -> error_response(message)
 ///   }
 /// }
 /// ```
@@ -220,8 +220,8 @@ pub fn method_to_string(method: Method) -> String {
 }
 
 /// Parse a string to Method (case-insensitive)
-pub fn parse_method(str: String) -> option.Option(Method) {
-  case string.lowercase(str) {
+pub fn parse_method(method_name: String) -> option.Option(Method) {
+  case string.lowercase(method_name) {
     "get" -> option.Some(Get)
     "post" -> option.Some(Post)
     "put" -> option.Some(Put)
@@ -346,7 +346,7 @@ fn extract_format(
   raw: String,
 ) -> #(String, option.Option(String)) {
   case parts {
-    [val, ext] -> #(val, option.Some(ext))
+    [base_value, extension] -> #(base_value, option.Some(extension))
     _ -> #(raw, option.None)
   }
 }
@@ -370,7 +370,7 @@ fn extract_format(
 ///     param.value  // "123"
 ///     param.as_int // Ok(123)
 ///   }
-///   Error(msg) -> // handle error
+///   Error(message) -> // handle error
 /// }
 /// ```
 ///
@@ -383,7 +383,7 @@ fn extract_format(
 ///     param.format // Some("json")
 ///     param.as_int // Ok(123)
 ///   }
-///   Error(msg) -> // handle error
+///   Error(message) -> // handle error
 /// }
 /// ```
 ///
@@ -391,7 +391,7 @@ fn extract_format(
 /// // For simple integer extraction, use get_int_param:
 /// case get_int_param(request, "id") {
 ///   Ok(id) -> show_user(id)
-///   Error(msg) -> json_response(status.bad_request, error_json(msg))
+///   Error(message) -> json_response(status.bad_request, error_json(message))
 /// }
 /// ```
 pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
@@ -413,7 +413,7 @@ pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
 /// // Request: /users/123
 /// case get_int_param(request, "id") {
 ///   Ok(id) -> show_user(id)
-///   Error(msg) -> json_response(status.bad_request, error_json(msg))
+///   Error(message) -> json_response(status.bad_request, error_json(message))
 /// }
 /// ```
 pub fn get_int_param(request: Request, name: String) -> Result(Int, String) {
@@ -441,7 +441,7 @@ fn param_to_int(param: PathParam, name: String) -> Result(Int, String) {
 /// // Request: /users/john
 /// case get_string_param(request, "name") {
 ///   Ok(name) -> show_user_by_name(name)
-///   Error(msg) -> json_response(status.bad_request, error_json(msg))
+///   Error(message) -> json_response(status.bad_request, error_json(message))
 /// }
 /// ```
 pub fn get_string_param(

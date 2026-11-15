@@ -37,7 +37,7 @@ import gleam/result
 /// }
 ///
 /// // In WebSocket init handler
-/// fn handle_init(conn, services: Services) {
+/// fn handle_init(connection, services: Services) {
 ///   let channel = broadcaster.subscribe(services.chat_bus)
 ///   let selector = broadcaster.channel_to_selector(channel)
 ///   #(initial_state, Some(selector))

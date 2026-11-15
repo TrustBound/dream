@@ -57,12 +57,12 @@ pub fn is_in_use(interface: option.Option(String), port: Int) -> Bool {
 
   let connect_options = [to_dynamic(#(atom.create("active"), False))]
 
-  let ipv4_addr = case host {
+  let ipv4_address = case host {
     "localhost" | "127.0.0.1" | "0.0.0.0" -> Ok(#(127, 0, 0, 1))
     _ -> parse_ipv4_address(charlist.from_string(host))
   }
 
-  ipv4_addr
+  ipv4_address
   |> result.map(fn(address) {
     case tcp_connect(address, port, connect_options, 200) {
       Ok(socket) -> {

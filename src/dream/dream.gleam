@@ -65,7 +65,7 @@ import gleam/string
 /// let server = 
 ///   dream.new()
 ///   |> dream.context(MyContext(request_id: "", user: None))
-///   |> dream.services(Services(db: my_db, cache: my_cache))
+///   |> dream.services(Services(db: my_database, cache: my_cache))
 ///   |> dream.router(my_router)
 /// ```
 pub opaque type Dream(server, context, services) {
@@ -221,7 +221,7 @@ pub fn get_router(
 ///
 /// ```gleam
 /// let app = server.new() |> server.context(MyContext(user: None))
-/// let ctx = dream.get_context(app)
+/// let context = dream.get_context(app)
 /// ```
 pub fn get_context(dream: Dream(server, context, services)) -> context {
   dream.context
@@ -455,8 +455,8 @@ fn is_cookie_header(header: Header) -> Bool {
 /// ## Example
 ///
 /// ```gleam
-/// let cookie_str = "session=abc123; theme=dark; lang=en"
-/// let cookies = parse_cookie_string(cookie_str)
+/// let cookie_header = "session=abc123; theme=dark; lang=en"
+/// let cookies = parse_cookie_string(cookie_header)
 /// // Returns: [
 /// //   simple_cookie("session", "abc123"),
 /// //   simple_cookie("theme", "dark"),

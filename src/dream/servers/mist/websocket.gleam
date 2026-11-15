@@ -166,7 +166,7 @@ pub opaque type Action(state, custom) {
 ///       // Handle text message
 ///       websocket.continue_connection(state)
 ///     }
-///     websocket.CustomMessage(msg) -> {
+///     websocket.CustomMessage(custom_message) -> {
 ///       // Handle custom message from selector
 ///       websocket.continue_connection(state)
 ///     }
@@ -198,20 +198,20 @@ pub fn upgrade_websocket(
   // 3. Wrap handlers to convert between Dream and Mist types
   // Note: These closures are necessary to integrate with Mist's API.
   // This is the ONLY place closures are allowed - see standards.md exception.
-  let wrapped_on_init = fn(mist_conn: WebsocketConnection) {
-    let dream_conn = Connection(internal: mist_conn)
-    on_init(dream_conn, dependencies)
+  let wrapped_on_init = fn(mist_connection: WebsocketConnection) {
+    let dream_connection = Connection(internal: mist_connection)
+    on_init(dream_connection, dependencies)
   }
 
   let wrapped_handler = fn(
     state: state,
-    mist_msg: WebsocketMessage(custom),
-    mist_conn: WebsocketConnection,
+    mist_message: WebsocketMessage(custom),
+    mist_connection: WebsocketConnection,
   ) {
-    let dream_conn = Connection(internal: mist_conn)
-    let dream_msg = convert_mist_message_to_dream(mist_msg)
+    let dream_connection = Connection(internal: mist_connection)
+    let dream_message = convert_mist_message_to_dream(mist_message)
     let Action(mist_action) =
-      on_message(state, dream_msg, dream_conn, dependencies)
+      on_message(state, dream_message, dream_connection, dependencies)
     mist_action
   }
 
@@ -266,8 +266,8 @@ pub fn send_text(
   connection: Connection,
   message: String,
 ) -> Result(Nil, SendError) {
-  let Connection(internal: mist_conn) = connection
-  mist.send_text_frame(mist_conn, message)
+  let Connection(internal: mist_connection) = connection
+  mist.send_text_frame(mist_connection, message)
   |> convert_socket_error
 }
 
@@ -285,8 +285,8 @@ pub fn send_binary(
   connection: Connection,
   message: BitArray,
 ) -> Result(Nil, SendError) {
-  let Connection(internal: mist_conn) = connection
-  mist.send_binary_frame(mist_conn, message)
+  let Connection(internal: mist_connection) = connection
+  mist.send_binary_frame(mist_connection, message)
   |> convert_socket_error
 }
 
@@ -295,9 +295,9 @@ pub fn send_binary(
 // ============================================================================
 
 fn convert_mist_message_to_dream(
-  mist_msg: WebsocketMessage(custom),
+  mist_message: WebsocketMessage(custom),
 ) -> Message(custom) {
-  case mist_msg {
+  case mist_message {
     mist.Text(text) -> TextMessage(text)
     mist.Binary(data) -> BinaryMessage(data)
     mist.Custom(custom) -> CustomMessage(custom)

@@ -18,14 +18,14 @@
 //// import dream/http/error.{type Error, BadRequest, NotFound}
 //// import gleam/result
 ////
-//// pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
-////   query_user(db, id)
+//// pub fn get_user(connection: Connection, id: Int) -> Result(User, Error) {
+////   query_user(connection, id)
 ////   |> result.replace_error(NotFound("User not found"))
 //// }
 ////
-//// pub fn create_user(db: Connection, name: String) -> Result(User, Error) {
+//// pub fn create_user(connection: Connection, name: String) -> Result(User, Error) {
 ////   case validate_name(name) {
-////     True -> insert_user(db, name)
+////     True -> insert_user(connection, name)
 ////     False -> Error(BadRequest("Name must not be empty"))
 ////   }
 //// }
@@ -40,16 +40,16 @@
 //// import dream/http/response.{type Response, json_response}
 //// import gleam/json
 ////
-//// let result = get_user(db, id)
+//// let result = get_user(connection, id)
 //// 
 //// case result {
 ////   Ok(user) -> json_response(200, user_to_json(user))
-////   Error(err) -> create_error_response(err)
+////   Error(error) -> create_error_response(error)
 //// }
 //// 
-//// fn create_error_response(err: Error) -> Response {
-////   let error_json = json.object([#("error", json.string(message(err)))])
-////   json_response(to_status_code(err), error_json)
+//// fn create_error_response(error: Error) -> Response {
+////   let error_json = json.object([#("error", json.string(message(error)))])
+////   json_response(to_status_code(error), error_json)
 //// }
 //// ```
 
@@ -157,9 +157,9 @@ pub type Error {
 /// import dream/http/error.{type Error, NotFound}
 /// import dream/http/response
 ///
-/// let err = NotFound("User not found")
-/// let status = error.to_status_code(err)  // Returns 404
-/// response.json_response(status, error_json(err))
+/// let not_found = NotFound("User not found")
+/// let status = error.to_status_code(not_found)  // Returns 404
+/// response.json_response(status, error_json(not_found))
 /// ```
 pub fn to_status_code(error: Error) -> Int {
   case error {
@@ -183,22 +183,22 @@ pub fn to_status_code(error: Error) -> Int {
 /// import dream/http/error.{type Error, BadRequest}
 /// import gleam/json
 ///
-/// let err = BadRequest("Invalid email format")
-/// let msg = error.message(err)  // Returns "Invalid email format"
+/// let bad_request = BadRequest("Invalid email format")
+/// let error_message = error.message(bad_request)  // Returns "Invalid email format"
 ///
 /// // Build JSON error response
 /// json.object([
-///   #("error", json.string(msg)),
-///   #("status", json.int(error.to_status_code(err)))
+///   #("error", json.string(error_message)),
+///   #("status", json.int(error.to_status_code(bad_request)))
 /// ])
 /// ```
 pub fn message(error: Error) -> String {
   case error {
-    BadRequest(msg) -> msg
-    Unauthorized(msg) -> msg
-    Forbidden(msg) -> msg
-    NotFound(msg) -> msg
-    UnprocessableContent(msg) -> msg
-    InternalServerError(msg) -> msg
+    BadRequest(message) -> message
+    Unauthorized(message) -> message
+    Forbidden(message) -> message
+    NotFound(message) -> message
+    UnprocessableContent(message) -> message
+    InternalServerError(message) -> message
   }
 }

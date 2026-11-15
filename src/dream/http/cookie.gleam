@@ -352,16 +352,20 @@ fn filter_matching_cookies(
 fn filter_cookies_recursive(
   cookies: List(Cookie),
   normalized_name: String,
-  acc: List(Cookie),
+  kept_cookies: List(Cookie),
 ) -> List(Cookie) {
   case cookies {
-    [] -> list.reverse(acc)
+    [] -> list.reverse(kept_cookies)
     [cookie, ..rest] -> {
       let cookie_normalized = string.lowercase(cookie_name(cookie))
       let should_keep = cookie_normalized != normalized_name
       case should_keep {
-        True -> filter_cookies_recursive(rest, normalized_name, [cookie, ..acc])
-        False -> filter_cookies_recursive(rest, normalized_name, acc)
+        True ->
+          filter_cookies_recursive(rest, normalized_name, [
+            cookie,
+            ..kept_cookies
+          ])
+        False -> filter_cookies_recursive(rest, normalized_name, kept_cookies)
       }
     }
   }

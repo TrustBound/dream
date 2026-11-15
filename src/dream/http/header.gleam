@@ -174,16 +174,20 @@ fn filter_matching_headers(
 fn filter_headers_recursive(
   headers: List(Header),
   normalized_name: String,
-  acc: List(Header),
+  kept_headers: List(Header),
 ) -> List(Header) {
   case headers {
-    [] -> list.reverse(acc)
+    [] -> list.reverse(kept_headers)
     [header, ..rest] -> {
       let header_normalized = string.lowercase(header_name(header))
       let should_keep = header_normalized != normalized_name
       case should_keep {
-        True -> filter_headers_recursive(rest, normalized_name, [header, ..acc])
-        False -> filter_headers_recursive(rest, normalized_name, acc)
+        True ->
+          filter_headers_recursive(rest, normalized_name, [
+            header,
+            ..kept_headers
+          ])
+        False -> filter_headers_recursive(rest, normalized_name, kept_headers)
       }
     }
   }

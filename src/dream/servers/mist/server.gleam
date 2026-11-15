@@ -104,7 +104,7 @@ pub fn new() -> dream.Dream(
   EmptyServices,
 ) {
   dream.create(
-    server: mist.new(fn(_req) {
+    server: mist.new(fn(_request) {
       http_response.new(404)
       |> http_response.set_body(Bytes(bytes_tree.new()))
     }),
@@ -174,9 +174,9 @@ pub fn context(
 /// }
 ///
 /// pub fn initialize_services() -> Services {
-///   let db = connect_to_database()
+///   let database = connect_to_database()
 ///   let cache = create_cache()
-///   Services(db: db, cache: cache)
+///   Services(db: database, cache: cache)
 /// }
 ///
 /// server.new()
@@ -440,7 +440,7 @@ pub fn listen_with_handle(
 ) -> Result(ServerHandle, actor.StartError) {
   case listen_internal(dream_instance, port, False) {
     Ok(started) -> Ok(ServerHandle(process_pid: started.pid))
-    Error(err) -> Error(err)
+    Error(error) -> Error(error)
   }
 }
 
@@ -484,12 +484,12 @@ pub fn stop(handle: ServerHandle) -> Nil {
 /// Most applications don't need request_id in their context
 /// If you need request_id, consider using middleware or logging
 fn update_context_with_request_id(
-  ctx: context,
+  template_context: context,
   _request_id: String,
 ) -> context {
   // Just return the template context as-is
   // Applications that need request_id can provide custom middleware
-  ctx
+  template_context
 }
 
 fn bind_label(interface: option.Option(String)) -> String {
@@ -531,11 +531,11 @@ fn build_server(
     context,
     services,
   ),
-  handler_fn: fn(http_request.Request(Connection)) ->
+  handler_function: fn(http_request.Request(Connection)) ->
     http_response.Response(ResponseData),
   port: Int,
 ) -> mist.Builder(Connection, ResponseData) {
-  let server_with_handler = mist.new(handler_fn)
+  let server_with_handler = mist.new(handler_function)
   let server_with_interface = case dream.get_bind_interface(dream_instance) {
     option.Some(interface) -> mist.bind(server_with_handler, interface)
     option.None -> server_with_handler
@@ -586,8 +586,8 @@ fn panic_on_start_error(result: Result(a, actor.StartError)) -> Nil {
   case result {
     Ok(_) -> Nil
     Error(actor.InitFailed(message)) -> panic as message
-    Error(err) -> {
-      let message = "Failed to start server: " <> string.inspect(err)
+    Error(error) -> {
+      let message = "Failed to start server: " <> string.inspect(error)
       panic as message
     }
   }
@@ -616,9 +616,10 @@ fn listen_internal(
       let assert option.Some(services_instance) =
         dream.get_services(dream_instance)
 
-      let handler_fn =
+      let handler_function =
         build_handler(dream_instance, router_instance, services_instance)
-      let server_with_port = build_server(dream_instance, handler_fn, port)
+      let server_with_port =
+        build_server(dream_instance, handler_function, port)
 
       start_server(server_with_port, block_forever)
     }

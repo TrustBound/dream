@@ -227,8 +227,8 @@ fn convert_dream_response(
 }
 
 fn extract_dream_headers(response: Response) -> List(#(String, String)) {
-  list.map(response.headers, fn(h) {
-    let Header(name, value) = h
+  list.map(response.headers, fn(header) {
+    let Header(name, value) = header
     #(name, value)
   })
 }

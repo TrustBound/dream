@@ -183,25 +183,26 @@ pub fn upgrade_to_sse(
   let mist_request: http_request.Request(Connection) =
     internal.unsafe_coerce(raw_request)
 
-  let wrapped_init = fn(subj: Subject(message)) {
-    let #(state, _maybe_selector) = on_init(subj, dependencies)
+  let wrapped_init = fn(subject: Subject(message)) {
+    let #(state, _maybe_selector) = on_init(subject, dependencies)
     state
   }
 
   let wrapped_loop = fn(
     state: state,
     message: message,
-    mist_conn: MistSSEConnection,
+    mist_connection: MistSSEConnection,
   ) {
-    let dream_conn = SSEConnection(internal: mist_conn)
-    let Action(next) = on_message(state, message, dream_conn, dependencies)
+    let dream_connection = SSEConnection(internal: mist_connection)
+    let Action(next) =
+      on_message(state, message, dream_connection, dependencies)
     next
   }
 
   let perform_upgrade = fn(headers: List(#(String, String))) {
     let initial_response =
-      list.fold(headers, http_response.new(200), fn(resp, h) {
-        http_response.set_header(resp, h.0, h.1)
+      list.fold(headers, http_response.new(200), fn(mist_response, header) {
+        http_response.set_header(mist_response, header.0, header.1)
       })
     mist.server_sent_events(
       request: mist_request,
@@ -232,9 +233,9 @@ pub fn upgrade_to_sse(
 /// }
 /// ```
 pub fn send_event(connection: SSEConnection, event: Event) -> Result(Nil, Nil) {
-  let SSEConnection(internal: mist_conn) = connection
+  let SSEConnection(internal: mist_connection) = connection
   let Event(internal: mist_event) = event
-  mist.send_event(mist_conn, mist_event)
+  mist.send_event(mist_connection, mist_event)
 }
 
 /// Create an SSE event with the given data string.
