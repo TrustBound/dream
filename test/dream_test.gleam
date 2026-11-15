@@ -27,6 +27,7 @@ import dream_test/runner
 import dream_test/unit
 import gleam/io
 import gleam/list
+import guides_sse_websockets_rest_snippets_test
 import snippets_test
 
 pub fn main() {
@@ -64,6 +65,10 @@ pub fn main() {
       unit.to_test_cases("dream/streaming", streaming_test.tests()),
       unit.to_test_cases("benchmarks/router", router_benchmark.tests()),
       unit.to_test_cases("snippets", snippets_test.tests()),
+      unit.to_test_cases(
+        "guide snippets",
+        guides_sse_websockets_rest_snippets_test.tests(),
+      ),
     ]
     |> list.flatten
 

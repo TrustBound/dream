@@ -42,6 +42,8 @@ streams, see the [Streaming Guide](streaming.md).
 
 Dream's SSE support lives in the Mist server adapter module:
 
+### The SSE module import <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_controller.gleam#L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream/servers/mist/sse
 ```
@@ -76,9 +78,20 @@ Dream has a strong rule: **no closures in controllers or handlers**.
 Instead of capturing variables from outer scopes, you pass everything
 explicitly through function parameters.
 
-For SSE we usually create a small `Dependencies` type:
+For SSE we usually create a small `Dependencies` type. The example below
+shows the top of the controller module: the imports that all of the steps
+use, then the type.
+
+### Imports and the Dependencies type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_controller.gleam#L6-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
+import dream/http/request.{type Request}
+import dream/http/response.{type Response}
+import dream/servers/mist/sse
+import gleam/erlang/process
+import gleam/int
+import gleam/option.{None}
+
 pub type Dependencies {
   Dependencies(counter_start: Int)
 }
@@ -88,10 +101,12 @@ pub type Dependencies {
 
 Add a route in your router that points to a controller function:
 
+### A router with an SSE route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_router.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream/http/request.{Get}
 import dream/router.{route, router}
-import controllers/sse_controller
+import snippets/sse_guide_controller as sse_controller
 
 pub fn create_router() {
   router()
@@ -106,17 +121,15 @@ pub fn create_router() {
 
 An SSE controller has the same shape as a regular controller:
 
-```gleam
-import dream/http/request.{type Request}
-import dream/http/response.{type Response}
-import dream/servers/mist/sse
+### An SSE controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_controller.gleam#L17-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
+```gleam
 pub fn handle_events(request: Request, _context, _services) -> Response {
-  let deps = Dependencies(counter_start: 0)
+  let dependencies = Dependencies(counter_start: 0)
 
   sse.upgrade_to_sse(
     request,
-    dependencies: deps,
+    dependencies: dependencies,
     on_init: handle_init,
     on_message: handle_message,
   )
@@ -137,10 +150,9 @@ controller type, but the real work happens in the SSE actor.
 
 It returns a tuple of initial state and an optional `Selector(message)`:
 
-```gleam
-import gleam/erlang/process
-import gleam/option.{None}
+### The on_init handler <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_controller.gleam#L28-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
+```gleam
 pub type Tick {
   Tick
 }
@@ -151,48 +163,59 @@ pub type State {
 
 fn handle_init(
   subject: process.Subject(Tick),
-  deps: Dependencies,
+  dependencies: Dependencies,
 ) -> #(State, option.Option(process.Selector(Tick))) {
   // Send the first tick to start the loop
   process.send(subject, Tick)
-  #(State(count: deps.counter_start, self: subject), None)
+  #(State(count: dependencies.counter_start, self: subject), None)
 }
 ```
 
 The actor stores the subject in state so `on_message` can schedule
 future messages to itself.
 
+Do not stop the actor from `on_init` (for example, by sending a message
+that makes `on_message` return `stop_connection()` at once). If the actor
+stops before the connection is handed over to it, the server writes an
+extra 500 response.
+
 ## Step 4: `on_message` – handle messages and send events
 
 Every time a message arrives, Dream calls your `on_message` function.
-It must return an `Action(state, message)` created by one of:
+The handler below sends one event for each tick. When `send_event`
+returns an error, the client has gone away, so the handler stops the
+actor instead of ticking forever.
+
+`on_message` must return an `Action(state, message)` created by one of:
 
 - `sse.continue_connection(state)` – keep the actor running.
 - `sse.continue_connection_with_selector(state, selector)` – keep running
   and change the message selector.
 - `sse.stop_connection()` – shut down the actor.
 
-```gleam
-import dream/servers/mist/sse
-import gleam/erlang/process
-import gleam/int
+### The on_message handler <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_controller.gleam#L45-L65"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
+```gleam
 fn handle_message(
   state: State,
   _message: Tick,
   connection: sse.SSEConnection,
-  _deps: Dependencies,
+  _dependencies: Dependencies,
 ) -> sse.Action(State, Tick) {
-  let ev =
+  let event =
     sse.event("{\"count\": " <> int.to_string(state.count) <> "}")
     |> sse.event_name("tick")
     |> sse.event_id(int.to_string(state.count))
 
-  let _ = sse.send_event(connection, ev)
-
-  // Schedule the next tick
-  process.send_after(state.self, 1000, Tick)
-  sse.continue_connection(State(..state, count: state.count + 1))
+  case sse.send_event(connection, event) {
+    Ok(Nil) -> {
+      // Schedule the next tick
+      process.send_after(state.self, 1000, Tick)
+      sse.continue_connection(State(..state, count: state.count + 1))
+    }
+    // The client has gone away, so stop the actor
+    Error(Nil) -> sse.stop_connection()
+  }
 }
 ```
 
@@ -200,15 +223,24 @@ fn handle_message(
 
 SSE events are built with a pipeline of builder functions:
 
-```gleam
-// Minimal event (data only)
-sse.event("hello world")
+### Building events <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_events.gleam#L7-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-// Event with all optional fields
-sse.event("{\"count\": 42}")
-|> sse.event_name("tick")       // event: tick
-|> sse.event_id("42")           // id: 42
-|> sse.event_retry(5000)        // retry: 5000
+```gleam
+pub fn build_minimal_event() -> sse.Event {
+  // Minimal event (data only)
+  sse.event("hello world")
+}
+
+pub fn build_full_event() -> sse.Event {
+  // Event with all optional fields
+  sse.event("{\"count\": 42}")
+  // event: tick
+  |> sse.event_name("tick")
+  // id: 42
+  |> sse.event_id("42")
+  // retry: 5000
+  |> sse.event_retry(5000)
+}
 ```
 
 - `event(data)` – creates an event. The only required field.
@@ -219,12 +251,21 @@ sse.event("{\"count\": 42}")
 - `event_retry(event, ms)` – tells the client how long to wait before
   reconnecting after a connection loss.
 
-Send the event with:
+To stop the actor when the client has gone away, check the result of
+`send_event`:
+
+### Sending an event <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_events.gleam#L23-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-case sse.send_event(connection, ev) {
-  Ok(Nil) -> sse.continue_connection(state)
-  Error(Nil) -> sse.stop_connection()
+pub fn send_event_or_stop(
+  state: state,
+  connection: sse.SSEConnection,
+  event: sse.Event,
+) -> sse.Action(state, message) {
+  case sse.send_event(connection, event) {
+    Ok(Nil) -> sse.continue_connection(state)
+    Error(Nil) -> sse.stop_connection()
+  }
 }
 ```
 
@@ -238,24 +279,108 @@ background jobs, etc.) to push events into SSE connections. Use the
 2. From anywhere in your app, `process.send(subject, your_message)`.
 3. The SSE actor's `on_message` receives it and sends an event to the client.
 
-Dream's `broadcaster` module works naturally with SSE:
+Dream's `broadcaster` module works with SSE. In Dream 2.5.0, `upgrade_to_sse`
+does not use a selector that `on_init` returns, so the controller below
+subscribes in `on_message` instead:
+
+1. `on_init` sends a `Subscribe` message to the actor itself.
+2. On `Subscribe`, `on_message` subscribes to the broadcaster and returns
+   `continue_connection_with_selector` with a selector that listens to both
+   the actor's own subject and the broadcaster channel. It also sends a
+   `subscribed` event, so the client knows that the stream is live.
+3. On `Published`, `on_message` sends the event to the client.
+
+### An SSE controller that uses a broadcaster <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_broadcast.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
+import dream/http/request.{type Request}
+import dream/http/response.{type Response}
+import dream/servers/mist/sse
 import dream/services/broadcaster
-import gleam/option.{Some}
+import gleam/erlang/process
+import gleam/int
+import gleam/option.{None}
+
+pub type AppEvent {
+  AppEvent(text: String)
+}
+
+pub type Dependencies {
+  Dependencies(event_bus: broadcaster.Broadcaster(AppEvent))
+}
+
+pub type StreamMessage {
+  Subscribe
+  Published(AppEvent)
+}
+
+pub type State {
+  State(count: Int, self: process.Subject(StreamMessage))
+}
+
+pub fn handle_events(
+  request: Request,
+  _context,
+  event_bus: broadcaster.Broadcaster(AppEvent),
+) -> Response {
+  sse.upgrade_to_sse(
+    request,
+    dependencies: Dependencies(event_bus: event_bus),
+    on_init: handle_init,
+    on_message: handle_message,
+  )
+}
 
 fn handle_init(
-  subject: process.Subject(AppEvent),
-  deps: Dependencies,
-) -> #(State, option.Option(process.Selector(AppEvent))) {
-  let channel = broadcaster.subscribe(deps.event_bus)
-  let selector = broadcaster.channel_to_selector(channel)
-  #(State(count: 0), Some(selector))
+  subject: process.Subject(StreamMessage),
+  _dependencies: Dependencies,
+) -> #(State, option.Option(process.Selector(StreamMessage))) {
+  // Subscribe in on_message: Dream 2.5.0 does not use a selector
+  // that on_init returns.
+  process.send(subject, Subscribe)
+  #(State(count: 0, self: subject), None)
+}
+
+fn handle_message(
+  state: State,
+  message: StreamMessage,
+  connection: sse.SSEConnection,
+  dependencies: Dependencies,
+) -> sse.Action(State, StreamMessage) {
+  case message {
+    Subscribe -> {
+      let selector = subscribe_to_events(state.self, dependencies.event_bus)
+      let _ = sse.send_event(connection, sse.event("subscribed"))
+      sse.continue_connection_with_selector(state, selector)
+    }
+    Published(AppEvent(text)) -> {
+      let event =
+        sse.event(text)
+        |> sse.event_id(int.to_string(state.count))
+      let _ = sse.send_event(connection, event)
+      sse.continue_connection(State(..state, count: state.count + 1))
+    }
+  }
+}
+
+fn subscribe_to_events(
+  self: process.Subject(StreamMessage),
+  event_bus: broadcaster.Broadcaster(AppEvent),
+) -> process.Selector(StreamMessage) {
+  let channel = broadcaster.subscribe(event_bus)
+  let published =
+    broadcaster.channel_to_selector(channel)
+    |> process.map_selector(Published)
+  // The new selector replaces the old one, so it also selects `self`
+  process.new_selector()
+  |> process.select(self)
+  |> process.merge_selector(published)
 }
 ```
 
-Now any code that calls `broadcaster.publish(event_bus, event)` will
-deliver the event to all connected SSE clients.
+Now any code that calls `broadcaster.publish(event_bus, AppEvent(text))`
+will deliver the event to all connected SSE clients. The controller takes
+the broadcaster as its services value.
 
 ## Client-side: EventSource
 
@@ -289,8 +414,14 @@ SSE connections work seamlessly with Dream middleware. Any headers added
 by middleware (CORS, security headers, authentication, etc.) are included
 in the SSE response sent to the client.
 
+### A CORS middleware on an SSE route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_middleware.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
+import dream/http/header.{Header}
+import dream/http/request.{Get}
+import dream/http/response.{Response}
 import dream/router.{route, router}
+import snippets/sse_guide_controller as sse_controller
 
 pub fn create_router() {
   router()
@@ -304,13 +435,10 @@ pub fn create_router() {
 
 fn cors_middleware(request, context, services, next) {
   let response = next(request, context, services)
-  Response(
-    ..response,
-    headers: [
-      Header("Access-Control-Allow-Origin", "*"),
-      ..response.headers
-    ],
-  )
+  Response(..response, headers: [
+    Header("Access-Control-Allow-Origin", "*"),
+    ..response.headers
+  ])
 }
 ```
 

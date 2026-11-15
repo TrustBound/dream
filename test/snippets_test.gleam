@@ -171,7 +171,7 @@ fn readme_websocket_chat_tests() -> UnitTest {
   describe("readme websocket chat", [
     it("echoes a text message with the user name", fn() {
       // Arrange
-      let port = 19_960
+      let port = free_port()
 
       // Act
       let result = chat_round_trip(port, "/chat?user=ada", "hello")
@@ -184,7 +184,7 @@ fn readme_websocket_chat_tests() -> UnitTest {
     }),
     it("uses guest when the user query parameter is missing", fn() {
       // Arrange
-      let port = 19_961
+      let port = free_port()
 
       // Act
       let result = chat_round_trip(port, "/chat", "hello")
@@ -239,6 +239,9 @@ fn chat_round_trip(
   }
 }
 
+@external(erlang, "port_ffi", "free_port")
+fn free_port() -> Int
+
 @external(erlang, "websocket_ffi", "send_text_and_receive")
 fn send_text_and_receive(
   port: Int,
@@ -252,10 +255,11 @@ fn server_tls_tests() -> UnitTest {
     it("serves GET / over HTTP/2 with TLS", fn() {
       // Arrange
       let #(certfile, keyfile) = write_certificate("build/test_tls")
-      let assert Ok(handle) = server_tls.start(certfile, keyfile, 19_994)
+      let port = free_port()
+      let assert Ok(handle) = server_tls.start(certfile, keyfile, port)
 
       // Act
-      let result = tls_request(19_994, atom.create("http2"), "/")
+      let result = tls_request(port, atom.create("http2"), "/")
       server.stop(handle)
 
       // Assert
