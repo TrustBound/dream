@@ -112,6 +112,16 @@ for example_dir in examples/*/; do
 done
 echo ""
 
+# Step 5: Check docs code blocks against tested snippets
+echo "🧪 Checking docs code blocks against tested snippets..."
+if ! gleam run -m docs_snippet_check; then
+  echo ""
+  echo -e "${RED}❌ A docs code block does not match its tested snippet. See docs/contributing/contributing.md.${NC}"
+  exit 1
+fi
+echo -e "${GREEN}✅ All docs code blocks match their tested snippets${NC}"
+echo ""
+
 echo -e "${GREEN}🎉 All pre-commit checks passed!${NC}"
 echo ""
 exit 0

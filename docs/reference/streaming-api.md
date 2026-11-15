@@ -421,12 +421,13 @@ fn to_csv_row(name: String) -> BitArray {
 
 ## Server Configuration
 
-### max_body_size <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L69-L72"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### max_body_size <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L67-L70"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
+pub const max_body_size: fn(
+  Dream(Builder(Connection, ResponseData), context, services),
   Int,
 ) -> Dream(Builder(Connection, ResponseData), context, services) = server.max_body_size
-
 ```
 
 Set maximum buffered body size in bytes. Import it from

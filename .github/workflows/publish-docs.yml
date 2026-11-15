@@ -83,6 +83,11 @@ jobs:
       - name: Download dependencies
         run: gleam deps download
 
+      # The docs must not show a code block that does not match its tested
+      # snippet. See docs/contributing/contributing.md.
+      - name: Check docs code blocks against tested snippets
+        run: make check-snippets
+
       - name: Build documentation
         run: gleam docs build
 

@@ -66,6 +66,11 @@ jobs:
           CI: "true"
         run: make test-unit
 
+      # Every Gleam code block in the docs must match the tested snippet
+      # that its badge links to. See docs/contributing/contributing.md.
+      - name: Check docs code blocks against tested snippets
+        run: make check-snippets
+
       - name: Restore http_client dependencies
         if: always()
         uses: ./.github/actions/restore-dream-deps

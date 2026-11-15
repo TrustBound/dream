@@ -152,6 +152,12 @@ jobs:
         if: steps.version_check.outputs.should_publish == 'true'
         run: make test-unit
 
+      # A release must not ship a doc code block that does not match its
+      # tested snippet. See docs/contributing/contributing.md.
+      - name: Check docs code blocks against tested snippets
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: make check-snippets
+
       - name: Publish Dream to Hex
         id: publish_hex
         if: steps.version_check.outputs.should_publish == 'true'

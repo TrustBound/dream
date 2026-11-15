@@ -144,6 +144,26 @@ Examples in doc comments (`///`) are code blocks too. HexDocs shows them to ever
 
 When you find a code block that doesn't follow this, change it in the same pull request.
 
+Run the check by hand from the repository root:
+
+```bash
+make check-snippets
+```
+
+It runs `gleam run -m docs_snippet_check`. The check reads `README.md`, `SECURITY.md`, each `.md` file in `docs/` and `examples/`, and the doc comments in `src/`. It does not use the network. It fails when:
+
+- a Gleam code block has no heading with the badge directly above it (one blank line between is allowed)
+- the badge is not in the exact format shown above
+- the badge links to another repository or host
+- the tag in the link is not the `version` in `gleam.toml`
+- the linked file does not exist
+- the line range is malformed, reversed, or past the end of the file
+- the code block is not the same as the linked file or line range
+- the code block uses the old `🧪 Tested source` line
+- a code fence with another language, or with no language, holds Gleam code
+
+It prints each problem as `file:line: reason`, then a summary line. `make check`, the pre-commit hook, CI and the publish workflows also run it.
+
 ### Contributing to Documentation
 
 For writing or improving user-facing documentation (guides, tutorials, examples), see the [Documentation Contributing Guide](index.md). It covers:

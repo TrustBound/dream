@@ -6,6 +6,7 @@ import doc_core_snippets_test
 import doc_http_data_snippets_test
 import doc_http_snippets_test
 import doc_server_snippets_test
+import docs_snippet_check_test
 import docs_snippet_pages_test
 import dream/context_test
 import dream/dream_test as dream_module_test
@@ -40,6 +41,7 @@ import guides_sse_websockets_rest_snippets_test
 import learning_snippets_test
 import naming_snippets_test
 import reference_snippets_test
+import security_snippets_test
 import snippets/streaming_api_test
 import snippets_test
 import streaming_snippets_test
@@ -98,6 +100,7 @@ pub fn main() {
       unit.to_test_cases("doc_core_snippets", doc_core_snippets_test.tests()),
       unit.to_test_cases("snippets/naming", naming_snippets_test.tests()),
       unit.to_test_cases("reference snippets", reference_snippets_test.tests()),
+      unit.to_test_cases("security snippets", security_snippets_test.tests()),
       unit.to_test_cases("snippets/streaming_api", streaming_api_test.tests()),
       unit.to_test_cases("streaming_snippets", streaming_snippets_test.tests()),
       unit.to_test_cases(
@@ -121,6 +124,7 @@ pub fn main() {
         "websocket_chat_readme_snippets",
         websocket_chat_readme_snippets_test.tests(),
       ),
+      unit.to_test_cases("docs_snippet_check", docs_snippet_check_test.tests()),
       unit.to_test_cases("docs_snippet_pages", docs_snippet_pages_test.tests()),
     ]
     |> list.flatten

@@ -173,7 +173,7 @@ or process dictionary, neither of which are type-safe in Gleam.
 Unlike Rails where you have no idea where your DB connection 
 comes from, we pass it explicitly like adults:
 
-pub fn get(db: Connection, id: Int) -> Result(User, Error)
+`pub fn get(db: Connection, id: Int) -> Result(User, Error)`
 
 See? Not that hard.
 ```
