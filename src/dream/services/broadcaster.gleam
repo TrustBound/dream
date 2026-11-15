@@ -1,4 +1,5 @@
-import gleam/erlang/process.{type Selector, type Subject}
+import gleam/erlang/process.{type Monitor, type Selector, type Subject}
+import gleam/list
 import gleam/otp/actor
 import gleam/result
 
@@ -19,6 +20,10 @@ import gleam/result
 ///    WebSocket handler).
 /// 4. Call `publish/2` from anywhere in your app to broadcast a message to all
 ///    current subscribers.
+///
+/// The broadcaster monitors the process that owns each channel. When that
+/// process stops, the broadcaster removes all of its channels, so a consumer
+/// that stops without calling `unsubscribe/2` does not stay subscribed.
 ///
 /// For more complex routing, per-room partitioning, or persistence, treat this
 /// as a building block and layer additional actor logic on top.
@@ -77,6 +82,13 @@ type BroadcasterMessage(message) {
   Subscribe(Subject(message))
   Unsubscribe(Subject(message))
   Publish(message)
+  CountSubscribers(reply_to: Subject(Int))
+  SubscriberDown(process.Down)
+}
+
+/// A subscribed channel subject and the monitor on the process that owns it.
+type Subscriber(message) {
+  Subscriber(subject: Subject(message), monitor: Monitor)
 }
 
 /// Start a new broadcaster service.
@@ -96,10 +108,37 @@ type BroadcasterMessage(message) {
 /// }
 /// ```
 pub fn start_broadcaster() -> Result(Broadcaster(message), actor.StartError) {
-  actor.new([])
+  actor.new_with_initialiser(
+    initialisation_timeout_milliseconds,
+    initialise_broadcaster,
+  )
   |> actor.on_message(handle_broadcaster_message)
   |> actor.start
   |> result.map(wrap_broadcaster_subject)
+}
+
+const initialisation_timeout_milliseconds = 1000
+
+/// Select the broadcaster's own subject and the down messages of all monitors
+/// that the broadcaster sets up, so one selector serves every subscriber.
+fn initialise_broadcaster(
+  subject: Subject(BroadcasterMessage(message)),
+) -> Result(
+  actor.Initialised(
+    List(Subscriber(message)),
+    BroadcasterMessage(message),
+    Subject(BroadcasterMessage(message)),
+  ),
+  String,
+) {
+  let selector =
+    process.new_selector()
+    |> process.select(subject)
+    |> process.select_monitors(SubscriberDown)
+  actor.initialised([])
+  |> actor.selecting(selector)
+  |> actor.returning(subject)
+  |> Ok
 }
 
 fn wrap_broadcaster_subject(
@@ -111,7 +150,8 @@ fn wrap_broadcaster_subject(
 /// Subscribe to receive messages from the broadcaster.
 ///
 /// Returns a channel that will receive all messages published
-/// to the broadcaster.
+/// to the broadcaster. The calling process owns the channel. When that
+/// process stops, the broadcaster removes the channel.
 ///
 /// ## Example
 ///
@@ -154,9 +194,10 @@ pub fn publish(broadcaster: Broadcaster(message), message: message) -> Nil {
 
 /// Unsubscribe a channel from the broadcaster.
 ///
-/// The channel will no longer receive published messages.
-/// Note: The broadcaster does not remove a channel when the subscribing
-/// process stops, so call this before that process stops.
+/// The channel will no longer receive published messages, and the
+/// broadcaster stops monitoring the channel's owner for this channel.
+/// You do not have to call this before the subscribing process stops: the
+/// broadcaster removes the channels of a stopped process automatically.
 ///
 /// ## Example
 ///
@@ -178,6 +219,37 @@ pub fn unsubscribe(
   let Channel(subscriber) = channel
   process.send(subject, Unsubscribe(subscriber))
 }
+
+/// Count the channels that are subscribed to the broadcaster.
+///
+/// Returns an error if the broadcaster does not reply within 5 seconds, for
+/// example because it has stopped. A channel whose owner has stopped is
+/// counted until the broadcaster handles the down message for that owner.
+///
+/// ## Example
+///
+/// ### Count subscribers <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster_functions.gleam#L46-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// pub fn listener_count(
+///   my_broadcaster: broadcaster.Broadcaster(message),
+/// ) -> Result(Int, Nil) {
+///   broadcaster.count_subscribers(my_broadcaster)
+/// }
+/// ```
+pub fn count_subscribers(
+  broadcaster: Broadcaster(message),
+) -> Result(Int, Nil) {
+  let Broadcaster(subject) = broadcaster
+  let reply_subject = process.new_subject()
+  process.send(subject, CountSubscribers(reply_subject))
+  process.selector_receive(
+    process.new_selector() |> process.select(reply_subject),
+    count_timeout_milliseconds,
+  )
+}
+
+const count_timeout_milliseconds = 5000
 
 /// Convert a channel to a selector for use in WebSocket message loops.
 ///
@@ -208,12 +280,12 @@ fn identity(value: a) -> a {
 }
 
 fn handle_broadcaster_message(
-  subscribers: List(Subject(message)),
+  subscribers: List(Subscriber(message)),
   message: BroadcasterMessage(message),
-) -> actor.Next(List(Subject(message)), BroadcasterMessage(message)) {
+) -> actor.Next(List(Subscriber(message)), BroadcasterMessage(message)) {
   case message {
     Subscribe(subscriber) -> {
-      actor.continue([subscriber, ..subscribers])
+      actor.continue(add_subscriber(subscribers, subscriber))
     }
     Unsubscribe(subscriber) -> {
       let remaining_subscribers = remove_subscriber(subscribers, subscriber)
@@ -223,13 +295,42 @@ fn handle_broadcaster_message(
       send_to_all_subscribers(subscribers, broadcast_message)
       actor.continue(subscribers)
     }
+    CountSubscribers(reply_to) -> {
+      process.send(reply_to, list.length(subscribers))
+      actor.continue(subscribers)
+    }
+    SubscriberDown(process.ProcessDown(monitor:, ..)) -> {
+      actor.continue(remove_monitored_subscriber(subscribers, monitor))
+    }
+    SubscriberDown(process.PortDown(..)) -> {
+      actor.continue(subscribers)
+    }
+  }
+}
+
+/// Monitor the owner of the subject and add the subject as a subscriber.
+///
+/// A subject without an owner is a named subject with no registered process.
+/// No process can receive its messages and no down message can ever remove
+/// it, so the broadcaster does not add it. `subscribe/1` always creates an
+/// unnamed subject, so this does not happen through the public API.
+fn add_subscriber(
+  subscribers: List(Subscriber(message)),
+  subject: Subject(message),
+) -> List(Subscriber(message)) {
+  case process.subject_owner(subject) {
+    Ok(owner) -> [
+      Subscriber(subject:, monitor: process.monitor(owner)),
+      ..subscribers
+    ]
+    Error(Nil) -> subscribers
   }
 }
 
 fn remove_subscriber(
-  subscribers: List(Subject(message)),
+  subscribers: List(Subscriber(message)),
   to_remove: Subject(message),
-) -> List(Subject(message)) {
+) -> List(Subscriber(message)) {
   case subscribers {
     [] -> []
     [subscriber, ..rest] ->
@@ -238,18 +339,43 @@ fn remove_subscriber(
 }
 
 fn case_remove_subscriber_item(
-  subscriber: Subject(message),
-  rest: List(Subject(message)),
+  subscriber: Subscriber(message),
+  rest: List(Subscriber(message)),
   to_remove: Subject(message),
-) -> List(Subject(message)) {
-  case subscriber == to_remove {
-    True -> remove_subscriber(rest, to_remove)
+) -> List(Subscriber(message)) {
+  case subscriber.subject == to_remove {
+    True -> {
+      process.demonitor_process(subscriber.monitor)
+      remove_subscriber(rest, to_remove)
+    }
     False -> [subscriber, ..remove_subscriber(rest, to_remove)]
   }
 }
 
+fn remove_monitored_subscriber(
+  subscribers: List(Subscriber(message)),
+  down_monitor: Monitor,
+) -> List(Subscriber(message)) {
+  case subscribers {
+    [] -> []
+    [subscriber, ..rest] ->
+      case_remove_monitored_subscriber_item(subscriber, rest, down_monitor)
+  }
+}
+
+fn case_remove_monitored_subscriber_item(
+  subscriber: Subscriber(message),
+  rest: List(Subscriber(message)),
+  down_monitor: Monitor,
+) -> List(Subscriber(message)) {
+  case subscriber.monitor == down_monitor {
+    True -> remove_monitored_subscriber(rest, down_monitor)
+    False -> [subscriber, ..remove_monitored_subscriber(rest, down_monitor)]
+  }
+}
+
 fn send_to_all_subscribers(
-  subscribers: List(Subject(message)),
+  subscribers: List(Subscriber(message)),
   broadcast_message: message,
 ) -> Nil {
   case subscribers {
@@ -260,10 +386,10 @@ fn send_to_all_subscribers(
 }
 
 fn send_and_continue(
-  subscriber: Subject(message),
-  rest: List(Subject(message)),
+  subscriber: Subscriber(message),
+  rest: List(Subscriber(message)),
   broadcast_message: message,
 ) -> Nil {
-  process.send(subscriber, broadcast_message)
+  process.send(subscriber.subject, broadcast_message)
   send_to_all_subscribers(rest, broadcast_message)
 }
