@@ -4,26 +4,31 @@ Complete API reference for Dream's streaming functionality.
 
 ## Types
 
-### Request
+Each example below builds or matches a type with every field or variant
+named, so it shows the whole type.
+
+### Request <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_types.gleam#L14-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub type Request {
+pub fn create_upload_request(chunks: Yielder(BitArray)) -> Request {
   Request(
-    method: Method,
-    protocol: Protocol,
-    version: Version,
-    path: String,
-    query: String,
-    params: List(#(String, String)),
-    host: Option(String),
-    port: Option(Int),
-    remote_address: Option(String),
-    body: String,                           // Buffered body (empty for streaming routes)
-    stream: Option(Yielder(BitArray)),      // Streaming body (Some for streaming routes)
-    headers: List(Header),
-    cookies: List(Cookie),
-    content_type: Option(String),
-    content_length: Option(Int),
+    method: Post,
+    protocol: Http,
+    version: Http1,
+    path: "/upload",
+    query: "",
+    params: [],
+    host: None,
+    port: None,
+    remote_address: None,
+    // A streaming route gets an empty buffered body...
+    body: "",
+    // ...and the request body as a stream of chunks.
+    stream: Some(chunks),
+    headers: [],
+    cookies: [],
+    content_type: Some("application/octet-stream"),
+    content_length: None,
   )
 }
 ```
@@ -36,13 +41,18 @@ pub type Request {
 - Regular routes: `body` contains data, `stream` is `None`
 - Streaming routes: `body` is `""`, `stream` is `Some(Yielder(BitArray))`
 
-### ResponseBody
+### ResponseBody <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_types.gleam#L36-L45"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub type ResponseBody {
-  Text(String)                      // Buffered text response
-  Bytes(BitArray)                   // Buffered binary response
-  Stream(Yielder(BitArray))         // Streaming response
+pub fn describe_body(body: ResponseBody) -> String {
+  case body {
+    // Buffered text: JSON, HTML, plain text
+    Text(_text) -> "buffered text"
+    // Buffered binary: images, PDFs
+    Bytes(_bytes) -> "buffered bytes"
+    // Streaming: large files, real-time data, CSV exports
+    Stream(_chunks) -> "stream"
+  }
 }
 ```
 
@@ -51,33 +61,30 @@ pub type ResponseBody {
 - `Bytes(...)`: Binary files (images, PDFs)
 - `Stream(...)`: Large files, real-time data, CSV exports
 
-### Response
+### Response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_types.gleam#L47-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub type Response {
+pub fn create_csv_export_response(rows: Yielder(BitArray)) -> Response {
   Response(
-    status: Int,
-    body: ResponseBody,
-    headers: List(Header),
-    cookies: List(Cookie),
-    content_type: Option(String),
+    status: 200,
+    body: Stream(rows),
+    headers: [Header("Content-Type", "text/csv")],
+    cookies: [],
+    content_type: Some("text/csv"),
   )
 }
 ```
 
 ## Response Builders
 
-### stream_response
+### stream_response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_signatures.gleam#L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn stream_response(
-  status: Int,
-  stream: Yielder(BitArray),
-  content_type: String,
-) -> Response
+pub const stream_response: fn(Int, Yielder(BitArray), String) -> Response = response.stream_response
 ```
 
-Create a streaming response.
+Create a streaming response. The arguments are the status, the stream and
+the content type.
 
 **Parameters:**
 - `status`: HTTP status code (use `status.ok`, `status.created`, etc.)
@@ -86,22 +93,19 @@ Create a streaming response.
 
 **Returns:** Response with Stream body and Transfer-Encoding: chunked
 
-**Example:**
-```gleam
-import dream/http/response.{stream_response}
-import dream/http/status
-import gleam/yielder
+#### Stream a download <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_responses.gleam#L16-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-pub fn download(request, context, services) {
+```gleam
+pub fn download(_request: Request, _context, _services) -> Response {
   let stream =
     yielder.range(1, 1000)
     |> yielder.map(int_to_byte)
-  
+
   stream_response(status.ok, stream, "application/octet-stream")
 }
 
-fn int_to_byte(n: Int) -> BitArray {
-  <<n:8>>
+fn int_to_byte(number: Int) -> BitArray {
+  <<number:8>>
 }
 ```
 
@@ -111,33 +115,29 @@ fn int_to_byte(n: Int) -> BitArray {
 > after a few events. Use `upgrade_to_sse` from `dream/servers/mist/sse`
 > instead. See the [SSE guide](../guides/sse.md).
 
+#### sse_response signature <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_signatures.gleam#L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn sse_response(
-  status: Int,
-  stream: Yielder(BitArray),
-  content_type: String,
-) -> Response
+pub const sse_response: fn(Int, Yielder(BitArray), String) -> Response = response.sse_response
 ```
 
 ### Server-Sent Events (SSE)
 
 For full SSE documentation, see the [SSE guide](../guides/sse.md).
 
-#### upgrade_to_sse
+#### upgrade_to_sse <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_signatures.gleam#L21-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/servers/mist/sse
-
-pub fn upgrade_to_sse(
-  request: Request,
-  dependencies deps: deps,
-  on_init: fn(Subject(message), deps) -> #(state, Option(Selector(message))),
-  on_message: fn(state, message, SSEConnection, deps) -> Action(state, message),
-) -> Response
+pub const upgrade_to_sse: fn(
+  Request,
+  deps,
+  fn(Subject(message), deps) -> #(state, Option(Selector(message))),
+  fn(state, message, SSEConnection, deps) -> Action(state, message),
+) -> Response = sse.upgrade_to_sse
 ```
 
 Upgrade an HTTP request to a Server-Sent Events connection backed by a
-dedicated OTP actor.
+dedicated OTP actor. Import it from `dream/servers/mist/sse`.
 
 **Parameters:**
 - `request`: The incoming HTTP request
@@ -147,61 +147,86 @@ dedicated OTP actor.
   and optional selector.
 - `on_message`: Called for each message. Returns the next action.
 
-**Example:**
-```gleam
-import dream/servers/mist/sse
-import gleam/erlang/process
-import gleam/option.{None}
+#### Send tick events <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_sse.gleam#L13-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-pub fn handle_events(request, _context, _services) {
+```gleam
+pub type Message {
+  Tick
+}
+
+pub fn handle_events(request: Request, _context, _services) -> Response {
   sse.upgrade_to_sse(
     request,
     dependencies: Nil,
-    on_init: fn(subject, _deps) {
+    on_init: fn(subject, _dependencies) {
+      process.send(subject, Tick)
       process.send(subject, Tick)
       #(0, None)
     },
-    on_message: fn(count, _msg, conn, _deps) {
-      let _ = sse.send_event(conn, sse.event("ping"))
-      sse.continue_connection(count + 1)
+    on_message: fn(count, _message, connection, _dependencies) {
+      send_tick(connection, count)
     },
   )
 }
+
+fn send_tick(
+  connection: sse.SSEConnection,
+  count: Int,
+) -> sse.Action(Int, Message) {
+  case sse.send_event(connection, create_tick_event(count)) {
+    Ok(Nil) -> sse.continue_connection(count + 1)
+    Error(Nil) -> sse.stop_connection()
+  }
+}
 ```
 
-#### send_event
+`on_init` puts two `Tick` messages in the actor's mailbox. Each `Tick` sends
+one event and keeps the connection open. If an event cannot be sent because
+the client has gone, the actor stops.
+
+#### send_event <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_signatures.gleam#L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn send_event(connection: SSEConnection, event: Event) -> Result(Nil, Nil)
+pub const send_event: fn(SSEConnection, Event) -> Result(Nil, Nil) = sse.send_event
 ```
 
 Send an SSE event to the client.
 
-#### event / event_name / event_id / event_retry
+#### event / event_name / event_id / event_retry <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_signatures.gleam#L30-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn event(data: String) -> Event
-pub fn event_name(event: Event, name: String) -> Event
-pub fn event_id(event: Event, id: String) -> Event
-pub fn event_retry(event: Event, retry_ms: Int) -> Event
+pub const event: fn(String) -> Event = sse.event
+
+pub const event_name: fn(Event, String) -> Event = sse.event_name
+
+pub const event_id: fn(Event, String) -> Event = sse.event_id
+
+pub const event_retry: fn(Event, Int) -> Event = sse.event_retry
 ```
 
 Build structured SSE events. Only `event(data)` is required.
 
-**Example:**
+#### Build a tick event <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_sse.gleam#L42-L48"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-sse.event("{\"count\": 42}")
-|> sse.event_name("tick")
-|> sse.event_id("42")
-|> sse.event_retry(5000)
+pub fn create_tick_event(count: Int) -> sse.Event {
+  let count_text = int.to_string(count)
+  sse.event("{\"count\": " <> count_text <> "}")
+  |> sse.event_name("tick")
+  |> sse.event_id(count_text)
+  |> sse.event_retry(5000)
+}
 ```
 
-#### continue_connection / stop_connection
+#### continue_connection / stop_connection <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_signatures.gleam#L38-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn continue_connection(state: state) -> Action(state, message)
-pub fn continue_connection_with_selector(state: state, selector: Selector(message)) -> Action(state, message)
-pub fn stop_connection() -> Action(state, message)
+pub const continue_connection: fn(state) -> Action(state, message) = sse.continue_connection
+
+pub const continue_connection_with_selector: fn(state, Selector(message)) ->
+  Action(state, message) = sse.continue_connection_with_selector
+
+pub const stop_connection: fn() -> Action(state, message) = sse.stop_connection
 ```
 
 Control the SSE actor loop. `continue_connection` keeps the actor alive,
@@ -209,19 +234,24 @@ Control the SSE actor loop. `continue_connection` keeps the actor alive,
 
 ## Router Functions
 
-### stream_route
+### stream_route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_signatures.gleam#L45-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn stream_route(
-  router_value: Router(context, services),
-  method method_value: Method,
-  path path_pattern: String,
-  controller controller_fn: fn(Request, context, services) -> Response,
-  middleware middleware_list: List(Middleware(context, services)),
-) -> Router(context, services)
+pub const stream_route: fn(
+  Router(context, services),
+  Method,
+  String,
+  fn(Request, context, services) -> Response,
+  List(
+    fn(Request, context, services, fn(Request, context, services) -> Response) ->
+      Response,
+  ),
+) -> Router(context, services) = router.stream_route
+
 ```
 
-Add a streaming route to the router for any HTTP method.
+Add a streaming route to the router for any HTTP method. The arguments are
+the router, then `method:`, `path:`, `controller:` and `middleware:`.
 
 Registers a route that receives the request body as a stream (Yielder(BitArray))
 instead of a buffered string. Use for large file uploads (> 10MB), proxying
@@ -231,7 +261,7 @@ external APIs, or any case where you want to process the request body in chunks.
 - `method`: HTTP method (Post, Put, Patch, etc.)
 - `path`: URL path (can include parameters like `"/upload/:id"`)
 - `controller`: Controller function to handle the request
-- `middleware`: List of middleware to run (can transform stream)
+- `middleware`: List of middleware functions to run (can transform stream)
 
 **Behavior:**
 - `request.body` is empty `""`
@@ -239,41 +269,47 @@ external APIs, or any case where you want to process the request body in chunks.
 - Body is not buffered - processed as chunks arrive
 - Memory usage stays constant regardless of upload size
 
-**Example:**
-```gleam
-import dream/router.{router, stream_route}
-import dream/http/request.{Post, Put}
+#### Add streaming routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_routing.gleam#L20-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-pub fn create_router() {
+```gleam
+pub fn create_router() -> Router(context, services) {
   router()
   |> stream_route(
     method: Post,
     path: "/upload",
-    controller: controllers.upload,
+    controller: upload,
     middleware: [],
   )
   |> stream_route(
     method: Put,
     path: "/files/:id",
-    controller: controllers.replace_file,
-    middleware: [auth],
+    controller: replace_file,
+    middleware: [require_api_key],
   )
 }
 ```
 
-### route
+`upload` and `replace_file` are controllers, and `require_api_key` is a
+middleware function in the same module.
+
+### route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_signatures.gleam#L57-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn route(
-  router_value: Router(context, services),
-  method method_value: Method,
-  path path_pattern: String,
-  controller controller_fn: fn(Request, context, services) -> Response,
-  middleware middleware_list: List(Middleware(context, services)),
-) -> Router(context, services)
+  Router(context, services),
+  Method,
+  String,
+  fn(Request, context, services) -> Response,
+  List(
+    fn(Request, context, services, fn(Request, context, services) -> Response) ->
+      Response,
+  ),
+) -> Router(context, services) = router.route
+
+pub const max_body_size: fn(
 ```
 
-Add a regular buffered route to the router.
+Add a regular buffered route to the router. It takes the same arguments as
+`stream_route`.
 
 For streaming routes, use `stream_route()` instead.
 
@@ -281,14 +317,13 @@ For streaming routes, use `stream_route()` instead.
 
 Common operations on streaming data:
 
-### Transform Chunks
+### Transform Chunks <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_yielder.gleam#L10-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import gleam/yielder
-
-let uppercase_stream =
-  request.stream
+pub fn uppercase_stream(stream: Yielder(BitArray)) -> Yielder(BitArray) {
+  stream
   |> yielder.map(uppercase_chunk)
+}
 
 fn uppercase_chunk(chunk: BitArray) -> BitArray {
   chunk
@@ -299,94 +334,96 @@ fn uppercase_chunk(chunk: BitArray) -> BitArray {
 }
 ```
 
-### Filter Chunks
+### Filter Chunks <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_yielder.gleam#L23-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-let non_empty_stream =
+pub fn remove_empty_chunks(stream: Yielder(BitArray)) -> Yielder(BitArray) {
   stream
   |> yielder.filter(is_non_empty_chunk)
+}
 
 fn is_non_empty_chunk(chunk: BitArray) -> Bool {
   bit_array.byte_size(chunk) > 0
 }
 ```
 
-### Fold/Reduce
+### Fold/Reduce <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_yielder.gleam#L32-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-let total_bytes =
+pub fn count_total_bytes(stream: Yielder(BitArray)) -> Int {
   stream
   |> yielder.fold(0, add_chunk_size)
+}
 
-fn add_chunk_size(acc: Int, chunk: BitArray) -> Int {
-  acc + bit_array.byte_size(chunk)
+fn add_chunk_size(total: Int, chunk: BitArray) -> Int {
+  total + bit_array.byte_size(chunk)
 }
 ```
 
-### Take Limited
+### Take Limited <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_yielder.gleam#L41-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-let first_100_chunks =
+pub fn take_first_chunks(stream: Yielder(BitArray)) -> Yielder(BitArray) {
   stream
   |> yielder.take(100)
+}
 ```
 
-### Chain Streams
+### Chain Streams <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_yielder.gleam#L46-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-let header = yielder.single(<<"id,name\n":utf8>>)
-let rows = yielder.from_list(data)
-  |> yielder.map(to_csv_row)
+pub fn create_csv_stream(names: List(String)) -> Yielder(BitArray) {
+  let header = yielder.single(<<"name\n":utf8>>)
+  let rows =
+    yielder.from_list(names)
+    |> yielder.map(to_csv_row)
 
-let full_stream = yielder.append(header, rows)
+  yielder.append(header, rows)
+}
+
+fn to_csv_row(name: String) -> BitArray {
+  bit_array.from_string(name <> "\n")
+}
 ```
 
 ## Server Configuration
 
-### max_body_size
+### max_body_size <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_signatures.gleam#L69-L72"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn max_body_size(
-  server: Server(context, services),
-  max_size: Int,
-) -> Server(context, services)
+  Int,
+) -> Dream(Builder(Connection, ResponseData), context, services) = server.max_body_size
+
 ```
 
-Set maximum buffered body size in bytes.
+Set maximum buffered body size in bytes. Import it from
+`dream/servers/mist/server`.
 
 **Default:** 10MB (10_000_000 bytes)
 
 **For streaming routes:** This limit doesn't apply (streams can be unlimited)
 
-**Example:**
+#### Raise the body size limit <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_routing.gleam#L115-L119"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-server.new()
-  |> max_body_size(100_000_000)  // 100MB for large JSON payloads
-  |> listen(3000)
+pub fn create_large_payload_server() {
+  server.new()
+  // 100MB for large JSON payloads
+  |> server.max_body_size(100_000_000)
+}
 ```
 
+Add a router to this server and call `server.listen` to start it.
 
 ## Middleware with Streaming
 
-### Request Stream Transformation
+A middleware is a function that takes the request, the context, the services
+and the next handler. Give it to a route in the `middleware:` list.
+
+### Request Stream Transformation <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_routing.gleam#L70-L92"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub type Middleware(context, services) {
-  Middleware(
-    fn(
-      Request,
-      context,
-      services,
-      fn(Request, context, services) -> Response,
-    ) -> Response
-  )
-}
-
-pub fn compress_incoming() -> Middleware(context, services) {
-  Middleware(compress_incoming_handler)
-}
-
-fn compress_incoming_handler(
+pub fn uppercase_incoming(
   request: Request,
   context: context,
   services: services,
@@ -394,42 +431,45 @@ fn compress_incoming_handler(
 ) -> Response {
   case request.stream {
     Some(stream) -> {
-      let compressed_stream = yielder.map(stream, compress_chunk)
-      let new_request = Request(..request, stream: Some(compressed_stream))
+      let uppercase_stream = yielder.map(stream, uppercase_chunk)
+      let new_request = Request(..request, stream: Some(uppercase_stream))
       next(new_request, context, services)
     }
     None -> next(request, context, services)
   }
 }
+
+fn uppercase_chunk(chunk: BitArray) -> BitArray {
+  chunk
+  |> bit_array.to_string()
+  |> result.unwrap("")
+  |> string.uppercase()
+  |> bit_array.from_string()
+}
 ```
 
-### Response Stream Transformation
+### Response Stream Transformation <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_routing.gleam#L94-L113"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn log_outgoing_chunks() -> Middleware(context, services) {
-  Middleware(log_outgoing_chunks_handler)
-}
-
-fn log_outgoing_chunks_handler(
+pub fn end_outgoing_chunks_with_newline(
   request: Request,
   context: context,
   services: services,
   next: fn(Request, context, services) -> Response,
 ) -> Response {
   let response = next(request, context, services)
-  
+
   case response.body {
     Stream(stream) -> {
-      let logged_stream = yielder.map(stream, log_and_return_chunk)
-      Response(..response, body: Stream(logged_stream))
+      let newline_stream = yielder.map(stream, append_newline)
+      Response(..response, body: Stream(newline_stream))
     }
     _ -> response
   }
 }
 
-fn log_and_return_chunk(chunk: BitArray) -> BitArray {
-  io.println("Sending chunk: " <> int.to_string(bit_array.byte_size(chunk)) <> " bytes")
-  chunk
+fn append_newline(chunk: BitArray) -> BitArray {
+  bit_array.append(chunk, <<"\n":utf8>>)
 }
 ```
 
@@ -453,50 +493,77 @@ Yielders provide natural backpressure:
 
 ### Memory Usage
 
-**Buffered response:**
+#### Buffered response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_responses.gleam#L28-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-// Loads 100MB into memory
-let big_string = generate_100mb_string()
-text_response(status.ok, big_string)  // Peak memory: 100MB+
+pub fn create_buffered_report(line_count: Int) -> Response {
+  // Builds the whole report in memory before the response is sent
+  let report = string.repeat("report line\n", line_count)
+  text_response(status.ok, report)
+}
 ```
 
-**Streaming response:**
+Don't do this for a large report. The whole report is in memory before the
+response is sent, so peak memory grows with the size of the report.
+
+#### Streaming response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_responses.gleam#L34-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-// Generates on demand
-let stream = generate_stream()
-stream_response(status.ok, stream, "text/plain")  // Peak memory: ~64KB
+pub fn create_streamed_report(line_count: Int) -> Response {
+  // Builds each line only when the client is ready for it
+  let stream =
+    yielder.repeat(<<"report line\n":utf8>>)
+    |> yielder.take(line_count)
+  stream_response(status.ok, stream, "text/plain")
+}
 ```
+
+Peak memory stays near the size of one chunk, whatever the size of the report.
 
 ## Error Handling
 
-### Handle Stream Errors
+### Handle Stream Errors <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_responses.gleam#L42-L85"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import gleam/yielder
+pub type UploadError {
+  InvalidChunk
+}
 
-pub fn upload(request, context, services) -> Response {
+pub fn upload(request: Request, _context, _services) -> Response {
   case request.stream {
-    Some(stream) -> {
-      case process_stream_safely(stream) {
-        Ok(result) -> text_response(status.ok, result)
-        Error(err) -> handle_error(err)
-      }
-    }
+    Some(stream) -> respond_to_upload(stream)
     None -> text_response(status.bad_request, "Expected streaming upload")
   }
 }
 
-fn process_stream_safely(stream) -> Result(String, Error) {
+fn respond_to_upload(stream: Yielder(BitArray)) -> Response {
+  case process_stream_safely(stream) {
+    Ok(message) -> text_response(status.ok, message)
+    Error(InvalidChunk) ->
+      text_response(status.unprocessable_content, "Upload must be UTF-8 text")
+  }
+}
+
+fn process_stream_safely(
+  stream: Yielder(BitArray),
+) -> Result(String, UploadError) {
   stream
   |> yielder.try_fold(0, validate_and_add_chunk_size)
   |> result.map(format_total_bytes_message)
 }
 
-fn validate_and_add_chunk_size(acc: Int, chunk: BitArray) -> Result(Int, Error) {
+fn validate_and_add_chunk_size(
+  total: Int,
+  chunk: BitArray,
+) -> Result(Int, UploadError) {
   case is_valid_chunk(chunk) {
-    True -> Ok(acc + bit_array.byte_size(chunk))
+    True -> Ok(total + bit_array.byte_size(chunk))
     False -> Error(InvalidChunk)
   }
+}
+
+fn is_valid_chunk(chunk: BitArray) -> Bool {
+  result.is_ok(bit_array.to_string(chunk))
 }
 
 fn format_total_bytes_message(total: Int) -> String {
@@ -510,4 +577,3 @@ fn format_total_bytes_message(total: Int) -> String {
 - [Multiple Formats Guide](../guides/multiple-formats.md) - CSV streaming
 - [File Uploads Guide](../guides/file-uploads.md) - Multipart forms
 - [Streaming Example](../../examples/streaming_capabilities/) - Working code
-
