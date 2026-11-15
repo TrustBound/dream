@@ -14,7 +14,7 @@
 ////
 //// Return errors from controllers, models, or operations using the same type:
 ////
-//// ### Return errors from any layer <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_error_module.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Return errors from any layer <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_module.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/http/error.{type Error, BadRequest, NotFound}
@@ -42,7 +42,7 @@
 ////
 //// Use `to_status_code()` and `message()` to convert errors to HTTP responses:
 ////
-//// ### Convert an error to a response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_error_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Convert an error to a response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/http/error.{type Error, message, to_status_code}
@@ -88,7 +88,7 @@ pub type Error {
   ///
   /// ## Example
   ///
-  /// ### Return BadRequest <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_error_bad_request.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  /// ### Return BadRequest <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_bad_request.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
   ///
   /// ```gleam
   /// import dream/http/error.{type Error, BadRequest}
@@ -110,7 +110,7 @@ pub type Error {
   ///
   /// ## Example
   ///
-  /// ### Return Unauthorized <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_error_unauthorized.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  /// ### Return Unauthorized <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_unauthorized.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
   ///
   /// ```gleam
   /// import dream/http/error.{type Error, Unauthorized}
@@ -136,7 +136,7 @@ pub type Error {
   ///
   /// ## Example
   ///
-  /// ### Return Forbidden <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_error_forbidden.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  /// ### Return Forbidden <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_forbidden.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
   ///
   /// ```gleam
   /// import dream/http/error.{type Error, Forbidden}
@@ -164,7 +164,7 @@ pub type Error {
   ///
   /// ## Example
   ///
-  /// ### Return NotFound <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_error_not_found.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  /// ### Return NotFound <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_not_found.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
   ///
   /// ```gleam
   /// import dream/http/error.{type Error, NotFound}
@@ -199,7 +199,7 @@ pub type Error {
   ///
   /// ## Example
   ///
-  /// ### Return UnprocessableContent <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_error_unprocessable_content.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  /// ### Return UnprocessableContent <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_unprocessable_content.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
   ///
   /// ```gleam
   /// import dream/http/error.{type Error, UnprocessableContent}
@@ -231,7 +231,7 @@ pub type Error {
   ///
   /// ## Example
   ///
-  /// ### Return InternalServerError <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_error_internal_server_error.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  /// ### Return InternalServerError <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_internal_server_error.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
   ///
   /// ```gleam
   /// import dream/http/error.{type Error, InternalServerError}
@@ -261,7 +261,7 @@ pub type Error {
 ///
 /// ## Example
 ///
-/// ### Get the status code <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_to_status_code.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the status code <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_to_status_code.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/error.{NotFound}
@@ -295,7 +295,7 @@ pub fn to_status_code(error: Error) -> Int {
 ///
 /// ## Example
 ///
-/// ### Get the message <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_error_message.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the message <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_message.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/error.{BadRequest}

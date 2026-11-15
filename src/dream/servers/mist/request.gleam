@@ -38,7 +38,7 @@ import mist.{type Connection, type IpAddress, get_connection_info}
 ///
 /// ## Example
 ///
-/// ### Generate a request ID <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_request_id.gleam#L5-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Generate a request ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_request_id.gleam#L5-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn new_request_id() -> String {

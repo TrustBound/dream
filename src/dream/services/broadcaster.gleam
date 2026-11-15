@@ -30,7 +30,7 @@ import gleam/result
 ///
 /// ## Example
 ///
-/// ### Broadcast chat messages <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster.gleam#L3-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Broadcast chat messages <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_broadcaster.gleam#L3-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/servers/mist/websocket
@@ -97,7 +97,7 @@ type Subscriber(message) {
 ///
 /// ## Example
 ///
-/// ### Start a broadcaster <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster_functions.gleam#L12-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Start a broadcaster <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_broadcaster_functions.gleam#L12-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn start_chat_bus() -> Result(
@@ -155,7 +155,7 @@ fn wrap_broadcaster_subject(
 ///
 /// ## Example
 ///
-/// ### Subscribe <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster_functions.gleam#L19-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Subscribe <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_broadcaster_functions.gleam#L19-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn listen_to(
@@ -180,7 +180,7 @@ pub fn subscribe(broadcaster: Broadcaster(message)) -> Channel(message) {
 ///
 /// ## Example
 ///
-/// ### Publish a message <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster_functions.gleam#L27-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Publish a message <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_broadcaster_functions.gleam#L27-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn announce(my_broadcaster: broadcaster.Broadcaster(ChatEvent)) -> Nil {
@@ -201,7 +201,7 @@ pub fn publish(broadcaster: Broadcaster(message), message: message) -> Nil {
 ///
 /// ## Example
 ///
-/// ### Unsubscribe a channel <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster_functions.gleam#L31-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Unsubscribe a channel <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_broadcaster_functions.gleam#L31-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn leave(
@@ -228,7 +228,7 @@ pub fn unsubscribe(
 ///
 /// ## Example
 ///
-/// ### Count subscribers <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster_functions.gleam#L46-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Count subscribers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_broadcaster_functions.gleam#L46-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn listener_count(
@@ -258,7 +258,7 @@ const count_timeout_milliseconds = 5000
 ///
 /// ## Example
 ///
-/// ### Use a channel in a selector <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster_functions.gleam#L38-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Use a channel in a selector <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_broadcaster_functions.gleam#L38-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn initial_state(

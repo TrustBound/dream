@@ -5,7 +5,7 @@
 ////
 //// ## Quick Example
 ////
-//// ### Show a user <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_request_module.gleam#L1-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Show a user <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request_module.gleam#L1-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/http/request.{type Request, get_int_param}
@@ -45,7 +45,7 @@ import gleam/yielder.{type Yielder}
 ///
 /// ## Example
 ///
-/// ### Route by method <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_request_methods.gleam#L2-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Route by method <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request_methods.gleam#L2-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/request.{Delete, Get, Post, Put}
@@ -90,7 +90,7 @@ pub type Method {
 ///
 /// ## Example
 ///
-/// ### Check the protocol <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_request.gleam#L13-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Check the protocol <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L13-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn describe_protocol(request: Request) -> String {
@@ -112,7 +112,7 @@ pub type Protocol {
 ///
 /// ## Example
 ///
-/// ### Check the HTTP version <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_request.gleam#L20-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Check the HTTP version <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L20-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn describe_version(request: Request) -> String {
@@ -154,7 +154,7 @@ pub type Version {
 ///
 /// ## Example
 ///
-/// ### Read request data <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_request.gleam#L28-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Read request data <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L28-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn show_user(request: Request, _context, _services) -> Response {
@@ -212,7 +212,7 @@ pub type Request {
 ///
 /// ## Example
 ///
-/// ### Measure the body <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_request_body.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Measure the body <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request_body.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/request.{type Request, Bytes, Stream, Text}
@@ -252,7 +252,7 @@ pub type RequestBody {
 ///
 /// ## Example
 ///
-/// ### Read the body <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_request.gleam#L46-L51"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Read the body <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L46-L51"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn show_body(request: Request, _context, _services) -> Response {
@@ -448,7 +448,7 @@ fn extract_format(
 ///
 /// ## Examples
 ///
-/// ### Read a path parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_request.gleam#L53-L63"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Read a path parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L53-L63"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// // Route: /users/:id
@@ -464,7 +464,7 @@ fn extract_format(
 /// }
 /// ```
 ///
-/// ### Read a format extension <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_request.gleam#L65-L75"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Read a format extension <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L65-L75"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// // Route: /users/:id
@@ -480,7 +480,7 @@ fn extract_format(
 /// }
 /// ```
 ///
-/// ### Read an integer parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_request.gleam#L79-L84"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Read an integer parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L79-L84"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn show_user_by_id(request: Request, _context, _services) -> Response {
@@ -504,7 +504,7 @@ pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
 ///
 /// ## Examples
 ///
-/// ### Show a user by ID <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_request.gleam#L77-L84"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Show a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L77-L84"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// // Route: /users/:id
@@ -536,7 +536,7 @@ fn param_to_int(param: PathParam, name: String) -> Result(Int, String) {
 ///
 /// ## Examples
 ///
-/// ### Show a user by name <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_request.gleam#L86-L93"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Show a user by name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L86-L93"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// // Route: /users/:name

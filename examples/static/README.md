@@ -102,7 +102,7 @@ examples/static/
 
 Write a controller that calls `static.serve`. `get_param` gives the captured path, and `param.raw` is the path as the client sent it:
 
-### Simple Setup: controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/static/src/controllers/static_controller.gleam#L11-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Simple Setup: controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/static/src/controllers/static_controller.gleam#L11-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Serve files from /public with directory listing
@@ -132,7 +132,7 @@ pub fn serve_public(
 
 Then send a wildcard route to the controller:
 
-### Simple Setup: route <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/static/src/router.gleam#L6-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Simple Setup: route <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/static/src/router.gleam#L6-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_router() -> Router(EmptyContext, EmptyServices) {
@@ -150,7 +150,7 @@ pub fn create_router() -> Router(EmptyContext, EmptyServices) {
 
 Chain options onto `static.default_config()`. `with_directory_listing()` makes directory indexes (`serve_public` above uses it). `without_index()` stops the automatic `index.html` (`serve_assets` uses it). `with_custom_404(handler)` sets the page for a missing file:
 
-#### Custom 404 page <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/static/src/controllers/static_controller.gleam#L158-L186"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Custom 404 page <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/static/src/controllers/static_controller.gleam#L158-L186"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Serve with custom 404
@@ -188,7 +188,7 @@ pub fn serve_with_custom_404(
 
 Use router patterns instead of controller logic. These routes match only image files:
 
-#### Image routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/static/src/router.gleam#L43-L56"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Image routes <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/static/src/router.gleam#L43-L56"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   // Brace expansion extension: *.{ext1,ext2}

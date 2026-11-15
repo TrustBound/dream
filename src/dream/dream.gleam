@@ -47,7 +47,7 @@ import gleam/string
 ///
 /// ## Example
 ///
-/// ### Build a Dream server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_dream_type.gleam#L12-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Build a Dream server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_type.gleam#L12-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// // Your application types
@@ -114,7 +114,7 @@ pub type Tls {
 ///
 /// Use the builder pattern for better readability and type safety:
 ///
-/// ### Use the builder <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_dream_builder.gleam#L27-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Use the builder <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_builder.gleam#L27-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn create_server() {
@@ -182,7 +182,7 @@ pub fn create(
 ///
 /// ## Example
 ///
-/// ### Get the Mist server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_dream.gleam#L37-L42"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the Mist server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L37-L42"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn raw_server(app) -> mist.Builder(Connection, ResponseData) {
@@ -215,7 +215,7 @@ pub fn get_server(
 ///
 /// ## Example
 ///
-/// ### Check for a router <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_dream.gleam#L44-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Check for a router <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L44-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn router_status() -> String {
@@ -238,7 +238,7 @@ pub fn get_router(
 ///
 /// ## Example
 ///
-/// ### Get the context <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_dream.gleam#L52-L56"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L52-L56"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn configured_context() -> MyContext {
@@ -257,7 +257,7 @@ pub fn get_context(dream: Dream(server, context, services)) -> context {
 ///
 /// ## Example
 ///
-/// ### Check for services <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_dream.gleam#L58-L64"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Check for services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L58-L64"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn services_status() -> String {
@@ -281,7 +281,7 @@ pub fn get_services(
 ///
 /// ## Example
 ///
-/// ### Get the max body size <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_dream.gleam#L66-L70"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the max body size <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L66-L70"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn configured_max_body_size() -> Int {
@@ -301,7 +301,7 @@ pub fn get_max_body_size(dream: Dream(server, context, services)) -> Int {
 ///
 /// ## Example
 ///
-/// ### Get the bind interface <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_dream.gleam#L72-L78"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the bind interface <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L72-L78"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn bind_status() -> String {
@@ -364,7 +364,7 @@ pub fn get_tls(dream: Dream(server, context, services)) -> option.Option(Tls) {
 ///
 /// ## Example
 ///
-/// ### Route a request <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_dream.gleam#L80-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Route a request <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L80-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn handle(
@@ -452,7 +452,7 @@ pub fn execute_route(
 ///
 /// ## Example
 ///
-/// ### Parse cookies from headers <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_dream.gleam#L92-L104"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Parse cookies from headers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L92-L104"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn request_cookies() -> List(Cookie) {
@@ -500,7 +500,7 @@ fn is_cookie_header(header: Header) -> Bool {
 ///
 /// ## Example
 ///
-/// ### Parse a cookie string <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_dream.gleam#L106-L115"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Parse a cookie string <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L106-L115"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn cookie_string_cookies() -> List(Cookie) {

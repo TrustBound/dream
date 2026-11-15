@@ -20,7 +20,7 @@ This generates BEAM bytecode in `build/dev/erlang/`. For production, you want an
 
 Dream apps should read configuration from environment variables (12-factor app style):
 
-### Config from environment variables <a href="https://github.com/TrustBound/dream/blob/2.5.0/modules/config/test/snippets/deployment_guide_config.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Config from environment variables <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/config/test/snippets/deployment_guide_config.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // config.gleam
@@ -61,7 +61,7 @@ fn read_port() -> Result(Int, String) {
 
 Start the server with the port from `Config`. `start_server` keeps running until the server stops:
 
-### Start the server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/deployment_guide_app.gleam#L38-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Start the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_app.gleam#L38-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_server(services: Services) {
@@ -182,7 +182,7 @@ services:
 
 Log to stdout/stderr. Let your infrastructure handle log aggregation:
 
-### JSON log lines <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/deployment_guide_logging.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### JSON log lines <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_logging.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import gleam/io
@@ -217,7 +217,7 @@ Docker/Kubernetes will capture stdout and route it to your log aggregator.
 
 Add a health endpoint. `check_database` is a function in `Services`, so a test can give a stub. In production, make it run `SELECT 1` through dream_postgres:
 
-### The health check controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/deployment_guide_app.gleam#L13-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The health check controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_app.gleam#L13-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Services {
@@ -238,7 +238,7 @@ pub fn health_check(
 
 Add to router:
 
-### The health route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/deployment_guide_app.gleam#L28-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The health route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_app.gleam#L28-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_router() -> Router(EmptyContext, Services) {
@@ -271,7 +271,7 @@ For containerized deployments, your orchestrator (Kubernetes, ECS, etc.) handles
 
 Pog (PostgreSQL client) includes connection pooling:
 
-#### Pool size <a href="https://github.com/TrustBound/dream/blob/2.5.0/modules/postgres/test/snippets/deployment_guide_postgres.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Pool size <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/postgres/test/snippets/deployment_guide_postgres.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import gleam/erlang/process
@@ -376,7 +376,7 @@ Never commit secrets to Git. Use secret management:
 
 Log key metrics:
 
-#### Request log lines <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/deployment_guide_request_log.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Request log lines <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_request_log.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http.{type Request, type Response, method_to_string}

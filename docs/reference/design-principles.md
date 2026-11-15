@@ -19,7 +19,7 @@ You're not locked into Dream's choices. Use the router with your own server. Use
 
 If something happens, it should be visible in your code.
 
-#### Bad: a start helper hides the configuration <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/design_principles_implicit.gleam#L15-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Bad: a start helper hides the configuration <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_implicit.gleam#L15-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn main() {
@@ -44,7 +44,7 @@ pub fn configure_server() {
 
 `main` only calls `start()`. To find the port, the bind address, the services and the routes, you must read `start` and then `configure_server`.
 
-#### Good: main shows the configuration <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/design_principles_explicit.gleam#L14-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Good: main shows the configuration <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_explicit.gleam#L14-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn main() {
@@ -62,7 +62,7 @@ Everything your app does is right there. No hidden configuration.
 
 Closures hide dependencies. Explicit parameters make them visible.
 
-#### Bad: the controller captures the database <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/design_principles_closures.gleam#L22-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Bad: the controller captures the database <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_closures.gleam#L22-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_controller(
@@ -77,7 +77,7 @@ pub fn create_controller(
 
 The returned controller uses `database`, but its type, `fn(Request, EmptyContext, EmptyServices) -> Response`, does not show it.
 
-#### Good: the database comes from Services <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/design_principles_closures.gleam#L31-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Good: the database comes from Services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_closures.gleam#L31-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn controller(
@@ -144,7 +144,7 @@ We chose developer velocity over perfect explicitness. But we keep Services smal
 
 Middleware chains explicitly per route:
 
-#### Middleware listed on the route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/design_principles_middleware.gleam#L72-L80"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Middleware listed on the route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_middleware.gleam#L72-L80"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_router() -> Router(Context, Services) {
@@ -179,7 +179,7 @@ Exceptions are for exceptional circumstances (out of memory, etc.). Business log
 
 Server, router, HTTP client—all use the builder pattern:
 
-#### Configure the server step by step <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/design_principles_builder.gleam#L15-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Configure the server step by step <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_builder.gleam#L15-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn configure_server() {

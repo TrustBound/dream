@@ -50,7 +50,7 @@ prebuilt Matcha binary and just use it via this Makefile target.
 3. Import the generated module and call `render`, as the example below
    shows. `greet("Dream")` returns the rendered string `Hello Dream!`.
 
-#### Calling the generated module <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/templates_guide_greeting.gleam#L7-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Calling the generated module <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/templates_guide_greeting.gleam#L7-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn greet(name: String) -> String {
@@ -111,7 +111,7 @@ Elements are the smallest reusable pieces. They're compiled from Matcha template
 
 Components call the generated `render` function of an element:
 
-### Using the button element <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/templates_guide_components.gleam#L15-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Using the button element <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/templates_guide_components.gleam#L15-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn save_button() -> String {
@@ -132,7 +132,7 @@ Components are Gleam functions that compose multiple elements into reusable piec
 
 The component below imports the generated element modules as `badge`, `button`, `checkbox`, `input` and `task_card`.
 
-### The task card component <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/templates_guide_components.gleam#L24-L73"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The task card component <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/templates_guide_components.gleam#L24-L73"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn task_card(task: Task) -> String {
@@ -217,7 +217,7 @@ Pages compose multiple components into full page content. They represent the mai
 
 A page can also be a Gleam function:
 
-### The index page as a Gleam function <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/templates_guide_pages.gleam#L8-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The index page as a Gleam function <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/templates_guide_pages.gleam#L8-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn index_page(tasks: List(Task)) -> String {
@@ -241,7 +241,7 @@ Layouts wrap pages with consistent structure. They handle navigation, footer, sc
 
 **Location:** `templates/layouts/*.gleam`
 
-### The page layout <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/templates_guide_layouts.gleam#L9-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The page layout <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/templates_guide_layouts.gleam#L9-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn build_page(title: String, content: String) -> String {
@@ -268,7 +268,7 @@ pub fn build_page(title: String, content: String) -> String {
 
 Here's how all layers work together:
 
-### The view layer <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/templates_guide_views.gleam#L8-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The view layer <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/templates_guide_views.gleam#L8-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // View layer (views/task_view.gleam)

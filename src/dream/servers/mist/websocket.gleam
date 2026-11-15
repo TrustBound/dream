@@ -6,7 +6,7 @@
 ////
 //// Most applications will import this module as:
 ////
-//// ### Import the module <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_websocket_chat.gleam#L6"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Import the module <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_websocket_chat.gleam#L6"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/servers/mist/websocket
@@ -35,7 +35,7 @@
 ////
 //// ## Example (echo chat)
 ////
-//// ### Echo chat <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_websocket_chat.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Echo chat <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_websocket_chat.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/http/request.{type Request, get_query_param}
@@ -150,7 +150,7 @@ pub opaque type Action(state, custom) {
 ///
 /// ## Example
 ///
-/// ### Upgrade to a WebSocket <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_websocket_upgrade.gleam#L6-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Upgrade to a WebSocket <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_websocket_upgrade.gleam#L6-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn connect(request, _context, services) {
@@ -265,7 +265,7 @@ pub fn stop_connection() -> Action(state, custom) {
 ///
 /// ## Example
 ///
-/// ### Send text <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_websocket_send.gleam#L9-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Send text <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_websocket_send.gleam#L9-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn send_greeting(
@@ -291,7 +291,7 @@ pub fn send_text(
 ///
 /// ## Example
 ///
-/// ### Send binary data <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_websocket_send.gleam#L19-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Send binary data <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_websocket_send.gleam#L19-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn send_data(

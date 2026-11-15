@@ -35,7 +35,7 @@ framework with `describe`/`it` blocks and chainable assertions.
 
 ### Test Structure
 
-#### Test a function <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/contributing_testing_structure.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Test a function <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_structure.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/error.{InternalServerError}
@@ -67,7 +67,7 @@ pub fn tests() -> UnitTest {
 
 Tests are registered in `test/dream_test.gleam`:
 
-#### Run the test modules <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/contributing_testing_entry_point.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Run the test modules <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_entry_point.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context_test
@@ -100,7 +100,7 @@ leaves that call out.
 
 ### Assertions
 
-#### Assert values <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/contributing_testing_assertions.gleam#L3-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Assert values <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_assertions.gleam#L3-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/error.{NotFound}
@@ -147,7 +147,7 @@ pub fn tests() -> UnitTest {
 
 Located in `test/matchers/`, one per file:
 
-#### Extract the body text of a response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/contributing_testing_matcher.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Extract the body text of a response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_matcher.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/response.{type Response, type ResponseBody, Text}
@@ -195,7 +195,7 @@ Located in `test/fixtures/`. `request.gleam` builds requests
 and more). `handler.gleam` holds controllers for router tests
 (`test_handler`, `id_param_handler` and more). A test uses them like this:
 
-#### Use request and handler fixtures <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/contributing_testing_fixtures.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Use request and handler fixtures <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_fixtures.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context
@@ -230,7 +230,7 @@ pub fn show_user() -> Response {
 
 ### Lifecycle Hooks
 
-#### Run code before and after each test <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/contributing_testing_hooks.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Run code before and after each test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_hooks.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/error.{BadRequest, NotFound}
@@ -273,7 +273,7 @@ mode (`to_test_suite` with `run_suite`). `test/dream_test.gleam` uses
 
 Located in `test/benchmarks/`:
 
-#### Time router lookups <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/contributing_testing_benchmark.gleam#L3-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Time router lookups <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_benchmark.gleam#L3-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type AppContext}
@@ -387,7 +387,7 @@ Examples:
 
 ### One Assertion Per Test
 
-#### Focused tests and a test with two assertions <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/contributing_testing_standards.gleam#L24-L68"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Focused tests and a test with two assertions <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_standards.gleam#L24-L68"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // ✅ Good - focused tests
@@ -439,7 +439,7 @@ pub fn unfocused_test() -> UnitTest {
 
 ### No Nested Cases
 
-#### A nested case and a helper function <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/contributing_testing_standards.gleam#L70-L97"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### A nested case and a helper function <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_standards.gleam#L70-L97"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // ❌ Bad
@@ -476,7 +476,7 @@ fn extract_from_body(body: ResponseBody) -> MatchResult(String) {
 
 Never discard errors:
 
-#### A discarded error and a handled error <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/contributing_testing_standards.gleam#L99-L114"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### A discarded error and a handled error <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_standards.gleam#L99-L114"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // ❌ Bad

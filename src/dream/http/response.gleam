@@ -5,7 +5,7 @@
 ////
 //// ## Quick Examples
 ////
-//// ### Build responses <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_response_module.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Build responses <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_response_module.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/http/response
@@ -50,7 +50,7 @@ import gleam/yielder
 ///
 /// ## Examples
 ///
-/// ### Response bodies <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_response_body.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Response bodies <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_response_body.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/response.{type ResponseBody, Bytes, Stream, Text}
@@ -95,7 +95,7 @@ pub type ResponseBody {
 ///
 /// ## Example
 ///
-/// ### Builder or constructor <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_response_type.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Builder or constructor <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_response_type.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/header.{Header}
@@ -136,7 +136,7 @@ pub type Response {
 ///
 /// ## Example
 ///
-/// ### Text response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_text_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Text response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_text_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/response.{text_response}
@@ -164,7 +164,7 @@ pub fn text_response(status: Int, body: String) -> Response {
 ///
 /// ## Example
 ///
-/// ### JSON response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_json_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### JSON response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_json_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/response.{json_response}
@@ -198,7 +198,7 @@ pub fn json_response(status: Int, body: String) -> Response {
 ///
 /// ## Example
 ///
-/// ### HTML response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_html_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### HTML response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_html_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/response
@@ -238,7 +238,7 @@ pub fn html_response(status: Int, body: String) -> Response {
 ///
 /// ## Example
 ///
-/// ### Redirect after a POST <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_redirect_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Redirect after a POST <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_redirect_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/response
@@ -272,7 +272,7 @@ pub fn redirect_response(status: Int, location: String) -> Response {
 ///
 /// ## Example
 ///
-/// ### Empty response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_empty_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Empty response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_empty_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/request.{type Request, get_int_param}
@@ -311,7 +311,7 @@ pub fn empty_response(status: Int) -> Response {
 ///
 /// ## Example
 ///
-/// ### Binary response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_binary_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Binary response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_binary_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/response
@@ -349,7 +349,7 @@ pub fn binary_response(
 ///
 /// ## Example
 ///
-/// ### Stream a CSV file <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_stream_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Stream a CSV file <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_stream_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/response

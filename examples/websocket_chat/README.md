@@ -186,7 +186,7 @@ examples/websocket_chat/
 
 When a user visits `http://localhost:8080`, the `home` controller serves an HTML page:
 
-#### Home controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/home.gleam#L11-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Home controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/home.gleam#L11-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn show(
@@ -229,7 +229,7 @@ Sec-WebSocket-Version: 13
 
 The router sends this request to the chat controller:
 
-#### Router <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/router.gleam#L16-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Router <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/router.gleam#L16-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create() {
@@ -242,7 +242,7 @@ pub fn create() {
 
 The controller extracts the username and prepares for the upgrade:
 
-#### Upgrade controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L23-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Upgrade controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L23-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_chat_upgrade(
@@ -271,7 +271,7 @@ pub fn handle_chat_upgrade(
 
 When the WebSocket connection is established, Dream calls `handle_websocket_init`:
 
-#### `on_init` handler <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L45-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### `on_init` handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L45-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn handle_websocket_init(
@@ -308,7 +308,7 @@ fn handle_websocket_init(
 
 When the JavaScript calls `ws.send("Hello!")`, Dream receives it and calls `handle_websocket_message`. The handler has two jobs. A `TextMessage` from the browser is published to the broadcaster as `TextMessage(state, text)`. A `CustomMessage` from the broadcaster is changed to JSON and sent to this connection's browser:
 
-#### `on_message` handler <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L67-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### `on_message` handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L67-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn handle_websocket_message(
@@ -371,7 +371,7 @@ Think of it like a radio station - clients "tune in" by subscribing, and the bro
 
 Start it once when your app starts. `services.initialize` calls `init_chat_pubsub`, which starts the broadcaster:
 
-##### Start the broadcaster in `services.initialize` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/services.gleam#L19-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Start the broadcaster in `services.initialize` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/services.gleam#L19-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn initialize() -> Services {
@@ -380,7 +380,7 @@ pub fn initialize() -> Services {
 }
 ```
 
-##### `init_chat_pubsub` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/services/chat_service.gleam#L21-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### `init_chat_pubsub` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/services/chat_service.gleam#L21-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn init_chat_pubsub() -> ChatPubSub {
@@ -391,7 +391,7 @@ pub fn init_chat_pubsub() -> ChatPubSub {
 
 Subscribe when a WebSocket connects. `subscribe` returns a channel, and `channel_to_selector` makes a selector from it:
 
-##### Subscribe in `on_init` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L51-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Subscribe in `on_init` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L51-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   // 1. Subscribe to broadcaster
@@ -403,7 +403,7 @@ Subscribe when a WebSocket connects. `subscribe` returns a channel, and `channel
 
 Publish a message to all subscribers. There is no "all except" option: each subscriber gets each message:
 
-##### Publish in `on_message` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L78"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Publish in `on_message` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L78"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
       broadcaster.publish(services.pubsub, TextMessage(state, text))
@@ -415,7 +415,7 @@ The example does not unsubscribe. The broadcaster monitors the process that owns
 
 Call `broadcaster.unsubscribe` only to stop the messages earlier, while the connection is still open. For example, a user leaves a room but keeps the socket open. Keep the `Channel` from `subscribe` in the connection state, then give it to `unsubscribe`:
 
-##### Unsubscribe while the connection is open <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster_functions.gleam#L31-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Unsubscribe while the connection is open <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_broadcaster_functions.gleam#L31-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn leave(
@@ -445,7 +445,7 @@ pub fn leave(
 
 When a user closes their browser tab or disconnects, Dream calls `handle_websocket_close`:
 
-#### `on_close` handler <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L117-L123"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### `on_close` handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L117-L123"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn handle_websocket_close(
@@ -466,7 +466,7 @@ fn handle_websocket_close(
 
 ## Complete Message Type Reference
 
-### Gleam ChatMessage Type <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/types/chat_message.gleam#L4-L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Gleam ChatMessage Type <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/types/chat_message.gleam#L4-L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type ChatMessage {
@@ -732,7 +732,7 @@ Dream has a strict rule: **no closures in controller code**. This might seem res
 
 The controller below works, but it is the pattern to avoid. Each handler is a closure that captures `user` and `services` from the controller. The `dependencies` value is `Nil`, so no type shows what the handlers need. You cannot name a handler, test it alone, or reuse it in a different controller.
 
-#### Closures that capture dependencies (avoid this) <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websocket_chat_readme_closure.gleam#L16-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Closures that capture dependencies (avoid this) <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websocket_chat_readme_closure.gleam#L16-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_upgrade(
@@ -773,7 +773,7 @@ pub fn handle_upgrade(
 
 Dream's solution is explicit dependencies. The upgrade controller bundles the user and the services into one value, and passes named functions as handlers:
 
-#### Explicit dependencies <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L31-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Explicit dependencies <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L31-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   let dependencies = ChatDependencies(user: user, services: services)
@@ -797,7 +797,7 @@ Dream's solution is explicit dependencies. The upgrade controller bundles the us
 
 This example bundles dependencies into a single type:
 
-#### `ChatDependencies` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L12-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### `ChatDependencies` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L12-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Dependencies for WebSocket handlers
@@ -812,7 +812,7 @@ type ChatDependencies {
 
 Without bundling, every handler would need a parameter for the user, one for the services, and one for each later addition. With bundling, each handler takes one `ChatDependencies` parameter:
 
-#### A handler takes one dependencies parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L45-L48"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### A handler takes one dependencies parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L45-L48"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn handle_websocket_init(
@@ -831,7 +831,7 @@ Dream abstracts the underlying WebSocket server (Mist) so your application isn't
 
 `on_message` matches Dream's message types and returns Dream's actions. `websocket.stop_connection()` closes a connection; this example does not use it:
 
-#### Dream message types in `on_message` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L75-L89"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Dream message types in `on_message` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L75-L89"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   case message {
@@ -855,7 +855,7 @@ Dream abstracts the underlying WebSocket server (Mist) so your application isn't
 
 The controller never imports `mist`. Inside `dream/servers/mist/websocket`, Dream changes mist's text, binary and close frames into the types above. These are all the imports of the chat controller:
 
-#### Chat controller imports <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L1-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Chat controller imports <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L1-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type EmptyContext}
@@ -990,7 +990,7 @@ The test creates REAL WebSocket connections to your running server. This is true
 
 The browser in this example sends plain text. If your client sends JSON in the same format that the server sends (`{"type": "message", "user": "Alice", "text": "hi"}`), parse the text into a typed message first. Then a `case` sends each type to its own handler. Text that does not parse, or has an unknown `type`, gets a separate result:
 
-#### Parse and route chat messages <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websocket_chat_readme_message_routing.gleam#L9-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Parse and route chat messages <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websocket_chat_readme_message_routing.gleam#L9-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type ChatEvent {
@@ -1048,7 +1048,7 @@ In a WebSocket handler, call `route_chat_event` with the text of each `websocket
 
 WebSocket messages do not have headers, so authenticate during the upgrade. The browser `WebSocket` API cannot set custom headers, so this example reads the token from the query string (`/chat?token=...`). A cookie also works. The controller upgrades the connection only when the token belongs to a user. Otherwise it returns 401 and no WebSocket opens:
 
-#### Check a token before the upgrade <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websocket_chat_readme_authentication.gleam#L17-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Check a token before the upgrade <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websocket_chat_readme_authentication.gleam#L17-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_upgrade(
@@ -1082,7 +1082,7 @@ fn user_for_token(token: String) -> Result(String, Nil) {
 
 Each WebSocket connection has its own state. A list of messages in connection state would be a separate list for each user. If you need shared state across users, use a service. This example keeps only the username in connection state, and shares messages through the broadcaster:
 
-#### State holds only the username <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L51-L61"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### State holds only the username <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L51-L61"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   // 1. Subscribe to broadcaster
@@ -1171,7 +1171,7 @@ gleam build
 
 Want to adapt this example for your use case? Here's a step-by-step guide:
 
-### 1. Define Your Message Types <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/types/chat_message.gleam#L4-L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### 1. Define Your Message Types <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/types/chat_message.gleam#L4-L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type ChatMessage {
@@ -1185,7 +1185,7 @@ pub type ChatMessage {
 
 Start a broadcaster for your message type and keep it in `Services`. Handlers call `broadcaster.subscribe` and `broadcaster.publish` directly:
 
-#### Broadcaster type for your messages <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/services/chat_service.gleam#L1-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Broadcaster type for your messages <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/services/chat_service.gleam#L1-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/services/broadcaster
@@ -1199,7 +1199,7 @@ pub type ChatPubSub =
   broadcaster.Broadcaster(ChatMessage)
 ```
 
-#### `Services` holds the broadcaster <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/services.gleam#L1-L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### `Services` holds the broadcaster <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/services.gleam#L1-L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import services/chat_service.{type ChatPubSub, init_chat_pubsub}
@@ -1212,7 +1212,7 @@ pub type Services {
 }
 ```
 
-#### Start it once <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/services.gleam#L19-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Start it once <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/services.gleam#L19-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn initialize() -> Services {
@@ -1221,7 +1221,7 @@ pub fn initialize() -> Services {
 }
 ```
 
-### 3. Create Your Dependencies Type <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L12-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### 3. Create Your Dependencies Type <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L12-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Dependencies for WebSocket handlers
@@ -1236,7 +1236,7 @@ type ChatDependencies {
 
 Each handler takes the dependencies as a parameter. Change what they publish and what state they keep:
 
-#### `on_init` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L42-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### `on_init` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L42-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Initialize WebSocket connection
@@ -1262,7 +1262,7 @@ fn handle_websocket_init(
 }
 ```
 
-#### `on_message` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L64-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### `on_message` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L64-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Handle WebSocket messages
@@ -1294,7 +1294,7 @@ fn handle_websocket_message(
 }
 ```
 
-#### `on_close` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L114-L123"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### `on_close` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L114-L123"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Handle WebSocket close
@@ -1309,7 +1309,7 @@ fn handle_websocket_close(
 }
 ```
 
-### 5. Set Up Routing <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/router.gleam#L16-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### 5. Set Up Routing <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/router.gleam#L16-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create() {

@@ -43,7 +43,7 @@ prefer regular HTTP or SSE. See the [Streaming Guide](streaming.md) for that.
 
 Dream’s WebSocket support lives in the Mist server adapter module:
 
-### The WebSocket module import <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websockets_guide_chat.gleam#L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The WebSocket module import <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/servers/mist/websocket
@@ -81,7 +81,7 @@ example below shows the top of the chat module: the imports that all of
 the steps use, the `ChatMessage` type that users send to each other, and
 the `Dependencies` type.
 
-### Imports and the Dependencies type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websockets_guide_chat.gleam#L7-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Imports and the Dependencies type <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L7-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type EmptyContext}
@@ -112,7 +112,7 @@ handler signatures everywhere.
 
 First, add a route in your router that points to a controller function:
 
-### A router with a WebSocket route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websockets_guide_router.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### A router with a WebSocket route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_router.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{Get}
@@ -132,7 +132,7 @@ pub fn create_router() {
 
 A WebSocket controller has the same shape as a regular controller:
 
-### A WebSocket controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websockets_guide_chat.gleam#L38-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### A WebSocket controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L38-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_chat_upgrade(
@@ -173,7 +173,7 @@ lets you:
 - Optionally subscribe to a broadcaster and provide a `Selector(custom)`
   so your `on_message` handler can receive custom messages.
 
-### The on_init handler <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websockets_guide_chat.gleam#L59-L78"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The on_init handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L59-L78"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // Per-connection state kept by Dream
@@ -219,7 +219,7 @@ The message type is `websocket.Message(custom)`:
 - `CustomMessage(custom)` – value delivered via your `Selector(custom)`.
 - `ConnectionClosed` – Mist or the client closed the connection.
 
-### The on_message handler <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websockets_guide_chat.gleam#L80-L108"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The on_message handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L80-L108"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_websocket_message(
@@ -266,7 +266,7 @@ the connection.
 - Announce that a user left.
 - Release any other resources you are tracking.
 
-### The on_close handler <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websockets_guide_chat.gleam#L110-L120"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The on_close handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L110-L120"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_websocket_close(
@@ -300,7 +300,7 @@ At a high level:
 - When you call `publish(broadcaster, message)`, all subscribers receive
   the message.
 
-### Initialize broadcaster in Services <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websockets_guide_chat.gleam#L27-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Initialize broadcaster in Services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L27-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Services {
@@ -318,7 +318,7 @@ pub fn initialize() -> Result(Services, actor.StartError) {
 `initialize` returns an error if the broadcaster does not start, so your
 `main` function can decide what to do.
 
-### Subscribe in `on_init` <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websockets_guide_chat.gleam#L64-L78"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Subscribe in `on_init` <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L64-L78"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_websocket_init(
@@ -338,7 +338,7 @@ pub fn handle_websocket_init(
 }
 ```
 
-### Publish from anywhere <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websockets_guide_chat.gleam#L126-L132"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Publish from anywhere <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L126-L132"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn publish_chat_message(
@@ -364,7 +364,7 @@ Inside your controller, check the token before you call
 user that has that token. If there is no such user, the controller returns
 401 and does not upgrade:
 
-### Check the auth token before the upgrade <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websockets_guide_auth.gleam#L26-L42"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Check the auth token before the upgrade <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_auth.gleam#L26-L42"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_upgrade(request, _context, services: Services) -> Response {

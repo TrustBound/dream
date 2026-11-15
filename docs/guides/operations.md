@@ -37,7 +37,7 @@ An Operation is just a **function**. Typically it:
 
 This operation moves a task to a new position and shifts the other tasks. An unknown task gives `NotFound`, and a position outside the list gives `BadRequest`.
 
-### The reorder_task operation <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/operations_guide_tasks.gleam#L23-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The reorder_task operation <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/operations_guide_tasks.gleam#L23-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn reorder_task(
@@ -64,7 +64,7 @@ pub fn reorder_task(
 
 The controller becomes a simple coordinator:
 
-### The reorder controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/operations_guide_tasks.gleam#L42-L58"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The reorder controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/operations_guide_tasks.gleam#L42-L58"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn reorder(
@@ -111,7 +111,7 @@ The important shift is:
 
 Operations are the perfect place to coordinate multiple services.
 
-### The publish_post operation <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/operations_guide_posts.gleam#L21-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The publish_post operation <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/operations_guide_posts.gleam#L21-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn publish_post(services: Services, post_id: Int) -> Result(Post, Error) {

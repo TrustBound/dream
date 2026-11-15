@@ -12,7 +12,7 @@ The router matches HTTP requests to controllers.
 
 `Router(context, services)` is an opaque type. Inside, it is a radix trie of routes. You build it with `router()` and `route()`, and you do not read its fields. Each controller has the type `fn(Request, context, services) -> Response`:
 
-#### Typed controllers <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_router.gleam#L15-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Typed controllers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_router.gleam#L15-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn show_home(
@@ -34,7 +34,7 @@ pub fn create_user(
 
 **Builder pattern:**
 
-#### Build a router <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_router.gleam#L43-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Build a router <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_router.gleam#L43-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_router() -> Router(EmptyContext, EmptyServices) {
@@ -60,7 +60,7 @@ Dream provides a Mist HTTP server adapter. Mist is the underlying BEAM web serve
 
 `Dream(server, context, services)` is an opaque type. You build it with the functions in `dream/servers/mist/server`. With no context or services, its type is `Dream(Builder(Connection, ResponseData), EmptyContext, EmptyServices)`:
 
-#### Server with no context or services <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_server.gleam#L49-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Server with no context or services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L49-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_simple_server() -> Dream(
@@ -76,7 +76,7 @@ pub fn create_simple_server() -> Dream(
 
 **Builder pattern:**
 
-#### Server with context and services <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_server.gleam#L69-L79"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Server with context and services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L69-L79"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_custom_server() -> Dream(
@@ -98,7 +98,7 @@ Middleware intercepts requests before they reach controllers.
 
 **Signature:**
 
-#### Middleware signature <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_context.gleam#L26-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Middleware signature <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_context.gleam#L26-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn auth_middleware(
@@ -119,7 +119,7 @@ Middleware chains in the order listed. Each middleware can:
 
 **Example:**
 
-#### Auth middleware that updates the context <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_context.gleam#L26-L46"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Auth middleware that updates the context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_context.gleam#L26-L46"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn auth_middleware(
@@ -151,7 +151,7 @@ Context holds per-request data that middleware can modify.
 
 Dream uses `EmptyContext` until you set a context. Dream also provides `AppContext(request_id: String)` in `dream/context`:
 
-#### Use AppContext <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_server.gleam#L59-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Use AppContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L59-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_app_context_server() -> Dream(
@@ -167,7 +167,7 @@ pub fn create_app_context_server() -> Dream(
 
 **Custom context:**
 
-#### A custom context <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_context.gleam#L14-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### A custom context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_context.gleam#L14-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type User {
@@ -187,7 +187,7 @@ Services are application-level dependencies injected at startup.
 
 **Pattern:**
 
-#### Services built once <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_server.gleam#L23-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Services built once <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L23-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Database {
@@ -206,7 +206,7 @@ pub fn initialize_services() -> Services {
 
 Injected once in `main()`, used everywhere:
 
-#### Inject services at startup <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_server.gleam#L69-L84"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Inject services at startup <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L69-L84"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_custom_server() -> Dream(
@@ -258,7 +258,7 @@ The compiler catches most errors before runtime.
 
 Every configurable component uses the builder pattern:
 
-### Server, router and HTTP client builders <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_builders.gleam#L35-L61"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Server, router and HTTP client builders <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_builders.gleam#L35-L61"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // Server
@@ -355,7 +355,7 @@ Let's trace through a complete example showing all three layers working together
 
 All three layers share the type `Task(id: Int, title: String, completed: Bool)`. The model reads from a list so that the example runs anywhere. A real model runs a Squirrel query through `dream_postgres`.
 
-#### Model: find a task <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_task_model.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Model: find a task <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_task_model.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 //// Architecture reference: a model
@@ -374,7 +374,7 @@ pub fn get_task(tasks: List(Task), task_id: Int) -> Result(Task, Error) {
 }
 ```
 
-#### View: format a task <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_task_view.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### View: format a task <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_task_view.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 //// Architecture reference: a view
@@ -407,7 +407,7 @@ fn escape_html(text: String) -> String {
 }
 ```
 
-#### Controller: show a task <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_tasks_controller.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Controller: show a task <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_tasks_controller.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 //// Architecture reference: a controller
@@ -536,7 +536,7 @@ Separating them makes the distinction clear.
 
 Closures hide dependencies. Explicit parameters make dependencies visible:
 
-#### A closure versus a parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_closures.gleam#L20-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### A closure versus a parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_closures.gleam#L20-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // Bad: the closure hides the database
@@ -603,7 +603,7 @@ The core `dream` package provides:
 - Connection pooling support
 - Works with Squirrel-generated SQL queries
 
-#### Connect and query with dream_postgres <a href="https://github.com/TrustBound/dream/blob/2.5.0/modules/postgres/test/snippets/architecture_postgres.gleam#L6-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Connect and query with dream_postgres <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/postgres/test/snippets/architecture_postgres.gleam#L6-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_postgres/client.{
@@ -653,7 +653,7 @@ pub fn describe_user_name(
 - Query builders (match_all, term, match)
 - HTTP wrapper for OpenSearch API
 
-#### Index a document with dream_opensearch <a href="https://github.com/TrustBound/dream/blob/2.5.0/modules/opensearch/test/snippets/architecture_opensearch.gleam#L5-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Index a document with dream_opensearch <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/opensearch/test/snippets/architecture_opensearch.gleam#L5-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_opensearch/client.{type Client}
@@ -684,7 +684,7 @@ pub fn index_log_entry(
 - HTTPS support, configurable timeouts, builder pattern
 - Built on Erlang's battle-tested `httpc`
 
-#### Build and send a request <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/architecture_builders.gleam#L53-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Build and send a request <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_builders.gleam#L53-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // HTTP client
@@ -710,7 +710,7 @@ Each builder step returns a new request. `client.send()` sends it and returns `R
 - .env file support
 - Type-safe configuration loading
 
-#### Load configuration with dream_config <a href="https://github.com/TrustBound/dream/blob/2.5.0/modules/config/test/snippets/architecture_config.gleam#L6-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Load configuration with dream_config <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/config/test/snippets/architecture_config.gleam#L6-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_config/loader
@@ -732,7 +732,7 @@ pub fn load_config() -> Result(AppConfig, String) {
 - JSON encoders for optional values and timestamps
 - Convenience functions for common JSON encoding patterns
 
-#### Encode optional fields with dream_json <a href="https://github.com/TrustBound/dream/blob/2.5.0/modules/json/test/snippets/architecture_json.gleam#L5-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Encode optional fields with dream_json <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/json/test/snippets/architecture_json.gleam#L5-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_json/json_encoders

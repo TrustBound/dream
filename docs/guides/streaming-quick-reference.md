@@ -2,7 +2,7 @@
 
 Quick copy-paste patterns for common streaming tasks.
 
-## Upload File (Ingress) <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_upload.gleam#L6-L42"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Upload File (Ingress) <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_quick_upload.gleam#L6-L42"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request, Post, Stream}
@@ -44,7 +44,7 @@ fn add_chunk_size(total_bytes: Int, chunk: BitArray) -> Int {
 }
 ```
 
-## Download/Export CSV (Egress) <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_csv.gleam#L6-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Download/Export CSV (Egress) <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_quick_csv.gleam#L6-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request}
@@ -93,7 +93,7 @@ fn product_to_csv_row(product: Product) -> String {
 }
 ```
 
-## Server-Sent Events <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_sse.gleam#L6-L47"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Server-Sent Events <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_quick_sse.gleam#L6-L47"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request}
@@ -143,7 +143,7 @@ fn send_event(
 Here `Services.events` stands in for a pub/sub feed. `on_init` sends each event
 to the SSE actor, and `on_message` writes it to the client.
 
-## Transform Incoming Stream <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_middleware.gleam#L6-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Transform Incoming Stream <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_quick_middleware.gleam#L6-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request, Request}
@@ -180,7 +180,7 @@ fn uppercase_bytes(remaining: BitArray, uppercased: BitArray) -> BitArray {
 }
 ```
 
-## Transform Outgoing Stream <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_middleware.gleam#L48-L84"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Transform Outgoing Stream <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_quick_middleware.gleam#L48-L84"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn line_endings_middleware(
@@ -222,7 +222,7 @@ fn convert_line_ending_bytes(
 }
 ```
 
-## Proxy Stream <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_patterns.gleam#L18-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Proxy Stream <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_quick_patterns.gleam#L18-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn proxy(_request: Request, _context, _services) -> Response {
@@ -235,7 +235,7 @@ pub fn proxy(_request: Request, _context, _services) -> Response {
 }
 ```
 
-## Save Upload to File <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_files.gleam#L6-L42"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Save Upload to File <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_quick_files.gleam#L6-L42"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request, Stream}
@@ -277,7 +277,7 @@ fn write_stream_to_file(
 }
 ```
 
-## Validate Upload (First Chunk) <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_files.gleam#L44-L109"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Validate Upload (First Chunk) <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_quick_files.gleam#L44-L109"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type UploadError {
@@ -348,7 +348,7 @@ fn create_image_response(result: Result(Nil, UploadError)) -> Response {
 }
 ```
 
-## Server Configuration <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_server.gleam#L6-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Server Configuration <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_quick_server.gleam#L6-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type EmptyContext}
@@ -387,7 +387,7 @@ fn index(
 
 ## Common Patterns
 
-### Pattern: Large CSV Export <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_patterns.gleam#L27-L59"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Pattern: Large CSV Export <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_quick_patterns.gleam#L27-L59"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type User {
@@ -425,7 +425,7 @@ fn user_to_csv_row(user: User) -> String {
 }
 ```
 
-### Pattern: Progress Updates <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_sse.gleam#L49-L88"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Pattern: Progress Updates <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_quick_sse.gleam#L49-L88"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type ProgressMessage {
@@ -470,7 +470,7 @@ fn percent_to_event(percent: Int) -> sse.Event {
 }
 ```
 
-### Pattern: Conditional Streaming <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_patterns.gleam#L61-L91"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Pattern: Conditional Streaming <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_quick_patterns.gleam#L61-L91"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn get_users(request: Request, context, services: Services) -> Response {
@@ -506,7 +506,7 @@ fn user_to_json(user: User) -> json.Json {
 }
 ```
 
-## Testing Streaming <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_unit_test.gleam#L6-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Testing Streaming <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_quick_unit_test.gleam#L6-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/response.{Stream, stream_response}

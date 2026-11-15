@@ -27,7 +27,7 @@ import gleam/uri
 ///
 /// ## Examples
 ///
-/// ### Require an integer parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_require_int.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Require an integer parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_require_int.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/error.{type Error}
@@ -54,7 +54,7 @@ pub fn require_int(request: Request, name: String) -> Result(Int, Error) {
 ///
 /// ## Examples
 ///
-/// ### Require a string parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_require_string.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Require a string parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_require_string.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/error.{type Error}
@@ -86,7 +86,7 @@ pub fn require_string(request: Request, name: String) -> Result(String, Error) {
 ///
 /// ## Examples
 ///
-/// ### Require form data <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_require_form.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Require form data <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_require_form.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/error.{type Error}
@@ -128,7 +128,7 @@ pub fn require_form(
 ///
 /// ## Examples
 ///
-/// ### Require a JSON body <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_require_json.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Require a JSON body <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_require_json.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/error.{type Error}
@@ -176,7 +176,7 @@ fn validation_error_to_bad_request(validation_error: ValidationError) -> Error {
 ///
 /// ## Examples
 ///
-/// ### Require a form field <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_require_form.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Require a form field <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_require_form.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/error.{type Error}
@@ -208,7 +208,7 @@ pub fn require_field(
 ///
 /// ## Examples
 ///
-/// ### Require an integer field <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_require_field_int.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Require an integer field <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_require_field_int.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/error.{type Error}
@@ -254,7 +254,7 @@ fn result_string_to_error(result: Result(a, String)) -> Result(a, Error) {
 ///
 /// ## Examples
 ///
-/// ### Read an optional field <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_field_optional.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Read an optional field <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_field_optional.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/params

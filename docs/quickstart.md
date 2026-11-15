@@ -28,7 +28,7 @@ gleam add dream
 
 Replace `src/hello_dream.gleam`:
 
-### The server file <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/quickstart_hello_server.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The server file <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/quickstart_hello_server.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type EmptyContext}
@@ -72,7 +72,7 @@ Let’s walk through the file from top to bottom.
 
 ### Imports
 
-#### The imports <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/quickstart_hello_server.gleam#L5-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The imports <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/quickstart_hello_server.gleam#L5-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type EmptyContext}
@@ -97,7 +97,7 @@ In words:
 
 ### The controller
 
-#### The index controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/quickstart_hello_server.gleam#L11-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The index controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/quickstart_hello_server.gleam#L11-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn index(
@@ -122,7 +122,7 @@ You can imagine it as:
 
 ### The router
 
-#### The app router <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/quickstart_hello_server.gleam#L19-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The app router <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/quickstart_hello_server.gleam#L19-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_app_router() -> Router(EmptyContext, EmptyServices) {
@@ -146,7 +146,7 @@ right. You can read it as “then”.
 
 So:
 
-#### An empty router, then a route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/quickstart_hello_server.gleam#L20-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### An empty router, then a route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/quickstart_hello_server.gleam#L20-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   router()
@@ -157,7 +157,7 @@ means “start with an empty router, **then** add this route”.
 
 ### The server
 
-#### Starting the server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/quickstart_hello_server.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Starting the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/quickstart_hello_server.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn main() {

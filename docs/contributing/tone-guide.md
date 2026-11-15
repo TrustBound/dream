@@ -147,7 +147,7 @@ Step 3: Create the Model
 
 In `src/models/user.gleam`, add a function that gets one user:
 
-### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
@@ -246,7 +246,7 @@ You'll implement:
 
 ✅ **Good:**
 
-#### Document match_path <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/tone_guide_api_reference.gleam#L8-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Document match_path <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/tone_guide_api_reference.gleam#L8-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Match a path against a pattern and extract parameters.
@@ -256,7 +256,7 @@ You'll implement:
 ///
 /// ## Examples
 ///
-/// ### Match a user path <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/tone_guide_api_reference_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Match a user path <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/tone_guide_api_reference_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import gleam/option.{type Option}
@@ -282,7 +282,7 @@ pub fn match_path(
 
 ❌ **Avoid:**
 
-#### Document match_path with jokes <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/tone_guide_api_reference_avoid.gleam#L8-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Document match_path with jokes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/tone_guide_api_reference_avoid.gleam#L8-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// This is how Dream's router works its magic! Well, not magic
@@ -431,7 +431,7 @@ Before using snark, ask:
 ````markdown
 Create `src/example.gleam`:
 
-### Create an empty router <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/tone_guide_code_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Create an empty router <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/tone_guide_code_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // Complete, working code here
@@ -456,7 +456,7 @@ This code does X by doing Y.
 **Example:**
 
 ````markdown
-### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
@@ -582,7 +582,7 @@ Here's an example:
 
 Here's a typical model:
 
-### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {

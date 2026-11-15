@@ -5,7 +5,7 @@
 ////
 //// ## Quick Start
 ////
-//// ### Create and read cookies <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_cookie_module.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Create and read cookies <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_cookie_module.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/http/cookie.{type Cookie}
@@ -51,7 +51,7 @@ import gleam/string
 ///
 /// ## Example
 ///
-/// ### Set SameSite <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_cookie_same_site.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Set SameSite <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_cookie_same_site.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/cookie.{type Cookie, Cookie, Lax}
@@ -90,7 +90,7 @@ pub type SameSite {
 ///
 /// ## Example
 ///
-/// ### Build or construct a cookie <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_cookie_type.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Build or construct a cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_cookie_type.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/cookie.{type Cookie, Cookie, Strict}
@@ -139,7 +139,7 @@ pub type Cookie {
 ///
 /// ## Example
 ///
-/// ### Get the name <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_cookie_name.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_cookie_name.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/cookie
@@ -161,7 +161,7 @@ pub fn cookie_name(cookie: Cookie) -> String {
 ///
 /// ## Example
 ///
-/// ### Get the value <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_cookie_value.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the value <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_cookie_value.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/cookie
@@ -190,7 +190,7 @@ pub fn cookie_value(cookie: Cookie) -> String {
 ///
 /// ## Example
 ///
-/// ### Preference cookies <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_simple_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Preference cookies <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_simple_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/cookie.{type Cookie}
@@ -230,7 +230,7 @@ pub fn simple_cookie(name: String, value: String) -> Cookie {
 ///
 /// ## Example
 ///
-/// ### Cookies for sensitive data <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_secure_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Cookies for sensitive data <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_secure_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/cookie.{type Cookie}
@@ -278,7 +278,7 @@ pub fn secure_cookie(name: String, value: String) -> Cookie {
 ///
 /// ## Example
 ///
-/// ### Find a cookie <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_get_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Find a cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_get_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/cookie.{type Cookie}
@@ -336,7 +336,7 @@ fn find_cookie(
 ///
 /// ## Example
 ///
-/// ### Find a cookie value <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_get_cookie_value.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Find a cookie value <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_get_cookie_value.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/cookie
@@ -373,7 +373,7 @@ pub fn get_cookie_value(
 ///
 /// ## Example
 ///
-/// ### Replace and add cookies <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_set_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Replace and add cookies <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_set_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/cookie.{type Cookie}
@@ -441,7 +441,7 @@ fn filter_cookies_recursive(
 ///
 /// ## Example
 ///
-/// ### Remove or expire a cookie <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_remove_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Remove or expire a cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_remove_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/cookie.{type Cookie, Cookie}

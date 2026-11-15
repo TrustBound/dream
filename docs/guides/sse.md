@@ -42,7 +42,7 @@ streams, see the [Streaming Guide](streaming.md).
 
 Dream's SSE support lives in the Mist server adapter module:
 
-### The SSE module import <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_controller.gleam#L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The SSE module import <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/servers/mist/sse
@@ -82,7 +82,7 @@ For SSE we usually create a small `Dependencies` type. The example below
 shows the top of the controller module: the imports that all of the steps
 use, then the type.
 
-### Imports and the Dependencies type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_controller.gleam#L6-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Imports and the Dependencies type <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L6-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request}
@@ -101,7 +101,7 @@ pub type Dependencies {
 
 Add a route in your router that points to a controller function:
 
-### A router with an SSE route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_router.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### A router with an SSE route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_router.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{Get}
@@ -121,7 +121,7 @@ pub fn create_router() {
 
 An SSE controller has the same shape as a regular controller:
 
-### An SSE controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_controller.gleam#L17-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### An SSE controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L17-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_events(request: Request, _context, _services) -> Response {
@@ -150,7 +150,7 @@ controller type, but the real work happens in the SSE actor.
 
 It returns a tuple of initial state and an optional `Selector(message)`:
 
-### The on_init handler <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_controller.gleam#L28-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The on_init handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L28-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Tick {
@@ -193,7 +193,7 @@ actor instead of ticking forever.
   and change the message selector.
 - `sse.stop_connection()` – shut down the actor.
 
-### The on_message handler <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_controller.gleam#L45-L65"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The on_message handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L45-L65"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn handle_message(
@@ -223,7 +223,7 @@ fn handle_message(
 
 SSE events are built with a pipeline of builder functions:
 
-### Building events <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_events.gleam#L7-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Building events <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_events.gleam#L7-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn build_minimal_event() -> sse.Event {
@@ -254,7 +254,7 @@ pub fn build_full_event() -> sse.Event {
 To stop the actor when the client has gone away, check the result of
 `send_event`:
 
-### Sending an event <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_events.gleam#L23-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Sending an event <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_events.gleam#L23-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn send_event_or_stop(
@@ -290,7 +290,7 @@ subscribes in `on_message` instead:
    `subscribed` event, so the client knows that the stream is live.
 3. On `Published`, `on_message` sends the event to the client.
 
-### An SSE controller that uses a broadcaster <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_broadcast.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### An SSE controller that uses a broadcaster <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_broadcast.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request}
@@ -414,7 +414,7 @@ SSE connections work seamlessly with Dream middleware. Any headers added
 by middleware (CORS, security headers, authentication, etc.) are included
 in the SSE response sent to the client.
 
-### A CORS middleware on an SSE route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/sse_guide_middleware.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### A CORS middleware on an SSE route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_middleware.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/header.{Header}

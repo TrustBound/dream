@@ -143,7 +143,7 @@ pub type Match(route) {
 ///
 /// ## Example
 ///
-/// ### Create a trie <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_trie.gleam#L6-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Create a trie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_trie.gleam#L6-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn users_trie(user_handler) {
@@ -184,7 +184,7 @@ fn empty_node() -> TrieNode(route) {
 ///
 /// ## Example
 ///
-/// ### Insert routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_trie.gleam#L13-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Insert routes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_trie.gleam#L13-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn user_trie(handler, create_handler) {
@@ -510,7 +510,7 @@ fn update_extension_children(
 ///
 /// ## Example
 ///
-/// ### Look up a path <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_trie.gleam#L21-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Look up a path <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_trie.gleam#L21-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn find_user(trie) {

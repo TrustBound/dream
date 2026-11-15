@@ -3,7 +3,7 @@
 ////
 //// The documentation links each code example to the file in
 //// `test/snippets/` that tests it. On GitHub such a link looks like
-//// `https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/name.gleam#L8-L10`.
+//// `https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/name.gleam#L8-L10`.
 //// That address only works after the tag is pushed, and it leaves the
 //// documentation. This program changes each such link into a relative link
 //// to `snippets/name.html` inside the documentation, and writes that page.

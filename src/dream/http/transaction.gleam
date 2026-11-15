@@ -7,7 +7,7 @@
 ////
 //// Extract and convert path parameters from routes:
 ////
-//// ### Read a path parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_transaction_path.gleam#L1-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Read a path parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_path.gleam#L1-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/http/response.{type Response, json_response}
@@ -29,7 +29,7 @@
 ////
 //// PathParam automatically detects format extensions:
 ////
-//// ### Detect the format <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_transaction_format.gleam#L1-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Detect the format <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_format.gleam#L1-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/http/transaction.{type PathParam, type Request, get_param}
@@ -291,7 +291,7 @@ fn get_header_recursive(
 ///
 /// ## Example
 ///
-/// ### Set headers <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_transaction_set_header.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Set headers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_set_header.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/transaction.{type Header, type Response, set_header}
@@ -536,7 +536,7 @@ fn parse_path_param(raw: String) -> PathParam {
 ///
 /// ## Examples
 ///
-/// ### Read a parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_transaction_params.gleam#L11-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Read a parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_params.gleam#L11-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn read_id(
@@ -552,7 +552,7 @@ fn parse_path_param(raw: String) -> PathParam {
 /// }
 /// ```
 ///
-/// ### Read a parameter with a format <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_transaction_params.gleam#L23-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Read a parameter with a format <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_params.gleam#L23-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn read_id_with_format(
@@ -568,7 +568,7 @@ fn parse_path_param(raw: String) -> PathParam {
 /// }
 /// ```
 ///
-/// ### Read an integer parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_transaction_params.gleam#L35-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Read an integer parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_params.gleam#L35-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn show(request: Request) -> Response {
@@ -593,7 +593,7 @@ pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
 ///
 /// ## Examples
 ///
-/// ### Show a user by ID <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_transaction_params.gleam#L43-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Show a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_params.gleam#L43-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn show_by_id(request: Request) -> Response {
@@ -625,7 +625,7 @@ fn param_to_int(param: PathParam, name: String) -> Result(Int, String) {
 ///
 /// ## Examples
 ///
-/// ### Show a user by name <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_transaction_params.gleam#L52-L59"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Show a user by name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_params.gleam#L52-L59"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn show_by_name(request: Request) -> Response {

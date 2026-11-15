@@ -25,7 +25,7 @@ Right now, anyone can create or delete users. You need:
 
 Create `src/context.gleam`:
 
-### The AuthContext type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_adding_auth_context.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The AuthContext type <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/learn_adding_auth_context.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import gleam/option.{type Option, None}
@@ -60,7 +60,7 @@ This is **per-request data** - it changes for each request. The user making requ
 
 Create `src/middleware/auth_middleware.gleam`:
 
-### The auth middleware <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_adding_auth_middleware.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The auth middleware <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/learn_adding_auth_middleware.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http.{
@@ -140,7 +140,7 @@ Middleware lets you write it once and apply to any route.
 ## Step 3: Use Middleware in Routes
 
 From this step on, the lesson uses the app in
-[examples/custom_context](https://github.com/TrustBound/dream/tree/2.5.0/examples/custom_context/src).
+[examples/custom_context](https://github.com/TrustBound/dream/tree/3.0.0/examples/custom_context/src).
 Its `context.gleam` and `auth_middleware.gleam` are almost the same as
 the files from Steps 1 and 2. Its middleware uses the app's own
 `Services` type in place of the type variable `services`. The app has
@@ -150,7 +150,7 @@ that change data in the same way.
 
 Update `src/router.gleam`:
 
-### Routes with and without middleware <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/custom_context/src/router.gleam#L1-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Routes with and without middleware <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/custom_context/src/router.gleam#L1-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import context.{type AuthContext}
@@ -197,7 +197,7 @@ user. The next middleware or the controller reads it from there. The
 example's `src/middleware/admin_middleware.gleam` reads the user's
 role:
 
-### Reading the user from context <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/custom_context/src/middleware/admin_middleware.gleam#L13-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Reading the user from context <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/custom_context/src/middleware/admin_middleware.gleam#L13-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn admin_middleware(
@@ -232,7 +232,7 @@ the `Option`.
 
 Update `src/main.gleam`:
 
-### Main with a custom context <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/custom_context/src/main.gleam#L3-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Main with a custom context <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/custom_context/src/main.gleam#L3-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import context as app_context
@@ -314,7 +314,7 @@ Middleware can:
 
 You can chain middleware. The example's admin route uses two:
 
-### Two middleware on one route <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/custom_context/src/router.gleam#L23-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Two middleware on one route <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/custom_context/src/router.gleam#L23-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   |> route(

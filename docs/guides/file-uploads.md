@@ -2,7 +2,7 @@
 
 Handle multipart form uploads in Dream.
 
-## Basic Upload <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_upload.gleam#L1-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Basic Upload <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/file_uploads_guide_upload.gleam#L1-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type AppContext}
@@ -59,7 +59,7 @@ arrives as `Bytes`, and `parse_multipart` gives `Error(Nil)` for it.
 
 ## Validation
 
-### File Size <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_validation.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### File Size <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/file_uploads_guide_validation.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type AppContext}
@@ -118,7 +118,7 @@ fn error_json(message: String) -> String {
 }
 ```
 
-### File Type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_file_type.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### File Type <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/file_uploads_guide_file_type.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import gleam/list.{contains}
@@ -138,7 +138,7 @@ pub fn validate_file_type(content_type: String) -> Result(Nil, String) {
 }
 ```
 
-## Secure Filenames <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_upload.gleam#L120-L157"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Secure Filenames <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/file_uploads_guide_upload.gleam#L120-L157"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Make a random file name that keeps the original extension.
@@ -183,7 +183,7 @@ fn random_bytes(count: Int) -> BitArray
 
 ## Storage Options
 
-### Local Disk <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_multiple.gleam#L40-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Local Disk <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/file_uploads_guide_multiple.gleam#L40-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn save_to_disk(path: String, content: BitArray) -> Result(String, FileError) {
@@ -192,7 +192,7 @@ fn save_to_disk(path: String, content: BitArray) -> Result(String, FileError) {
 }
 ```
 
-### S3 (or Compatible) <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_s3.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### S3 (or Compatible) <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/file_uploads_guide_s3.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/client.{
@@ -226,7 +226,7 @@ pub fn save_to_s3(
 }
 ```
 
-## Multiple Files <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_multiple.gleam#L1-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Multiple Files <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/file_uploads_guide_multiple.gleam#L1-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type AppContext}
@@ -269,7 +269,7 @@ fn filenames_json(filenames: List(String)) -> String {
 }
 ```
 
-## Download Endpoint <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_download.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Download Endpoint <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/file_uploads_guide_download.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type AppContext}
@@ -331,7 +331,7 @@ fn file_response(
 }
 ```
 
-## Image Resizing <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_image.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Image Resizing <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/file_uploads_guide_image.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type AppContext}

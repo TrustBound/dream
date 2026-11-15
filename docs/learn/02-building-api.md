@@ -212,7 +212,7 @@ in three small files.
 
 First, create `src/database.gleam`. It starts the connection pool:
 
-### Starting the connection pool <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/database.gleam#L7-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Starting the connection pool <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/database.gleam#L7-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import gleam/erlang/process
@@ -250,7 +250,7 @@ pub fn init_database() -> Result(DatabaseService, String) {
 
 Then create `src/services.gleam`. It holds the database service:
 
-### Services with a database service <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/services.gleam#L5-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Services with a database service <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/services.gleam#L5-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import database.{type DatabaseService}
@@ -271,7 +271,7 @@ pub fn initialize_services() -> Services {
 Last, create `src/context.gleam`. Context holds per-request data.
 This app keeps only a request ID in it:
 
-### A small context type <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/context.gleam#L5-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### A small context type <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/context.gleam#L5-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Database context for tracking per-request state
@@ -312,7 +312,7 @@ Services solves this with type safety. The compiler verifies every controller ge
 
 Create `src/types/user.gleam`:
 
-### The User type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_building_api_user.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The User type <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/learn_building_api_user.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import gleam/time/timestamp.{type Timestamp}
@@ -329,7 +329,7 @@ This is our domain type - the shape of data our app works with.
 Create `src/models/user.gleam`. The model has one function for each
 database action:
 
-### The user model <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/models/user.gleam#L6-L69"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The user model <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L6-L69"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/error.{type Error, InternalServerError, NotFound}
@@ -402,7 +402,7 @@ Squirrel makes one row type for each query, for example
 `sql.GetUserRow` and `sql.ListUsersRow`. Thus the model has one small
 function for each row type that converts the row to a `User`:
 
-### Converting rows to users <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/models/user.gleam#L107-L123"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Converting rows to users <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L107-L123"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn row_to_user(row: sql.GetUserRow) -> User {
@@ -427,7 +427,7 @@ fn row_to_user_list(row: sql.ListUsersRow) -> User {
 The other helpers in the file (`extract_first_user`,
 `extract_all_users`, `extract_created_user`, `extract_updated_user`,
 `row_to_user_create` and `row_to_user_update`) follow the same form.
-See the [full model](https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/models/user.gleam).
+See the [full model](https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam).
 
 **What's happening here:**
 
@@ -457,7 +457,7 @@ The controller in the next steps does not call the model directly. It
 calls `src/operations/user_operations.gleam`. In this app, each
 operation passes the call to the model:
 
-### User operations <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/operations/user_operations.gleam#L6-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### User operations <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L6-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/error.{type Error}
@@ -493,7 +493,7 @@ explains when an operation earns its place.
 
 Create `src/views/user_view.gleam`:
 
-### The user view <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_building_api_user_view.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The user view <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/learn_building_api_user_view.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import gleam/json
@@ -544,7 +544,7 @@ This separation means:
 Create `src/controllers/users_controller.gleam`. Here are its
 imports and the first three actions:
 
-### The users controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/controllers/users_controller.gleam#L6-L68"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The users controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/controllers/users_controller.gleam#L6-L68"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import context.{type DatabaseContext}
@@ -618,7 +618,7 @@ same form.
 The controller uses `utilities/response_helpers.gleam`, which maps a
 `dream.Error` to a response. Copy it, and the `views/errors.gleam`
 that it uses, from
-[examples/database](https://github.com/TrustBound/dream/tree/2.5.0/examples/database/src).
+[examples/database](https://github.com/TrustBound/dream/tree/3.0.0/examples/database/src).
 
 **What's happening here:**
 
@@ -649,7 +649,7 @@ otherwise carry on”, without deeply nested `case` expressions.
 
 **The require_* pattern (recommended):**
 
-#### Reading a path parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_building_api_show_user.gleam#L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Reading a path parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/learn_building_api_show_user.gleam#L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
     use id <- result.try(require_int(request, "id"))
@@ -670,7 +670,7 @@ This pattern:
 Create `src/router.gleam`. Here are the imports and the five users
 routes:
 
-### The users routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/router.gleam#L1-L46"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The users routes <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/router.gleam#L1-L46"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import context.{type DatabaseContext}
@@ -739,7 +739,7 @@ Type safety across your entire app.
 
 Update `src/main.gleam`:
 
-### The main function <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/main.gleam#L10-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The main function <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/main.gleam#L10-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import context as db_context

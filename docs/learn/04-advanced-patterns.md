@@ -3,7 +3,7 @@
 **Goal:** Learn when and how to use operations for business logic that spans more than one model
 
 This lesson uses real code from the
-[tasks example](https://github.com/TrustBound/dream/tree/2.5.0/examples/tasks).
+[tasks example](https://github.com/TrustBound/dream/tree/3.0.0/examples/tasks).
 
 ## What You'll Learn
 
@@ -32,10 +32,10 @@ Each step is simple. Together they are a small workflow. If the controller does 
 **Keep it in the controller:**
 
 The project list in
-[examples/tasks](https://github.com/TrustBound/dream/tree/2.5.0/examples/tasks/src)
+[examples/tasks](https://github.com/TrustBound/dream/tree/3.0.0/examples/tasks/src)
 calls one model and formats the result. It needs no operation:
 
-### One model, one action <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/controllers/projects_controller.gleam#L18-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### One model, one action <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/controllers/projects_controller.gleam#L18-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn index(
@@ -55,7 +55,7 @@ pub fn index(
 
 The task card shows a task and its tags. The data comes from two models. The controller does not call them one by one. It calls one operation:
 
-### Two models, one operation <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/controllers/tasks_controller.gleam#L19-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Two models, one operation <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/controllers/tasks_controller.gleam#L19-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Show single task
@@ -84,7 +84,7 @@ pub fn show(
 
 The tag workflow lives in `src/operations/tag_operations.gleam`:
 
-### Create and attach a tag <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/operations/tag_operations.gleam#L15-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Create and attach a tag <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/operations/tag_operations.gleam#L15-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Create a new tag and attach it to a task
@@ -116,7 +116,7 @@ The operation knows nothing about HTTP. It takes a database connection and plain
 
 The controller in `src/controllers/tags_controller.gleam` calls the operation:
 
-### The controller calls the operation <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/controllers/tags_controller.gleam#L60-L89"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The controller calls the operation <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/controllers/tags_controller.gleam#L60-L89"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Create tag and add to task (returns updated tag selector HTML)
@@ -178,7 +178,7 @@ The workflow lives in the operation. The controller and the operation use the sa
 ## Testing Operations
 
 The tasks example tests its operations through the HTTP API, with Cucumber scenarios in
-[test/integration/features/tasks.feature](https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/test/integration/features/tasks.feature).
+[test/integration/features/tasks.feature](https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/features/tasks.feature).
 This scenario runs `create_and_attach` through the controller and then examines the database:
 
 ```gherkin

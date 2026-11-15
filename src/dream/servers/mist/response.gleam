@@ -46,7 +46,7 @@ import mist.{type Connection, type ResponseData, Bytes as MistBytes}
 ///
 /// ## Example
 ///
-/// ### Convert a response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_response_convert.gleam#L11-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Convert a response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_response_convert.gleam#L11-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn send_user(user_json: String) -> http_response.Response(ResponseData) {
@@ -90,7 +90,7 @@ pub fn convert(
 ///
 /// ## Example
 ///
-/// ### Convert a streaming response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_response_convert.gleam#L19-L27"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Convert a streaming response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_response_convert.gleam#L19-L27"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn send_stream(

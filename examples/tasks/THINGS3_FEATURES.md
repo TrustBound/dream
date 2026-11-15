@@ -136,7 +136,7 @@ Based on visual analysis of Things 3, here are the key features and interaction 
 
 These types are in `src/types/`. The priority menu sets a task's `priority` to 1 (Urgent), 2 (High), 3 (Normal) or 4 (Low).
 
-### Task <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/types/task.gleam#L5-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Task <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/types/task.gleam#L5-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Task {
@@ -155,7 +155,7 @@ pub type Task {
 }
 ```
 
-### Project/List <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/types/project.gleam#L5-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Project/List <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/types/project.gleam#L5-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Project {
@@ -169,7 +169,7 @@ pub type Project {
 }
 ```
 
-### Tag <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/types/tag.gleam#L5-L7"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Tag <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/types/tag.gleam#L5-L7"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Tag {

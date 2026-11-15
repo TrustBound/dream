@@ -51,7 +51,7 @@ This pattern is powerful for modern web apps. You can serve:
 
 Use a helper function to switch formats based on the request. `detect_format` is shown in [Example with Headers](#example-with-headers).
 
-#### The show controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/multiple_formats_guide_tasks.gleam#L22-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The show controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/multiple_formats_guide_tasks.gleam#L22-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn show(
@@ -88,7 +88,7 @@ fn respond_with_format(task: Task, format: String) -> Response {
 
 Your view module handles the different presentations. For HTML rendering, we use a layered template composition approach that keeps markup consistent and reusable.
 
-#### The task view <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/multiple_formats_guide_task_view.gleam#L8-L27"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The task view <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/multiple_formats_guide_task_view.gleam#L8-L27"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // JSON representation
@@ -154,7 +154,7 @@ You can detect the desired format via:
 
 ### Example with Headers
 
-#### Format from the extension or the headers <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/multiple_formats_guide_tasks.gleam#L51-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Format from the extension or the headers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/multiple_formats_guide_tasks.gleam#L51-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // /tasks/1.json and /tasks/1.html: Dream puts the extension in

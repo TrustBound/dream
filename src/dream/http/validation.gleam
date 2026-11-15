@@ -6,7 +6,7 @@
 ////
 //// ## Quick Example
 ////
-//// ### Validate a JSON body <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_validation_module.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Validate a JSON body <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_validation_module.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/http/request.{type Request, body_as_string}
@@ -107,7 +107,7 @@ import gleam/string
 ///
 /// ## Example
 ///
-/// ### A validation error <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_validation_error.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### A validation error <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_validation_error.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/validation.{type ValidationError, ValidationError}
@@ -142,7 +142,7 @@ pub type ValidationError {
 ///
 /// ## Example
 ///
-/// ### Create a post from JSON <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_validate_json.gleam#L1-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Create a post from JSON <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_validate_json.gleam#L1-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/request.{type Request, body_as_string}

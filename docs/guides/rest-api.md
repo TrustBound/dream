@@ -8,7 +8,7 @@ Production-ready patterns for building REST APIs with Dream.
 
 A database model wraps a Squirrel query and returns domain types. This model from the database example lists all users:
 
-#### Users model <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/models/user.gleam#L15-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Users model <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L15-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// List all users
@@ -22,7 +22,7 @@ pub fn list(db: pog.Connection) -> Result(List(User), Error) {
 
 For offset pagination, add `offset` and `limit` parameters to the function, and pass them to an SQL query with `OFFSET $1 LIMIT $2`.
 
-#### Products controller with offset and limit <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/rest_api_guide_pagination.gleam#L6-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Products controller with offset and limit <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_pagination.gleam#L6-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type AppContext}
@@ -86,7 +86,7 @@ app calls a database model like the one above.
 
 A cursor marks the last row the client saw. The client sends it back to get the next page. This model encodes the last id on the page as an opaque base64 string:
 
-#### Products model with a cursor <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/rest_api_guide_cursor_pagination.gleam#L14-L69"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Products model with a cursor <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_cursor_pagination.gleam#L14-L69"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Product {
@@ -153,7 +153,7 @@ To keep the tested snippet self-contained, `list_after` reads from a list. A rea
 
 ## Validation
 
-### Input Validation <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/rest_api_guide_validation.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Input Validation <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_validation.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import gleam/dynamic/decode.{type Decoder, field, int, string, success}
@@ -193,7 +193,7 @@ decode errors (bad JSON, a missing field) separate from business rules.
 
 ## Error Handling
 
-### Domain Errors <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/rest_api_guide_domain_errors.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Domain Errors <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_domain_errors.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/error.{type Error, NotFound}
@@ -216,7 +216,7 @@ pub fn find_product(
 }
 ```
 
-### Map to HTTP Status <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/rest_api_guide_create.gleam#L6-L59"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Map to HTTP Status <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_create.gleam#L6-L59"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type AppContext}
@@ -286,7 +286,7 @@ each `Error` variant gets its own status code.
 
 ## API Versioning
 
-### URL-based Versioning <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/rest_api_guide_url_versioning.gleam#L15-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### URL-based Versioning <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_url_versioning.gleam#L15-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // router.gleam
@@ -297,7 +297,7 @@ pub fn create_router() -> Router(AppContext, Services) {
 }
 ```
 
-### Header-based Versioning <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/rest_api_guide_header_versioning.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Header-based Versioning <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_header_versioning.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type AppContext}
@@ -338,7 +338,7 @@ fn v2_index(_services: Services) -> Response {
 
 ## Rate Limiting
 
-### Rate limit middleware <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/rate_limiter/src/middleware/rate_limit_middleware.gleam#L6-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Rate limit middleware <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/rate_limiter/src/middleware/rate_limit_middleware.gleam#L6-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type EmptyContext}
@@ -372,7 +372,7 @@ pub fn rate_limit_middleware(
 
 The middleware calls `rate_limiter_service.check_and_increment`, which keeps a count for each client IP in a `dream_ets` table. The rate limiter example allows 10 requests in each 60-second window. A request over the limit gets a 429 response with `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `Retry-After` headers.
 
-## Filtering and Sorting <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/rest_api_guide_filtering.gleam#L6-L64"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Filtering and Sorting <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_filtering.gleam#L6-L64"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type AppContext}
@@ -436,7 +436,7 @@ fn internal_error_response() -> Response {
 }
 ```
 
-## CORS <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/rest_api_guide_cors.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## CORS <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_cors.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type AppContext}
@@ -469,7 +469,7 @@ fn add_cors_headers(response: Response) -> Response {
 }
 ```
 
-## Health Check Endpoint <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/controllers/health_controller.gleam#L6-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Health Check Endpoint <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/controllers/health_controller.gleam#L6-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import context.{type DatabaseContext}

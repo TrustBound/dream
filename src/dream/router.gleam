@@ -7,7 +7,7 @@
 ////
 //// ## Basic Routing
 ////
-//// ### Basic routing <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_router_basic.gleam#L3-L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Basic routing <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router_basic.gleam#L3-L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/http/request.{Get, Post}
@@ -46,7 +46,7 @@
 //// Routes with different parameter names at the same position are supported.
 //// Each route extracts parameters using its own declared parameter names:
 ////
-//// ### Different parameter names <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_router.gleam#L10-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Different parameter names <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router.gleam#L10-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// pub fn parameter_router() {
@@ -84,7 +84,7 @@
 ////
 //// Middleware run before (and optionally after) your controller:
 ////
-//// ### Add middleware <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_router.gleam#L26-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Add middleware <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router.gleam#L26-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// pub fn admin_router() {
@@ -131,7 +131,7 @@
 ////
 //// Example of what the compiler WON'T catch:
 ////
-//// ### A parameter name typo <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_router_wrong.gleam#L9-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### A parameter name typo <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router_wrong.gleam#L9-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// // Route definition
@@ -245,7 +245,7 @@ pub type EmptyServices {
 ///
 /// ## Example
 ///
-/// ### Build a router <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_router.gleam#L36-L45"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Build a router <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router.gleam#L36-L45"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn app_router() {
@@ -273,7 +273,7 @@ pub fn router() -> Router(context, services) {
 ///
 /// ## Examples
 ///
-/// ### Add routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_router.gleam#L47-L86"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Add routes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router.gleam#L47-L86"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn add_routes(router) {
@@ -357,7 +357,7 @@ pub fn route(
 ///
 /// ## Example
 ///
-/// ### Add streaming routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_router.gleam#L88-L102"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Add streaming routes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router.gleam#L88-L102"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn add_upload_routes(router) {
@@ -437,7 +437,7 @@ pub fn stream_route(
 ///
 /// ## Example
 ///
-/// ### Find a route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_router.gleam#L104-L123"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Find a route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router.gleam#L104-L123"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn find_user_params(router, request) {

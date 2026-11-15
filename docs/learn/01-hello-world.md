@@ -8,7 +8,7 @@ Your first Dream app is just one file with three pieces: a router, a controller,
 
 Create `src/hello_dream.gleam`:
 
-### The Hello World app <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_hello_world_app.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The Hello World app <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/learn_hello_world_app.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type EmptyContext}
@@ -53,7 +53,7 @@ Along the way we’ll also explain some Gleam syntax.
 
 ### 1. The Controller
 
-#### The index controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_hello_world_app.gleam#L11-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The index controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/learn_hello_world_app.gleam#L11-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn index(
@@ -77,7 +77,7 @@ We will start using them in later lessons.
 
 ### 2. The Router
 
-#### The app router <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_hello_world_app.gleam#L19-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The app router <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/learn_hello_world_app.gleam#L19-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_app_router() -> Router(EmptyContext, EmptyServices) {
@@ -94,7 +94,7 @@ pub fn create_app_router() -> Router(EmptyContext, EmptyServices) {
 
 ### 3. The Server
 
-#### Starting the server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_hello_world_app.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Starting the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/learn_hello_world_app.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn main() {

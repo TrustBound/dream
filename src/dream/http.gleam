@@ -5,7 +5,7 @@
 ////
 //// Instead of importing from multiple modules:
 ////
-//// ### Import each module <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_separate_imports.gleam#L1-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Import each module <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_separate_imports.gleam#L1-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/http/params.{require_int}
@@ -16,7 +16,7 @@
 ////
 //// You can just import one:
 ////
-//// ### Import dream/http <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_single_import.gleam#L1-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Import dream/http <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_single_import.gleam#L1-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/http
@@ -52,7 +52,7 @@
 //// Use `dream/http` in controllers for convenience. For more specific imports
 //// or when you only need one or two functions, import the specific submodule:
 ////
-//// ### Import one submodule <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_submodule_imports.gleam#L1-L5"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Import one submodule <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_submodule_imports.gleam#L1-L5"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// // Just status codes

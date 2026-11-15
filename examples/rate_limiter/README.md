@@ -91,7 +91,7 @@ examples/rate_limiter/
 
 The rate limiter service is created **once** at startup in `initialize_services` and stored in the `Services` struct. Middleware reuses that instance; it does **not** create new ETS tables on each request.
 
-### Service initialization <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/rate_limiter/src/services.gleam#L17-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Service initialization <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/rate_limiter/src/services.gleam#L17-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn initialize_services() -> Services {

@@ -7,7 +7,7 @@
 ////
 //// Most applications will import this module as:
 ////
-//// ### Import the module <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_ticker.gleam#L5"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Import the module <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_sse_ticker.gleam#L5"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/servers/mist/sse
@@ -40,7 +40,7 @@
 ////
 //// ## Example (ticker)
 ////
-//// ### Send a tick every second <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_ticker.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Send a tick every second <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_sse_ticker.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/http/request.{type Request}
@@ -131,7 +131,7 @@ pub opaque type SSEConnection {
 ///
 /// ## Example
 ///
-/// ### Build an event <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_events.gleam#L5-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Build an event <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_sse_events.gleam#L5-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn greeting_event() -> sse.Event {
@@ -169,7 +169,7 @@ pub opaque type Action(state, message) {
 ///
 /// ## Example
 ///
-/// ### Upgrade to SSE <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_upgrade.gleam#L7-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Upgrade to SSE <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_sse_upgrade.gleam#L7-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub type Tick {
@@ -251,7 +251,7 @@ pub fn upgrade_to_sse(
 ///
 /// ## Example
 ///
-/// ### Stop when the client is gone <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_send.gleam#L28-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Stop when the client is gone <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_sse_send.gleam#L28-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn handle_message(
@@ -279,7 +279,7 @@ pub fn send_event(connection: SSEConnection, event: Event) -> Result(Nil, Nil) {
 ///
 /// ## Example
 ///
-/// ### Create an event <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_events.gleam#L12-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Create an event <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_sse_events.gleam#L12-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn count_event() -> sse.Event {
@@ -297,7 +297,7 @@ pub fn event(data: String) -> Event {
 ///
 /// ## Example
 ///
-/// ### Name an event <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_events.gleam#L17-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Name an event <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_sse_events.gleam#L17-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn named_event() -> sse.Event {
@@ -317,7 +317,7 @@ pub fn event_name(event: Event, name: String) -> Event {
 ///
 /// ## Example
 ///
-/// ### Give an event an ID <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_events.gleam#L22-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Give an event an ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_sse_events.gleam#L22-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn numbered_event() -> sse.Event {
@@ -337,7 +337,7 @@ pub fn event_id(event: Event, id: String) -> Event {
 ///
 /// ## Example
 ///
-/// ### Set the retry time <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_events.gleam#L27-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Set the retry time <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_sse_events.gleam#L27-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn retry_event() -> sse.Event {

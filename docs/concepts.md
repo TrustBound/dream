@@ -8,7 +8,7 @@ Everything you need to understand Dream. Read this, then explore the examples.
 
 A controller is a module that contains action functions—public functions that handle HTTP requests. Each action takes a request, some context about that request, and your app's shared services (like a database connection), then returns a response.
 
-### The controller action type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_signatures.gleam#L9-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The controller action type <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_signatures.gleam#L9-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Action =
@@ -19,7 +19,7 @@ That's it. No magic, no hidden state. The Request has the HTTP method, path, hea
 
 Here's what a controller module (`controllers/hello_controller.gleam`) looks like with two actions:
 
-### A controller with two actions <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_hello_controller.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### A controller with two actions <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_hello_controller.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type EmptyContext}
@@ -66,7 +66,7 @@ Use controllers for simple CRUD operations, single-model operations, or any dire
 
 The router matches incoming requests to your controller actions based on HTTP method and path pattern. You define routes like this:
 
-### A router <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/custom_context/src/router.gleam#L9-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### A router <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/custom_context/src/router.gleam#L9-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_router() -> Router(AuthContext, Services) {
@@ -110,7 +110,7 @@ Your controller actions need things like database connections, HTTP clients, and
 
 Services solves this with type-safe dependency injection. You define what your app needs as fields of one type. The database example needs one service:
 
-### The Services type <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/services.gleam#L8-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The Services type <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/services.gleam#L8-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Services {
@@ -120,7 +120,7 @@ pub type Services {
 
 Initialize it once at startup:
 
-### Initializing services <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/services.gleam#L14-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Initializing services <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/services.gleam#L14-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn initialize_services() -> Services {
@@ -131,7 +131,7 @@ pub fn initialize_services() -> Services {
 
 Then give it to the server in `main`:
 
-### Passing services to the server <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/main.gleam#L15-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Passing services to the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/main.gleam#L15-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn main() {
@@ -158,7 +158,7 @@ Context holds per-request data that changes for each request. Request A's authen
 
 Dream provides `EmptyContext` for simple apps that don't need per-request data:
 
-### EmptyContext <a href="https://github.com/TrustBound/dream/blob/2.5.0/src/dream/context.gleam#L138-L140"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### EmptyContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/context.gleam#L138-L140"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type EmptyContext {
@@ -168,7 +168,7 @@ pub type EmptyContext {
 
 This is the default when you call `server.new()`. For apps that need request tracking, Dream also provides `AppContext`:
 
-### AppContext <a href="https://github.com/TrustBound/dream/blob/2.5.0/src/dream/context.gleam#L146-L148"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### AppContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/context.gleam#L146-L148"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type AppContext {
@@ -178,7 +178,7 @@ pub type AppContext {
 
 But you'll probably want to add authentication with your own custom type:
 
-### A custom AuthContext <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_context.gleam#L12-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### A custom AuthContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_context.gleam#L12-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type AuthContext {
@@ -188,7 +188,7 @@ pub type AuthContext {
 
 Middleware enriches the context before it reaches controllers. Here's how an auth middleware might work:
 
-### An auth middleware that enriches the context <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_context.gleam#L16-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### An auth middleware that enriches the context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_context.gleam#L16-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn auth_middleware(request: Request, context, services, next) {
@@ -232,7 +232,7 @@ Middleware wraps controller actions to handle cross-cutting concerns. Instead of
 
 A middleware function has this signature:
 
-### The middleware type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_signatures.gleam#L12-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The middleware type <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_signatures.gleam#L12-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Middleware =
@@ -246,7 +246,7 @@ You get the request, context, services, and a `next` function. You can modify th
 
 Here's a logging middleware:
 
-### A logging middleware <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_middleware.gleam#L13-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### A logging middleware <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_middleware.gleam#L13-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn logging_middleware(request, context, services, next) {
@@ -265,7 +265,7 @@ pub fn logging_middleware(request, context, services, next) {
 
 Apply middleware to routes:
 
-### Middleware on routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_middleware.gleam#L26-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Middleware on routes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_middleware.gleam#L26-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_router() -> Router(AuthContext, services) {
@@ -313,7 +313,7 @@ Say the task page shows a task card. The card needs:
 
 Extract that to an operation. The controller action stays thin, with only HTTP work:
 
-### Controller action calls the operation <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/controllers/tasks_controller.gleam#L19-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Controller action calls the operation <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/controllers/tasks_controller.gleam#L19-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Show single task
@@ -336,7 +336,7 @@ pub fn show(
 
 The operation holds the logic, with no HTTP. If the task does not exist, it returns the error. If the tags query fails, it shows the task with no tags:
 
-### Operation coordinates two models <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/operations/task_operations.gleam#L33-L45"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Operation coordinates two models <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/operations/task_operations.gleam#L33-L45"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Get a task with its tags
@@ -376,7 +376,7 @@ Use operations when you coordinate 2 or more models, when an action has steps th
 
 Models handle data access. They take a database connection (explicit dependency, no globals), run queries, and convert database rows into your domain types. Controller actions call models, not SQL directly.
 
-### Model functions <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/models/user.gleam#L23-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Model functions <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L23-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Get a single user by ID
@@ -402,7 +402,7 @@ pub fn create(
 
 A private function converts each Squirrel row to the domain type:
 
-### Converting a row to a domain type <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/models/user.gleam#L107-L114"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Converting a row to a domain type <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L107-L114"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn row_to_user(row: sql.GetUserRow) -> User {
@@ -425,7 +425,7 @@ Models take connections as parameters, return domain types (not DB types), and h
 
 Views format domain types into strings. JSON, HTML, CSV—whatever format you need. They're pure functions: take a domain type, return a string. No Result types, no HTTP knowledge.
 
-### A view for JSON, CSV and HTML <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_user_view.gleam#L16-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### A view for JSON, CSV and HTML <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_user_view.gleam#L16-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn respond(user: User, param: PathParam) -> Response {
@@ -473,7 +473,7 @@ Dream enforces clear boundaries between layers.
 
 Keep validation and response building separate. Validation takes a string and a decoder, returns `Result(T, ValidationError)`. Response building takes a status and body, returns a `Response`. Controllers connect them explicitly:
 
-### Validate, then build the response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_validation.gleam#L36-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Validate, then build the response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_validation.gleam#L36-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   case validate_json(body, decoder) {

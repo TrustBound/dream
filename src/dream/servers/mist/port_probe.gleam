@@ -43,7 +43,7 @@ fn tcp_close(socket: Dynamic) -> Result(Nil, Dynamic)
 ///
 /// ## Example
 ///
-/// ### Check a port <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_port_probe.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Check a port <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_port_probe.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/servers/mist/port_probe

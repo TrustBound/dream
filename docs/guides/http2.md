@@ -17,7 +17,7 @@ Browsers use HTTP/2 only over HTTPS. If browsers connect to Dream directly, give
 
 Pass the paths to your certificate and key (PEM files) to `server.tls()`.
 
-### Serve HTTPS <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/server_tls.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Serve HTTPS <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/server_tls.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http.{ok, text_response}

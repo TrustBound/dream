@@ -14,7 +14,7 @@
 ////
 //// ## Examples
 ////
-//// ### Parse patterns <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_parser.gleam#L6-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Parse patterns <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_parser.gleam#L6-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// pub fn module_examples() -> List(List(Segment)) {
@@ -71,7 +71,7 @@ import gleam/string
 ///
 /// ## Examples
 ///
-/// ### Parse each kind of segment <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_parser.gleam#L19-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Parse each kind of segment <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_parser.gleam#L19-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn parse_pattern_examples() -> List(List(Segment)) {
@@ -187,7 +187,7 @@ fn parse_extension_pattern(extension_pattern: String) -> Segment {
 ///
 /// ## Example
 ///
-/// ### Trim spaces in extensions <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_parser.gleam#L39-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Trim spaces in extensions <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_parser.gleam#L39-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn brace_extensions() -> List(Segment) {

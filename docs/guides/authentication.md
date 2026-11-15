@@ -15,7 +15,7 @@ In Dream, authentication is implemented using two core concepts:
 
 Define a context type that includes an `Option(User)`.
 
-### The AuthContext type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/authentication_guide_context.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The AuthContext type <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/authentication_guide_context.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import gleam/option.{type Option, None}
@@ -36,7 +36,7 @@ pub const default_context = AuthContext(request_id: "", user: None)
 
 Create middleware that checks for an Authorization header, validates the token, and updates the context. In this example, `validate_token` looks up the token in a list in `Services`.
 
-### The auth middleware <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/authentication_guide_app.gleam#L18-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The auth middleware <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/authentication_guide_app.gleam#L18-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Services {
@@ -85,7 +85,7 @@ fn validate_token(services: Services, header: String) -> Result(User, Nil) {
 
 Apply the middleware to routes that require authentication.
 
-### Routes with the auth middleware <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/authentication_guide_app.gleam#L59-L70"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Routes with the auth middleware <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/authentication_guide_app.gleam#L59-L70"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_router() -> Router(AuthContext, Services) {
@@ -106,7 +106,7 @@ pub fn create_router() -> Router(AuthContext, Services) {
 
 In your controller, check `context.user` to access the authenticated user.
 
-### The show_profile controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/authentication_guide_app.gleam#L72-L81"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The show_profile controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/authentication_guide_app.gleam#L72-L81"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn show_profile(

@@ -42,7 +42,7 @@ Streaming uses Gleam's `Yielder` type for lazy, memory-efficient data processing
 
 Stream data to the client without loading it all into memory:
 
-#### Stream 1000 lines <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_download.gleam#L5-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Stream 1000 lines <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_download.gleam#L5-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request}
@@ -76,7 +76,7 @@ Stream products as CSV. Dream makes each row when the client reads it, so the
 CSV is never one big string in memory. Here `list_products` stands in for a
 database query:
 
-#### Stream products as CSV <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_csv_export.gleam#L6-L60"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Stream products as CSV <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_csv_export.gleam#L6-L60"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request}
@@ -142,7 +142,7 @@ Send a file from disk as a stream of 64 KB chunks. `simplifile.read_bits`
 reads the whole file into memory first, so use this for files that fit in
 memory:
 
-#### Send a file in 64 KB chunks <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_file_download.gleam#L6-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Send a file in 64 KB chunks <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_file_download.gleam#L6-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request}
@@ -192,7 +192,7 @@ fn create_binary_stream_response(
 
 Routes must explicitly enable streaming to receive streamed request bodies:
 
-#### Buffered and streaming routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_ingress.gleam#L6-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Buffered and streaming routes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_ingress.gleam#L6-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request, Bytes, Post, Put, Stream, Text}
@@ -228,7 +228,7 @@ pub fn create_router() -> Router(context, services) {
   `Bytes(BitArray)` with the exact bytes for any other body
 - Streaming routes: `request.body` is `Stream(Yielder(BitArray))`
 
-### Process Streaming Uploads <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_ingress.gleam#L42-L64"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Process Streaming Uploads <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_ingress.gleam#L42-L64"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn upload_stream(request: Request, _context, _services) -> Response {
@@ -256,7 +256,7 @@ fn create_upload_success_response(total_bytes: Int) -> Response {
 }
 ```
 
-### Saving Streamed Files <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_saving.gleam#L6-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Saving Streamed Files <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_saving.gleam#L6-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request, Stream}
@@ -306,7 +306,7 @@ fn handle_save_result(result: Result(Nil, simplifile.FileError)) -> Response {
 Middleware can transform streaming request bodies. A middleware is a function
 that gets the request, the context, the services and the next handler:
 
-#### Uppercase the request stream <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_middleware.gleam#L6-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Uppercase the request stream <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_middleware.gleam#L6-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request, Post, Request}
@@ -351,7 +351,7 @@ fn uppercase_bytes(remaining: BitArray, uppercased: BitArray) -> BitArray {
 
 Middleware can also transform streaming responses:
 
-#### Replace spaces in the response stream <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_middleware.gleam#L52-L86"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Replace spaces in the response stream <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_middleware.gleam#L52-L86"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn replace_space_outgoing(
@@ -391,7 +391,7 @@ fn replace_space_bytes(remaining: BitArray, replaced: BitArray) -> BitArray {
 }
 ```
 
-### Bi-Directional Streaming Example <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_middleware.gleam#L88-L104"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Bi-Directional Streaming Example <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_middleware.gleam#L88-L104"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_router() -> Router(context, services) {
@@ -434,7 +434,7 @@ event builders, broadcasting, and integration testing.
 
 Quick example of the new API:
 
-#### Send a ping event <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_sse.gleam#L6-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Send a ping event <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_sse.gleam#L6-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request}
@@ -482,7 +482,7 @@ Dream automatically uses HTTP chunked transfer encoding for streaming responses.
 
 ## Best Practices
 
-### 1. Use Appropriate Buffer Sizes <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_chunks.gleam#L6-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### 1. Use Appropriate Buffer Sizes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_chunks.gleam#L6-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import gleam/bit_array
@@ -507,7 +507,7 @@ fn number_to_line(number: Int) -> BitArray {
 }
 ```
 
-### 2. Handle Errors Gracefully <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_upload_checks.gleam#L17-L64"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### 2. Handle Errors Gracefully <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_upload_checks.gleam#L17-L64"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 const max_upload_bytes = 1_000_000
@@ -560,7 +560,7 @@ fn handle_upload_result(result: Result(String, UploadError)) -> Response {
 }
 ```
 
-### 3. Use Streaming Routes Explicitly <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_ingress.gleam#L66-L86"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### 3. Use Streaming Routes Explicitly <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_ingress.gleam#L66-L86"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // DON'T: assume every POST route streams. This body arrives buffered.
@@ -586,7 +586,7 @@ pub fn create_streaming_upload_router() -> Router(context, services) {
 }
 ```
 
-### 4. Clean Up Resources <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_saving.gleam#L45-L116"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### 4. Clean Up Resources <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_saving.gleam#L45-L116"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type UploadError {
@@ -678,7 +678,7 @@ answers.
 | Max size | Limited by `max_body_size` | Can be unlimited |
 | Use for | Forms, JSON APIs | File uploads, large payloads |
 
-### Response Types <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_types.gleam#L6-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Response Types <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_types.gleam#L6-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request, Request}
@@ -708,7 +708,7 @@ pub fn create_stream_body(file_chunks: Yielder(BitArray)) -> ResponseBody {
 
 ## Common Patterns
 
-### Pattern 1: CSV Export <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_patterns.gleam#L16-L53"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Pattern 1: CSV Export <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_patterns.gleam#L16-L53"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type User {
@@ -751,7 +751,7 @@ fn user_to_csv_row(user: User) -> String {
 }
 ```
 
-### Pattern 2: Progress Updates <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_sse.gleam#L32-L78"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Pattern 2: Progress Updates <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_sse.gleam#L32-L78"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type ProgressMessage {
@@ -807,7 +807,7 @@ In a real app, a worker process sends the `ProgressUpdate` messages. Here the
 handler sends them to itself, so the example stays small. After the event for
 100%, `sse.stop_connection()` closes the stream.
 
-### Pattern 3: File Upload with Validation <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_upload_checks.gleam#L66-L153"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Pattern 3: File Upload with Validation <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_upload_checks.gleam#L66-L153"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type ImageError {
@@ -926,7 +926,7 @@ See [`examples/multi_format/`](../../examples/multi_format/) for:
 
 ### Memory Usage
 
-#### Buffered response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_patterns.gleam#L55-L60"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Buffered response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_patterns.gleam#L55-L60"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // BAD for large exports: the whole CSV is one string in memory
@@ -937,7 +937,7 @@ pub fn export_users_buffered(users: List(User)) -> Response {
 }
 ```
 
-#### Streaming response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_patterns.gleam#L62-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Streaming response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_patterns.gleam#L62-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // GOOD for large exports: each row is made when the client reads it
@@ -954,7 +954,7 @@ Yielders provide natural backpressure:
 - No unbounded buffering
 - Memory stays constant regardless of data size
 
-### Chunk Sizing <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_chunks.gleam#L27-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Chunk Sizing <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_chunks.gleam#L27-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // Small chunks: more responsive, more overhead
@@ -979,7 +979,7 @@ pub fn create_row_chunks(rows: List(String)) -> Yielder(BitArray) {
 
 ## Testing Streaming
 
-### Unit Tests <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_unit_test.gleam#L6-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Unit Tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_unit_test.gleam#L6-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/response.{Stream, stream_response}
@@ -1035,7 +1035,7 @@ See [Testing Guide](testing.md) for more examples.
 
 ## Common Pitfalls
 
-### ❌ Don't Consume Stream Twice <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_pitfalls.gleam#L14-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ❌ Don't Consume Stream Twice <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_pitfalls.gleam#L14-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // BAD: the stream is read twice
@@ -1062,7 +1062,7 @@ stream again, so the work runs twice. A request body stream (`Stream` in `reques
 is worse: it reads from the socket, so after the first read the bytes are gone
 and a second read gets nothing.
 
-### ❌ Don't Mix Streaming and Buffering <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_pitfalls.gleam#L32-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ❌ Don't Mix Streaming and Buffering <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_pitfalls.gleam#L32-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // BAD: defeats the purpose of streaming
@@ -1077,7 +1077,7 @@ pub fn send_lazy(stream: Yielder(BitArray)) -> Response {
 }
 ```
 
-### ❌ Don't Forget Error Handling <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_pitfalls.gleam#L43-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ❌ Don't Forget Error Handling <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_pitfalls.gleam#L43-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // BAD: a buffered body becomes an empty upload
@@ -1114,7 +1114,7 @@ learns that the data was lost.
 
 ## API Reference
 
-### Response Builders <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_types.gleam#L30-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Response Builders <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_types.gleam#L30-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // Stream with a custom content type
@@ -1126,7 +1126,7 @@ pub fn create_csv_download(csv_rows: Yielder(BitArray)) -> Response {
 `sse_response` is deprecated. For Server-Sent Events, use
 `dream/servers/mist/sse.upgrade_to_sse`. See the [SSE Guide](sse.md).
 
-### Router Functions <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_ingress.gleam#L88-L97"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Router Functions <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_ingress.gleam#L88-L97"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // stream_route works with any HTTP method
@@ -1141,7 +1141,7 @@ pub fn create_file_router() -> Router(context, services) {
 }
 ```
 
-### Request Fields <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_types.gleam#L35-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Request Fields <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_types.gleam#L35-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // A streaming route gives the controller a request like this one
@@ -1155,7 +1155,7 @@ pub fn create_streaming_request(
 }
 ```
 
-### Response Body Types <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_types.gleam#L45-L54"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Response Body Types <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_types.gleam#L45-L54"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn describe_body(body: ResponseBody) -> String {

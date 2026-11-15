@@ -5,7 +5,7 @@
 ////
 //// ## Quick Setup
 ////
-//// ### Serve assets <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_static.gleam#L3-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Serve assets <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_static.gleam#L3-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/controllers/static.{default_config, serve}
@@ -131,7 +131,7 @@ pub fn without_index(
 ///
 /// Usage:
 ///
-/// ### Serve public files <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_static_serve.gleam#L3-L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Serve public files <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_static_serve.gleam#L3-L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/controllers/static.{default_config, serve}

@@ -12,7 +12,7 @@ This document outlines the naming conventions for functions in the Dream web fra
 
 The module name provides the namespace, so functions must **not** be prefixed with the module name.
 
-### ✅ Good: the module name is the namespace <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_module_namespace.gleam#L11-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ✅ Good: the module name is the namespace <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_module_namespace.gleam#L11-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn show_user(id: Int) -> Result(User, Nil) {
@@ -25,7 +25,7 @@ pub fn app_router() {
 }
 ```
 
-### ❌ Bad: the function repeats the module name <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_module_namespace.gleam#L20-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ❌ Bad: the function repeats the module name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_module_namespace.gleam#L20-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn show_user_with_module_prefix(id: Int) -> Result(User, Nil) {
@@ -44,7 +44,7 @@ pub fn show_user_with_module_prefix(id: Int) -> Result(User, Nil) {
 
 **Use when:** Instantiating a type directly with constructor parameters or simple factory functions.
 
-##### Creating a response, a cookie and a header <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_creation.gleam#L18-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Creating a response, a cookie and a header <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_creation.gleam#L18-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_response(status: Int) -> Response {
@@ -67,7 +67,7 @@ pub fn create_header(name: String, value: String) -> Header {
 
 **Use when:** Converting a builder type into its final built type.
 
-##### Building a response and a cookie from builders <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_creation.gleam#L30-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Building a response and a cookie from builders <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_creation.gleam#L30-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn build_response(builder: ResponseBuilder) -> Response {
@@ -92,7 +92,7 @@ pub fn build_cookie(builder: CookieBuilder) -> Cookie {
 
 **Use when:** Looking up items in lists, maps, or other collections using a name, key, or identifier.
 
-##### Getting a header, a cookie and a query parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_retrieval.gleam#L18-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Getting a header, a cookie and a query parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_retrieval.gleam#L18-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   let content_type = http.get_header(request.headers, "Content-Type")
@@ -107,7 +107,7 @@ pub fn build_cookie(builder: CookieBuilder) -> Cookie {
 
 **Use when:** Extracting the name field from a single record/type instance.
 
-##### Reading the name of a cookie and a header <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_retrieval.gleam#L25-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Reading the name of a cookie and a header <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_retrieval.gleam#L25-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   let cookie_name = http.cookie_name(cookie)
@@ -121,7 +121,7 @@ pub fn build_cookie(builder: CookieBuilder) -> Cookie {
 
 **Use when:** Extracting the value field from a single record/type instance.
 
-##### Reading the value of a cookie and a header <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_retrieval.gleam#L31-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Reading the value of a cookie and a header <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_retrieval.gleam#L31-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   let cookie_value = http.cookie_value(cookie)
@@ -139,7 +139,7 @@ pub fn build_cookie(builder: CookieBuilder) -> Cookie {
 
 **Use when:** Updating a value that may already exist, replacing the old value if present.
 
-##### Setting a header and a cookie <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_modification.gleam#L13-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Setting a header and a cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_modification.gleam#L13-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   let headers = header.set_header(request.headers, "Cache-Control", "no-store")
@@ -154,7 +154,7 @@ pub fn build_cookie(builder: CookieBuilder) -> Cookie {
 
 **Use when:** Appending or inserting items into collections where duplicates are allowed or desired.
 
-##### Adding a header and a route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_modification.gleam#L20-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Adding a header and a route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_modification.gleam#L20-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   let headers =
@@ -171,7 +171,7 @@ pub fn build_cookie(builder: CookieBuilder) -> Cookie {
 
 **Use when:** Deleting items from collections by identifier/key.
 
-##### Removing a header and a cookie <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_modification.gleam#L29-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Removing a header and a cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_modification.gleam#L29-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   let headers = header.remove_header(request.headers, "X-Tracking-Id")
@@ -187,7 +187,7 @@ pub fn build_cookie(builder: CookieBuilder) -> Cookie {
 
 **Use when:** Transforming between types that represent the same concept but are from different modules or libraries.
 
-##### Converting a method and a cookie <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_conversion.gleam#L25-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Converting a method and a cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_conversion.gleam#L25-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn convert_http_method_to_method(
@@ -210,7 +210,7 @@ pub fn convert_cookie_to_header(cookie: Cookie) -> Header {
 
 **Use when:** Converting unstructured text or binary data into typed structures.
 
-##### Parsing cookies and a method <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_conversion.gleam#L38-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Parsing cookies and a method <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_conversion.gleam#L38-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   let cookies = dream.parse_cookie_string("theme=dark; session=abc123")
@@ -225,7 +225,7 @@ pub fn convert_cookie_to_header(cookie: Cookie) -> Header {
 
 **Use when:** Converting typed structures into strings or bytes for output or transmission.
 
-##### Formatting a cookie header and a query string <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_conversion.gleam#L44-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Formatting a cookie header and a query string <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_conversion.gleam#L44-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn format_cookie_header(cookie: Cookie) -> String {
@@ -251,7 +251,7 @@ fn format_query_parameter(parameter: #(String, String)) -> String {
 
 **Use when:** Converting between types where the relationship is obvious and the full `convert_{from}_to_{to}` would be verbose.
 
-##### Converting a header to a pair and back <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_conversion.gleam#L59-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Converting a header to a pair and back <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_conversion.gleam#L59-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn header_to_pair(header: Header) -> #(String, String) {
@@ -275,7 +275,7 @@ pub fn pair_to_header(pair: #(String, String)) -> Header {
 
 **Use when:** Evaluating a characteristic or condition of a single item.
 
-##### Checking a request, a cookie and a response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_checks.gleam#L10-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Checking a request, a cookie and a response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_checks.gleam#L10-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn is_post(request: Request) -> Bool {
@@ -298,7 +298,7 @@ pub fn is_json(response: Response) -> Bool {
 
 **Use when:** Testing for presence or existence in collections or composite types.
 
-##### Checking for a body, a header and a cookie <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_checks.gleam#L22-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Checking for a body, a header and a cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_checks.gleam#L22-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn has_json_body(request: Request) -> Bool {
@@ -325,7 +325,7 @@ pub fn has_cookie(cookies: List(Cookie), name: String) -> Bool {
 
 **Use when:** Implementing request handlers, middleware, or response processors that contain logic.
 
-##### Handling a request, an error and authentication <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_processing.gleam#L16-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Handling a request, an error and authentication <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_processing.gleam#L16-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_request(request: Request) -> Response {
@@ -354,7 +354,7 @@ pub fn handle_authentication(request: Request) -> Result(Request, Error) {
 
 **Use when:** Finding and dispatching requests to handlers based on path, method, or other criteria.
 
-##### Routing a request to its controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_processing.gleam#L34-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Routing a request to its controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_processing.gleam#L34-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn respond(request: Request) -> Response {
@@ -372,7 +372,7 @@ pub fn respond(request: Request) -> Response {
 
 **Use when:** Testing if a value matches a pattern, path template, or condition.
 
-##### Matching a method and a path <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_processing.gleam#L41-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Matching a method and a path <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_processing.gleam#L41-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn match_method(allowed: List(Method), method: Method) -> Bool {
@@ -403,7 +403,7 @@ fn match_segment(segments: #(String, String)) -> Bool {
 
 **Use when:** Implementing error recovery or transformation logic for specific error types.
 
-##### Handling a parse error and an authentication error <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_errors.gleam#L19-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Handling a parse error and an authentication error <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_errors.gleam#L19-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_parse_error(_error: json.DecodeError) -> Response {
@@ -425,7 +425,7 @@ pub fn handle_auth_error(error: AuthError) -> Response {
 
 **Use when:** Implementing retry logic or fallback mechanisms.
 
-##### Recovering from a timeout and a connection error <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_errors.gleam#L30-L48"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Recovering from a timeout and a connection error <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_errors.gleam#L30-L48"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn recover_from_timeout(
@@ -460,7 +460,7 @@ pub fn recover_from_connection_error(
 
 **Use when:** Validating user identity, checking passwords, or verifying tokens.
 
-##### Authenticating a user, a token and a request <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_auth.gleam#L42-L61"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Authenticating a user, a token and a request <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_auth.gleam#L42-L61"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn authenticate_user(credentials: Credentials) -> Result(User, AuthError) {
@@ -492,7 +492,7 @@ pub fn authenticate_request(request: Request) -> Result(User, AuthError) {
 
 **Use when:** Verifying access rights for resources or operations.
 
-##### Authorizing a user and a request <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_auth.gleam#L63-L76"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Authorizing a user and a request <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_auth.gleam#L63-L76"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn authorize_user(user: User, article: Article) -> Result(Nil, AuthError) {
@@ -518,7 +518,7 @@ pub fn authorize_request(
 
 **Use when:** Testing for a particular permission flag or capability.
 
-##### Checking a user permission and a request permission <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_auth.gleam#L78-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Checking a user permission and a request permission <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_auth.gleam#L78-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn check_user_permission(user: User, permission: Permission) -> Bool {
@@ -547,7 +547,7 @@ pub fn check_request_permission(
 
 **Use when:** Performing comprehensive validation that may return multiple errors or detailed error information.
 
-##### Validating a signup and a cookie <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_validation.gleam#L19-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Validating a signup and a cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_validation.gleam#L19-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn validate_signup(signup: Signup) -> Result(Signup, List(SignupError)) {
@@ -579,7 +579,7 @@ pub fn validate_cookie(cookie: Cookie) -> Result(Cookie, String) {
 
 **Use when:** Initiating servers, background tasks, or services.
 
-##### Starting a server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_lifecycle.gleam#L24-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Starting a server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_lifecycle.gleam#L24-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn start_server(port: Int) {
@@ -596,7 +596,7 @@ pub fn start_server(port: Int) {
 
 **Use when:** Halting services or processes without graceful cleanup.
 
-##### Stopping a server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_lifecycle.gleam#L30-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Stopping a server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_lifecycle.gleam#L30-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn stop_server(handle: server.ServerHandle) -> Nil {
@@ -611,7 +611,7 @@ pub fn stop_server(handle: server.ServerHandle) -> Nil {
 
 **Use when:** Setting up resources, loading configuration, or preparing for use.
 
-##### Initializing a database and services <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_lifecycle.gleam#L34-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Initializing a database and services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_lifecycle.gleam#L34-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn init_database(config: DatabaseConfig) -> Result(Database, String) {
@@ -634,7 +634,7 @@ pub fn init_services(config: DatabaseConfig) -> Result(Services, String) {
 
 **Use when:** Stopping services with proper cleanup, saving state, or closing connections.
 
-##### Shutting down a database and services <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_lifecycle.gleam#L46-L52"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Shutting down a database and services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_lifecycle.gleam#L46-L52"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn shutdown_database(database: Database) -> Database {
@@ -657,7 +657,7 @@ pub fn shutdown_services(services: Services) -> Services {
 
 **Use when:** Encoding data for storage or transmission.
 
-##### Serializing a user and a session <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_serialization.gleam#L21-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Serializing a user and a session <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_serialization.gleam#L21-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn serialize_user(user: User) -> String {
@@ -677,7 +677,7 @@ pub fn serialize_session(session: Session) -> BitArray {
 
 **Use when:** Decoding data from storage or transmission.
 
-##### Deserializing a user and a session <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_serialization.gleam#L30-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Deserializing a user and a session <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_serialization.gleam#L30-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn deserialize_user(text: String) -> Result(User, json.DecodeError) {
@@ -703,7 +703,7 @@ pub fn deserialize_session(bytes: BitArray) -> Result(Session, Nil) {
 
 **Use when:** Retrieving data from databases, files, or other persistent storage.
 
-##### Loading a user and a config file <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_state.gleam#L24-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Loading a user and a config file <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_state.gleam#L24-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn load_user(database: Database, id: Int) -> Result(User, Nil) {
@@ -722,7 +722,7 @@ pub fn load_config(path: String) -> Result(String, simplifile.FileError) {
 
 **Use when:** Writing data to databases, files, or other persistent storage.
 
-##### Saving a user and a config file <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_state.gleam#L32-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Saving a user and a config file <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_state.gleam#L32-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn save_user(database: Database, user: User) -> Database {
@@ -744,7 +744,7 @@ pub fn save_config(
 
 **Use when:** Keeping data in memory, cache, or temporary storage.
 
-##### Storing a session in memory <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_state.gleam#L43-L48"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Storing a session in memory <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_state.gleam#L43-L48"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn store_session(
@@ -762,7 +762,7 @@ pub fn store_session(
 
 **Use when:** Recovering from backups, checkpoints, or saved states.
 
-##### Restoring sessions and a config file <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_state.gleam#L50-L60"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Restoring sessions and a config file <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_state.gleam#L50-L60"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn restore_sessions(snapshot: List(Session)) -> Dict(String, Session) {
@@ -789,7 +789,7 @@ pub fn restore_config(
 
 **Use when:** Constructing HTTP responses with specific content types or formats.
 
-##### Making responses of each content type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_responses.gleam#L8-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Making responses of each content type <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_responses.gleam#L8-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   let text = http.text_response(http.ok, "Hello")
@@ -807,7 +807,7 @@ pub fn restore_config(
 
 For fluent builder APIs, simple action verbs without nouns are acceptable when the builder type provides context:
 
-#### ✅ Acceptable: the server builder <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_builder.gleam#L12-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### ✅ Acceptable: the server builder <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_builder.gleam#L12-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   server.new()
@@ -829,7 +829,7 @@ This exception applies only to:
 
 For factory functions that create instances where context makes it unambiguous, `create_{noun}` can be shortened to just `{noun}`:
 
-#### ✅ Acceptable: the router constructor <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_factory.gleam#L24-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### ✅ Acceptable: the router constructor <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_factory.gleam#L24-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   // Router constructor: the router module creates a Router
@@ -848,7 +848,7 @@ For factory functions that create instances where context makes it unambiguous, 
 - The context doesn't clearly indicate what's being constructed
 - The function name doesn't correspond to what's being created
 
-#### ❌ Not acceptable: ambiguous factories <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_factory.gleam#L30-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### ❌ Not acceptable: ambiguous factories <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_factory.gleam#L30-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // Ambiguous: what does this initialize?
@@ -864,7 +864,7 @@ pub fn user() -> Result(User, String) {
 }
 ```
 
-#### ✅ Acceptable: an unambiguous factory <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_factory.gleam#L42-L48"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### ✅ Acceptable: an unambiguous factory <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_factory.gleam#L42-L48"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // Clearly creates a Database
@@ -886,7 +886,7 @@ pub fn database(url: String) -> Result(Database, String) {
 
 Variables and parameters must use full, descriptive names without abbreviations, but should remain concise. Context provides meaning - don't encode everything in the variable name.
 
-### ✅ Good: full words, concise <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_variables_good.gleam#L7-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ✅ Good: full words, concise <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_variables_good.gleam#L7-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn show_user(request: Request, _context, services: Services) -> Response {
@@ -898,7 +898,7 @@ pub fn show_user(request: Request, _context, services: Services) -> Response {
 }
 ```
 
-### ❌ Bad: abbreviated <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_variables_abbreviated.gleam#L7-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ❌ Bad: abbreviated <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_variables_abbreviated.gleam#L7-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn show_user(req: Request, _ctx, svcs: Services) -> Response {
@@ -912,7 +912,7 @@ pub fn show_user(req: Request, _ctx, svcs: Services) -> Response {
 
 `req`, `ctx`, `svcs`, `res` and `uid` save a few letters, but the reader must guess each word.
 
-### ❌ Bad: overly verbose <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_variables_verbose.gleam#L7-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ❌ Bad: overly verbose <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_variables_verbose.gleam#L7-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn show_user(

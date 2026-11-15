@@ -12,7 +12,7 @@ import gleam/string
 ///
 /// ## Examples
 ///
-/// ### Match a user path <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/tone_guide_api_reference_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Match a user path <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/tone_guide_api_reference_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import gleam/option.{type Option}

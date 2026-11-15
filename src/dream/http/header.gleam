@@ -5,7 +5,7 @@
 ////
 //// ## Common Operations
 ////
-//// ### Work with headers <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_header_module.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Work with headers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_header_module.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/http/header.{Header}
@@ -43,7 +43,7 @@ import gleam/string
 ///
 /// ## Example
 ///
-/// ### Create headers <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_header_type.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Create headers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_header_type.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/header.{type Header, Header}
@@ -66,7 +66,7 @@ pub type Header {
 ///
 /// ## Example
 ///
-/// ### Get the name <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_header_name.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_header_name.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/header.{Header}
@@ -89,7 +89,7 @@ pub fn header_name(header: Header) -> String {
 ///
 /// ## Example
 ///
-/// ### Get the value <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_header_value.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the value <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_header_value.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/header.{Header}
@@ -114,7 +114,7 @@ pub fn header_value(header: Header) -> String {
 ///
 /// ## Example
 ///
-/// ### Look up a header <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_get_header.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Look up a header <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_get_header.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/header.{Header}
@@ -170,7 +170,7 @@ fn find_header(
 ///
 /// ## Example
 ///
-/// ### Set a header <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_set_header.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Set a header <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_set_header.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/header.{Header}
@@ -240,7 +240,7 @@ fn filter_headers_recursive(
 ///
 /// ## Example
 ///
-/// ### Add a header <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_add_header.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Add a header <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_add_header.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/header
@@ -273,7 +273,7 @@ pub fn add_header(
 ///
 /// ## Example
 ///
-/// ### Remove a header <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_remove_header.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Remove a header <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_remove_header.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/header.{Header}

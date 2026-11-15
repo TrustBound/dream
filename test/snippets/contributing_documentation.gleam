@@ -6,7 +6,7 @@ import dream/http/response.{type Response, text_response}
 ///
 /// ## Example
 ///
-/// ### Greet a person <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/contributing_documentation_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Greet a person <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_documentation_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/response.{type Response}

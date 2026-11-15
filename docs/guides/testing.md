@@ -6,7 +6,7 @@ Dream uses [dream_test](https://hexdocs.pm/dream_test/), a testing framework
 designed for clarity and maintainability. Tests live in `test/`, mirror your
 `src/` structure, and use a BDD-style `describe`/`it` pattern.
 
-## Quick Start <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_quick_start.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Quick Start <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_quick_start.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_test/assertions/should.{be_ok, or_fail_with, should}
@@ -59,7 +59,7 @@ test/
 Create `test/your_app_test.gleam`. The last step, `exit_on_failure`, ends the
 program with status 1 when a test fails, so `gleam test` and CI fail too:
 
-#### Test entry point <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_entry_point.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Test entry point <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_entry_point.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_test/reporter/bdd.{report}
@@ -86,7 +86,7 @@ pub fn main() -> Nil {
 
 Each test module exports a `tests()` function:
 
-#### A test module <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_test_module.gleam#L1-L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### A test module <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_test_module.gleam#L1-L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_test/assertions/should.{equal, or_fail_with, should}
@@ -116,7 +116,7 @@ pub fn tests() -> UnitTest {
 
 ## Assertions
 
-### Basic Matchers <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_matchers.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Basic Matchers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_matchers.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{get_query_param}
@@ -205,7 +205,7 @@ pub fn tests() -> UnitTest {
 
 Matchers can be chained to extract and assert:
 
-#### Chaining be_some and be_ok <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_examples.gleam#L14-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Chaining be_some and be_ok <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_examples.gleam#L14-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn chaining_tests() -> UnitTest {
@@ -240,7 +240,7 @@ pub fn chaining_tests() -> UnitTest {
 
 Create domain-specific matchers for cleaner tests:
 
-#### A custom matcher <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_extract_user_name.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### A custom matcher <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_extract_user_name.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/validation.{type ValidationError}
@@ -274,7 +274,7 @@ fn validation_failed_failure() -> MatchResult(String) {
 }
 ```
 
-#### Using the custom matcher <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_examples.gleam#L41-L52"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Using the custom matcher <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_examples.gleam#L41-L52"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn custom_matcher_tests() -> UnitTest {
@@ -303,7 +303,7 @@ pub fn custom_matcher_tests() -> UnitTest {
 
 Create reusable test data in `test/fixtures/`:
 
-#### A request fixture <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_request_fixture.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### A request fixture <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_request_fixture.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Method, type Request, Http, Http1, Request, Text}
@@ -337,7 +337,7 @@ pub fn create_request_with_body(
 }
 ```
 
-#### Using the request fixture <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_fixture_usage.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Using the request fixture <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_fixture_usage.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{Post, Text}
@@ -368,7 +368,7 @@ pub fn tests() -> UnitTest {
 
 Run setup/teardown for each test in a group:
 
-#### Setup and teardown for each test <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_before_each.gleam#L1-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Setup and teardown for each test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_before_each.gleam#L1-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_test/assertions/should.{be_ok, equal, or_fail_with, should}
@@ -408,7 +408,7 @@ Run once before/after all tests in a group. Convert the tests with
 `to_test_suite` and run them with `run_suite`, because `to_test_cases` and
 `run_all` do not run these hooks:
 
-#### Setup and teardown once for a group <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_before_all.gleam#L1-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Setup and teardown once for a group <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_before_all.gleam#L1-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/dream
@@ -455,7 +455,7 @@ pub fn tests() -> UnitTest {
 
 Controllers receive `Request`, `Context`, and `Services`:
 
-#### A controller test <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_users_controller_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### A controller test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_users_controller_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{AppContext}
@@ -487,7 +487,7 @@ pub fn tests() -> UnitTest {
 
 Test middleware with mock `next` functions:
 
-#### A middleware test <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_auth_middleware_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### A middleware test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_auth_middleware_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{AppContext}
@@ -536,7 +536,7 @@ pub fn tests() -> UnitTest {
 
 Test business logic without HTTP:
 
-#### A model test <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_user_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### A model test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_user_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_test/assertions/should.{be_error, be_ok, or_fail_with, should}
@@ -582,7 +582,7 @@ pub fn tests() -> UnitTest {
   - Should clean up after themselves
   - May be slower
 
-#### An integration test that uses the file system <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_integration.gleam#L1-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### An integration test that uses the file system <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_integration.gleam#L1-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_test/assertions/should.{equal, fail_with, or_fail_with, should}
@@ -619,7 +619,7 @@ pub fn tests() -> UnitTest {
 
 Test public interfaces, not implementation details:
 
-#### Good and bad black box tests <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_examples.gleam#L54-L74"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Good and bad black box tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_examples.gleam#L54-L74"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn black_box_tests() -> UnitTest {
@@ -654,7 +654,7 @@ internal detail: the test breaks when the storage changes, even when
 
 Each test should verify one thing:
 
-#### Focused tests and a test with two assertions <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_examples.gleam#L76-L109"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Focused tests and a test with two assertions <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_examples.gleam#L76-L109"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn one_assertion_tests() -> UnitTest {
@@ -701,7 +701,7 @@ dream_test never sees it, so that check can fail and the test still passes.
 
 Every test follows AAA with blank lines between sections:
 
-#### An Arrange, Act, Assert test <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_examples.gleam#L111-L125"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### An Arrange, Act, Assert test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_examples.gleam#L111-L125"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn arrange_act_assert_test() -> UnitTest {

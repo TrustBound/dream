@@ -8,7 +8,7 @@
 //// For simple applications that don't need per-request context, Dream defaults to `EmptyContext`.
 //// You don't need to set it explicitly:
 ////
-//// ### Use the default context <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_context_default.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Use the default context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_context_default.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/servers/mist/server.{listen, router}
@@ -22,7 +22,7 @@
 ////
 //// If you need to explicitly set EmptyContext (e.g., replacing a previously set context):
 ////
-//// ### Set EmptyContext <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_context_empty.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Set EmptyContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_context_empty.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/context.{EmptyContext}
@@ -41,7 +41,7 @@
 //// Dream also provides `AppContext` with a `request_id` field. Use this if you want
 //// basic request tracking but don't need custom context yet:
 ////
-//// ### Use AppContext <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_context_app.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Use AppContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_context_app.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/context.{AppContext}
@@ -61,7 +61,7 @@
 ////
 //// Define your own context type to hold whatever per-request data you need:
 ////
-//// ### Define a context type <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_context_custom.gleam#L4-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Define a context type <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_context_custom.gleam#L4-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/servers/mist/server.{context, listen, router, services}
@@ -79,7 +79,7 @@
 ////
 //// Then pass it to your server:
 ////
-//// ### Start a server with your context <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_context_custom.gleam#L16-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Start a server with your context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_context_custom.gleam#L16-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// pub fn start(my_services, my_router) {
@@ -102,7 +102,7 @@
 ////
 //// Middleware can update the context as requests flow through:
 ////
-//// ### Add the user in middleware <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_core_context_middleware.gleam#L4-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Add the user in middleware <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_context_middleware.gleam#L4-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// import dream/http/header.{get_header}

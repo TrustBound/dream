@@ -6,7 +6,7 @@ Side-by-side comparison showing exactly what Dream adds over raw Mist.
 
 ### With Raw Mist
 
-#### Raw Mist: hello world <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/dream_vs_mist_simple_mist.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Raw Mist: hello world <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_simple_mist.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import gleam/bytes_tree
@@ -59,7 +59,7 @@ pub fn main() {
 
 ### With Dream
 
-#### Dream: hello world <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/dream_vs_mist_simple_dream.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Dream: hello world <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_simple_dream.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http.{type Request, type Response, ok, text_response}
@@ -95,7 +95,7 @@ pub fn main() {
 
 ### With Raw Mist
 
-#### Raw Mist: parse the path by hand <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/dream_vs_mist_params_mist.gleam#L14-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Raw Mist: parse the path by hand <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_params_mist.gleam#L14-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_request(request: Request(Connection)) -> Response(ResponseData) {
@@ -134,7 +134,7 @@ fn not_found() -> Response(ResponseData) {
 
 ### With Dream
 
-#### Dream: read the id parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/dream_vs_mist_params_dream.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Dream: read the id parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_params_dream.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type EmptyContext}
@@ -217,7 +217,7 @@ pub fn main() {
 
 ### With Raw Mist
 
-#### Raw Mist: check the token in the handler <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/dream_vs_mist_middleware_mist.gleam#L17-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Raw Mist: check the token in the handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_middleware_mist.gleam#L17-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_request(request: Request(Connection)) -> Response(ResponseData) {
@@ -270,7 +270,7 @@ fn create_post(
 
 ### With Dream
 
-#### Dream: auth middleware on one route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/dream_vs_mist_middleware_dream.gleam#L29-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Dream: auth middleware on one route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_middleware_dream.gleam#L29-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn auth_middleware(
@@ -349,7 +349,7 @@ pub fn main() {
 
 ### With Raw Mist
 
-#### Raw Mist: handlers with different signatures <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/dream_vs_mist_middleware_mist.gleam#L48-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Raw Mist: handlers with different signatures <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_middleware_mist.gleam#L48-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn show_home(user: User) -> Response(ResponseData) {
@@ -368,7 +368,7 @@ Each handler takes different arguments. Nothing ties them together, so the compi
 
 ### With Dream
 
-#### Dream: one controller type for every route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/dream_vs_mist_middleware_dream.gleam#L51-L78"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Dream: one controller type for every route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_middleware_dream.gleam#L51-L78"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn show_home(
