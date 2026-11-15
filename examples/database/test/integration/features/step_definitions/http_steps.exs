@@ -40,13 +40,13 @@ defmodule HttpSteps do
 
     response =
       case String.upcase(method) do
-        "GET" -> HTTPoison.get(url, headers)
-        "POST" -> HTTPoison.post(url, "", headers)
-        "PUT" -> HTTPoison.put(url, "", headers)
-        "DELETE" -> HTTPoison.delete(url, headers)
-        "PATCH" -> HTTPoison.patch(url, "", headers)
-        "HEAD" -> HTTPoison.head(url, headers)
-        "OPTIONS" -> HTTPoison.options(url, headers)
+        "GET" -> DreamHttp.get(url, headers)
+        "POST" -> DreamHttp.post(url, "", headers)
+        "PUT" -> DreamHttp.put(url, "", headers)
+        "DELETE" -> DreamHttp.delete(url, headers)
+        "PATCH" -> DreamHttp.patch(url, "", headers)
+        "HEAD" -> DreamHttp.head(url, headers)
+        "OPTIONS" -> DreamHttp.options(url, headers)
         _ -> {:error, "Unsupported HTTP method: #{method}"}
       end
 
@@ -65,9 +65,9 @@ defmodule HttpSteps do
 
     response =
       case String.upcase(method) do
-        "POST" -> HTTPoison.post(url, json_body, headers)
-        "PUT" -> HTTPoison.put(url, json_body, headers)
-        "PATCH" -> HTTPoison.patch(url, json_body, headers)
+        "POST" -> DreamHttp.post(url, json_body, headers)
+        "PUT" -> DreamHttp.put(url, json_body, headers)
+        "PATCH" -> DreamHttp.patch(url, json_body, headers)
         _ -> {:error, "HTTP method #{method} not supported with JSON body"}
       end
 
@@ -205,9 +205,9 @@ defmodule HttpSteps do
 
     response =
       case String.upcase(method) do
-        "POST" -> HTTPoison.post(url, invalid_json, headers)
-        "PUT" -> HTTPoison.put(url, invalid_json, headers)
-        "PATCH" -> HTTPoison.patch(url, invalid_json, headers)
+        "POST" -> DreamHttp.post(url, invalid_json, headers)
+        "PUT" -> DreamHttp.put(url, invalid_json, headers)
+        "PATCH" -> DreamHttp.patch(url, invalid_json, headers)
         _ -> {:error, "HTTP method #{method} not supported with JSON body"}
       end
 
@@ -226,9 +226,9 @@ defmodule HttpSteps do
 
     response =
       case String.upcase(method) do
-        "POST" -> HTTPoison.post(url, json_body, headers)
-        "PUT" -> HTTPoison.put(url, json_body, headers)
-        "PATCH" -> HTTPoison.patch(url, json_body, headers)
+        "POST" -> DreamHttp.post(url, json_body, headers)
+        "PUT" -> DreamHttp.put(url, json_body, headers)
+        "PATCH" -> DreamHttp.patch(url, json_body, headers)
         _ -> {:error, "HTTP method #{method} not supported with JSON body"}
       end
 

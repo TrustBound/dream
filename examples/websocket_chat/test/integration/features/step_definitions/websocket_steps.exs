@@ -3,13 +3,41 @@ defmodule WebsocketSteps do
 
   alias WebSockex
 
-  @base_url "ws://localhost:8080"
+  # In the HTTP/2 run the server serves only HTTPS, so WebSockets use wss://
+  # with the test certificate authority. WebSockets stay on HTTP/1.1.
+  defp base_url do
+    case System.get_env("DREAM_TEST_CA_FILE", "") do
+      "" -> "ws://localhost:8080"
+      _ -> "wss://localhost:8080"
+    end
+  end
+
+  def connection_options do
+    case System.get_env("DREAM_TEST_CA_FILE", "") do
+      "" ->
+        []
+
+      ca_file ->
+        [
+          ssl_options: [
+            verify: :verify_peer,
+            cacertfile: String.to_charlist(ca_file),
+            server_name_indication: ~c"localhost"
+          ]
+        ]
+    end
+  end
 
   defmodule TestClient do
     use WebSockex
 
     def start_link(url, test_pid) do
-      WebSockex.start_link(url, __MODULE__, %{test_pid: test_pid, messages: []})
+      WebSockex.start_link(
+        url,
+        __MODULE__,
+        %{test_pid: test_pid, messages: []},
+        WebsocketSteps.connection_options()
+      )
     end
 
     def send_message(pid, message) do
@@ -46,13 +74,13 @@ defmodule WebsocketSteps do
   end
 
   step "I upgrade to WebSocket at {string}", %{args: [path]} = context do
-    url = "#{@base_url}#{path}"
+    url = "#{base_url()}#{path}"
     {:ok, pid} = TestClient.start_link(url, self())
     Map.put(context, :ws_conn, pid)
   end
 
   step "I connect to WebSocket at {string}", %{args: [path]} = context do
-    url = "#{@base_url}#{path}"
+    url = "#{base_url()}#{path}"
     {:ok, pid} = TestClient.start_link(url, self())
     
     # Wait for and consume join message
@@ -102,7 +130,7 @@ defmodule WebsocketSteps do
   end
 
   step "user {string} connects to the chat", %{args: [username]} = context do
-    url = "#{@base_url}/chat?user=#{URI.encode(username)}"
+    url = "#{base_url()}/chat?user=#{URI.encode(username)}"
     {:ok, pid} = TestClient.start_link(url, self())
     
     # Wait for this user's join message only
