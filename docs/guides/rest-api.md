@@ -6,25 +6,21 @@ Production-ready patterns for building REST APIs with Dream.
 
 ### Offset-based Pagination
 
-```gleam
-import dream/http/error.{type Error, InternalServerError}
-import gleam/list.{List, map}
-import pog.{Connection, Returned}
-import sql
-import types/product.{Product}
+A database model wraps a Squirrel query and returns domain types. This model from the database example lists all users:
 
-// models/product.gleam
-pub fn list_paginated(
-  db: Connection,
-  offset: Int,
-  limit: Int,
-) -> Result(List(Product), Error) {
-  case sql.list_products_paginated(db, offset, limit) {
-    Ok(returned) -> Ok(map(returned.rows, row_to_product))
+#### Users model <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/models/user.gleam#L15-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+/// List all users
+pub fn list(db: pog.Connection) -> Result(List(User), Error) {
+  case sql.list_users(db) {
+    Ok(returned) -> Ok(extract_all_users(returned))
     Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 ```
+
+For offset pagination, add `offset` and `limit` parameters to the function, and pass them to an SQL query with `OFFSET $1 LIMIT $2`.
 
 #### Products controller with offset and limit <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/rest_api_guide_pagination.gleam#L6-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -88,24 +84,72 @@ app calls a database model like the one above.
 
 ### Cursor-based Pagination
 
-```gleam
-import dream/http/error.{type Error}
-import gleam/list.{List}
-import gleam/option.{Option, None, Some}
-import pog.{Connection}
-import types/product.{Product}
+A cursor marks the last row the client saw. The client sends it back to get the next page. This model encodes the last id on the page as an opaque base64 string:
 
+#### Products model with a cursor <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/rest_api_guide_cursor_pagination.gleam#L14-L69"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub type Product {
+  Product(id: Int, name: String)
+}
+
+pub type Page {
+  Page(items: List(Product), next_cursor: Option(String))
+}
+
+// models/product.gleam
 pub fn list_after(
-  db: Connection,
-  after_id: Option(Int),
+  products: List(Product),
+  cursor: Option(String),
   limit: Int,
-) -> Result(List(Product), Error) {
-  case after_id {
-    None -> sql.list_products(db, limit)
-    Some(id) -> sql.list_products_after(db, id, limit)
+) -> Result(Page, Error) {
+  case decode_cursor(cursor) {
+    Ok(after_id) -> Ok(page_after(products, after_id, limit))
+    Error(_) -> Error(BadRequest("Invalid cursor"))
   }
 }
+
+fn page_after(products: List(Product), after_id: Int, limit: Int) -> Page {
+  // Read one row more than the page holds, to know if a next page exists
+  let rows =
+    products
+    |> list.drop_while(is_at_or_before(_, after_id))
+    |> list.take(limit + 1)
+  let items = list.take(rows, limit)
+  case list.length(rows) > limit, list.last(items) {
+    True, Ok(last) -> Page(items, Some(encode_cursor(last.id)))
+    _, _ -> Page(items, None)
+  }
+}
+
+fn is_at_or_before(product: Product, after_id: Int) -> Bool {
+  product.id <= after_id
+}
+
+fn encode_cursor(id: Int) -> String {
+  int.to_string(id)
+  |> bit_array.from_string
+  |> bit_array.base64_url_encode(False)
+}
+
+fn decode_cursor(cursor: Option(String)) -> Result(Int, Nil) {
+  case cursor {
+    // No cursor: start before the first id
+    None -> Ok(0)
+    Some(text) -> parse_cursor(text)
+  }
+}
+
+fn parse_cursor(text: String) -> Result(Int, Nil) {
+  use bits <- result.try(bit_array.base64_url_decode(text))
+  use digits <- result.try(bit_array.to_string(bits))
+  int.parse(digits)
+}
 ```
+
+The model reads one row more than `limit`. If that extra row exists, the page gets a `next_cursor`. The last page has no `next_cursor`. A cursor that does not decode to an id gives a `BadRequest` error.
+
+To keep the tested snippet self-contained, `list_after` reads from a list. A real app runs the same logic in SQL: `WHERE id > $1 ORDER BY id LIMIT $2`, with `$2` set to `limit + 1`.
 
 ## Validation
 
@@ -301,39 +345,39 @@ fn v2_index(_services: Services) -> Response {
 
 ## Rate Limiting
 
-```gleam
-import dream/http.{type Request, type Response, json_response, too_many_requests}
-import dream/context.{AppContext}
-import dream_ets
-import services.{Services}
+### Rate limit middleware <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/rate_limiter/src/middleware/rate_limit_middleware.gleam#L6-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
+```gleam
+import dream/context.{type EmptyContext}
+import dream/http/header.{add_header, get_header}
+import dream/http/request.{type Request}
+import dream/http/response.{type Response, Response, text_response}
+import dream/http/status
+import gleam/int
+import gleam/option
+import gleam/string
+import services.{type Services}
+import services/rate_limiter_service
+
+/// Rate limiting middleware
+/// Checks request rate for the client IP and enforces limits
 pub fn rate_limit_middleware(
   request: Request,
-  context: AppContext,
+  context: EmptyContext,
   services: Services,
-  next: fn(Request, AppContext, Services) -> Response,
+  next: fn(Request, EmptyContext, Services) -> Response,
 ) -> Response {
-  let ip = get_client_ip(request)  // Helper: extract IP from request.remote_address
-  let key = "rate_limit:" <> ip
-  
-  case dream_ets.get(services.cache, key) {
-    Ok(count) if count >= 100 ->
-      json_response(too_many_requests, "{\"error\": \"Rate limit exceeded\"}")
-    Ok(count) -> {
-      let _ = dream_ets.set(services.cache, key, count + 1)
-      next(request, context, services)
-    }
-    Error(_) -> {
-      let _ = dream_ets.set(services.cache, key, 1)
-      next(request, context, services)
-    }
+  let ip = get_client_ip(request)
+
+  case rate_limiter_service.check_and_increment(services.rate_limiter, ip) {
+    Ok(status) ->
+      handle_rate_limit_result(status, request, context, services, next)
+    Error(_) -> handle_service_error(request, context, services, next)
   }
 }
-
-fn error_json(message: String) -> String {
-  "{\"error\": \"" <> message <> "\"}"
-}
 ```
+
+The middleware calls `rate_limiter_service.check_and_increment`, which keeps a count for each client IP in a `dream_ets` table. The rate limiter example allows 10 requests in each 60-second window. A request over the limit gets a 429 response with `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `Retry-After` headers.
 
 ## Filtering and Sorting <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/rest_api_guide_filtering.gleam#L6-L64"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -432,33 +476,39 @@ fn add_cors_headers(response: Response) -> Response {
 }
 ```
 
-## Health Check Endpoint
+## Health Check Endpoint <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/controllers/health_controller.gleam#L6-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{type Request, type Response, json_response, ok, service_unavailable}
-import dream/context.{AppContext}
-import pog.{Connection, query}
-import services.{Services}
+import context.{type DatabaseContext}
+import dream/http.{type Request, type Response}
 import dream/http/error.{type Error, InternalServerError}
+import dream/http/response.{json_response}
+import dream/http/status
+import pog
+import services.{type Services}
 
-pub fn health_check(
+/// Report whether the app and its database are healthy
+pub fn show(
   _request: Request,
-  _context: AppContext,
+  _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  case check_database(services.db) {
-    Ok(_) -> json_response(ok, "{\"status\": \"healthy\"}")
-    Error(_) -> json_response(service_unavailable, "{\"status\": \"unhealthy\"}")
+  case check_database(services.database.connection) {
+    Ok(_) -> json_response(status.ok, "{\"status\": \"healthy\"}")
+    Error(_) ->
+      json_response(status.service_unavailable, "{\"status\": \"unhealthy\"}")
   }
 }
 
-fn check_database(db: Connection) -> Result(Nil, Error) {
-  case query("SELECT 1", db, []) {
+fn check_database(db: pog.Connection) -> Result(Nil, Error) {
+  case pog.query("SELECT 1") |> pog.execute(db) {
     Ok(_) -> Ok(Nil)
     Error(_) -> Error(InternalServerError("Database connection failed"))
   }
 }
 ```
+
+The database example routes `GET /health` to this controller. It returns 503 when the database does not answer `SELECT 1`.
 
 ## See Also
 

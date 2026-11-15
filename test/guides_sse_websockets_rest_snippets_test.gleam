@@ -7,7 +7,7 @@
 
 import dream/context.{type AppContext, type EmptyContext, new_context}
 import dream/dream
-import dream/http/error.{NotFound}
+import dream/http/error.{BadRequest, NotFound}
 import dream/http/header.{type Header, Header}
 import dream/http/request.{type Request, Get, Post, Request}
 import dream/http/response.{type Response, Response, Text, json_response}
@@ -22,13 +22,14 @@ import fixtures/request as test_request
 import gleam/bit_array
 import gleam/erlang/process.{type Subject}
 import gleam/list
-import gleam/option.{None}
+import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import matchers/extract_body_text.{extract_body_text}
 import matchers/extract_response_status.{extract_response_status}
 import snippets/rest_api_guide_cors
 import snippets/rest_api_guide_create
+import snippets/rest_api_guide_cursor_pagination.{Page, Product}
 import snippets/rest_api_guide_domain_errors
 import snippets/rest_api_guide_filtering
 import snippets/rest_api_guide_header_versioning
@@ -364,6 +365,7 @@ fn receive_messages(
 fn rest_api_guide_tests() -> UnitTest {
   describe("rest api guide", [
     rest_api_pagination_tests(),
+    rest_api_cursor_pagination_tests(),
     rest_api_validation_tests(),
     rest_api_errors_tests(),
     rest_api_versioning_tests(),
@@ -422,6 +424,115 @@ fn rest_api_pagination_tests() -> UnitTest {
         "{\"data\":[{\"id\":1,\"name\":\"Lamp\"},{\"id\":2,\"name\":\"Desk\"},{\"id\":3,\"name\":\"Chair\"}],\"offset\":0,\"limit\":20}",
       )
       |> or_fail_with("index should return every product")
+    }),
+  ])
+}
+
+fn cursor_products() -> List(rest_api_guide_cursor_pagination.Product) {
+  [
+    Product(id: 1, name: "Lamp"),
+    Product(id: 2, name: "Desk"),
+    Product(id: 3, name: "Chair"),
+    Product(id: 4, name: "Shelf"),
+    Product(id: 5, name: "Rug"),
+  ]
+}
+
+fn rest_api_cursor_pagination_tests() -> UnitTest {
+  describe("cursor pagination", [
+    it("list_after with no cursor returns the first page and its cursor", fn() {
+      // Arrange
+      let products = cursor_products()
+
+      // Act
+      let result =
+        rest_api_guide_cursor_pagination.list_after(products, None, 2)
+
+      // Assert
+      result
+      |> should()
+      |> equal(
+        Ok(Page(
+          items: [Product(id: 1, name: "Lamp"), Product(id: 2, name: "Desk")],
+          next_cursor: Some("Mg"),
+        )),
+      )
+      |> or_fail_with("first page should hold ids 1 and 2, cursor Mg")
+    }),
+    it("list_after returns the middle page after the cursor", fn() {
+      // Arrange
+      let products = cursor_products()
+
+      // Act
+      let result =
+        rest_api_guide_cursor_pagination.list_after(products, Some("Mg"), 2)
+
+      // Assert
+      result
+      |> should()
+      |> equal(
+        Ok(Page(
+          items: [Product(id: 3, name: "Chair"), Product(id: 4, name: "Shelf")],
+          next_cursor: Some("NA"),
+        )),
+      )
+      |> or_fail_with("middle page should hold ids 3 and 4, cursor NA")
+    }),
+    it("list_after returns the last page with no next cursor", fn() {
+      // Arrange
+      let products = cursor_products()
+
+      // Act
+      let result =
+        rest_api_guide_cursor_pagination.list_after(products, Some("NA"), 2)
+
+      // Assert
+      result
+      |> should()
+      |> equal(
+        Ok(Page(items: [Product(id: 5, name: "Rug")], next_cursor: None)),
+      )
+      |> or_fail_with("last page should hold id 5 and no cursor")
+    }),
+    it(
+      "list_after gives no next cursor when the page ends at the last row",
+      fn() {
+        // Arrange
+        let products = cursor_products()
+
+        // Act
+        let result =
+          rest_api_guide_cursor_pagination.list_after(products, Some("Mg"), 3)
+
+        // Assert
+        result
+        |> should()
+        |> equal(
+          Ok(Page(
+            items: [
+              Product(id: 3, name: "Chair"),
+              Product(id: 4, name: "Shelf"),
+              Product(id: 5, name: "Rug"),
+            ],
+            next_cursor: None,
+          )),
+        )
+        |> or_fail_with("a full last page should have no cursor")
+      },
+    ),
+    it("list_after rejects a cursor that is not an encoded id", fn() {
+      // Arrange
+      let products = cursor_products()
+
+      // Act
+      let result =
+        rest_api_guide_cursor_pagination.list_after(products, Some("YWJj"), 2)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(BadRequest("Invalid cursor")))
+      |> or_fail_with("cursor YWJj decodes to abc and should be rejected")
     }),
   ])
 }
