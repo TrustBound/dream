@@ -28,6 +28,7 @@ import dream_test/unit
 import gleam/io
 import gleam/list
 import snippets_test
+import streaming_snippets_test
 
 pub fn main() {
   let all_tests =
@@ -64,6 +65,7 @@ pub fn main() {
       unit.to_test_cases("dream/streaming", streaming_test.tests()),
       unit.to_test_cases("benchmarks/router", router_benchmark.tests()),
       unit.to_test_cases("snippets", snippets_test.tests()),
+      unit.to_test_cases("streaming_snippets", streaming_snippets_test.tests()),
     ]
     |> list.flatten
 
