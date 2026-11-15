@@ -1,0 +1,3 @@
+{> with task_form as String
+{> with task_list as String
+<main><section><h1>Tasks</h1>{{ task_form }}</section><section>{{ task_list }}</section></main>

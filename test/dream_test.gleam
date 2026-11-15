@@ -32,6 +32,7 @@ import dream_test/runner
 import dream_test/unit
 import gleam/io
 import gleam/list
+import guides_deployment_templates_snippets_test
 import guides_sse_websockets_rest_snippets_test
 import naming_snippets_test
 import reference_snippets_test
@@ -97,6 +98,10 @@ pub fn main() {
       unit.to_test_cases(
         "testing_controllers_uploads_snippets",
         testing_controllers_uploads_snippets_test.tests(),
+      ),
+      unit.to_test_cases(
+        "guides_deployment_templates_snippets",
+        guides_deployment_templates_snippets_test.tests(),
       ),
     ]
     |> list.flatten

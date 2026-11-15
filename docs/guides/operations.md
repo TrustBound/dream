@@ -30,30 +30,33 @@ An Operation is just a **function**. Typically it:
 
 - Takes `Services` and the input it needs (IDs, payloads, etc.).
 - Calls models and other services.
-- Returns a `Result(success_value, dream.Error)` so controllers can
-  handle errors uniformly.
+- Returns a `Result(success_value, Error)`, with `Error` from
+  `dream/http/error`, so controllers can handle errors uniformly.
 
 **Example: Reordering Tasks**
 
-This operation updates the position of a task, which might involve shifting other tasks.
+This operation moves a task to a new position and shifts the other tasks. An unknown task gives `NotFound`, and a position outside the list gives `BadRequest`.
+
+### The reorder_task operation <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/operations_guide_tasks.gleam#L23-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream_postgres/client.{type Connection}
-import models/task/task_model
-import types/task.{type Task}
-
-pub fn execute(
-  db: Connection,
+pub fn reorder_task(
+  services: Services,
   task_id: Int,
   new_position: Int,
-) -> Result(Task, dream.Error) {
+) -> Result(List(Task), Error) {
   // In a real app, this might also:
   // 1. Check permissions
-  // 2. Shift other tasks to make room
+  // 2. Save the new order in the database
   // 3. Log the activity
   // 4. Broadcast an event via WebSocket
-  
-  task_model.update_position(db, task_id, new_position)
+  use task <- result.try(find_task(services.tasks, task_id))
+  use Nil <- result.try(check_position(services.tasks, new_position))
+  let other_tasks =
+    list.filter(services.tasks, fn(other) { other.id != task_id })
+  // Shift the other tasks to make room
+  let #(before, after) = list.split(other_tasks, new_position - 1)
+  Ok(list.flatten([before, [task], after]))
 }
 ```
 
@@ -61,39 +64,37 @@ pub fn execute(
 
 The controller becomes a simple coordinator:
 
-```gleam
-import dream/http.{require_int, type Request, type Response, empty_response, ok}
-import gleam/result
-import operations/reorder_tasks
-import utilities/response_helpers
+### The reorder controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/operations_guide_tasks.gleam#L42-L58"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
+```gleam
 pub fn reorder(
   request: Request,
-  _context: Context,
+  _context: EmptyContext,
   services: Services,
 ) -> Response {
   let result = {
     use id <- result.try(require_int(request, "id"))
-    // Parse body for new_position...
-    let new_position = 5
-    let db = services.database.connection
-    reorder_tasks.execute(db, id, new_position)
+    use form <- result.try(require_form(request))
+    use new_position <- result.try(require_field_int(form, "position"))
+    reorder_task(services, id, new_position)
   }
 
   case result {
-    Ok(_) -> empty_response(ok)
-    Error(err) -> response_helpers.handle_error(err)
+    Ok(tasks) -> json_response(ok, task_ids_to_json(tasks))
+    Error(failure) -> respond_with_error(failure)
   }
 }
 ```
 
-This controller uses `require_int` to safely extract the path parameter,
-then calls the operation. The `use` syntax keeps the code flat and
+This controller uses `require_int` to safely extract the path parameter
+and `require_field_int` to read `position` from the form body, then
+calls the operation. The `use` syntax keeps the code flat and
 readable.
 
-All errors from the operation (which returns `Result(_, dream.Error)`)
-flow into the final `case result` and are turned into HTTP responses by
-`response_helpers.handle_error`.
+All errors from the parameters and from the operation (which returns
+`Result(_, Error)`) flow into the final `case result`.
+`respond_with_error` turns each one into an HTTP response with
+`error.to_status_code` and `error.message`.
 
 The important shift is:
 
@@ -110,21 +111,24 @@ The important shift is:
 
 Operations are the perfect place to coordinate multiple services.
 
-```gleam
-import dream/http/error.{type Error}
-import gleam/result
+### The publish_post operation <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/operations_guide_posts.gleam#L21-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
+```gleam
 pub fn publish_post(services: Services, post_id: Int) -> Result(Post, Error) {
-  use post <- result.try(post_model.publish(services.db, post_id))
-  
-  // Side effects coordinated here
-  let _ = search_index.add(services.opensearch, post)
-  let _ = notifications.send_subscribers(services.mailer, post)
-  
-  Ok(post)
+  use post <- result.try(find_post(services.posts, post_id))
+  let published_post = Post(..post, published: True)
+
+  // Side effects coordinated here. A failure stops the chain and comes
+  // back to the controller as an Error.
+  use Nil <- result.try(services.add_to_search_index(published_post))
+  use Nil <- result.try(services.notify_subscribers(published_post))
+
+  Ok(published_post)
 }
 ```
 
 Use the `use` syntax (Gleam's equivalent of `do` notation) to chain operations flatly, avoiding nested cases.
 
-**Important:** Operations should return `Result(_, dream.Error)` to keep error handling consistent across the application. This allows controllers to handle all errors uniformly without needing to map between different error types.
+Do not discard the result of a side effect with `let _ =`. If the search index or the mailer fails, nobody then sees the error. In the example, each side effect returns a `Result`, and a failure comes back to the controller.
+
+**Important:** Operations should return `Result(_, Error)` to keep error handling consistent across the application. This allows controllers to handle all errors uniformly without needing to map between different error types.
