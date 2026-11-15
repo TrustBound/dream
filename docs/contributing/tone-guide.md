@@ -145,12 +145,12 @@ Now let's write some code.
 ````markdown
 Step 3: Create the Model
 
-Create `src/models/user.gleam`:
+In `src/models/user.gleam`, add a function that gets one user:
+
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/error.{type Error, InternalServerError}
-
-pub fn get(db: Connection, id: Int) -> Result(User, Error) {
+pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
     Error(_) -> Error(InternalServerError("Database error"))
@@ -456,8 +456,15 @@ This code does X by doing Y.
 **Example:**
 
 ````markdown
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn get(db: Connection, id: Int) -> Result(User, Error)
+pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
+  case sql.get_user(db, id) {
+    Ok(returned) -> extract_first_user(returned)
+    Error(_) -> Error(InternalServerError("Database error"))
+  }
+}
 ```
 
 This function takes a database connection explicitly as a parameter.
@@ -575,10 +582,10 @@ Here's an example:
 
 Here's a typical model:
 
-```gleam
-import dream/http/error.{type Error, InternalServerError}
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-pub fn get(db: Connection, id: Int) -> Result(User, Error) {
+```gleam
+pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
     Error(_) -> Error(InternalServerError("Database error"))
