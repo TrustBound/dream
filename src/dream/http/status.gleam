@@ -5,11 +5,13 @@
 ////
 //// ## Example
 ////
+//// ### Use a status code <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_status_module.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
 //// import dream/http/response.{text_response}
 //// import dream/http/status.{ok}
 ////
-//// pub fn index(request, context, services) {
+//// pub fn index(_request, _context, _services) {
 ////   text_response(ok, "Hello, World!")
 //// }
 //// ```
