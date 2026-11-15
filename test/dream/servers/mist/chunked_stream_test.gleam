@@ -22,8 +22,6 @@ import gleam/list
 import gleam/option.{None, Some}
 import gleam/string
 
-const test_port = 19_970
-
 /// How many requests to send in one test. The failure this guards against
 /// is a race, so one request is not enough to make it show.
 const attempts = 50
@@ -39,10 +37,18 @@ pub fn tests() -> UnitTest {
     it(
       "sends exactly one response when the request body is already buffered",
       fn() {
-        use handle <- with_echo_server(test_port)
+        let port = free_port()
+        use handle <- with_echo_server(port)
 
         let failures =
-          int.range(from: 1, to: attempts + 1, with: [], run: record_failure)
+          int.range(
+            from: 1,
+            to: attempts + 1,
+            with: [],
+            run: fn(failures, attempt) {
+              record_failure(failures, attempt, port)
+            },
+          )
           |> list.reverse
 
         server.stop(handle)
@@ -82,8 +88,12 @@ fn send_echo_request(port: Int) -> Result(BitArray, Dynamic) {
 }
 
 /// Sends one echo request and keeps a message for it when it fails.
-fn record_failure(failures: List(String), attempt: Int) -> List(String) {
-  case check_single_response(send_echo_request(test_port)) {
+fn record_failure(
+  failures: List(String),
+  attempt: Int,
+  port: Int,
+) -> List(String) {
+  case check_single_response(send_echo_request(port)) {
     Ok(Nil) -> failures
     Error(message) -> [
       "attempt " <> int.to_string(attempt) <> ": " <> message,
@@ -182,3 +192,6 @@ fn request_until_closed(
   payload: BitArray,
   timeout_ms: Int,
 ) -> Result(BitArray, Dynamic)
+
+@external(erlang, "doc_server_ffi", "free_port")
+fn free_port() -> Int
