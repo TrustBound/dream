@@ -4,6 +4,7 @@ import dream/http/request.{
   type Request, Get, Http, Http1, Request, body_as_string, get_int_param,
   get_param, get_query_param, get_string_param,
 }
+import dream/http/transaction
 import dream_test/assertions/should.{
   be_error, be_none, be_ok, be_some, equal, or_fail_with, should,
 }
@@ -311,6 +312,34 @@ fn get_string_param_tests() -> UnitTest {
 
 fn get_query_param_tests() -> UnitTest {
   describe("get_query_param", [
+    it("keeps a value that contains an equals sign", fn() {
+      // Arrange
+      let query_string = "token=a=b"
+
+      // Act
+      let result = get_query_param(query_string, "token")
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> equal("a=b")
+      |> or_fail_with("token should be 'a=b'")
+    }),
+    it("transaction version keeps a value that contains an equals sign", fn() {
+      // Arrange
+      let query_string = "token=a=b"
+
+      // Act
+      let result = transaction.get_query_param(query_string, "token")
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> equal("a=b")
+      |> or_fail_with("token should be 'a=b'")
+    }),
     it("decodes percent-encoded space", fn() {
       // Arrange
       let query_string = "name=hello%20world"

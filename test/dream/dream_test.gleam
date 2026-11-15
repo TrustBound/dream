@@ -242,6 +242,20 @@ fn parse_cookies_tests() -> UnitTest {
         |> equal("session")
         |> or_fail_with("Cookie name should be trimmed")
       }),
+      it("keeps a cookie value that contains an equals sign", fn() {
+        // Arrange
+        let cookie_string = "token=abc=="
+
+        // Act
+        let result = dream.parse_cookie_string(cookie_string)
+
+        // Assert
+        result
+        |> should()
+        |> extract_cookie_value()
+        |> equal("abc==")
+        |> or_fail_with("Cookie value should be 'abc=='")
+      }),
     ]),
   ])
 }

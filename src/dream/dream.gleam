@@ -470,13 +470,13 @@ pub fn parse_cookie_string(cookie_string: String) -> List(Cookie) {
 }
 
 fn parse_cookie_pair(cookie_pair: String) -> Cookie {
-  case string.split(cookie_pair, "=") {
-    [name, value] -> {
+  case string.split_once(cookie_pair, "=") {
+    Ok(#(name, value)) -> {
       let name = string.trim(name)
       let value = string.trim(value)
       simple_cookie(name, value)
     }
-    _ -> {
+    Error(Nil) -> {
       let name = string.trim(cookie_pair)
       simple_cookie(name, "")
     }
