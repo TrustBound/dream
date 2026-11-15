@@ -71,8 +71,11 @@ pub fn require_string(request: Request, name: String) -> Result(String, Error) {
 /// Require and parse form data from request body
 ///
 /// Returns a Result containing the parsed form data as key-value pairs.
-/// Returns an error only if the body is empty. A pair with more than one `=`
-/// is skipped, not reported.
+/// Returns an error only if the body is empty. Each pair is split at its
+/// first `=`: the key is the text before it and the value is all the text
+/// after it, so `token=a=b` gives `#("token", "a=b")`. A pair with no `=`
+/// gives an empty value. An empty pair, from `a=1&&b=2` or a trailing `&`,
+/// is skipped.
 ///
 /// ## Examples
 ///
@@ -235,17 +238,23 @@ fn add_parsed_pair(
 }
 
 fn parse_form_pair(pair: String) -> option.Option(#(String, String)) {
-  case string.split(pair, "=") {
-    [key, value] -> {
+  case pair {
+    "" -> option.None
+    _ -> option.Some(split_form_pair(pair))
+  }
+}
+
+fn split_form_pair(pair: String) -> #(String, String) {
+  case string.split_once(pair, "=") {
+    Ok(#(key, value)) -> {
       let decoded_key = decode_url_component(key)
       let decoded_value = decode_url_component(value)
-      option.Some(#(decoded_key, decoded_value))
+      #(decoded_key, decoded_value)
     }
-    [key] -> {
-      let decoded_key = decode_url_component(key)
-      option.Some(#(decoded_key, ""))
+    Error(Nil) -> {
+      let decoded_key = decode_url_component(pair)
+      #(decoded_key, "")
     }
-    _ -> option.None
   }
 }
 

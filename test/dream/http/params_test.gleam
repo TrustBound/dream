@@ -355,6 +355,112 @@ fn require_form_tests() -> UnitTest {
       |> equal("")
       |> or_fail_with("flag should be empty string")
     }),
+    it("keeps a value that contains an equals sign", fn() {
+      // Arrange
+      let request =
+        test_request.create_request_with_body(Get, "/test", "token=a=b")
+
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
+      |> should()
+      |> be_ok()
+      |> equal([#("token", "a=b")])
+      |> or_fail_with("token should be 'a=b'")
+    }),
+    it("keeps a field whose value ends in equals padding", fn() {
+      // Arrange
+      let request =
+        test_request.create_request_with_body(
+          Get,
+          "/test",
+          "name=Ada&token=abc==",
+        )
+
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
+      |> should()
+      |> be_ok()
+      |> equal([#("name", "Ada"), #("token", "abc==")])
+      |> or_fail_with("Should keep name and token")
+    }),
+    it("decodes a percent-encoded equals sign", fn() {
+      // Arrange
+      let request =
+        test_request.create_request_with_body(Get, "/test", "token=a%3Db")
+
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
+      |> should()
+      |> be_ok()
+      |> equal([#("token", "a=b")])
+      |> or_fail_with("Should decode %3D as =")
+    }),
+    it("gives an empty value for a key without an equals sign", fn() {
+      // Arrange
+      let request = test_request.create_request_with_body(Get, "/test", "key")
+
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
+      |> should()
+      |> be_ok()
+      |> equal([#("key", "")])
+      |> or_fail_with("key should be empty string")
+    }),
+    it("gives an empty value for a key with an empty value", fn() {
+      // Arrange
+      let request = test_request.create_request_with_body(Get, "/test", "key=")
+
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
+      |> should()
+      |> be_ok()
+      |> equal([#("key", "")])
+      |> or_fail_with("key should be empty string")
+    }),
+    it("skips an empty pair between two pairs", fn() {
+      // Arrange
+      let request =
+        test_request.create_request_with_body(Get, "/test", "a=1&&b=2")
+
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
+      |> should()
+      |> be_ok()
+      |> equal([#("a", "1"), #("b", "2")])
+      |> or_fail_with("Should parse only a and b")
+    }),
+    it("skips an empty pair after a trailing ampersand", fn() {
+      // Arrange
+      let request = test_request.create_request_with_body(Get, "/test", "a=1&")
+
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
+      |> should()
+      |> be_ok()
+      |> equal([#("a", "1")])
+      |> or_fail_with("Should parse only a")
+    }),
   ])
 }
 

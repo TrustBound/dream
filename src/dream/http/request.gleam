@@ -300,19 +300,18 @@ fn get_query_param_recursive(
 }
 
 fn parse_query_pair(param: String, name: String) -> option.Option(String) {
-  case string.split(param, "=") {
-    [key, value] -> {
-      // Decode both key and value
+  case string.split_once(param, "=") {
+    Ok(#(key, value)) -> {
+      // Split at the first "=" only, then decode both key and value
       let decoded_key = decode_url_component(key)
       let decoded_value = decode_url_component(value)
       match_query_key(decoded_key, name, decoded_value)
     }
-    [key] -> {
+    Error(Nil) -> {
       // Parameter with no value (empty string)
-      let decoded_key = decode_url_component(key)
+      let decoded_key = decode_url_component(param)
       match_query_key(decoded_key, name, "")
     }
-    _ -> option.None
   }
 }
 
