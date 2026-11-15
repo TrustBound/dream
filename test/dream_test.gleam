@@ -38,6 +38,7 @@ import reference_snippets_test
 import snippets/streaming_api_test
 import snippets_test
 import streaming_snippets_test
+import testing_controllers_uploads_snippets_test
 
 pub fn main() {
   let all_tests =
@@ -92,6 +93,10 @@ pub fn main() {
       unit.to_test_cases(
         "guide snippets",
         guides_sse_websockets_rest_snippets_test.tests(),
+      ),
+      unit.to_test_cases(
+        "testing_controllers_uploads_snippets",
+        testing_controllers_uploads_snippets_test.tests(),
       ),
     ]
     |> list.flatten

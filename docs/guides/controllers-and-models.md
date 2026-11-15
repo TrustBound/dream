@@ -20,9 +20,10 @@ Controllers handle HTTP requests. They are pure functions that:
 3.  Call views to format the response.
 4.  Return a `Response`.
 
-**Signature:**
+#### The controller signature <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/controllers_guide_controller.gleam#L27-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ```gleam
-fn(Request, Context, Services) -> Response
+pub type Controller(context, services) =
+  fn(Request, context, services) -> Response
 ```
 
 In words:
@@ -38,18 +39,20 @@ In words:
 Dream’s type system makes sure that **every controller** in a router has
 this shape (with your specific `Context` and `Services` types).
 
-**Example:**
+#### A controller that shows a task <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/controllers_guide_controller.gleam#L1-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{require_int, type Request, type Response, html_response, ok}
+import dream/context.{type AppContext}
+import dream/http.{type Request, type Response, html_response, ok, require_int}
 import gleam/result
-import models/task/task_model
-import utilities/response_helpers
-import views/task_view
+import snippets/controllers_guide_response_helpers as response_helpers
+import snippets/controllers_guide_services.{type Services}
+import snippets/controllers_guide_task_model as task_model
+import snippets/controllers_guide_task_view as task_view
 
 pub fn show(
   request: Request,
-  _context: Context,
+  _context: AppContext,
   services: Services,
 ) -> Response {
   let result = {
@@ -74,13 +77,15 @@ path parameter. If the parameter is missing or invalid,
 The `use` syntax is Gleam’s way of working with `Result` values without
 nesting many `case` expressions. You can read this block:
 
+#### The use chain in the controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/controllers_guide_controller.gleam#L14-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-let result = {
-  use id <- result.try(require_int(request, "id"))
-  let db = services.database.connection
-  use task <- result.try(task_model.get(db, id))
-  Ok(task)
-}
+  let result = {
+    use id <- result.try(require_int(request, "id"))
+    let db = services.database.connection
+    use task <- result.try(task_model.get(db, id))
+    Ok(task)
+  }
 ```
 
 as:
@@ -126,86 +131,71 @@ Models handle data access. They are functions that:
 3.  Convert database rows to domain types.
 4.  Return a `Result`.
 
-**Example: Getting a Single Record**
+These examples come from the project model in the tasks example. Squirrel generates the `models/project/sql` module, and `dream_postgres/query` gives the `first_row()` and `all_rows()` helpers.
+
+#### Getting a Single Record <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/models/project/project_model.gleam#L14-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/error.{type Error, NotFound, InternalServerError}
-import dream_postgres/client.{type Connection}
-import dream_postgres/query
-import models/task/sql
-import types/task.{type Task}
-
-pub fn get(db: Connection, id: Int) -> Result(Task, Error) {
-  case sql.get_task(db, id) |> query.first_row() {
-    Ok(row) -> Ok(row_to_task(row))
-    Error(query.NotFound) -> Error(NotFound("Task not found"))
-    Error(_) -> Error(InternalServerError("Database error"))
+/// Get a single project by ID
+pub fn get(db: Connection, project_id: Int) -> Result(Project, Error) {
+  case sql.get_project(db, project_id) |> query.first_row() {
+    Ok(row) -> Ok(row_to_project(row))
+    Error(query.NotFound) -> Error(NotFound("Project not found"))
+    Error(query.DatabaseError) -> Error(InternalServerError("Database error"))
   }
-}
-
-fn row_to_task(row: sql.GetTaskRow) -> Task {
-  Task(
-    id: row.id,
-    title: row.title,
-    completed: row.completed,
-  )
 }
 ```
 
-**Example: Listing Multiple Records**
+`query.first_row()` returns `query.NotFound` when the query gives no rows. The model maps it to a 404 error.
+
+#### Listing Multiple Records <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/models/project/project_model.gleam#L23-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/error.{type Error, InternalServerError}
-import dream_postgres/client.{type Connection}
-import dream_postgres/query
-import gleam/list
-import models/user/sql
-import types/user.{type User}
-
-pub fn list(db: Connection) -> Result(List(User), Error) {
-  case sql.list_users(db) |> query.all_rows() {
-    Ok(rows) -> Ok(list.map(rows, row_to_user))
+/// List all projects
+pub fn list(db: Connection) -> Result(List(Project), Error) {
+  case sql.list_projects(db) |> query.all_rows() {
+    Ok(rows) -> Ok(list.map(rows, list_row_to_project))
     Error(_) -> Error(InternalServerError("Database error"))
   }
-}
-
-fn row_to_user(row: sql.ListUsersRow) -> User {
-  User(
-    id: row.id,
-    name: row.name,
-    email: row.email,
-  )
 }
 ```
 
-**Example: Creating a Record**
+#### Creating a Record <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/models/project/project_model.gleam#L31-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/error.{type Error, InternalServerError}
-import dream_postgres/client.{type Connection}
-import dream_postgres/query
-import models/user/sql
-import types/user.{type User}
+/// Create a new project
+pub fn create(db: Connection, data: ProjectData) -> Result(Project, Error) {
+  let description = option.unwrap(data.description, "")
+  let color = option.unwrap(data.color, "")
 
-pub fn create(
-  db: Connection,
-  name: String,
-  email: String,
-) -> Result(User, Error) {
-  case sql.create_user(db, name, email) |> query.first_row() {
-    Ok(row) -> Ok(row_to_user(row))
+  case
+    sql.create_project(db, data.name, description, color)
+    |> query.first_row()
+  {
+    Ok(row) -> Ok(create_row_to_project(row))
     Error(_) -> Error(InternalServerError("Database error"))
   }
 }
+```
 
-fn row_to_user(row: sql.CreateUserRow) -> User {
-  User(
+The controller decodes the request body into a `ProjectData` record. The model gives defaults to the optional fields and runs the insert.
+
+#### Converting a Row <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/models/project/project_model.gleam#L53-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+// Convert Squirrel row to domain type
+fn row_to_project(row: sql.GetProjectRow) -> Project {
+  Project(
     id: row.id,
     name: row.name,
-    email: row.email,
+    description: row.description,
+    color: row.color,
+    created_at: timestamp_to_string(row.created_at),
   )
 }
 ```
+
+Each query has its own row type, so the model has one small function for each row type. The controller gets a `Project` and never sees a row.
 
 ### Best Practices
 - **Return Domain Types:** Don't leak SQL row types to the controller. Convert them in the model.
@@ -220,11 +210,11 @@ Views handle presentation. They are pure functions that:
 1.  Take domain data.
 2.  Return a formatted string (HTML, JSON, CSV).
 
-**Example:**
+#### A view that writes a task as JSON <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/controllers_guide_task_view.gleam#L1-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import types/task.{type Task}
 import gleam/json
+import snippets/controllers_guide_task.{type Task}
 
 pub fn to_json(task: Task) -> String {
   json.object([
@@ -260,29 +250,33 @@ Dream uses a unified error type (`dream.Error`) across the framework and applica
 
 Create a `utilities/response_helpers.gleam` module to centralize error handling:
 
+#### A response helpers module <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/controllers_guide_response_helpers.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import dream/http.{type Response, json_response, bad_request, unauthorized, forbidden, not_found, unprocessable_content, internal_server_error}
-import dream/http/error
+import dream/http.{
+  type Response, bad_request, forbidden, internal_server_error, json_response,
+  not_found, unauthorized, unprocessable_content,
+}
+import dream/http/error.{type Error}
+import gleam/json
 
 pub fn handle_error(err: Error) -> Response {
   case err {
-    error.BadRequest(msg) -> 
-      json_response(bad_request, error_json(msg))
-    error.Unauthorized(_msg) -> 
+    error.BadRequest(msg) -> json_response(bad_request, error_json(msg))
+    error.Unauthorized(_msg) ->
       json_response(unauthorized, error_json("Unauthorized"))
-    error.Forbidden(_msg) -> 
-      json_response(forbidden, error_json("Forbidden"))
-    error.NotFound(msg) -> 
-      json_response(not_found, error_json(msg))
-    error.UnprocessableContent(msg) -> 
+    error.Forbidden(_msg) -> json_response(forbidden, error_json("Forbidden"))
+    error.NotFound(msg) -> json_response(not_found, error_json(msg))
+    error.UnprocessableContent(msg) ->
       json_response(unprocessable_content, error_json(msg))
-    error.InternalServerError(_msg) -> 
+    error.InternalServerError(_msg) ->
       json_response(internal_server_error, error_json("Internal server error"))
   }
 }
 
 fn error_json(message: String) -> String {
-  "{\"error\": \"" <> message <> "\"}"
+  json.object([#("error", json.string(message))])
+  |> json.to_string()
 }
 ```
 
@@ -298,12 +292,12 @@ Controllers simply call `response_helpers.handle_error(err)` instead of handling
 
 Controllers can serve the same data in different formats (JSON, HTML, CSV) based on the request. Views provide format-specific functions, and controllers use content negotiation to select the appropriate format.
 
-**Example:**
+#### A controller that picks the format from the path <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/controllers_guide_multi_format.gleam#L16-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn show(
   request: Request,
-  _context: Context,
+  _context: AppContext,
   services: Services,
 ) -> Response {
   let result = {
@@ -314,15 +308,25 @@ pub fn show(
   }
 
   case result {
-    Ok(task) -> {
-      // Content negotiation based on format or Accept header
-      case request.format {
-        Some("json") -> json_response(ok, task_view.to_json(task))
-        Some("html") -> html_response(ok, task_view.card(task, []))
-        _ -> json_response(ok, task_view.to_json(task)) // Default
-      }
-    }
+    Ok(task) -> respond_with_format(task, requested_format(request))
     Error(err) -> response_helpers.handle_error(err)
+  }
+}
+
+// The format comes from the path extension, such as /tasks/1.json
+fn requested_format(request: Request) -> Option(String) {
+  case get_param(request, "id") {
+    Ok(param) -> param.format
+    Error(_) -> None
+  }
+}
+
+fn respond_with_format(task: Task, format: Option(String)) -> Response {
+  case format {
+    Some("json") -> json_response(ok, task_view.to_json(task))
+    Some("html") -> html_response(ok, task_view.card(task))
+    // Default
+    _ -> json_response(ok, task_view.to_json(task))
   }
 }
 ```
