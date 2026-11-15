@@ -7,13 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - Unreleased
+
+### Breaking
+
+- `Request.body` is now a `RequestBody`: `Text(String)`, `Bytes(BitArray)`
+  or `Stream(Yielder(BitArray))`, and the `Request.stream` field is gone. On
+  a `route`, a valid UTF-8 body arrives as `Text` and any other body as
+  `Bytes`; on a `stream_route`, the body arrives as `Stream`. A binary body
+  used to arrive as `""`. See the Migration Guide in
+  `releases/release-3.0.0.md`.
+- `require_form` returns `BadRequest("Request body is not text")` for a body
+  that is not text, and now also reads a `Stream` body.
+- The router tries the next route when a route fits the start of a path but
+  fails deeper down, so a wildcard route can now receive requests that got a
+  404 before.
+
 ### Added
+
+- `require_json(request, decoder)` reads a JSON body, decodes it and returns
+  `BadRequest` with the reason when a step fails.
+- `body_as_string(request)` returns the body as text, or `Error(Nil)`.
+- `broadcaster.count_subscribers`.
 
 - `server.tls(certfile:, keyfile:)` serves HTTPS. Clients that ask for
   HTTP/2 in the TLS handshake (ALPN), such as browsers, get HTTP/2, and the
   rest get HTTP/1.1. A missing certificate or key file is a start error.
   Server adapters read the setting with `dream.get_tls`.
 - New guide: `docs/guides/http2.md`.
+- Every code block in the guides, READMEs and doc comments comes from a
+  tested snippet, with a "tested snippet" badge that links to it.
 
 ### Changed
 
@@ -39,6 +62,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mist hands the socket to the chunk actor. The first drain message is now
   sent only after `mist.chunked()` has returned, so a keep-alive client no
   longer reads that 500 as the answer to its next request.
+- `server.stop` stops the server from any process, and returns after the
+  server is down. It used to do nothing unless the starting process called
+  it.
+- The broadcaster removes a subscriber when the subscribing process stops.
+- A form field, query parameter or cookie value that contains `=` is kept.
+  It used to be dropped or empty.
+- Parameter and variable names in `src/` use full words. No labelled
+  argument changed.
+
+### Testing
+
+- 919 tests run, 0 failed, in about 7 seconds (MacBook, OTP 28, Gleam
+  1.17.0). The integration tests run every scenario of the mock server and
+  ten examples over HTTP/1.1 and over HTTP/2 with TLS.
 
 ## [2.4.1] - 2026-03-11
 
@@ -566,7 +603,9 @@ Special thanks to [Louis Pilfold](https://github.com/lpil) for suggesting the ra
 - All code examples now include proper imports
 - Improved documentation tone and consistency
 
-[Unreleased]: https://github.com/TrustBound/dream/compare/v2.4.0...HEAD
+[Unreleased]: https://github.com/TrustBound/dream/compare/3.0.0...HEAD
+[3.0.0]: https://github.com/TrustBound/dream/compare/2.4.1...3.0.0
+[2.4.1]: https://github.com/TrustBound/dream/compare/2.4.0...2.4.1
 [2.4.0]: https://github.com/TrustBound/dream/compare/v2.3.3...v2.4.0
 [2.3.3]: https://github.com/TrustBound/dream/compare/v2.3.2...v2.3.3
 [2.3.2]: https://github.com/TrustBound/dream/compare/v2.3.1...v2.3.2
