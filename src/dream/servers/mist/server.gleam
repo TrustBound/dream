@@ -5,14 +5,18 @@
 ////
 //// ## Quick Start
 ////
+//// ### Start a server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_quick_start.gleam#L3-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
+//// import dream/http.{ok, text_response}
+//// import dream/http/request.{Get}
+//// import dream/router.{route, router}
 //// import dream/servers/mist/server
-//// import dream/servers/mist/server.{listen, router}
-//// 
+////
 //// pub fn main() {
 ////   server.new()
-////   |> router(create_router())
-////   |> listen(3000)
+////   |> server.router(create_router())
+////   |> server.listen(3000)
 //// }
 //// ```
 ////
@@ -24,20 +28,30 @@
 //// By default, Dream uses `EmptyContext` (no per-request data) and `EmptyServices` (no shared
 //// dependencies). For most production apps, you'll want to define your own types:
 ////
+//// ### Use your own context and services <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_custom_context.gleam#L4-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
+//// import dream/http.{ok, text_response}
+//// import dream/http/request.{Get}
+//// import dream/router.{type Router, route, router}
 //// import dream/servers/mist/server
-//// import dream/servers/mist/server.{context, listen, router, services}
 //// import gleam/option.{None}
-//// 
+////
 //// pub type MyContext {
 ////   MyContext(request_id: String, user: option.Option(User), session: Session)
 //// }
 ////
-//// server.new()
-//// |> context(MyContext(request_id: "", user: None, session: empty_session()))
-//// |> services(initialize_services())
-//// |> router(create_router())
-//// |> listen(3000)
+//// pub fn main() {
+////   server.new()
+////   |> server.context(MyContext(
+////     request_id: "",
+////     user: None,
+////     session: empty_session(),
+////   ))
+////   |> server.services(initialize_services())
+////   |> server.router(create_router())
+////   |> server.listen(3000)
+//// }
 //// ```
 ////
 //// The type system ensures your controllers receive the correct context type.
@@ -76,27 +90,39 @@ pub opaque type ServerHandle {
 ///
 /// ## Simple Example (no context or services)
 ///
+/// ### Serve a router <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_new.gleam#L3-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
+/// import dream/http.{ok, text_response}
+/// import dream/http/request.{Get}
+/// import dream/router.{route, router}
 /// import dream/servers/mist/server
-/// import dream/servers/mist/server.{listen, router}
-/// 
-/// server.new()
-/// |> router(my_router)
-/// |> listen(3000)
+///
+/// pub fn main() {
+///   server.new()
+///   |> server.router(my_router())
+///   |> server.listen(3000)
+/// }
 /// ```
 ///
 /// ## With Custom Context and Services
 ///
+/// ### Add context and services <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_new_with_context.gleam#L4-L16"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
+/// import dream/http.{ok, text_response}
+/// import dream/http/request.{Get}
+/// import dream/router.{type Router, route, router}
 /// import dream/servers/mist/server
-/// import dream/servers/mist/server.{context, listen, router, services}
 /// import gleam/option.{None}
-/// 
-/// server.new()
-/// |> context(MyContext(request_id: "", user: None))
-/// |> services(my_services)
-/// |> router(my_router)
-/// |> listen(3000)
+///
+/// pub fn main() {
+///   server.new()
+///   |> server.context(MyContext(request_id: "", user: None))
+///   |> server.services(my_services())
+///   |> server.router(my_router())
+///   |> server.listen(3000)
+/// }
 /// ```
 pub fn new() -> dream.Dream(
   mist.Builder(Connection, ResponseData),
@@ -119,25 +145,32 @@ pub fn new() -> dream.Dream(
 
 /// Set a custom context type for your application
 ///
-/// Use this to replace `AppContext` with your own context type that holds
+/// Use this to replace the default `EmptyContext` with your own context type that holds
 /// user authentication, session data, or any other per-request information.
 /// The type system tracks your context through middleware and controllers.
 ///
 /// ## Example
 ///
+/// ### Set a custom context <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_context.gleam#L3-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
+/// import dream/http.{ok, text_response}
+/// import dream/http/request.{Get}
+/// import dream/router.{type Router, route, router}
 /// import dream/servers/mist/server
-/// import dream/servers/mist/server.{context, listen, router, services}
-/// 
+/// import gleam/option.{type Option, None}
+///
 /// pub type MyContext {
 ///   MyContext(request_id: String, user: Option(User))
 /// }
 ///
-/// server.new()
-/// |> context(MyContext(request_id: "", user: None))
-/// |> services(my_services)
-/// |> router(my_router)
-/// |> listen(3000)
+/// pub fn main() {
+///   server.new()
+///   |> server.context(MyContext(request_id: "", user: None))
+///   |> server.services(my_services())
+///   |> server.router(my_router())
+///   |> server.listen(3000)
+/// }
 /// ```
 pub fn context(
   dream_instance: dream.Dream(
@@ -165,24 +198,30 @@ pub fn context(
 ///
 /// ## Example
 ///
+/// ### Provide services <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_services.gleam#L3-L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
+/// import dream/http.{ok, text_response}
+/// import dream/http/request.{Get}
+/// import dream/router.{type Router, route, router}
 /// import dream/servers/mist/server
-/// import dream/servers/mist/server.{listen, router, services}
-/// 
+///
 /// pub type Services {
-///   Services(db: Connection, cache: Cache)
+///   Services(database: Connection, cache: Cache)
 /// }
 ///
 /// pub fn initialize_services() -> Services {
 ///   let database = connect_to_database()
 ///   let cache = create_cache()
-///   Services(db: database, cache: cache)
+///   Services(database: database, cache: cache)
 /// }
 ///
-/// server.new()
-/// |> services(initialize_services())
-/// |> router(my_router)
-/// |> listen(3000)
+/// pub fn main() {
+///   server.new()
+///   |> server.services(initialize_services())
+///   |> server.router(my_router())
+///   |> server.listen(3000)
+/// }
 /// ```
 pub fn services(
   dream_instance: dream.Dream(
@@ -210,20 +249,32 @@ pub fn services(
 ///
 /// ## Example
 ///
+/// ### Provide a router <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_router.gleam#L3-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
+/// import dream/http.{ok, text_response}
+/// import dream/http/request.{type Request, Get, get_string_param}
+/// import dream/router.{type Router, route, router}
 /// import dream/servers/mist/server
-/// import dream/servers/mist/server.{listen, router, services}
-/// 
+///
 /// pub fn create_router() -> Router(MyContext, Services) {
 ///   router()
-///   |> route(method: Get, path: "/", controller: controllers.index, middleware: [])
-///   |> route(method: Get, path: "/users/:id", controller: controllers.show_user, middleware: [])
+///   |> route(method: Get, path: "/", controller: index, middleware: [])
+///   |> route(
+///     method: Get,
+///     path: "/users/:id",
+///     controller: show_user,
+///     middleware: [],
+///   )
 /// }
 ///
-/// server.new()
-/// |> services(initialize_services())
-/// |> router(create_router())
-/// |> listen(3000)
+/// pub fn main() {
+///   server.new()
+///   |> server.context(MyContext(request_id: ""))
+///   |> server.services(initialize_services())
+///   |> server.router(create_router())
+///   |> server.listen(3000)
+/// }
 /// ```
 pub fn router(
   dream_instance: dream.Dream(
@@ -251,16 +302,22 @@ pub fn router(
 ///
 /// ## Example
 ///
+/// ### Accept local connections only <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_bind.gleam#L3-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
+/// import dream/http.{ok, text_response}
+/// import dream/http/request.{Get}
+/// import dream/router.{route, router}
 /// import dream/servers/mist/server
-/// import dream/servers/mist/server.{bind, listen, router, services}
-/// 
-/// // Only accept local connections
-/// server.new()
-/// |> services(my_services)
-/// |> router(my_router)
-/// |> bind("localhost")
-/// |> listen(3000)
+///
+/// pub fn main() {
+///   // Only accept local connections
+///   server.new()
+///   |> server.services(my_services())
+///   |> server.router(my_router())
+///   |> server.bind("localhost")
+///   |> server.listen(3000)
+/// }
 /// ```
 pub fn bind(
   dream_instance: dream.Dream(
@@ -292,16 +349,22 @@ pub fn bind(
 ///
 /// ## Example
 ///
+/// ### Limit the body size <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_max_body_size.gleam#L3-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
+/// import dream/http.{ok, text_response}
+/// import dream/http/request.{type Request, Post}
+/// import dream/router.{route, router}
 /// import dream/servers/mist/server
-/// import dream/servers/mist/server.{listen, max_body_size, router, services}
-/// 
-/// // Limit request bodies to 10MB
-/// server.new()
-/// |> services(my_services)
-/// |> router(my_router)
-/// |> max_body_size(10_000_000)
-/// |> listen(3000)
+///
+/// pub fn main() {
+///   // Limit request bodies to 10MB
+///   server.new()
+///   |> server.services(my_services())
+///   |> server.router(my_router())
+///   |> server.max_body_size(10_000_000)
+///   |> server.listen(3000)
+/// }
 /// ```
 pub fn max_body_size(
   dream_instance: dream.Dream(
@@ -374,22 +437,27 @@ pub fn tls(
 /// Start the server and listen for requests
 ///
 /// Starts the server on the specified port and blocks forever. This is what you call
-/// in your `main()` function. If the server fails to start, it returns `Nil` immediately.
+/// in your `main()` function. If the server fails to start, it panics with the reason.
 ///
-/// This function will panic if you haven't called `router()` and `services()` first—
-/// you can't run a web server without defining what it does.
+/// This function will panic if you haven't called `router()` first—
+/// you can't run a web server without defining what it does. `services()` is
+/// optional: the default services are `EmptyServices`.
 ///
 /// ## Example
 ///
+/// ### Start the server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_listen.gleam#L3-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
+/// import dream/http.{ok, text_response}
+/// import dream/http/request.{Get}
+/// import dream/router.{type Router, route, router}
 /// import dream/servers/mist/server
-/// import dream/servers/mist/server.{listen, router, services}
-/// 
+///
 /// pub fn main() {
 ///   server.new()
-///   |> services(initialize_services())
-///   |> router(create_router())
-///   |> listen(3000)
+///   |> server.services(initialize_services())
+///   |> server.router(create_router())
+///   |> server.listen(3000)
 /// }
 /// ```
 pub fn listen(
@@ -411,23 +479,41 @@ pub fn listen(
 ///
 /// ## Example
 ///
-/// ```gleam
-/// import dream/servers/mist/server
-/// import dream/servers/mist/server.{listen_with_handle, router, stop}
+/// ### Start and stop a test server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_listen_with_handle.gleam#L3-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
-/// pub fn test_server() {
+/// ```gleam
+/// import dream/http/request.{Get}
+/// import dream/http/response.{text_response}
+/// import dream/http/status
+/// import dream/router.{route, router}
+/// import dream/servers/mist/server
+/// import dream_http_client/client
+/// import gleam/http
+///
+/// pub fn test_server(port: Int) -> Result(String, String) {
 ///   // Start server and get handle
-///   let assert Ok(handle) =
+///   let started =
 ///     server.new()
-///     |> router(test_router())
-///     |> listen_with_handle(8080)
-///   
-///   // Make test requests
-///   let response = http_client.get("http://localhost:8080/test")
-///   // ... assertions ...
-///   
-///   // Stop the server
-///   stop(handle)
+///     |> server.router(test_router())
+///     |> server.listen_with_handle(port)
+///
+///   case started {
+///     Ok(handle) -> {
+///       // Make test requests
+///       let response =
+///         client.new()
+///         |> client.scheme(http.Http)
+///         |> client.host("localhost")
+///         |> client.port(port)
+///         |> client.path("/test")
+///         |> client.send()
+///
+///       // Stop the server
+///       server.stop(handle)
+///       response_body(response)
+///     }
+///     Error(_start_error) -> Error("server did not start")
+///   }
 /// }
 /// ```
 pub fn listen_with_handle(
@@ -446,26 +532,34 @@ pub fn listen_with_handle(
 
 /// Stop a server that was started with `listen_with_handle()`
 ///
-/// Stops the server process. This sends a shutdown signal to the supervisor.
+/// Stops the server process. This sends a normal exit signal to the supervisor,
+/// so call it from the process that started the server: the supervisor ignores
+/// that signal from any other process, and the server keeps running.
 /// Note: In tests, you typically don't need to call this - the server will
 /// be cleaned up automatically when the test process exits.
 ///
 /// ## Example
 ///
-/// ```gleam
-/// import dream/servers/mist/server
-/// import dream/servers/mist/server.{listen_with_handle, router, stop}
+/// ### Stop a server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_stop.gleam#L3-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
-/// pub fn test_server() {
-///   let assert Ok(handle) =
+/// ```gleam
+/// import dream/http.{ok, text_response}
+/// import dream/http/request.{Get}
+/// import dream/router.{route, router}
+/// import dream/servers/mist/server
+/// import gleam/otp/actor
+/// import gleam/result
+///
+/// pub fn test_server(port: Int) -> Result(Nil, actor.StartError) {
+///   let started =
 ///     server.new()
-///     |> router(test_router())
-///     |> listen_with_handle(8080)
-///   
+///     |> server.router(test_router())
+///     |> server.listen_with_handle(port)
+///
 ///   // ... use server ...
-///   
+///
 ///   // Optional - server will be cleaned up automatically when test exits
-///   stop(handle)
+///   result.map(started, server.stop)
 /// }
 /// ```
 pub fn stop(handle: ServerHandle) -> Nil {

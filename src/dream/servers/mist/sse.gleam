@@ -7,6 +7,8 @@
 ////
 //// Most applications will import this module as:
 ////
+//// ### Import the module <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_ticker.gleam#L5"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
 //// import dream/servers/mist/sse
 //// ```
@@ -38,6 +40,8 @@
 ////
 //// ## Example (ticker)
 ////
+//// ### Send a tick every second <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_ticker.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
 //// import dream/http/request.{type Request}
 //// import dream/http/response.{type Response}
@@ -46,18 +50,22 @@
 //// import gleam/int
 //// import gleam/option.{None}
 ////
-//// pub type Deps {
-////   Deps
+//// pub type Dependencies {
+////   Dependencies
 //// }
 ////
 //// pub type Tick {
 ////   Tick
 //// }
 ////
+//// pub type Ticker {
+////   Ticker(subject: process.Subject(Tick), count: Int)
+//// }
+////
 //// pub fn handle_events(request: Request, _context, _services) -> Response {
 ////   sse.upgrade_to_sse(
 ////     request,
-////     dependencies: Deps,
+////     dependencies: Dependencies,
 ////     on_init: handle_init,
 ////     on_message: handle_message,
 ////   )
@@ -65,25 +73,31 @@
 ////
 //// fn handle_init(
 ////   subject: process.Subject(Tick),
-////   _deps: Deps,
-//// ) -> #(Int, option.Option(process.Selector(Tick))) {
+////   _dependencies: Dependencies,
+//// ) -> #(Ticker, option.Option(process.Selector(Tick))) {
 ////   process.send(subject, Tick)
-////   #(0, None)
+////   #(Ticker(subject:, count: 0), None)
 //// }
 ////
 //// fn handle_message(
-////   count: Int,
+////   ticker: Ticker,
 ////   _message: Tick,
 ////   connection: sse.SSEConnection,
-////   _deps: Deps,
-//// ) -> sse.Action(Int, Tick) {
+////   _dependencies: Dependencies,
+//// ) -> sse.Action(Ticker, Tick) {
+////   let count = int.to_string(ticker.count)
 ////   let event =
-////     sse.event(int.to_string(count))
+////     sse.event(count)
 ////     |> sse.event_name("tick")
-////     |> sse.event_id(int.to_string(count))
-////   let _ = sse.send_event(connection, event)
-////   process.send_after(process.self_subject(), 1000, Tick)
-////   sse.continue_connection(count + 1)
+////     |> sse.event_id(count)
+////   case sse.send_event(connection, event) {
+////     Ok(Nil) -> {
+////       // Only messages sent to the subject from on_init reach this actor
+////       process.send_after(ticker.subject, 1000, Tick)
+////       sse.continue_connection(Ticker(..ticker, count: ticker.count + 1))
+////     }
+////     Error(Nil) -> sse.stop_connection()
+////   }
 //// }
 //// ```
 
@@ -117,11 +131,15 @@ pub opaque type SSEConnection {
 ///
 /// ## Example
 ///
+/// ### Build an event <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_events.gleam#L5-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// sse.event("hello world")
-/// |> sse.event_name("greeting")
-/// |> sse.event_id("1")
-/// |> sse.event_retry(5000)
+/// pub fn greeting_event() -> sse.Event {
+///   sse.event("hello world")
+///   |> sse.event_name("greeting")
+///   |> sse.event_id("1")
+///   |> sse.event_retry(5000)
+/// }
 /// ```
 pub opaque type Event {
   Event(internal: mist.SSEEvent)
@@ -151,20 +169,28 @@ pub opaque type Action(state, message) {
 ///
 /// ## Example
 ///
-/// ```gleam
-/// sse.upgrade_to_sse(
-///   request,
-///   dependencies: deps,
-///   on_init: init_handler,
-///   on_message: message_handler,
-/// )
+/// ### Upgrade to SSE <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_upgrade.gleam#L7-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
-/// fn init_handler(subject, deps) {
+/// ```gleam
+/// pub type Tick {
+///   Tick
+/// }
+///
+/// pub fn events(request, _context, services) {
+///   sse.upgrade_to_sse(
+///     request,
+///     dependencies: services,
+///     on_init: init_handler,
+///     on_message: message_handler,
+///   )
+/// }
+///
+/// fn init_handler(subject, _services) {
 ///   process.send(subject, Tick)
 ///   #(0, None)
 /// }
 ///
-/// fn message_handler(state, message, connection, deps) {
+/// fn message_handler(state, _message, connection, _services) {
 ///   let _ = sse.send_event(connection, sse.event("ping"))
 ///   sse.continue_connection(state + 1)
 /// }
@@ -225,10 +251,19 @@ pub fn upgrade_to_sse(
 ///
 /// ## Example
 ///
+/// ### Stop when the client is gone <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_send.gleam#L28-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// case sse.send_event(connection, sse.event("hello")) {
-///   Ok(Nil) -> sse.continue_connection(state)
-///   Error(Nil) -> sse.stop_connection()
+/// pub fn handle_message(
+///   state: Int,
+///   _message: Greet,
+///   connection: sse.SSEConnection,
+///   _dependencies: Nil,
+/// ) -> sse.Action(Int, Greet) {
+///   case sse.send_event(connection, sse.event("hello")) {
+///     Ok(Nil) -> sse.continue_connection(state)
+///     Error(Nil) -> sse.stop_connection()
+///   }
 /// }
 /// ```
 pub fn send_event(connection: SSEConnection, event: Event) -> Result(Nil, Nil) {
@@ -244,8 +279,13 @@ pub fn send_event(connection: SSEConnection, event: Event) -> Result(Nil, Nil) {
 ///
 /// ## Example
 ///
+/// ### Create an event <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_events.gleam#L12-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let ev = sse.event("{\"count\": 42}")
+/// pub fn count_event() -> sse.Event {
+///   let event = sse.event("{\"count\": 42}")
+///   event
+/// }
 /// ```
 pub fn event(data: String) -> Event {
   Event(internal: mist.event(string_tree.from_string(data)))
@@ -257,9 +297,13 @@ pub fn event(data: String) -> Event {
 ///
 /// ## Example
 ///
+/// ### Name an event <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_events.gleam#L17-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// sse.event("payload")
-/// |> sse.event_name("tick")
+/// pub fn named_event() -> sse.Event {
+///   sse.event("payload")
+///   |> sse.event_name("tick")
+/// }
 /// ```
 pub fn event_name(event: Event, name: String) -> Event {
   let Event(internal: mist_event) = event
@@ -273,9 +317,13 @@ pub fn event_name(event: Event, name: String) -> Event {
 ///
 /// ## Example
 ///
+/// ### Give an event an ID <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_events.gleam#L22-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// sse.event("payload")
-/// |> sse.event_id("42")
+/// pub fn numbered_event() -> sse.Event {
+///   sse.event("payload")
+///   |> sse.event_id("42")
+/// }
 /// ```
 pub fn event_id(event: Event, id: String) -> Event {
   let Event(internal: mist_event) = event
@@ -289,9 +337,13 @@ pub fn event_id(event: Event, id: String) -> Event {
 ///
 /// ## Example
 ///
+/// ### Set the retry time <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_sse_events.gleam#L27-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// sse.event("payload")
-/// |> sse.event_retry(5000)
+/// pub fn retry_event() -> sse.Event {
+///   sse.event("payload")
+///   |> sse.event_retry(5000)
+/// }
 /// ```
 pub fn event_retry(event: Event, retry_ms: Int) -> Event {
   let Event(internal: mist_event) = event

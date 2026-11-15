@@ -3,6 +3,7 @@
 import benchmarks/router_benchmark
 import doc_http_data_snippets_test
 import doc_http_snippets_test
+import doc_server_snippets_test
 import dream/context_test
 import dream/dream_test as dream_module_test
 import dream/http/cookie_test
@@ -70,6 +71,10 @@ pub fn main() {
       unit.to_test_cases(
         "doc http data snippets",
         doc_http_data_snippets_test.tests(),
+      ),
+      unit.to_test_cases(
+        "doc_server_snippets",
+        doc_server_snippets_test.tests(),
       ),
     ]
     |> list.flatten

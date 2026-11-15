@@ -25,26 +25,44 @@ import gleam/result
 ///
 /// ## Example
 ///
+/// ### Broadcast chat messages <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster.gleam#L3-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
+/// import dream/servers/mist/websocket
+/// import dream/services/broadcaster
+/// import gleam/erlang/process.{type Selector}
+/// import gleam/option.{type Option, Some}
+/// import gleam/otp/actor
+/// import gleam/result
+///
+/// pub type ChatMessage {
+///   ChatMessage(String)
+/// }
+///
 /// // In services.gleam
 /// pub type Services {
 ///   Services(chat_bus: broadcaster.Broadcaster(ChatMessage))
 /// }
 ///
-/// pub fn initialize() -> Services {
-///   let assert Ok(chat_bus) = broadcaster.start_broadcaster()
+/// pub fn initialize() -> Result(Services, actor.StartError) {
+///   use chat_bus <- result.map(broadcaster.start_broadcaster())
 ///   Services(chat_bus: chat_bus)
 /// }
 ///
 /// // In WebSocket init handler
-/// fn handle_init(connection, services: Services) {
+/// fn handle_init(
+///   _connection: websocket.Connection,
+///   services: Services,
+/// ) -> #(Nil, Option(Selector(ChatMessage))) {
 ///   let channel = broadcaster.subscribe(services.chat_bus)
 ///   let selector = broadcaster.channel_to_selector(channel)
-///   #(initial_state, Some(selector))
+///   #(Nil, Some(selector))
 /// }
 ///
 /// // Anywhere in your app
-/// broadcaster.publish(services.chat_bus, ChatMessage("hello"))
+/// pub fn say_hello(services: Services) -> Nil {
+///   broadcaster.publish(services.chat_bus, ChatMessage("hello"))
+/// }
 /// ```
 pub opaque type Broadcaster(message) {
   Broadcaster(subject: Subject(BroadcasterMessage(message)))
@@ -67,8 +85,15 @@ type BroadcasterMessage(message) {
 ///
 /// ## Example
 ///
+/// ### Start a broadcaster <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster_functions.gleam#L12-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let assert Ok(broadcaster) = broadcaster.start_broadcaster()
+/// pub fn start_chat_bus() -> Result(
+///   broadcaster.Broadcaster(message),
+///   actor.StartError,
+/// ) {
+///   broadcaster.start_broadcaster()
+/// }
 /// ```
 pub fn start_broadcaster() -> Result(Broadcaster(message), actor.StartError) {
   actor.new([])
@@ -90,9 +115,16 @@ fn wrap_broadcaster_subject(
 ///
 /// ## Example
 ///
+/// ### Subscribe <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster_functions.gleam#L19-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let channel = broadcaster.subscribe(my_broadcaster)
-/// let selector = broadcaster.channel_to_selector(channel)
+/// pub fn listen_to(
+///   my_broadcaster: broadcaster.Broadcaster(message),
+/// ) -> Selector(message) {
+///   let channel = broadcaster.subscribe(my_broadcaster)
+///   let selector = broadcaster.channel_to_selector(channel)
+///   selector
+/// }
 /// ```
 pub fn subscribe(broadcaster: Broadcaster(message)) -> Channel(message) {
   let Broadcaster(subject) = broadcaster
@@ -108,8 +140,12 @@ pub fn subscribe(broadcaster: Broadcaster(message)) -> Channel(message) {
 ///
 /// ## Example
 ///
+/// ### Publish a message <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster_functions.gleam#L27-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// broadcaster.publish(my_broadcaster, UserJoined("Alice"))
+/// pub fn announce(my_broadcaster: broadcaster.Broadcaster(ChatEvent)) -> Nil {
+///   broadcaster.publish(my_broadcaster, UserJoined("Alice"))
+/// }
 /// ```
 pub fn publish(broadcaster: Broadcaster(message), message: message) -> Nil {
   let Broadcaster(subject) = broadcaster
@@ -119,13 +155,20 @@ pub fn publish(broadcaster: Broadcaster(message), message: message) -> Nil {
 /// Unsubscribe a channel from the broadcaster.
 ///
 /// The channel will no longer receive published messages.
-/// Note: This is typically not needed as channels are automatically
-/// cleaned up when processes terminate.
+/// Note: The broadcaster does not remove a channel when the subscribing
+/// process stops, so call this before that process stops.
 ///
 /// ## Example
 ///
+/// ### Unsubscribe a channel <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster_functions.gleam#L31-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// broadcaster.unsubscribe(my_broadcaster, channel)
+/// pub fn leave(
+///   my_broadcaster: broadcaster.Broadcaster(message),
+///   channel: broadcaster.Channel(message),
+/// ) -> Nil {
+///   broadcaster.unsubscribe(my_broadcaster, channel)
+/// }
 /// ```
 pub fn unsubscribe(
   broadcaster: Broadcaster(message),
@@ -143,10 +186,16 @@ pub fn unsubscribe(
 ///
 /// ## Example
 ///
+/// ### Use a channel in a selector <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster_functions.gleam#L38-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let channel = broadcaster.subscribe(my_broadcaster)
-/// let selector = broadcaster.channel_to_selector(channel)
-/// #(initial_state, Some(selector))
+/// pub fn initial_state(
+///   my_broadcaster: broadcaster.Broadcaster(message),
+/// ) -> #(Int, Option(Selector(message))) {
+///   let channel = broadcaster.subscribe(my_broadcaster)
+///   let selector = broadcaster.channel_to_selector(channel)
+///   #(0, Some(selector))
+/// }
 /// ```
 pub fn channel_to_selector(channel: Channel(message)) -> Selector(message) {
   let Channel(subject) = channel
