@@ -5,21 +5,32 @@
 ////
 //// ## Quick Examples
 ////
+//// ### Build responses <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_response_module.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
 //// import dream/http/response
 //// import dream/http/status
+//// import gleam/json
 ////
 //// // Text response
-//// response.text_response(status.ok, "Hello, World!")
+//// pub fn greeting() {
+////   response.text_response(status.ok, "Hello, World!")
+//// }
 ////
 //// // JSON response
-//// response.json_response(status.ok, json.to_string(user_json))
+//// pub fn user(user_json: json.Json) {
+////   response.json_response(status.ok, json.to_string(user_json))
+//// }
 ////
 //// // HTML response
-//// response.html_response(status.ok, "<h1>Welcome</h1>")
+//// pub fn welcome_page() {
+////   response.html_response(status.ok, "<h1>Welcome</h1>")
+//// }
 ////
 //// // Redirect
-//// response.redirect_response(status.see_other, "/login")
+//// pub fn login_redirect() {
+////   response.redirect_response(status.see_other, "/login")
+//// }
 //// ```
 
 import dream/http/cookie.{type Cookie}
@@ -39,16 +50,28 @@ import gleam/yielder
 ///
 /// ## Examples
 ///
+/// ### Response bodies <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_response_body.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// // Text responses (most common)
-/// Text("Hello, World!")
-/// Text(json.to_string(data))
+/// import dream/http/response.{type ResponseBody, Bytes, Stream, Text}
+/// import gleam/json
+/// import gleam/yielder.{type Yielder}
 ///
-/// // Binary response
-/// Bytes(image_data)
-///
-/// // Streaming response
-/// Stream(file_chunks)
+/// pub fn response_bodies(
+///   data: json.Json,
+///   image_data: BitArray,
+///   file_chunks: Yielder(BitArray),
+/// ) -> List(ResponseBody) {
+///   [
+///     // Text responses (most common)
+///     Text("Hello, World!"),
+///     Text(json.to_string(data)),
+///     // Binary response
+///     Bytes(image_data),
+///     // Streaming response
+///     Stream(file_chunks),
+///   ]
+/// }
 /// ```
 pub type ResponseBody {
   Text(String)
@@ -72,21 +95,29 @@ pub type ResponseBody {
 ///
 /// ## Example
 ///
+/// ### Builder or constructor <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_response_type.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// import dream/http/response
+/// import dream/http/header.{Header}
+/// import dream/http/response.{type Response, Response, Text}
 /// import dream/http/status
+/// import gleam/option.{Some}
 ///
 /// // Using builder (recommended)
-/// response.json_response(status.ok, user_json)
+/// pub fn with_builder(user_json: String) -> Response {
+///   response.json_response(status.ok, user_json)
+/// }
 ///
 /// // Constructing directly (not recommended)
-/// Response(
-///   status: 200,
-///   body: Text(user_json),
-///   headers: [Header("Content-Type", "application/json")],
-///   cookies: [],
-///   content_type: Some("application/json")
-/// )
+/// pub fn by_hand(user_json: String) -> Response {
+///   Response(
+///     status: 200,
+///     body: Text(user_json),
+///     headers: [Header("Content-Type", "application/json; charset=utf-8")],
+///     cookies: [],
+///     content_type: Some("application/json; charset=utf-8"),
+///   )
+/// }
 /// ```
 pub type Response {
   Response(
@@ -105,11 +136,13 @@ pub type Response {
 ///
 /// ## Example
 ///
+/// ### Text response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_text_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
 /// import dream/http/response.{text_response}
 /// import dream/http/status.{ok}
 ///
-/// pub fn healthcheck(request, context, services) {
+/// pub fn healthcheck(_request, _context, _services) {
 ///   text_response(ok, "OK")
 /// }
 /// ```
@@ -131,17 +164,20 @@ pub fn text_response(status: Int, body: String) -> Response {
 ///
 /// ## Example
 ///
+/// ### JSON response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_json_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
 /// import dream/http/response.{json_response}
 /// import dream/http/status.{ok}
 /// import gleam/json
 ///
-/// pub fn show_user(request, context, services) {
-///   let user_json = json.object([
-///     #("id", json.int(123)),
-///     #("name", json.string("Alice")),
-///   ])
-///   
+/// pub fn show_user(_request, _context, _services) {
+///   let user_json =
+///     json.object([
+///       #("id", json.int(123)),
+///       #("name", json.string("Alice")),
+///     ])
+///
 ///   json_response(ok, json.to_string(user_json))
 /// }
 /// ```
@@ -162,18 +198,21 @@ pub fn json_response(status: Int, body: String) -> Response {
 ///
 /// ## Example
 ///
+/// ### HTML response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_html_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
 /// import dream/http/response
 /// import dream/http/status
 ///
-/// pub fn index(request, context, services) {
-///   let html = "
+/// pub fn index(_request, _context, _services) {
+///   let html =
+///     "
 ///     <!DOCTYPE html>
 ///     <html>
 ///       <body><h1>Welcome</h1></body>
 ///     </html>
 ///   "
-///   
+///
 ///   response.html_response(status.ok, html)
 /// }
 /// ```
@@ -199,16 +238,19 @@ pub fn html_response(status: Int, body: String) -> Response {
 ///
 /// ## Example
 ///
+/// ### Redirect after a POST <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_redirect_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
 /// import dream/http/response
 /// import dream/http/status
+/// import gleam/int
 ///
-/// pub fn create_post(request, context, services) {
+/// pub fn create_post(_request, _context, _services) {
 ///   // After creating post, redirect to view it
 ///   let post_id = 123
 ///   response.redirect_response(
 ///     status.see_other,
-///     "/posts/" <> int.to_string(post_id)
+///     "/posts/" <> int.to_string(post_id),
 ///   )
 /// }
 /// ```
@@ -230,14 +272,26 @@ pub fn redirect_response(status: Int, location: String) -> Response {
 ///
 /// ## Example
 ///
+/// ### Empty response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_empty_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// import dream/http/response
+/// import dream/http/request.{type Request, get_int_param}
+/// import dream/http/response.{type Response}
 /// import dream/http/status
 ///
-/// pub fn delete_user(request, context, services) {
-///   // After successful deletion, return 204 with no body
-///   delete_from_db(services.db, user_id)
-///   response.empty_response(status.no_content)
+/// pub type Services {
+///   Services(delete_user: fn(Int) -> Nil)
+/// }
+///
+/// pub fn delete_user(request: Request, _context, services: Services) -> Response {
+///   case get_int_param(request, "id") {
+///     Ok(user_id) -> {
+///       // After successful deletion, return 204 with no body
+///       services.delete_user(user_id)
+///       response.empty_response(status.no_content)
+///     }
+///     Error(message) -> response.text_response(status.bad_request, message)
+///   }
 /// }
 /// ```
 pub fn empty_response(status: Int) -> Response {
@@ -257,17 +311,18 @@ pub fn empty_response(status: Int) -> Response {
 ///
 /// ## Example
 ///
+/// ### Binary response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_binary_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
 /// import dream/http/response
 /// import dream/http/status
 /// import simplifile
 ///
-/// pub fn serve_image(request, context, services) {
+/// pub fn serve_image(_request, _context, _services) {
 ///   case simplifile.read_bits("logo.png") {
 ///     Ok(image_data) ->
 ///       response.binary_response(status.ok, image_data, "image/png")
-///     Error(_) ->
-///       response.empty_response(status.not_found)
+///     Error(_) -> response.empty_response(status.not_found)
 ///   }
 /// }
 /// ```
@@ -294,19 +349,29 @@ pub fn binary_response(
 ///
 /// ## Example
 ///
+/// ### Stream a CSV file <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_stream_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
 /// import dream/http/response
 /// import dream/http/status
 /// import gleam/yielder
 ///
-/// pub fn export_users(request, context, services) {
-///   let user_stream = 
-///     query_all_users(services.db)
+/// pub type Services {
+///   Services(user_names: List(String))
+/// }
+///
+/// pub fn export_users(_request, _context, services: Services) {
+///   let user_stream =
+///     services.user_names
 ///     |> yielder.from_list
 ///     |> yielder.map(user_to_csv_row)
 ///     |> yielder.map(fn(row) { <<row:utf8>> })
-///   
+///
 ///   response.stream_response(status.ok, user_stream, "text/csv")
+/// }
+///
+/// fn user_to_csv_row(name: String) -> String {
+///   name <> "\n"
 /// }
 /// ```
 pub fn stream_response(
