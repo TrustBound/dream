@@ -131,86 +131,71 @@ Models handle data access. They are functions that:
 3.  Convert database rows to domain types.
 4.  Return a `Result`.
 
-**Example: Getting a Single Record**
+These examples come from the project model in the tasks example. Squirrel generates the `models/project/sql` module, and `dream_postgres/query` gives the `first_row()` and `all_rows()` helpers.
+
+#### Getting a Single Record <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/models/project/project_model.gleam#L14-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/error.{type Error, NotFound, InternalServerError}
-import dream_postgres/client.{type Connection}
-import dream_postgres/query
-import models/task/sql
-import types/task.{type Task}
-
-pub fn get(db: Connection, id: Int) -> Result(Task, Error) {
-  case sql.get_task(db, id) |> query.first_row() {
-    Ok(row) -> Ok(row_to_task(row))
-    Error(query.NotFound) -> Error(NotFound("Task not found"))
-    Error(_) -> Error(InternalServerError("Database error"))
+/// Get a single project by ID
+pub fn get(db: Connection, project_id: Int) -> Result(Project, Error) {
+  case sql.get_project(db, project_id) |> query.first_row() {
+    Ok(row) -> Ok(row_to_project(row))
+    Error(query.NotFound) -> Error(NotFound("Project not found"))
+    Error(query.DatabaseError) -> Error(InternalServerError("Database error"))
   }
-}
-
-fn row_to_task(row: sql.GetTaskRow) -> Task {
-  Task(
-    id: row.id,
-    title: row.title,
-    completed: row.completed,
-  )
 }
 ```
 
-**Example: Listing Multiple Records**
+`query.first_row()` returns `query.NotFound` when the query gives no rows. The model maps it to a 404 error.
+
+#### Listing Multiple Records <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/models/project/project_model.gleam#L23-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/error.{type Error, InternalServerError}
-import dream_postgres/client.{type Connection}
-import dream_postgres/query
-import gleam/list
-import models/user/sql
-import types/user.{type User}
-
-pub fn list(db: Connection) -> Result(List(User), Error) {
-  case sql.list_users(db) |> query.all_rows() {
-    Ok(rows) -> Ok(list.map(rows, row_to_user))
+/// List all projects
+pub fn list(db: Connection) -> Result(List(Project), Error) {
+  case sql.list_projects(db) |> query.all_rows() {
+    Ok(rows) -> Ok(list.map(rows, list_row_to_project))
     Error(_) -> Error(InternalServerError("Database error"))
   }
-}
-
-fn row_to_user(row: sql.ListUsersRow) -> User {
-  User(
-    id: row.id,
-    name: row.name,
-    email: row.email,
-  )
 }
 ```
 
-**Example: Creating a Record**
+#### Creating a Record <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/models/project/project_model.gleam#L31-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/error.{type Error, InternalServerError}
-import dream_postgres/client.{type Connection}
-import dream_postgres/query
-import models/user/sql
-import types/user.{type User}
+/// Create a new project
+pub fn create(db: Connection, data: ProjectData) -> Result(Project, Error) {
+  let description = option.unwrap(data.description, "")
+  let color = option.unwrap(data.color, "")
 
-pub fn create(
-  db: Connection,
-  name: String,
-  email: String,
-) -> Result(User, Error) {
-  case sql.create_user(db, name, email) |> query.first_row() {
-    Ok(row) -> Ok(row_to_user(row))
+  case
+    sql.create_project(db, data.name, description, color)
+    |> query.first_row()
+  {
+    Ok(row) -> Ok(create_row_to_project(row))
     Error(_) -> Error(InternalServerError("Database error"))
   }
 }
+```
 
-fn row_to_user(row: sql.CreateUserRow) -> User {
-  User(
+The controller decodes the request body into a `ProjectData` record. The model gives defaults to the optional fields and runs the insert.
+
+#### Converting a Row <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/tasks/src/models/project/project_model.gleam#L53-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+// Convert Squirrel row to domain type
+fn row_to_project(row: sql.GetProjectRow) -> Project {
+  Project(
     id: row.id,
     name: row.name,
-    email: row.email,
+    description: row.description,
+    color: row.color,
+    created_at: timestamp_to_string(row.created_at),
   )
 }
 ```
+
+Each query has its own row type, so the model has one small function for each row type. The controller gets a `Project` and never sees a row.
 
 ### Best Practices
 - **Return Domain Types:** Don't leak SQL row types to the controller. Convert them in the model.
