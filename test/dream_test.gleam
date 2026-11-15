@@ -36,6 +36,7 @@ import naming_snippets_test
 import reference_snippets_test
 import snippets/streaming_api_test
 import snippets_test
+import streaming_snippets_test
 
 pub fn main() {
   let all_tests =
@@ -86,6 +87,7 @@ pub fn main() {
       unit.to_test_cases("snippets/naming", naming_snippets_test.tests()),
       unit.to_test_cases("reference snippets", reference_snippets_test.tests()),
       unit.to_test_cases("snippets/streaming_api", streaming_api_test.tests()),
+      unit.to_test_cases("streaming_snippets", streaming_snippets_test.tests()),
     ]
     |> list.flatten
 
