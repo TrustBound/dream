@@ -6,6 +6,7 @@ import doc_core_snippets_test
 import doc_http_data_snippets_test
 import doc_http_snippets_test
 import doc_server_snippets_test
+import docs_snippet_pages_test
 import dream/context_test
 import dream/dream_test as dream_module_test
 import dream/http/cookie_test
@@ -115,6 +116,7 @@ pub fn main() {
         "websocket_chat_readme_snippets",
         websocket_chat_readme_snippets_test.tests(),
       ),
+      unit.to_test_cases("docs_snippet_pages", docs_snippet_pages_test.tests()),
     ]
     |> list.flatten
 

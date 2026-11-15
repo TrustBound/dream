@@ -44,6 +44,7 @@ format:
 # Generate documentation
 docs:
 	@gleam docs build
+	@gleam run -m docs_snippet_pages
 
 # Run format check and build (useful for CI)
 check:
