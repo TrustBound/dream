@@ -125,7 +125,9 @@ The broadcaster removes a subscriber when the process that subscribed stops, so 
 
 ### Tested Docs
 
-Every Gleam code block in the guides, the READMEs and the doc comments comes from a snippet file that the tests compile and run. Each block has a "tested snippet" badge that links to its snippet at this release's tag. Converting them found and fixed wrong examples across the docs.
+Every Gleam code block in the guides, the READMEs, the doc comments and SECURITY.md comes from a snippet file that the tests compile and run. Each block has a "tested snippet" badge that links to its snippet at this release's tag. Converting them found and fixed wrong examples across the docs.
+
+`make check-snippets` keeps it that way. It checks that every Gleam code block has a heading with the badge and shows the same code as its snippet file. It runs in the pre-commit hook, in CI and before every publish, so a wrong example cannot ship. It found 509 code blocks with no problems.
 
 ## Bug Fixes
 
@@ -158,7 +160,7 @@ Over HTTP/1.1, a response sent just before the connection closed could be lost t
 
 ## Testing
 
-- Dream's own tests: 919 run, 0 failed, in about 7 seconds (MacBook, OTP 28, Gleam 1.17.0)
+- Dream's own tests: 952 run, 0 failed, in about 7 seconds (MacBook, OTP 28, Gleam 1.17.0)
 - `dream_http_client`: 281 passed. Its `h2c_test` drives a real HTTP/2 client against the mock server, which serves its requests through Dream's server adapter
 - `dream_mock_server`: 25 passed
 - `dream_http_server` 1.2.0: 100 passed, on Gleam 1.17.0 and on Gleam 1.14.0 with OTP 28. Each of its fixes has a test that fails without the fix

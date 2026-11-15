@@ -35,8 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rest get HTTP/1.1. A missing certificate or key file is a start error.
   Server adapters read the setting with `dream.get_tls`.
 - New guide: `docs/guides/http2.md`.
-- Every code block in the guides, READMEs and doc comments comes from a
-  tested snippet, with a "tested snippet" badge that links to it.
+- Every code block in the guides, READMEs, doc comments and SECURITY.md
+  comes from a tested snippet, with a "tested snippet" badge that links to
+  it.
+- `make check-snippets` checks that every Gleam code block in the docs has
+  a heading with the badge and matches its snippet file. It runs in the
+  pre-commit hook, in CI, and before every publish.
 
 ### Changed
 
@@ -73,8 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Testing
 
-- 919 tests run, 0 failed, in about 7 seconds (MacBook, OTP 28, Gleam
-  1.17.0). The integration tests run every scenario of the mock server and
+- 952 tests run, 0 failed, in about 7 seconds (MacBook, OTP 28, Gleam
+  1.17.0). The snippet check finds 509 code blocks with no problems. The integration tests run every scenario of the mock server and
   ten examples over HTTP/1.1 and over HTTP/2 with TLS.
 
 ## [2.4.1] - 2026-03-11
