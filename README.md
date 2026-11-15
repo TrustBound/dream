@@ -37,7 +37,7 @@ Dream is a web toolkit for building servers. It's not a framework—you control 
 
 Here is the smallest useful Dream server. It responds with `"Hello, world!"`.
 
-### Hello, world <a href="https://github.com/TrustBound/dream/blob/main/test/snippets/readme_hello_server.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Hello, world <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/readme_hello_server.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http.{ok, text_response}
@@ -84,7 +84,7 @@ Dream also includes **named HTTP status constants** (like `ok`, `not_found`, and
 Dream is more than "Hello, world". Here are a few small examples of
 what it helps you build.
 
-### JSON APIs <a href="https://github.com/TrustBound/dream/blob/main/test/snippets/readme_json_api.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### JSON APIs <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/readme_json_api.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http.{json_response, not_found, ok}
@@ -120,7 +120,7 @@ fn user_to_json(user: User) -> String {
 - Use view functions (like `user_to_json`) to keep formatting separate
   from data access.
 
-### Streaming responses <a href="https://github.com/TrustBound/dream/blob/main/test/snippets/readme_streaming.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Streaming responses <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/readme_streaming.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http.{ok, stream_response}
@@ -146,7 +146,7 @@ fn make_log_stream(lines: List(String)) -> yielder.Yielder(BitArray) {
 - Use the BEAM's strengths for long-running, memory-efficient
   operations.
 
-### WebSockets <a href="https://github.com/TrustBound/dream/blob/main/test/snippets/readme_websocket_chat.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### WebSockets <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/readme_websocket_chat.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request, get_query_param}

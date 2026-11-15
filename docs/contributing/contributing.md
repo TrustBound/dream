@@ -85,6 +85,29 @@ Include:
 - Example usage with imports
 - Any important notes or caveats
 
+### Code Blocks in READMEs and Guides
+
+Every Gleam code block in a README, guide or reference page comes from a snippet file that the tests compile and run. A code block with no tested snippet can be wrong, and nobody finds out until a reader tries it.
+
+1. Write the code in `test/snippets/<name>.gleam` (or in the module's own `test/snippets/`).
+2. Run it from `test/snippets_test.gleam`, so that the tests fail when the snippet breaks.
+3. Copy the code into the doc.
+4. Give the code block a heading, and put a "tested snippet" badge at the right of the heading. The badge links to the snippet file at the release tag of the version you are writing for, for example `blob/2.5.0/`. Each published version then links to its own code, and the link keeps working when a snippet moves later.
+
+```markdown
+### JSON APIs <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/readme_json_api.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+```
+
+Use the full GitHub URL, not a relative path. HexDocs and Hex show the README without the repository, so a relative link goes nowhere.
+
+A code block can be a whole snippet file, or a range of lines from one. For an excerpt, the badge link ends in a GitHub line range, for example `https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/naming_create.gleam#L8-L10`. The block shows those lines byte for byte, with the same indent. The snippet file around the excerpt still compiles and has a test.
+
+An example of what not to do is real Dream code too. It compiles and runs in a tested snippet. Don't show a function that doesn't exist, and don't put Gleam code in a `text` block or in prose to get past the check. The text next to the block says why the code is bad.
+
+Examples in doc comments (`///`) are code blocks too. HexDocs shows them to every reader, so each one comes from a tested snippet in the same way, with a heading and the badge inside the comment, directly above the example.
+
+When you find a code block that doesn't follow this, change it in the same pull request.
+
 ### Contributing to Documentation
 
 For writing or improving user-facing documentation (guides, tutorials, examples), see the [Documentation Contributing Guide](index.md). It covers:
