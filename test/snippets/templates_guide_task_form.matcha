@@ -1,0 +1,3 @@
+{> with title_input as String
+{> with save_button as String
+<form hx-post="/tasks">{{ title_input }}{{ save_button }}</form>

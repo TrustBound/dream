@@ -20,18 +20,16 @@ This generates BEAM bytecode in `build/dev/erlang/`. For production, you want an
 
 Dream apps should read configuration from environment variables (12-factor app style):
 
+### Config from environment variables <a href="https://github.com/TrustBound/dream/blob/2.5.0/modules/config/test/snippets/deployment_guide_config.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 // config.gleam
 import envoy
-import gleam/int.{parse}
-import gleam/result.{try, replace_error, unwrap}
+import gleam/int
+import gleam/result.{replace_error, try}
 
 pub type Config {
-  Config(
-    database_url: String,
-    port: Int,
-    secret_key: String,
-  )
+  Config(database_url: String, port: Int, secret_key: String)
 }
 
 pub fn load() -> Result(Config, String) {
@@ -39,36 +37,44 @@ pub fn load() -> Result(Config, String) {
     envoy.get("DATABASE_URL")
     |> replace_error("DATABASE_URL not set"),
   )
-  
-  let port =
-    envoy.get("PORT")
-    |> try(parse)
-    |> unwrap(3000)
-  
+
+  use port <- try(read_port())
+
   use secret_key <- try(
     envoy.get("SECRET_KEY")
     |> replace_error("SECRET_KEY not set"),
   )
-  
+
   Ok(Config(database_url:, port:, secret_key:))
+}
+
+// PORT is optional, but a PORT that is not a number is an error
+fn read_port() -> Result(Int, String) {
+  case envoy.get("PORT") {
+    Error(Nil) -> Ok(3000)
+    Ok(value) ->
+      int.parse(value)
+      |> replace_error("PORT must be a number, got: " <> value)
+  }
 }
 ```
 
-Use in main:
+Start the server with the port from `Config`. `start_server` keeps running until the server stops:
+
+### Start the server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/deployment_guide_app.gleam#L38-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/servers/mist/server.{bind, listen, new, router, services} as server
-import router.{create_router}
-import services.{initialize_services}
-
-pub fn main() {
-  let assert Ok(config) = config.load()
-  
+pub fn create_server(services: Services) {
   server.new()
-  |> services(initialize_services(config))
-  |> router(create_router())
-  |> bind("0.0.0.0")  // Listen on all interfaces
-  |> listen(config.port)
+  |> server.services(services)
+  |> server.router(create_router())
+  // Listen on all interfaces
+  |> server.bind("0.0.0.0")
+}
+
+pub fn start_server(services: Services, port: Int) {
+  create_server(services)
+  |> server.listen(port)
 }
 ```
 
@@ -176,25 +182,32 @@ services:
 
 Log to stdout/stderr. Let your infrastructure handle log aggregation:
 
-```gleam
-import gleam/io.{println}
-import gleam/json.{Json, object, string, to_string}
-import gleam/time/timestamp.{now}
+### JSON log lines <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/deployment_guide_logging.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-pub fn log_info(message: String, metadata: Json) {
-  object([
-    #("level", string("info")),
-    #("message", string(message)),
-    #("metadata", metadata),
-    #("timestamp", string(timestamp_to_string(now()))),
-  ])
-  |> to_string
-  |> println
+```gleam
+import gleam/io
+import gleam/json.{type Json}
+import gleam/time/calendar
+import gleam/time/timestamp.{type Timestamp}
+
+pub fn log_info(message: String, metadata: Json) -> Nil {
+  format_info_line(message, metadata, timestamp.system_time())
+  |> io.println
 }
 
-fn timestamp_to_string(ts: timestamp.Timestamp) -> String {
-  // Convert timestamp to ISO 8601 string
-  timestamp.to_string(ts)
+pub fn format_info_line(
+  message: String,
+  metadata: Json,
+  time: Timestamp,
+) -> String {
+  json.object([
+    #("level", json.string("info")),
+    #("message", json.string(message)),
+    #("metadata", metadata),
+    // ISO 8601 in UTC, for example 2026-01-31T09:30:00Z
+    #("timestamp", json.string(timestamp.to_rfc3339(time, calendar.utc_offset))),
+  ])
+  |> json.to_string
 }
 ```
 
@@ -202,41 +215,41 @@ Docker/Kubernetes will capture stdout and route it to your log aggregator.
 
 ## Health Checks
 
-Add a health endpoint:
+Add a health endpoint. `check_database` is a function in `Services`, so a test can give a stub. In production, make it run `SELECT 1` through dream_postgres:
+
+### The health check controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/deployment_guide_app.gleam#L13-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{type Request, type Response, text_response, ok, service_unavailable}
-import dream/context.{AppContext}
-import pog.{query}
-import services.{Services}
+pub type Services {
+  Services(check_database: fn() -> Result(Nil, String))
+}
 
 pub fn health_check(
   _request: Request,
-  _context: AppContext,
+  _context: EmptyContext,
   services: Services,
 ) -> Response {
-  case check_database(services.db) {
-    Ok(_) -> text_response(ok, "OK")
-    Error(_) -> text_response(service_unavailable, "Database unavailable")
-  }
-}
-
-fn check_database(db: pog.Connection) -> Result(Nil, Nil) {
-  case query("SELECT 1", db, []) {
-    Ok(_) -> Ok(Nil)
-    Error(_) -> Error(Nil)
+  case services.check_database() {
+    Ok(Nil) -> text_response(ok, "OK")
+    Error(_reason) -> text_response(service_unavailable, "Database unavailable")
   }
 }
 ```
 
 Add to router:
 
-```gleam
-import dream/http/request.{Get}
-import dream/router.{route}
+### The health route <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/deployment_guide_app.gleam#L28-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-router
-|> route(method: Get, path: "/health", controller: health_check, middleware: [])
+```gleam
+pub fn create_router() -> Router(EmptyContext, Services) {
+  router()
+  |> route(
+    method: Get,
+    path: "/health",
+    controller: health_check,
+    middleware: [],
+  )
+}
 ```
 
 Configure Docker healthcheck:
@@ -258,12 +271,17 @@ For containerized deployments, your orchestrator (Kubernetes, ECS, etc.) handles
 
 Pog (PostgreSQL client) includes connection pooling:
 
-```gleam
-import pog.{default_config, pool_size}
+#### Pool size <a href="https://github.com/TrustBound/dream/blob/2.5.0/modules/postgres/test/snippets/deployment_guide_postgres.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-let config =
-  default_config()
-  |> pool_size(15)  // Adjust based on load
+```gleam
+import gleam/erlang/process
+import pog
+
+pub fn create_database_config() -> pog.Config {
+  pog.default_config(pool_name: process.new_name("app_database"))
+  // Adjust based on load
+  |> pog.pool_size(15)
+}
 ```
 
 Start with 15, increase if you see connection exhaustion. The BEAM handles pooling efficiently.
@@ -358,22 +376,31 @@ Never commit secrets to Git. Use secret management:
 
 Log key metrics:
 
+#### Request log lines <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/deployment_guide_request_log.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import dream/http.{type Request, type Response}
-import gleam/io.{println}
-import gleam/json.{object, string, int, to_string}
-import gleam/http.{method_to_string}
+import dream/http.{type Request, type Response, method_to_string}
+import gleam/io
+import gleam/json
 
 pub fn log_request(request: Request, response: Response, duration_ms: Int) {
-  object([
-    #("type", string("request")),
-    #("method", string(method_to_string(request.method))),
-    #("path", string(request.path)),
-    #("status", int(response.status)),
-    #("duration_ms", int(duration_ms)),
+  format_request_line(request, response, duration_ms)
+  |> io.println
+}
+
+pub fn format_request_line(
+  request: Request,
+  response: Response,
+  duration_ms: Int,
+) -> String {
+  json.object([
+    #("type", json.string("request")),
+    #("method", json.string(method_to_string(request.method))),
+    #("path", json.string(request.path)),
+    #("status", json.int(response.status)),
+    #("duration_ms", json.int(duration_ms)),
   ])
-  |> to_string
-  |> println
+  |> json.to_string
 }
 ```
 

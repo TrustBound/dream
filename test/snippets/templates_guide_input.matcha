@@ -1,0 +1,5 @@
+{> with input_id as String
+{> with input_name as String
+{> with input_value as String
+{> with attributes as String
+<input id="{{ input_id }}" name="{{ input_name }}" value="{{ input_value }}" {{ attributes }}>

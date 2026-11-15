@@ -1,0 +1,2 @@
+{> with main_content as String
+<div class="container">{{ main_content }}</div>

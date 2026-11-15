@@ -1,0 +1,6 @@
+{> with checkbox_id as String
+{> with checkbox_name as String
+{> with label_text as String
+{> with checked_attr as String
+{> with attributes as String
+<label><input type="checkbox" id="{{ checkbox_id }}" name="{{ checkbox_name }}" {{ checked_attr }} {{ attributes }}>{{ label_text }}</label>
