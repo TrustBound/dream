@@ -8,31 +8,33 @@ Your first Dream app is just one file with three pieces: a router, a controller,
 
 Create `src/hello_dream.gleam`:
 
+### The Hello World app <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_hello_world_app.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import dream/http.{type Request, type Response, text_response, ok}
+import dream/context.{type EmptyContext}
+import dream/http.{type Request, type Response, ok, text_response}
 import dream/http/request.{Get}
-import dream/router.{type EmptyServices, route, router}
-import dream/servers/mist/server.{
-  bind, listen, new, router as set_router, services,
-} as server
+import dream/router.{type EmptyServices, type Router, route, router}
+import dream/servers/mist/server
 
 fn index(
   _request: Request,
-  _context: dream/context.AppContext,
+  _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
   text_response(ok, "Hello, World!")
 }
 
-pub fn main() {
-  let app_router =
-    router()
-    |> route(method: Get, path: "/", controller: index, middleware: [])
+pub fn create_app_router() -> Router(EmptyContext, EmptyServices) {
+  router()
+  |> route(method: Get, path: "/", controller: index, middleware: [])
+}
 
+pub fn main() {
   server.new()
-  |> router(app_router)
-  |> bind("localhost")
-  |> listen(3000)
+  |> server.router(create_app_router())
+  |> server.bind("localhost")
+  |> server.listen(3000)
 }
 ```
 
@@ -51,10 +53,12 @@ Along the way we’ll also explain some Gleam syntax.
 
 ### 1. The Controller
 
+#### The index controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_hello_world_app.gleam#L11-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 fn index(
   _request: Request,
-  _context: dream/context.AppContext,
+  _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
   text_response(ok, "Hello, World!")
@@ -73,13 +77,16 @@ We will start using them in later lessons.
 
 ### 2. The Router
 
+#### The app router <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_hello_world_app.gleam#L19-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-let app_router =
+pub fn create_app_router() -> Router(EmptyContext, EmptyServices) {
   router()
   |> route(method: Get, path: "/", controller: index, middleware: [])
+}
 ```
 
-The router matches incoming requests to controllers:
+`create_app_router` builds the router. The router matches incoming requests to controllers:
 - `method: Get` - Only match GET requests
 - `path: "/"` - Only match the root path
 - `controller: index` - Call our index function
@@ -87,19 +94,24 @@ The router matches incoming requests to controllers:
 
 ### 3. The Server
 
+#### Starting the server <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/learn_hello_world_app.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-server.new()
-|> router(app_router)
-|> bind("localhost")
-|> listen(3000)
+pub fn main() {
+  server.new()
+  |> server.router(create_app_router())
+  |> server.bind("localhost")
+  |> server.listen(3000)
+}
 ```
 
 This configures and starts the server:
-- `router()` - Use our router
-- `bind()` - Listen on localhost only
-- `listen()` - Start on port 3000
+- `server.new()` - Create a server with the default context and services
+- `server.router(create_app_router())` - Use our router
+- `server.bind("localhost")` - Listen on localhost only
+- `server.listen(3000)` - Start on port 3000
 
-**Note:** Dream defaults to `AppContext` and `EmptyServices`. For simple apps, you only need to provide a router. We will see custom context and custom services in later lessons.
+**Note:** Dream defaults to `EmptyContext` and `EmptyServices`. For simple apps, you only need to provide a router. We will see custom context and custom services in later lessons.
 
 ## What You Learned
 

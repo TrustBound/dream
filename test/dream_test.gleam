@@ -34,6 +34,7 @@ import gleam/io
 import gleam/list
 import guides_deployment_templates_snippets_test
 import guides_sse_websockets_rest_snippets_test
+import learning_snippets_test
 import naming_snippets_test
 import reference_snippets_test
 import snippets/streaming_api_test
@@ -103,6 +104,7 @@ pub fn main() {
         "guides_deployment_templates_snippets",
         guides_deployment_templates_snippets_test.tests(),
       ),
+      unit.to_test_cases("learning snippets", learning_snippets_test.tests()),
     ]
     |> list.flatten
 
