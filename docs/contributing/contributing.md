@@ -50,33 +50,69 @@ gleam test
 
 ### Test Naming
 
+Dream's tests use [dream_test](https://hexdocs.pm/dream_test/), not `_test` functions. Name the `describe` group for the function, and name each `it` for the result it expects and the condition:
+
+#### Name a test for its result and condition <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/contributing_test_naming.gleam#L12-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn function_name_with_condition_returns_expected_result_test()
+fn to_status_code_tests() -> UnitTest {
+  describe("to_status_code", [
+    it("returns 404 for NotFound", fn() {
+      error.to_status_code(NotFound("User not found"))
+      |> should()
+      |> equal(404)
+      |> or_fail_with("Expected 404")
+    }),
+  ])
+}
 ```
 
 Example:
 
+#### Name the tests of one function <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/contributing_test_naming.gleam#L23-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn create_user_with_valid_data_returns_user_test()
-pub fn create_user_with_empty_name_returns_error_test()
+fn message_tests() -> UnitTest {
+  describe("message", [
+    it("returns the message of a BadRequest", fn() {
+      error.message(BadRequest("Invalid email format"))
+      |> should()
+      |> equal("Invalid email format")
+      |> or_fail_with("Expected the BadRequest message")
+    }),
+    it("returns the message of an InternalServerError", fn() {
+      error.message(InternalServerError("Database connection failed"))
+      |> should()
+      |> equal("Database connection failed")
+      |> or_fail_with("Expected the InternalServerError message")
+    }),
+  ])
+}
 ```
 
 ## Documentation
 
 All public functions must have documentation comments:
 
+### Document a public function <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/contributing_documentation.gleam#L5-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-/// Creates a new router with no routes configured.
+/// Creates a plain-text response that greets a person by name.
 ///
 /// ## Example
 ///
-/// ```gleam
-/// import dream/router.{router}
+/// ### Greet a person <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/contributing_documentation_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
-/// let my_router = router
+/// ```gleam
+/// import dream/http/response.{type Response}
+/// import snippets/contributing_documentation.{create_greeting_response}
+///
+/// pub fn greet_ada() -> Response {
+///   create_greeting_response("Ada")
+/// }
 /// ```
-pub fn router() -> Router(context, services) {
-  Router(routes: [])
+pub fn create_greeting_response(name: String) -> Response {
+  text_response(200, "Hello, " <> name <> "!")
 }
 ```
 

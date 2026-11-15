@@ -245,7 +245,10 @@ You'll implement:
 **Example:**
 
 ✅ **Good:**
-````gleam
+
+#### Document match_path <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/tone_guide_api_reference.gleam#L8-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
 /// Match a path against a pattern and extract parameters.
 ///
 /// Returns the extracted parameters if the path matches the pattern,
@@ -253,17 +256,34 @@ You'll implement:
 ///
 /// ## Examples
 ///
+/// ### Match a user path <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/tone_guide_api_reference_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// match_path("/users/:id", "/users/123")
-/// // -> Some([#("id", "123")])
+/// import gleam/option.{type Option}
+/// import snippets/tone_guide_api_reference.{match_path}
+///
+/// pub fn match_user_path() -> Option(List(#(String, String))) {
+///   match_path("/users/:id", "/users/123")
+///   // -> Some([#("id", "123")])
+/// }
 /// ```
 pub fn match_path(
   pattern: String,
   path: String,
-) -> Option(List(#(String, String)))
-````
+) -> Option(List(#(String, String))) {
+  let pattern_segments = string.split(pattern, "/")
+  let path_segments = string.split(path, "/")
+  case list.strict_zip(pattern_segments, path_segments) {
+    Ok(segment_pairs) -> collect_params(segment_pairs, [])
+    Error(Nil) -> None
+  }
+}
+```
 
 ❌ **Avoid:**
+
+#### Document match_path with jokes <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/tone_guide_api_reference_avoid.gleam#L8-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 /// This is how Dream's router works its magic! Well, not magic
 /// really - just good old-fashioned pattern matching. You give
@@ -411,12 +431,14 @@ Before using snark, ask:
 ````markdown
 Create `src/example.gleam`:
 
+### Create an empty router <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/tone_guide_code_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 // Complete, working code here
-import dream/router
+import dream/router.{type Router, router}
 
-pub fn example() {
-  // ...
+pub fn create_router() -> Router(context, services) {
+  router()
 }
 ```
 
