@@ -10,7 +10,7 @@ import dream/dream
 import dream/http/header.{type Header, Header}
 import dream/http/request.{
   type Method, type Request, Delete, Get, Head, Http, Http1, Https, Options,
-  Patch, Post, Put, Request,
+  Patch, Post, Put, Request, Text,
 }
 import gleam/erlang/process
 import gleam/http.{
@@ -67,7 +67,7 @@ pub fn generate_request_id() -> String {
 /// ## Returns
 ///
 /// A tuple of `#(Dream Request, request_id)` where:
-/// - Dream Request contains all HTTP metadata (empty body)
+/// - Dream Request contains all HTTP metadata (empty body: `Text("")`)
 /// - request_id is a unique identifier for this request
 pub fn convert_metadata(
   mist_request: http_request.Request(Connection),
@@ -129,8 +129,7 @@ pub fn convert_metadata(
       host: option.Some(mist_request.host),
       port: mist_request.port,
       remote_address: remote_address,
-      body: "",
-      stream: option.None,
+      body: Text(""),
       headers: headers,
       cookies: cookies,
       content_type: content_type,

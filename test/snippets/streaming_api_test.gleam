@@ -11,7 +11,7 @@ import dream_test/assertions/should.{equal, or_fail_with, should}
 import dream_test/unit.{type UnitTest, describe, it}
 import fixtures/request as test_request
 import gleam/bit_array
-import gleam/option.{None, Some}
+import gleam/option.{Some}
 import gleam/yielder
 import matchers/extract_body_text.{extract_body_text}
 import matchers/extract_response_status.{extract_response_status}
@@ -39,20 +39,7 @@ pub fn tests() -> UnitTest {
 
 fn types_tests() -> UnitTest {
   describe("types", [
-    it("create_upload_request has an empty buffered body", fn() {
-      // Arrange
-      let chunks = yielder.from_list([<<"abc":utf8>>])
-
-      // Act
-      let request = streaming_api_types.create_upload_request(chunks)
-
-      // Assert
-      request.body
-      |> should()
-      |> equal("")
-      |> or_fail_with("body should be empty")
-    }),
-    it("create_upload_request holds the chunks in stream", fn() {
+    it("create_upload_request holds the chunks in a Stream body", fn() {
       // Arrange
       let chunks = yielder.from_list([<<"ab":utf8>>, <<"c":utf8>>])
 
@@ -89,6 +76,41 @@ fn types_tests() -> UnitTest {
       // Act
       let description =
         streaming_api_types.describe_body(Stream(yielder.empty()))
+
+      // Assert
+      description
+      |> should()
+      |> equal("stream")
+      |> or_fail_with("Stream should be 'stream'")
+    }),
+    it("describe_request_body names a Text body", fn() {
+      // Act
+      let description =
+        streaming_api_types.describe_request_body(request.Text("hello"))
+
+      // Assert
+      description
+      |> should()
+      |> equal("buffered text")
+      |> or_fail_with("Text should be 'buffered text'")
+    }),
+    it("describe_request_body names a Bytes body", fn() {
+      // Act
+      let description =
+        streaming_api_types.describe_request_body(request.Bytes(<<0xFF>>))
+
+      // Assert
+      description
+      |> should()
+      |> equal("buffered bytes")
+      |> or_fail_with("Bytes should be 'buffered bytes'")
+    }),
+    it("describe_request_body names a Stream body", fn() {
+      // Act
+      let description =
+        streaming_api_types.describe_request_body(
+          request.Stream(yielder.empty()),
+        )
 
       // Assert
       description
@@ -397,6 +419,19 @@ fn yielder_tests() -> UnitTest {
       |> equal(<<"ABC":utf8>>)
       |> or_fail_with("stream should be 'ABC'")
     }),
+    it("uppercase_stream keeps a character split across two chunks", fn() {
+      // Arrange
+      let stream = yielder.from_list([<<"a":utf8, 0xC3>>, <<0xA9, "b":utf8>>])
+
+      // Act
+      let result = streaming_api_yielder.uppercase_stream(stream)
+
+      // Assert
+      bit_array.concat(yielder.to_list(result))
+      |> should()
+      |> equal(<<"AéB":utf8>>)
+      |> or_fail_with("stream should be 'AéB' with every byte kept")
+    }),
     it("remove_empty_chunks drops empty chunks", fn() {
       // Arrange
       let stream = yielder.from_list([<<"a":utf8>>, <<>>, <<"b":utf8>>])
@@ -549,6 +584,27 @@ fn routing_tests() -> UnitTest {
       |> equal(<<"ABC":utf8>>)
       |> or_fail_with("next should get 'ABC'")
     }),
+    it("uppercase_incoming keeps a character split across two chunks", fn() {
+      // Arrange
+      let chunks = yielder.from_list([<<"a":utf8, 0xC3>>, <<0xA9, "b":utf8>>])
+      let request =
+        test_request.create_streaming_request(Post, "/upload", chunks)
+
+      // Act
+      let response =
+        streaming_api_routing.uppercase_incoming(
+          request,
+          Nil,
+          Nil,
+          echo_request_stream,
+        )
+
+      // Assert
+      stream_body(response)
+      |> should()
+      |> equal(<<"AéB":utf8>>)
+      |> or_fail_with("next should get 'AéB' with every byte kept")
+    }),
     it("end_outgoing_chunks_with_newline ends each chunk with a newline", fn() {
       // Arrange
       let request =
@@ -628,15 +684,18 @@ fn stream_body(response: Response) -> BitArray {
 }
 
 fn request_stream_body(request: Request) -> BitArray {
-  case request.stream {
-    Some(stream) -> stream |> yielder.to_list |> bit_array.concat
-    None -> <<>>
+  case request.body {
+    request.Stream(stream) -> stream |> yielder.to_list |> bit_array.concat
+    _other -> <<>>
   }
 }
 
 fn echo_request_stream(request: Request, _context, _services) -> Response {
-  let stream = option.unwrap(request.stream, yielder.empty())
-  response.stream_response(200, stream, "text/plain")
+  case request.body {
+    request.Stream(stream) ->
+      response.stream_response(200, stream, "text/plain")
+    _other -> response.text_response(400, "Expected a streaming body")
+  }
 }
 
 /// Starts a server, sends GET /events, and returns the response body once it

@@ -4,24 +4,15 @@
 //// Handles HTTP concerns: parsing, error mapping, response building.
 
 import context.{type DatabaseContext}
-import dream/http.{type Request, type Response, require_int}
-import dream/http/error.{type Error, BadRequest}
+import dream/http.{type Request, type Response, require_int, require_json}
 import dream/http/response.{json_response}
 import dream/http/status
-import dream/http/validation.{validate_json}
 import gleam/result
 import models/user
 import operations/user_operations
 import services.{type Services}
 import utilities/response_helpers
 import views/user_view
-
-fn parse_user_data(body: String) -> Result(#(String, String), Error) {
-  case validate_json(body, user.decoder()) {
-    Ok(d) -> Ok(d)
-    Error(_) -> Error(BadRequest("Invalid user data"))
-  }
-}
 
 /// List all users
 pub fn index(
@@ -65,8 +56,7 @@ pub fn create(
   services: Services,
 ) -> Response {
   let result = {
-    use data <- result.try(parse_user_data(request.body))
-    let #(name, email) = data
+    use #(name, email) <- result.try(require_json(request, user.decoder()))
     let db = services.database.connection
     user_operations.create_user(db, name, email)
   }
@@ -85,8 +75,7 @@ pub fn update(
 ) -> Response {
   let result = {
     use id <- result.try(require_int(request, "id"))
-    use data <- result.try(parse_user_data(request.body))
-    let #(name, email) = data
+    use #(name, email) <- result.try(require_json(request, user.decoder()))
     let db = services.database.connection
     user_operations.update_user(db, id, name, email)
   }

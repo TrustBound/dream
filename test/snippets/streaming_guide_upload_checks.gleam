@@ -4,13 +4,12 @@
 //// the "Handle Errors Gracefully" and "File Upload with Validation" sections
 //// of docs/guides/streaming.md.
 
-import dream/http/request.{type Request}
+import dream/http/request.{type Request, Stream}
 import dream/http/response.{type Response, json_response, text_response}
 import dream/http/status
 import gleam/bit_array
 import gleam/int
 import gleam/json
-import gleam/option
 import gleam/result
 import gleam/yielder
 import simplifile
@@ -22,13 +21,12 @@ pub type UploadError {
 }
 
 pub fn upload_stream(request: Request, _context, _services) -> Response {
-  request.stream
-  |> option.map(process_stream_safely)
-  |> option.map(handle_upload_result)
-  |> option.unwrap(text_response(
-    status.bad_request,
-    "Expected streaming request",
-  ))
+  case request.body {
+    Stream(stream) ->
+      process_stream_safely(stream)
+      |> handle_upload_result
+    _ -> text_response(status.bad_request, "Expected streaming request")
+  }
 }
 
 fn process_stream_safely(
@@ -80,10 +78,12 @@ pub fn upload_image(
   _context,
   services: Services,
 ) -> Response {
-  request.stream
-  |> option.map(validate_and_save_image(_, services.upload_path))
-  |> option.map(map_validation_result_to_response)
-  |> option.unwrap(text_response(status.bad_request, "Expected file upload"))
+  case request.body {
+    Stream(stream) ->
+      validate_and_save_image(stream, services.upload_path)
+      |> map_validation_result_to_response
+    _ -> text_response(status.bad_request, "Expected file upload")
+  }
 }
 
 fn validate_and_save_image(

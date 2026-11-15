@@ -349,12 +349,11 @@ pub fn route(
 /// Add a streaming route to the router
 ///
 /// Registers a route that receives the request body as a stream (Yielder(BitArray))
-/// instead of a buffered string. Use this for large file uploads, proxying external
-/// APIs, or any request body > 10MB.
+/// instead of a buffered `Text` or `Bytes` body. Use this for large file uploads,
+/// proxying external APIs, or any request body > 10MB.
 ///
-/// The controller receives `request.stream` as `Some(Yielder(BitArray))` and
-/// `request.body` as an empty string. Process chunks as they arrive without
-/// buffering the entire body in memory.
+/// The controller receives `request.body` as `Stream(Yielder(BitArray))`.
+/// Process chunks as they arrive without buffering the entire body in memory.
 ///
 /// ## Example
 ///

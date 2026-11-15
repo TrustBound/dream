@@ -3,13 +3,12 @@
 //// Streaming routes and a controller that reads a streamed request body,
 //// as shown in docs/guides/streaming.md.
 
-import dream/http/request.{type Request, Post, Put}
+import dream/http/request.{type Request, Bytes, Post, Put, Stream, Text}
 import dream/http/response.{type Response, text_response}
 import dream/http/status
 import dream/router.{type Router, route, router, stream_route}
 import gleam/bit_array
 import gleam/int
-import gleam/option
 import gleam/string
 import gleam/yielder
 
@@ -32,18 +31,21 @@ pub fn create_router() -> Router(context, services) {
 }
 
 pub fn upload_buffered(request: Request, _context, _services) -> Response {
-  let total_bytes = string.byte_size(request.body)
-  create_upload_success_response(total_bytes)
+  case request.body {
+    Text(text) -> create_upload_success_response(string.byte_size(text))
+    Bytes(bytes) -> create_upload_success_response(bit_array.byte_size(bytes))
+    Stream(_chunks) ->
+      text_response(status.bad_request, "Expected buffered request body")
+  }
 }
 
 pub fn upload_stream(request: Request, _context, _services) -> Response {
-  request.stream
-  |> option.map(count_stream_bytes)
-  |> option.map(create_upload_success_response)
-  |> option.unwrap(text_response(
-    status.bad_request,
-    "Expected streaming request body",
-  ))
+  case request.body {
+    Stream(stream) ->
+      count_stream_bytes(stream)
+      |> create_upload_success_response
+    _ -> text_response(status.bad_request, "Expected streaming request body")
+  }
 }
 
 fn count_stream_bytes(stream: yielder.Yielder(BitArray)) -> Int {
@@ -61,7 +63,7 @@ fn create_upload_success_response(total_bytes: Int) -> Response {
   )
 }
 
-// DON'T: assume every POST route streams. This body is buffered as a String.
+// DON'T: assume every POST route streams. This body arrives buffered.
 pub fn create_buffered_upload_router() -> Router(context, services) {
   router()
   |> route(

@@ -1,16 +1,18 @@
 //// Tests for dream/http/params module.
 
+import dream/http/error.{BadRequest}
 import dream/http/params.{
   field_optional, require_field, require_field_int, require_form, require_int,
-  require_string,
+  require_json, require_string,
 }
-import dream/http/request.{Get}
+import dream/http/request.{Get, Post}
 import dream_test/assertions/should.{
   be_none, be_ok, be_some, contain_string, equal, have_length, or_fail_with,
   should,
 }
 import dream_test/unit.{type UnitTest, describe, it}
 import fixtures/request as test_request
+import gleam/dynamic/decode
 import matchers/extract_error_message.{extract_error_message}
 import matchers/extract_field.{extract_field}
 
@@ -23,6 +25,7 @@ pub fn tests() -> UnitTest {
     require_int_tests(),
     require_string_tests(),
     require_form_tests(),
+    require_json_tests(),
     require_field_tests(),
     require_field_int_tests(),
     field_optional_tests(),
@@ -461,7 +464,121 @@ fn require_form_tests() -> UnitTest {
       |> equal([#("a", "1")])
       |> or_fail_with("Should parse only a")
     }),
+    it("returns BadRequest for a body that is not text", fn() {
+      // Arrange
+      let request =
+        test_request.create_request_with_bytes(Post, "/test", <<0xFF, 0xD8>>)
+
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(BadRequest("Request body is not text")))
+      |> or_fail_with("Should reject a binary body")
+    }),
+    it("parses a form body that arrives as a Stream", fn() {
+      // Arrange
+      let request =
+        test_request.create_streaming_request_from_strings(Post, "/test", [
+          "title=Buy",
+          "+milk",
+        ])
+
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Ok([#("title", "Buy milk")]))
+      |> or_fail_with("Should read the stream, then parse the form")
+    }),
   ])
+}
+
+fn require_json_tests() -> UnitTest {
+  describe("require_json", [
+    it("decodes valid JSON to the exact value", fn() {
+      // Arrange
+      let request =
+        test_request.create_request_with_body(
+          Post,
+          "/tasks",
+          "{\"title\":\"Buy milk\",\"priority\":2}",
+        )
+
+      // Act
+      let result = require_json(request, task_decoder())
+
+      // Assert
+      result
+      |> should()
+      |> equal(Ok(#("Buy milk", 2)))
+      |> or_fail_with("Should decode the title and the priority")
+    }),
+    it("returns BadRequest with the parse message for bad JSON", fn() {
+      // Arrange
+      let request =
+        test_request.create_request_with_body(Post, "/tasks", "{\"title\":")
+
+      // Act
+      let result = require_json(request, task_decoder())
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(BadRequest("Unexpected end of JSON input")))
+      |> or_fail_with("Should report the JSON parse error")
+    }),
+    it(
+      "returns BadRequest with the decode message for a wrong field type",
+      fn() {
+        // Arrange
+        let request =
+          test_request.create_request_with_body(
+            Post,
+            "/tasks",
+            "{\"title\":\"Buy milk\",\"priority\":\"high\"}",
+          )
+
+        // Act
+        let result = require_json(request, task_decoder())
+
+        // Assert
+        result
+        |> should()
+        |> equal(Error(BadRequest("Expected Int but found String at priority")))
+        |> or_fail_with("Should report the priority field")
+      },
+    ),
+    it("returns BadRequest for a body that is not text", fn() {
+      // Arrange
+      let request =
+        test_request.create_request_with_bytes(Post, "/tasks", <<
+          0xFF,
+          0xD8,
+          0xFF,
+          0x00,
+        >>)
+
+      // Act
+      let result = require_json(request, task_decoder())
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(BadRequest("Request body is not text")))
+      |> or_fail_with("Should reject a binary body")
+    }),
+  ])
+}
+
+fn task_decoder() -> decode.Decoder(#(String, Int)) {
+  use title <- decode.field("title", decode.string)
+  use priority <- decode.field("priority", decode.int)
+  decode.success(#(title, priority))
 }
 
 fn require_field_tests() -> UnitTest {

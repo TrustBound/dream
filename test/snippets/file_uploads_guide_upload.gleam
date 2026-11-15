@@ -3,6 +3,7 @@ import dream/http.{
   type Request, type Response, bad_request, created, internal_server_error,
   json_response,
 }
+import dream/http/request.{body_as_string}
 import gleam/bit_array
 import gleam/json
 import gleam/list
@@ -54,8 +55,9 @@ pub type Services {
 /// Read the first file from a multipart/form-data request body.
 ///
 /// Dream has no multipart parser. This minimal one is enough for the guide's
-/// examples. Dream gives buffered routes the body as a String, so this only
-/// handles files whose content is valid UTF-8.
+/// examples. It reads the body with `body_as_string`, so it only handles
+/// files whose content is valid UTF-8: a binary upload arrives as `Bytes`
+/// and gives `Error(Nil)` here.
 pub fn parse_multipart(request: Request) -> Result(FileData, Nil) {
   use files <- result.try(parse_multipart_files(request))
   list.first(files)
@@ -65,8 +67,9 @@ pub fn parse_multipart(request: Request) -> Result(FileData, Nil) {
 pub fn parse_multipart_files(request: Request) -> Result(List(FileData), Nil) {
   use content_type <- result.try(option.to_result(request.content_type, Nil))
   use #(_, boundary) <- result.try(string.split_once(content_type, "boundary="))
+  use body <- result.try(body_as_string(request))
   let files =
-    request.body
+    body
     |> string.split("--" <> boundary)
     |> list.filter_map(parse_part)
   require_files(files)

@@ -306,7 +306,7 @@ Create reusable test data in `test/fixtures/`:
 #### A request fixture <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_request_fixture.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/request.{type Method, type Request, Http, Http1, Request}
+import dream/http/request.{type Method, type Request, Http, Http1, Request, Text}
 import gleam/option
 
 pub fn create_request(method: Method, path: String) -> Request {
@@ -320,8 +320,7 @@ pub fn create_request(method: Method, path: String) -> Request {
     host: option.None,
     port: option.None,
     remote_address: option.None,
-    body: "",
-    stream: option.None,
+    body: Text(""),
     headers: [],
     cookies: [],
     content_type: option.None,
@@ -334,14 +333,14 @@ pub fn create_request_with_body(
   path: String,
   body: String,
 ) -> Request {
-  Request(..create_request(method, path), body: body)
+  Request(..create_request(method, path), body: Text(body))
 }
 ```
 
 #### Using the request fixture <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/testing_guide_fixture_usage.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/request.{Post}
+import dream/http/request.{Post, Text}
 import dream_test/assertions/should.{equal, or_fail_with, should}
 import dream_test/unit.{type UnitTest, it}
 import fixtures/request as test_request
@@ -357,7 +356,7 @@ pub fn tests() -> UnitTest {
 
     request.body
     |> should()
-    |> equal("{\"name\":\"Alice\"}")
+    |> equal(Text("{\"name\":\"Alice\"}"))
     |> or_fail_with("Body should be the JSON")
   })
 }

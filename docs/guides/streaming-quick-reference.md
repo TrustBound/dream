@@ -2,16 +2,15 @@
 
 Quick copy-paste patterns for common streaming tasks.
 
-## Upload File (Ingress) <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_upload.gleam#L6-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Upload File (Ingress) <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_upload.gleam#L6-L42"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/request.{type Request, Post}
+import dream/http/request.{type Request, Post, Stream}
 import dream/http/response.{type Response, text_response}
 import dream/http/status
 import dream/router.{type Router, router, stream_route}
 import gleam/bit_array
 import gleam/int
-import gleam/option.{None, Some}
 import gleam/yielder
 
 // Router
@@ -27,8 +26,8 @@ pub fn create_router() -> Router(context, services) {
 
 // Controller
 pub fn upload_file(request: Request, _context, _services) -> Response {
-  case request.stream {
-    Some(stream) -> {
+  case request.body {
+    Stream(stream) -> {
       let total_bytes = yielder.fold(stream, 0, add_chunk_size)
 
       text_response(
@@ -36,7 +35,7 @@ pub fn upload_file(request: Request, _context, _services) -> Response {
         "Uploaded " <> int.to_string(total_bytes) <> " bytes",
       )
     }
-    None -> text_response(status.bad_request, "Expected streaming upload")
+    _ -> text_response(status.bad_request, "Expected streaming upload")
   }
 }
 
@@ -149,7 +148,6 @@ to the SSE actor, and `on_message` writes it to the client.
 ```gleam
 import dream/http/request.{type Request, Request}
 import dream/http/response.{type Response, Response, Stream}
-import gleam/option.{None, Some}
 import gleam/yielder
 
 pub fn uppercase_middleware(
@@ -158,13 +156,14 @@ pub fn uppercase_middleware(
   services: services,
   next: fn(Request, context, services) -> Response,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> {
+  case request.body {
+    request.Stream(stream) -> {
       let uppercase_stream = yielder.map(stream, uppercase_chunk)
-      let new_request = Request(..request, stream: Some(uppercase_stream))
+      let new_request =
+        Request(..request, body: request.Stream(uppercase_stream))
       next(new_request, context, services)
     }
-    None -> next(request, context, services)
+    _ -> next(request, context, services)
   }
 }
 
@@ -236,13 +235,12 @@ pub fn proxy(_request: Request, _context, _services) -> Response {
 }
 ```
 
-## Save Upload to File <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_files.gleam#L6-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Save Upload to File <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_files.gleam#L6-L42"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/request.{type Request}
+import dream/http/request.{type Request, Stream}
 import dream/http/response.{type Response, text_response}
 import dream/http/status
-import gleam/option.{None, Some}
 import gleam/result
 import gleam/yielder
 import simplifile
@@ -252,9 +250,9 @@ pub type Services {
 }
 
 pub fn save_upload(request: Request, _context, services: Services) -> Response {
-  case request.stream {
-    Some(stream) -> save_stream_to_disk(stream, services.upload_path)
-    None -> text_response(status.bad_request, "Expected file upload")
+  case request.body {
+    Stream(stream) -> save_stream_to_disk(stream, services.upload_path)
+    _ -> text_response(status.bad_request, "Expected file upload")
   }
 }
 
@@ -279,7 +277,7 @@ fn write_stream_to_file(
 }
 ```
 
-## Validate Upload (First Chunk) <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_files.gleam#L45-L110"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Validate Upload (First Chunk) <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_quick_files.gleam#L44-L109"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type UploadError {
@@ -293,11 +291,11 @@ pub fn upload_image(
   _context,
   services: Services,
 ) -> Response {
-  case request.stream {
-    Some(stream) ->
+  case request.body {
+    Stream(stream) ->
       validate_and_save(stream, services.upload_path)
       |> create_image_response
-    None -> text_response(status.bad_request, "Expected image upload")
+    _ -> text_response(status.bad_request, "Expected image upload")
   }
 }
 

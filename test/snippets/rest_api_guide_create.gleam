@@ -4,11 +4,9 @@
 //// the matching status code, as shown in docs/guides/rest-api.md.
 
 import dream/context.{type AppContext}
-import dream/http.{
-  type Request, type Response, type ValidationError, created, json_response,
-  validate_json,
-}
+import dream/http.{type Request, type Response, created, json_response}
 import dream/http/error.{type Error, UnprocessableContent}
+import dream/http/params
 import gleam/json
 import gleam/result
 import snippets/rest_api_guide_validation.{
@@ -21,10 +19,7 @@ pub fn create(
   services: Services,
 ) -> Response {
   let result = {
-    use data <- result.try(
-      validate_json(request.body, decoder())
-      |> result.map_error(validation_error_to_error),
-    )
+    use data <- result.try(params.require_json(request, decoder()))
     use valid_data <- result.try(
       validate_product_data(data)
       |> result.map_error(UnprocessableContent),
@@ -36,10 +31,6 @@ pub fn create(
     Ok(product) -> json_response(created, to_json(product))
     Error(create_error) -> error_to_response(create_error)
   }
-}
-
-fn validation_error_to_error(validation_error: ValidationError) -> Error {
-  UnprocessableContent(validation_error.message)
 }
 
 fn create_product(

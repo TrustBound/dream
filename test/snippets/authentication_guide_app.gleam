@@ -3,10 +3,10 @@
 //// Shown in excerpts in docs/guides/authentication.md.
 
 import dream/http.{
-  type Request, type Response, created, get_header, json_response, ok,
-  text_response, unauthorized,
+  type Request, type Response, bad_request, created, get_header, json_response,
+  ok, text_response, unauthorized,
 }
-import dream/http/request.{Get, Post}
+import dream/http/request.{Get, Post, body_as_string}
 import dream/router.{type Router, route, router}
 import gleam/json
 import gleam/list
@@ -93,10 +93,12 @@ fn create_post(
   context: AuthContext,
   _services: Services,
 ) -> Response {
-  case context.user {
-    Some(user) ->
-      text_response(created, user.email <> " wrote: " <> request.body)
-    None -> text_response(unauthorized, "Authentication required")
+  case context.user, body_as_string(request) {
+    Some(user), Ok(text) ->
+      text_response(created, user.email <> " wrote: " <> text)
+    Some(_user), Error(Nil) ->
+      text_response(bad_request, "Request body is not text")
+    None, _ -> text_response(unauthorized, "Authentication required")
   }
 }
 

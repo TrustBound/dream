@@ -1,5 +1,5 @@
 import dream/context.{type EmptyContext}
-import dream/http/request.{type Request}
+import dream/http/request.{type Request, Bytes, Stream, Text}
 import dream/http/response.{type Response, stream_response, text_response}
 import dream/http/status
 import dream_http_client/client
@@ -7,7 +7,6 @@ import gleam/bit_array
 import gleam/bytes_tree
 import gleam/http
 import gleam/int
-import gleam/option.{None, Some}
 import gleam/yielder
 import services.{type Services}
 
@@ -17,8 +16,8 @@ pub fn upload(
   _context: EmptyContext,
   _services: Services,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> {
+  case request.body {
+    Stream(stream) -> {
       // Consume the stream "saving" it
       let total_bytes = stream |> yielder.fold(0, accumulate_chunk_size)
 
@@ -27,7 +26,8 @@ pub fn upload(
         "Uploaded " <> int.to_string(total_bytes) <> " bytes successfully",
       )
     }
-    None -> text_response(status.bad_request, "Expected streaming request body")
+    Text(_) | Bytes(_) ->
+      text_response(status.bad_request, "Expected streaming request body")
   }
 }
 
@@ -50,13 +50,14 @@ pub fn echo_transform(
   _context: EmptyContext,
   _services: Services,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> {
+  case request.body {
+    Stream(stream) -> {
       // Just echo the stream back!
       // The middleware does the heavy lifting (uppercase -> replace space)
       stream_response(status.ok, stream, "text/plain")
     }
-    None -> text_response(status.bad_request, "Expected streaming request body")
+    Text(_) | Bytes(_) ->
+      text_response(status.bad_request, "Expected streaming request body")
   }
 }
 

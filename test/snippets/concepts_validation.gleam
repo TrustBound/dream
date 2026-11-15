@@ -1,6 +1,7 @@
 //// Concepts: validation and response building stay separate
 
 import dream/http.{type Request, type Response, json_response, validate_json}
+import dream/http/request.{body_as_string}
 import dream/http/status
 import dream/http/validation.{type ValidationError}
 import gleam/dynamic/decode.{type Decoder}
@@ -20,8 +21,19 @@ pub fn create_note(
   _context: context,
   services: Services,
 ) -> Response {
+  case body_as_string(request) {
+    Ok(body) -> create_from_body(services, body)
+    Error(Nil) ->
+      json_response(
+        status.bad_request,
+        message_json("Request body is not text"),
+      )
+  }
+}
+
+fn create_from_body(services: Services, body: String) -> Response {
   let decoder = note_decoder()
-  case validate_json(request.body, decoder) {
+  case validate_json(body, decoder) {
     Ok(data) -> create_with_data(services, data)
     Error(err) -> json_response(status.bad_request, error_json(err))
   }
@@ -41,6 +53,10 @@ fn create_with_data(services: Services, note: Note) -> Response {
 }
 
 fn error_json(err: ValidationError) -> String {
-  json.object([#("error", json.string(err.message))])
+  message_json(err.message)
+}
+
+fn message_json(message: String) -> String {
+  json.object([#("error", json.string(message))])
   |> json.to_string()
 }

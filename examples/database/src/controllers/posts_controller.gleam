@@ -4,24 +4,15 @@
 //// Handles HTTP concerns: parsing, error mapping, response building.
 
 import context.{type DatabaseContext}
-import dream/http.{type Request, type Response, require_int}
-import dream/http/error.{type Error, BadRequest}
+import dream/http.{type Request, type Response, require_int, require_json}
 import dream/http/response.{json_response}
 import dream/http/status
-import dream/http/validation.{validate_json}
 import gleam/result
 import models/post
 import operations/post_operations
 import services.{type Services}
 import utilities/response_helpers
 import views/post_view
-
-fn parse_post_data(body: String) -> Result(#(String, String), Error) {
-  case validate_json(body, post.decoder()) {
-    Ok(d) -> Ok(d)
-    Error(_) -> Error(BadRequest("Invalid post data"))
-  }
-}
 
 /// List all posts for a user
 pub fn index(
@@ -67,8 +58,7 @@ pub fn create(
 ) -> Response {
   let result = {
     use user_id <- result.try(require_int(request, "user_id"))
-    use data <- result.try(parse_post_data(request.body))
-    let #(title, content) = data
+    use #(title, content) <- result.try(require_json(request, post.decoder()))
     let db = services.database.connection
     post_operations.create_post(db, user_id, title, content)
   }

@@ -3,11 +3,16 @@
 //// This module provides safe parameter extraction from HTTP requests,
 //// returning Result types with `dream/http/error.Error` instead of crashing on missing or invalid data.
 ////
-//// Use these helpers to validate path parameters and form data in controllers,
-//// then pipe the results through your business logic using gleam/result.
+//// Use these helpers to validate path parameters, form data and JSON bodies
+//// in controllers, then pipe the results through your business logic using
+//// gleam/result.
 
 import dream/http/error.{type Error, BadRequest}
-import dream/http/request.{type Request, get_int_param, get_string_param}
+import dream/http/request.{
+  type Request, body_as_string, get_int_param, get_string_param,
+}
+import dream/http/validation.{type ValidationError}
+import gleam/dynamic/decode
 import gleam/int
 import gleam/list
 import gleam/option.{type Option}
@@ -71,7 +76,9 @@ pub fn require_string(request: Request, name: String) -> Result(String, Error) {
 /// Require and parse form data from request body
 ///
 /// Returns a Result containing the parsed form data as key-value pairs.
-/// Returns an error only if the body is empty. Each pair is split at its
+/// Returns `BadRequest("Request body is not text")` when the body is not
+/// valid UTF-8, and `BadRequest("Request body is empty")` when the body is
+/// empty. A `Stream` body is read to the end first. Each pair is split at its
 /// first `=`: the key is the text before it and the value is all the text
 /// after it, so `token=a=b` gives `#("token", "a=b")`. A pair with no `=`
 /// gives an empty value. An empty pair, from `a=1&&b=2` or a trailing `&`,
@@ -96,10 +103,71 @@ pub fn require_string(request: Request, name: String) -> Result(String, Error) {
 pub fn require_form(
   request: Request,
 ) -> Result(List(#(String, String)), Error) {
-  case request.body {
+  use body <- result.try(require_text_body(request))
+  case body {
     "" -> Error(BadRequest("Request body is empty"))
-    body -> Ok(parse_form_body(body))
+    _ -> Ok(parse_form_body(body))
   }
+}
+
+/// Require a JSON body and decode it
+///
+/// Reads the body as text, parses it as JSON, and runs `decoder` on the
+/// result, so a controller gets typed data or one `BadRequest` it can send
+/// back. Each step that fails gives `BadRequest` with the reason:
+///
+/// - The body is not valid UTF-8: `"Request body is not text"`
+/// - The body is not JSON: the parse message from `validate_json`, for
+///   example `"Unexpected end of JSON input"`
+/// - A field is missing or has the wrong type: the decode message from
+///   `validate_json`, for example `"Expected Int but found String at priority"`
+///
+/// A `Stream` body is read to the end first. Use `validation.validate_json`
+/// directly when you need the separate `field`, `expected` and `found`
+/// values of a `ValidationError`.
+///
+/// ## Examples
+///
+/// ### Require a JSON body <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_require_json.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/error.{type Error}
+/// import dream/http/params
+/// import dream/http/request.{type Request}
+/// import gleam/dynamic/decode
+/// import gleam/result
+///
+/// pub type NewTask {
+///   NewTask(title: String, priority: Int)
+/// }
+///
+/// fn new_task_decoder() -> decode.Decoder(NewTask) {
+///   use title <- decode.field("title", decode.string)
+///   use priority <- decode.field("priority", decode.int)
+///   decode.success(NewTask(title: title, priority: priority))
+/// }
+///
+/// pub fn read_task(request: Request) -> Result(NewTask, Error) {
+///   use task <- result.try(params.require_json(request, new_task_decoder()))
+///   Ok(task)
+/// }
+/// ```
+pub fn require_json(
+  request: Request,
+  decoder: decode.Decoder(decoded),
+) -> Result(decoded, Error) {
+  use body <- result.try(require_text_body(request))
+  validation.validate_json(body, decoder)
+  |> result.map_error(validation_error_to_bad_request)
+}
+
+fn require_text_body(request: Request) -> Result(String, Error) {
+  body_as_string(request)
+  |> result.replace_error(BadRequest("Request body is not text"))
+}
+
+fn validation_error_to_bad_request(validation_error: ValidationError) -> Error {
+  BadRequest(validation_error.message)
 }
 
 /// Require a field from form data

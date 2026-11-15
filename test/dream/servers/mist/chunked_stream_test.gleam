@@ -19,7 +19,7 @@ import gleam/dynamic.{type Dynamic}
 import gleam/erlang/process
 import gleam/int
 import gleam/list
-import gleam/option.{None, Some}
+import gleam/option.{None}
 import gleam/string
 
 /// How many requests to send in one test. The failure this guards against
@@ -137,9 +137,11 @@ fn count_occurrences(haystack: String, needle: String) -> Int {
 }
 
 fn echo_stream_controller(request: Request, _context, _services) -> Response {
-  case request.stream {
-    Some(stream) -> stream_response(200, stream, "text/plain")
-    None -> text_response(400, "Expected streaming request body")
+  case request.body {
+    request.Stream(chunks) -> stream_response(200, chunks, "text/plain")
+    request.Text(_text) -> text_response(400, "Expected streaming request body")
+    request.Bytes(_bytes) ->
+      text_response(400, "Expected streaming request body")
   }
 }
 

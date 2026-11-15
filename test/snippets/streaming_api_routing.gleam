@@ -12,9 +12,6 @@ import dream/servers/mist/server
 import gleam/bit_array
 import gleam/int
 import gleam/list
-import gleam/option.{None, Some}
-import gleam/result
-import gleam/string
 import gleam/yielder
 
 pub fn create_router() -> Router(context, services) {
@@ -34,12 +31,16 @@ pub fn create_router() -> Router(context, services) {
 }
 
 pub fn upload(request: Request, _context, _services) -> Response {
-  let chunks = option.unwrap(request.stream, yielder.empty())
-  let total_bytes = yielder.fold(chunks, 0, add_chunk_size)
-  text_response(
-    status.ok,
-    "Received " <> int.to_string(total_bytes) <> " bytes",
-  )
+  case request.body {
+    request.Stream(chunks) -> {
+      let total_bytes = yielder.fold(chunks, 0, add_chunk_size)
+      text_response(
+        status.ok,
+        "Received " <> int.to_string(total_bytes) <> " bytes",
+      )
+    }
+    _ -> text_response(status.bad_request, "Expected a streaming body")
+  }
 }
 
 fn add_chunk_size(total: Int, chunk: BitArray) -> Int {
@@ -73,22 +74,36 @@ pub fn uppercase_incoming(
   services: services,
   next: fn(Request, context, services) -> Response,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> {
+  case request.body {
+    request.Stream(stream) -> {
       let uppercase_stream = yielder.map(stream, uppercase_chunk)
-      let new_request = Request(..request, stream: Some(uppercase_stream))
+      let new_request =
+        Request(..request, body: request.Stream(uppercase_stream))
       next(new_request, context, services)
     }
-    None -> next(request, context, services)
+    _ -> next(request, context, services)
   }
 }
 
 fn uppercase_chunk(chunk: BitArray) -> BitArray {
-  chunk
-  |> bit_array.to_string()
-  |> result.unwrap("")
-  |> string.uppercase()
-  |> bit_array.from_string()
+  uppercase_bytes(chunk, <<>>)
+}
+
+fn uppercase_bytes(remaining: BitArray, uppercased: BitArray) -> BitArray {
+  case remaining {
+    <<byte, rest:bytes>> ->
+      uppercase_bytes(rest, <<uppercased:bits, uppercase_byte(byte)>>)
+    _ -> uppercased
+  }
+}
+
+// Only the ASCII letters a to z change. Every byte of a multi-byte UTF-8
+// character is 128 or more, so a character split across two chunks is kept.
+fn uppercase_byte(byte: Int) -> Int {
+  case byte >= 97 && byte <= 122 {
+    True -> byte - 32
+    False -> byte
+  }
 }
 
 pub fn end_outgoing_chunks_with_newline(

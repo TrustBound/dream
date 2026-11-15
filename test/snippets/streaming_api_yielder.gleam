@@ -3,8 +3,6 @@
 //// Common ways to transform, filter, count, limit and join streams.
 
 import gleam/bit_array
-import gleam/result
-import gleam/string
 import gleam/yielder.{type Yielder}
 
 pub fn uppercase_stream(stream: Yielder(BitArray)) -> Yielder(BitArray) {
@@ -13,11 +11,24 @@ pub fn uppercase_stream(stream: Yielder(BitArray)) -> Yielder(BitArray) {
 }
 
 fn uppercase_chunk(chunk: BitArray) -> BitArray {
-  chunk
-  |> bit_array.to_string()
-  |> result.unwrap("")
-  |> string.uppercase()
-  |> bit_array.from_string()
+  uppercase_bytes(chunk, <<>>)
+}
+
+fn uppercase_bytes(remaining: BitArray, uppercased: BitArray) -> BitArray {
+  case remaining {
+    <<byte, rest:bytes>> ->
+      uppercase_bytes(rest, <<uppercased:bits, uppercase_byte(byte)>>)
+    _ -> uppercased
+  }
+}
+
+// Only the ASCII letters a to z change. Every byte of a multi-byte UTF-8
+// character is 128 or more, so a character split across two chunks is kept.
+fn uppercase_byte(byte: Int) -> Int {
+  case byte >= 97 && byte <= 122 {
+    True -> byte - 32
+    False -> byte
+  }
 }
 
 pub fn remove_empty_chunks(stream: Yielder(BitArray)) -> Yielder(BitArray) {

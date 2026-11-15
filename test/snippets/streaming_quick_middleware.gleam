@@ -5,7 +5,6 @@
 
 import dream/http/request.{type Request, Request}
 import dream/http/response.{type Response, Response, Stream}
-import gleam/option.{None, Some}
 import gleam/yielder
 
 pub fn uppercase_middleware(
@@ -14,13 +13,14 @@ pub fn uppercase_middleware(
   services: services,
   next: fn(Request, context, services) -> Response,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> {
+  case request.body {
+    request.Stream(stream) -> {
       let uppercase_stream = yielder.map(stream, uppercase_chunk)
-      let new_request = Request(..request, stream: Some(uppercase_stream))
+      let new_request =
+        Request(..request, body: request.Stream(uppercase_stream))
       next(new_request, context, services)
     }
-    None -> next(request, context, services)
+    _ -> next(request, context, services)
   }
 }
 

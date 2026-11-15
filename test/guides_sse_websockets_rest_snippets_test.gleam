@@ -645,6 +645,22 @@ fn rest_api_errors_tests() -> UnitTest {
       ))
       |> or_fail_with("create should return 201 and the product")
     }),
+    it("create returns 400 with the parse message for bad JSON", fn() {
+      // Arrange
+      let request =
+        test_request.create_request_with_body(Post, "/products", "{")
+      let services = rest_api_guide_create.Services(next_product_id: 7)
+
+      // Act
+      let response =
+        rest_api_guide_create.create(request, new_context("test"), services)
+
+      // Assert
+      #(response.status, response.body)
+      |> should()
+      |> equal(#(400, Text("{\"error\":\"Unexpected end of JSON input\"}")))
+      |> or_fail_with("create should return 400 and the parse message")
+    }),
     it("create returns 422 with the validation message", fn() {
       // Arrange
       let request =

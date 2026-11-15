@@ -3,12 +3,11 @@
 //// A download that streams bytes, a buffered and a streamed report, and an
 //// upload controller that handles stream errors.
 
-import dream/http/request.{type Request}
+import dream/http/request.{type Request, Stream}
 import dream/http/response.{type Response, stream_response, text_response}
 import dream/http/status
 import gleam/bit_array
 import gleam/int
-import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import gleam/yielder.{type Yielder}
@@ -44,9 +43,9 @@ pub type UploadError {
 }
 
 pub fn upload(request: Request, _context, _services) -> Response {
-  case request.stream {
-    Some(stream) -> respond_to_upload(stream)
-    None -> text_response(status.bad_request, "Expected streaming upload")
+  case request.body {
+    Stream(stream) -> respond_to_upload(stream)
+    _ -> text_response(status.bad_request, "Expected streaming upload")
   }
 }
 

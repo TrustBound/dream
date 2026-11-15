@@ -35,14 +35,14 @@
 //// This module re-exports:
 ////
 //// **Types:**
-//// - `Request`, `Response`, `Method`, `Protocol`, `Version`
+//// - `Request`, `RequestBody`, `Response`, `Method`, `Protocol`, `Version`
 //// - `Header`, `Cookie`, `SameSite`, `PathParam`
 //// - `ResponseBody`, `Error`
 ////
 //// **Functions:**
 //// - Response builders: `text_response`, `json_response`, `html_response`, etc.
 //// - Status codes: `ok`, `created`, `bad_request`, `not_found`, etc.
-//// - Parameter validation: `require_int`, `require_string`, `require_form`, etc.
+//// - Parameter validation: `require_int`, `require_string`, `require_form`, `require_json`, etc.
 //// - Header utilities: `get_header`, `header_name` and `header_value`. Import `dream/http/header` for `set_header`, `add_header` and `remove_header`.
 //// - Cookie utilities: `get_cookie`, `simple_cookie`, `secure_cookie`, etc.
 //// - Request utilities: `get_param`, `get_query_param`, `has_content_type`, etc.
@@ -77,6 +77,9 @@ pub type Version =
 
 pub type PathParam =
   request.PathParam
+
+pub type RequestBody =
+  request.RequestBody
 
 // Request functions
 pub const method_to_string = request.method_to_string
@@ -202,6 +205,8 @@ pub const require_int = params.require_int
 pub const require_string = params.require_string
 
 pub const require_form = params.require_form
+
+pub const require_json = params.require_json
 
 pub const require_field = params.require_field
 

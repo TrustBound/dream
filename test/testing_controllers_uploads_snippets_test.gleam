@@ -196,7 +196,7 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       request.body
       |> should()
-      |> equal(body)
+      |> equal(request.Text(body))
       |> or_fail_with("Fixture should set the body")
     }),
     it("fixture usage test passes", fn() {

@@ -2,7 +2,9 @@
 ////
 //// Provides factory functions for creating test requests with sensible defaults.
 
-import dream/http/request.{type Method, type Request, Http, Http1, Request}
+import dream/http/request.{
+  type Method, type Request, Bytes, Http, Http1, Request, Stream, Text,
+}
 import gleam/bit_array
 import gleam/list
 import gleam/option
@@ -20,8 +22,7 @@ pub fn create_request(method: Method, path: String) -> Request {
     host: option.None,
     port: option.None,
     remote_address: option.None,
-    body: "",
-    stream: option.None,
+    body: Text(""),
     headers: [],
     cookies: [],
     content_type: option.None,
@@ -35,7 +36,16 @@ pub fn create_request_with_body(
   path: String,
   body: String,
 ) -> Request {
-  Request(..create_request(method, path), body: body)
+  Request(..create_request(method, path), body: Text(body))
+}
+
+/// Create request with a binary body.
+pub fn create_request_with_bytes(
+  method: Method,
+  path: String,
+  bytes: BitArray,
+) -> Request {
+  Request(..create_request(method, path), body: Bytes(bytes))
 }
 
 /// Create request with query string.
@@ -62,7 +72,7 @@ pub fn create_streaming_request(
   path: String,
   stream: yielder.Yielder(BitArray),
 ) -> Request {
-  Request(..create_request(method, path), stream: option.Some(stream))
+  Request(..create_request(method, path), body: Stream(stream))
 }
 
 /// Create request with a streaming body from string chunks.
@@ -75,5 +85,5 @@ pub fn create_streaming_request_from_strings(
     chunks
     |> list.map(bit_array.from_string)
     |> yielder.from_list
-  Request(..create_request(method, path), stream: option.Some(stream))
+  Request(..create_request(method, path), body: Stream(stream))
 }

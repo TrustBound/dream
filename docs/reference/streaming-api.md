@@ -7,7 +7,7 @@ Complete API reference for Dream's streaming functionality.
 Each example below builds or matches a type with every field or variant
 named, so it shows the whole type.
 
-### Request <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_types.gleam#L14-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Request <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_types.gleam#L17-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_upload_request(chunks: Yielder(BitArray)) -> Request {
@@ -21,10 +21,8 @@ pub fn create_upload_request(chunks: Yielder(BitArray)) -> Request {
     host: None,
     port: None,
     remote_address: None,
-    // A streaming route gets an empty buffered body...
-    body: "",
-    // ...and the request body as a stream of chunks.
-    stream: Some(chunks),
+    // A streaming route gets the request body as a stream of chunks.
+    body: request.Stream(chunks),
     headers: [],
     cookies: [],
     content_type: Some("application/octet-stream"),
@@ -34,14 +32,35 @@ pub fn create_upload_request(chunks: Yielder(BitArray)) -> Request {
 ```
 
 **Fields:**
-- `body`: Full request body as String (for buffered routes)
-- `stream`: Request body as Yielder(BitArray) (for streaming routes)
+- `body`: Request body as a `RequestBody` (see below)
 
 **Usage:**
-- Regular routes: `body` contains data, `stream` is `None`
-- Streaming routes: `body` is `""`, `stream` is `Some(Yielder(BitArray))`
+- Regular routes: `body` is `Text(String)` for a UTF-8 body, or
+  `Bytes(BitArray)` with the exact bytes for any other body. An empty body
+  is `Text("")`.
+- Streaming routes: `body` is `Stream(Yielder(BitArray))`
 
-### ResponseBody <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_types.gleam#L36-L45"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### RequestBody <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_types.gleam#L58-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn describe_request_body(body: RequestBody) -> String {
+  case body {
+    // A normal route, body is valid UTF-8: JSON, form data, plain text
+    request.Text(_text) -> "buffered text"
+    // A normal route, body is not valid UTF-8: images, PDFs
+    request.Bytes(_bytes) -> "buffered bytes"
+    // A stream_route: uploads read chunk by chunk
+    request.Stream(_chunks) -> "stream"
+  }
+}
+```
+
+`RequestBody` and `ResponseBody` use the same constructor names, so a
+module that imports both qualifies one of them, as in `request.Text`.
+`body_as_string` gives the text of any request body, and `Error(Nil)`
+when the bytes are not valid UTF-8.
+
+### ResponseBody <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_types.gleam#L37-L46"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn describe_body(body: ResponseBody) -> String {
@@ -61,7 +80,7 @@ pub fn describe_body(body: ResponseBody) -> String {
 - `Bytes(...)`: Binary files (images, PDFs)
 - `Stream(...)`: Large files, real-time data, CSV exports
 
-### Response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_types.gleam#L47-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_types.gleam#L48-L56"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_csv_export_response(rows: Yielder(BitArray)) -> Response {
@@ -93,7 +112,7 @@ the content type.
 
 **Returns:** Response with Stream body and Transfer-Encoding: chunked
 
-#### Stream a download <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_responses.gleam#L16-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Stream a download <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_responses.gleam#L15-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn download(_request: Request, _context, _services) -> Response {
@@ -254,7 +273,7 @@ Add a streaming route to the router for any HTTP method. The arguments are
 the router, then `method:`, `path:`, `controller:` and `middleware:`.
 
 Registers a route that receives the request body as a stream (Yielder(BitArray))
-instead of a buffered string. Use for large file uploads (> 10MB), proxying
+instead of a buffered `Text` or `Bytes` body. Use for large file uploads (> 10MB), proxying
 external APIs, or any case where you want to process the request body in chunks.
 
 **Parameters:**
@@ -264,12 +283,11 @@ external APIs, or any case where you want to process the request body in chunks.
 - `middleware`: List of middleware functions to run (can transform stream)
 
 **Behavior:**
-- `request.body` is empty `""`
-- `request.stream` is `Some(Yielder(BitArray))`
+- `request.body` is `Stream(Yielder(BitArray))`
 - Body is not buffered - processed as chunks arrive
 - Memory usage stays constant regardless of upload size
 
-#### Add streaming routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_routing.gleam#L20-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Add streaming routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_routing.gleam#L17-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_router() -> Router(context, services) {
@@ -317,7 +335,7 @@ For streaming routes, use `stream_route()` instead.
 
 Common operations on streaming data:
 
-### Transform Chunks <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_yielder.gleam#L10-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Transform Chunks <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_yielder.gleam#L8-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn uppercase_stream(stream: Yielder(BitArray)) -> Yielder(BitArray) {
@@ -326,15 +344,28 @@ pub fn uppercase_stream(stream: Yielder(BitArray)) -> Yielder(BitArray) {
 }
 
 fn uppercase_chunk(chunk: BitArray) -> BitArray {
-  chunk
-  |> bit_array.to_string()
-  |> result.unwrap("")
-  |> string.uppercase()
-  |> bit_array.from_string()
+  uppercase_bytes(chunk, <<>>)
+}
+
+fn uppercase_bytes(remaining: BitArray, uppercased: BitArray) -> BitArray {
+  case remaining {
+    <<byte, rest:bytes>> ->
+      uppercase_bytes(rest, <<uppercased:bits, uppercase_byte(byte)>>)
+    _ -> uppercased
+  }
+}
+
+// Only the ASCII letters a to z change. Every byte of a multi-byte UTF-8
+// character is 128 or more, so a character split across two chunks is kept.
+fn uppercase_byte(byte: Int) -> Int {
+  case byte >= 97 && byte <= 122 {
+    True -> byte - 32
+    False -> byte
+  }
 }
 ```
 
-### Filter Chunks <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_yielder.gleam#L23-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Filter Chunks <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_yielder.gleam#L34-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn remove_empty_chunks(stream: Yielder(BitArray)) -> Yielder(BitArray) {
@@ -347,7 +378,7 @@ fn is_non_empty_chunk(chunk: BitArray) -> Bool {
 }
 ```
 
-### Fold/Reduce <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_yielder.gleam#L32-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Fold/Reduce <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_yielder.gleam#L43-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn count_total_bytes(stream: Yielder(BitArray)) -> Int {
@@ -360,7 +391,7 @@ fn add_chunk_size(total: Int, chunk: BitArray) -> Int {
 }
 ```
 
-### Take Limited <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_yielder.gleam#L41-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Take Limited <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_yielder.gleam#L52-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn take_first_chunks(stream: Yielder(BitArray)) -> Yielder(BitArray) {
@@ -369,7 +400,7 @@ pub fn take_first_chunks(stream: Yielder(BitArray)) -> Yielder(BitArray) {
 }
 ```
 
-### Chain Streams <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_yielder.gleam#L46-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Chain Streams <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_yielder.gleam#L57-L68"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_csv_stream(names: List(String)) -> Yielder(BitArray) {
@@ -403,7 +434,7 @@ Set maximum buffered body size in bytes. Import it from
 
 **For streaming routes:** This limit doesn't apply (streams can be unlimited)
 
-#### Raise the body size limit <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_routing.gleam#L115-L119"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Raise the body size limit <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_routing.gleam#L130-L134"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_large_payload_server() {
@@ -420,7 +451,7 @@ Add a router to this server and call `server.listen` to start it.
 A middleware is a function that takes the request, the context, the services
 and the next handler. Give it to a route in the `middleware:` list.
 
-### Request Stream Transformation <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_routing.gleam#L70-L92"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Request Stream Transformation <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_routing.gleam#L71-L107"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn uppercase_incoming(
@@ -429,26 +460,40 @@ pub fn uppercase_incoming(
   services: services,
   next: fn(Request, context, services) -> Response,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> {
+  case request.body {
+    request.Stream(stream) -> {
       let uppercase_stream = yielder.map(stream, uppercase_chunk)
-      let new_request = Request(..request, stream: Some(uppercase_stream))
+      let new_request =
+        Request(..request, body: request.Stream(uppercase_stream))
       next(new_request, context, services)
     }
-    None -> next(request, context, services)
+    _ -> next(request, context, services)
   }
 }
 
 fn uppercase_chunk(chunk: BitArray) -> BitArray {
-  chunk
-  |> bit_array.to_string()
-  |> result.unwrap("")
-  |> string.uppercase()
-  |> bit_array.from_string()
+  uppercase_bytes(chunk, <<>>)
+}
+
+fn uppercase_bytes(remaining: BitArray, uppercased: BitArray) -> BitArray {
+  case remaining {
+    <<byte, rest:bytes>> ->
+      uppercase_bytes(rest, <<uppercased:bits, uppercase_byte(byte)>>)
+    _ -> uppercased
+  }
+}
+
+// Only the ASCII letters a to z change. Every byte of a multi-byte UTF-8
+// character is 128 or more, so a character split across two chunks is kept.
+fn uppercase_byte(byte: Int) -> Int {
+  case byte >= 97 && byte <= 122 {
+    True -> byte - 32
+    False -> byte
+  }
 }
 ```
 
-### Response Stream Transformation <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_routing.gleam#L94-L113"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Response Stream Transformation <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_routing.gleam#L109-L128"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn end_outgoing_chunks_with_newline(
@@ -493,7 +538,7 @@ Yielders provide natural backpressure:
 
 ### Memory Usage
 
-#### Buffered response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_responses.gleam#L28-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Buffered response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_responses.gleam#L27-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_buffered_report(line_count: Int) -> Response {
@@ -506,7 +551,7 @@ pub fn create_buffered_report(line_count: Int) -> Response {
 Don't do this for a large report. The whole report is in memory before the
 response is sent, so peak memory grows with the size of the report.
 
-#### Streaming response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_responses.gleam#L34-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Streaming response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_responses.gleam#L33-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_streamed_report(line_count: Int) -> Response {
@@ -522,7 +567,7 @@ Peak memory stays near the size of one chunk, whatever the size of the report.
 
 ## Error Handling
 
-### Handle Stream Errors <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_responses.gleam#L42-L85"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Handle Stream Errors <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_api_responses.gleam#L41-L84"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type UploadError {
@@ -530,9 +575,9 @@ pub type UploadError {
 }
 
 pub fn upload(request: Request, _context, _services) -> Response {
-  case request.stream {
-    Some(stream) -> respond_to_upload(stream)
-    None -> text_response(status.bad_request, "Expected streaming upload")
+  case request.body {
+    Stream(stream) -> respond_to_upload(stream)
+    _ -> text_response(status.bad_request, "Expected streaming upload")
   }
 }
 

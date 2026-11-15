@@ -173,8 +173,8 @@ where to learn more about each.
 
 **What it is**
 
-- **Ingress streaming** – `request.stream : Option(Yielder(BitArray))`
-  for large request bodies (uploads, proxying).
+- **Ingress streaming** – `request.body` is `Stream(Yielder(BitArray))`
+  on a `stream_route`, for large request bodies (uploads, proxying).
 - **Egress streaming** – `ResponseBody.Stream` for large responses or
   long-running streams.
 - **Server-Sent Events** – a specialized streaming pattern for

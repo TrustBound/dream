@@ -3,11 +3,10 @@
 //// Controllers that write a streamed request body to a file, as shown in
 //// docs/guides/streaming.md.
 
-import dream/http/request.{type Request}
+import dream/http/request.{type Request, Stream}
 import dream/http/response.{type Response, text_response}
 import dream/http/status
 import gleam/bit_array
-import gleam/option.{None, Some}
 import gleam/result
 import gleam/yielder
 import simplifile
@@ -17,13 +16,12 @@ pub type Services {
 }
 
 pub fn save_upload(request: Request, _context, services: Services) -> Response {
-  request.stream
-  |> option.map(save_stream_to_file(_, services.upload_path))
-  |> option.map(handle_save_result)
-  |> option.unwrap(text_response(
-    status.bad_request,
-    "Expected streaming request",
-  ))
+  case request.body {
+    Stream(stream) ->
+      save_stream_to_file(stream, services.upload_path)
+      |> handle_save_result
+    _ -> text_response(status.bad_request, "Expected streaming request")
+  }
 }
 
 fn save_stream_to_file(
@@ -54,9 +52,9 @@ pub fn save_upload_with_limit(
   _context,
   services: Services,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> save_or_clean_up(stream, services)
-    None -> text_response(status.bad_request, "Expected streaming upload")
+  case request.body {
+    Stream(stream) -> save_or_clean_up(stream, services)
+    _ -> text_response(status.bad_request, "Expected streaming upload")
   }
 }
 

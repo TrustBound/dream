@@ -1,4 +1,4 @@
-import dream/http/request.{type Method, type Request, Http, Http1, Request}
+import dream/http/request.{type Method, type Request, Http, Http1, Request, Text}
 import gleam/option
 
 pub fn create_request(method: Method, path: String) -> Request {
@@ -12,8 +12,7 @@ pub fn create_request(method: Method, path: String) -> Request {
     host: option.None,
     port: option.None,
     remote_address: option.None,
-    body: "",
-    stream: option.None,
+    body: Text(""),
     headers: [],
     cookies: [],
     content_type: option.None,
@@ -26,5 +25,5 @@ pub fn create_request_with_body(
   path: String,
   body: String,
 ) -> Request {
-  Request(..create_request(method, path), body: body)
+  Request(..create_request(method, path), body: Text(body))
 }

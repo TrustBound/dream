@@ -35,6 +35,7 @@ import snippets/doc_http_data_remove_cookie
 import snippets/doc_http_data_require_field_int
 import snippets/doc_http_data_require_form
 import snippets/doc_http_data_require_int
+import snippets/doc_http_data_require_json
 import snippets/doc_http_data_require_string
 import snippets/doc_http_data_secure_cookie
 import snippets/doc_http_data_set_cookie
@@ -81,7 +82,7 @@ fn transaction_request(params: List(#(String, String))) -> transaction.Request {
     host: None,
     port: None,
     remote_address: None,
-    body: "",
+    body: request.Text(""),
     headers: [],
     cookies: [],
     content_type: None,
@@ -678,6 +679,37 @@ fn params_tests() -> UnitTest {
       |> should()
       |> equal(Error(error.BadRequest("Request body is empty")))
       |> or_fail_with("task_title should reject an empty body")
+    }),
+    it("require_json example reads the task", fn() {
+      // Arrange
+      let request = json_request("{\"title\":\"Buy milk\",\"priority\":2}")
+
+      // Act
+      let result = doc_http_data_require_json.read_task(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(
+        Ok(doc_http_data_require_json.NewTask(title: "Buy milk", priority: 2)),
+      )
+      |> or_fail_with("read_task should decode the task")
+    }),
+    it("require_json example reports a field with the wrong type", fn() {
+      // Arrange
+      let request =
+        json_request("{\"title\":\"Buy milk\",\"priority\":\"high\"}")
+
+      // Act
+      let result = doc_http_data_require_json.read_task(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(
+        Error(error.BadRequest("Expected Int but found String at priority")),
+      )
+      |> or_fail_with("read_task should report the priority field")
     }),
     it("require_field example reports a missing title", fn() {
       // Arrange

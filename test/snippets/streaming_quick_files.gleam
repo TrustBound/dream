@@ -3,10 +3,9 @@
 //// Controllers that save a streamed upload to a file and check its first
 //// chunk, as shown in docs/guides/streaming-quick-reference.md.
 
-import dream/http/request.{type Request}
+import dream/http/request.{type Request, Stream}
 import dream/http/response.{type Response, text_response}
 import dream/http/status
-import gleam/option.{None, Some}
 import gleam/result
 import gleam/yielder
 import simplifile
@@ -16,9 +15,9 @@ pub type Services {
 }
 
 pub fn save_upload(request: Request, _context, services: Services) -> Response {
-  case request.stream {
-    Some(stream) -> save_stream_to_disk(stream, services.upload_path)
-    None -> text_response(status.bad_request, "Expected file upload")
+  case request.body {
+    Stream(stream) -> save_stream_to_disk(stream, services.upload_path)
+    _ -> text_response(status.bad_request, "Expected file upload")
   }
 }
 
@@ -53,11 +52,11 @@ pub fn upload_image(
   _context,
   services: Services,
 ) -> Response {
-  case request.stream {
-    Some(stream) ->
+  case request.body {
+    Stream(stream) ->
       validate_and_save(stream, services.upload_path)
       |> create_image_response
-    None -> text_response(status.bad_request, "Expected image upload")
+    _ -> text_response(status.bad_request, "Expected image upload")
   }
 }
 

@@ -158,7 +158,7 @@ Context holds per-request data that changes for each request. Request A's authen
 
 Dream provides `EmptyContext` for simple apps that don't need per-request data:
 
-### EmptyContext <a href="https://github.com/TrustBound/dream/blob/2.5.0/src/dream/context.gleam#L116-L118"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### EmptyContext <a href="https://github.com/TrustBound/dream/blob/2.5.0/src/dream/context.gleam#L138-L140"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type EmptyContext {
@@ -168,7 +168,7 @@ pub type EmptyContext {
 
 This is the default when you call `server.new()`. For apps that need request tracking, Dream also provides `AppContext`:
 
-### AppContext <a href="https://github.com/TrustBound/dream/blob/2.5.0/src/dream/context.gleam#L124-L126"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### AppContext <a href="https://github.com/TrustBound/dream/blob/2.5.0/src/dream/context.gleam#L146-L148"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type AppContext {
@@ -473,10 +473,10 @@ Dream enforces clear boundaries between layers.
 
 Keep validation and response building separate. Validation takes a string and a decoder, returns `Result(T, ValidationError)`. Response building takes a status and body, returns a `Response`. Controllers connect them explicitly:
 
-### Validate, then build the response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_validation.gleam#L24-L27"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Validate, then build the response <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/concepts_validation.gleam#L36-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-  case validate_json(request.body, decoder) {
+  case validate_json(body, decoder) {
     Ok(data) -> create_with_data(services, data)
     Error(err) -> json_response(status.bad_request, error_json(err))
   }

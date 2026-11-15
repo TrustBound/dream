@@ -5,7 +5,7 @@
 
 import dream/context.{type EmptyContext}
 import dream/http/header.{Header}
-import dream/http/request.{type Request, get_int_param}
+import dream/http/request.{type Request, body_as_string, get_int_param}
 import dream/http/response.{type Response, json_response, text_response}
 import dream/http/status
 import dream/router.{type EmptyServices}
@@ -31,10 +31,7 @@ pub fn post(
   _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
-  json_response(
-    status.created,
-    api_view.post_to_json(request.path, request.body),
-  )
+  echo_text_body(request, status.created, api_view.post_to_json)
 }
 
 /// PUT /put - Echoes request body as JSON
@@ -43,7 +40,7 @@ pub fn put(
   _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
-  json_response(status.ok, api_view.put_to_json(request.path, request.body))
+  echo_text_body(request, status.ok, api_view.put_to_json)
 }
 
 /// PATCH /patch - Echoes request body as JSON
@@ -52,7 +49,23 @@ pub fn patch(
   _context: EmptyContext,
   _services: EmptyServices,
 ) -> Response {
-  json_response(status.ok, api_view.patch_to_json(request.path, request.body))
+  echo_text_body(request, status.ok, api_view.patch_to_json)
+}
+
+/// Echo a text request body as JSON, or reply 400 when the body is not text
+fn echo_text_body(
+  request: Request,
+  status_code: Int,
+  format_echo: fn(String, String) -> String,
+) -> Response {
+  case body_as_string(request) {
+    Ok(body) -> json_response(status_code, format_echo(request.path, body))
+    Error(Nil) ->
+      json_response(
+        status.bad_request,
+        api_view.error_to_json("Request body is not UTF-8 text"),
+      )
+  }
 }
 
 /// DELETE /delete - Returns success response

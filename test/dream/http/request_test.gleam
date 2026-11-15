@@ -1,8 +1,8 @@
 //// Tests for dream/http/request module.
 
 import dream/http/request.{
-  type Request, Get, Http, Http1, Request, body_as_string, get_int_param,
-  get_param, get_query_param, get_string_param,
+  type Request, type RequestBody, Bytes, Get, Http, Http1, Request, Stream, Text,
+  body_as_string, get_int_param, get_param, get_query_param, get_string_param,
 }
 import dream/http/transaction
 import dream_test/assertions/should.{
@@ -18,6 +18,14 @@ import gleam/yielder
 // ============================================================================
 
 fn create_test_request(body: String) -> Request {
+  create_request_with_body(Text(body))
+}
+
+fn create_request_with_stream(stream: yielder.Yielder(BitArray)) -> Request {
+  create_request_with_body(Stream(stream))
+}
+
+fn create_request_with_body(body: RequestBody) -> Request {
   Request(
     method: Get,
     protocol: Http,
@@ -29,27 +37,6 @@ fn create_test_request(body: String) -> Request {
     port: option.None,
     remote_address: option.None,
     body: body,
-    stream: option.None,
-    headers: [],
-    cookies: [],
-    content_type: option.None,
-    content_length: option.None,
-  )
-}
-
-fn create_request_with_stream(stream: yielder.Yielder(BitArray)) -> Request {
-  Request(
-    method: Get,
-    protocol: Http,
-    version: Http1,
-    path: "/test",
-    query: "",
-    params: [],
-    host: option.None,
-    port: option.None,
-    remote_address: option.None,
-    body: "",
-    stream: option.Some(stream),
     headers: [],
     cookies: [],
     content_type: option.None,
@@ -71,8 +58,7 @@ fn create_request_with_params(
     host: option.None,
     port: option.None,
     remote_address: option.None,
-    body: "",
-    stream: option.None,
+    body: Text(""),
     headers: [],
     cookies: [],
     content_type: option.None,
@@ -130,6 +116,32 @@ fn body_as_string_tests() -> UnitTest {
       |> be_ok()
       |> equal("test body")
       |> or_fail_with("Should return body text")
+    }),
+    it("returns Bytes that are valid UTF-8 as a string", fn() {
+      // Arrange
+      let request = create_request_with_body(Bytes(<<"héllo":utf8>>))
+
+      // Act
+      let result = body_as_string(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Ok("héllo"))
+      |> or_fail_with("Should convert UTF-8 bytes to a string")
+    }),
+    it("returns Error(Nil) for Bytes that are not valid UTF-8", fn() {
+      // Arrange
+      let request = create_request_with_body(Bytes(<<0xFF, 0xD8, 0xFF, 0x00>>))
+
+      // Act
+      let result = body_as_string(request)
+
+      // Assert
+      result
+      |> should()
+      |> equal(Error(Nil))
+      |> or_fail_with("Should return Error(Nil) for binary bytes")
     }),
     it("collects stream chunks to string", fn() {
       // Arrange

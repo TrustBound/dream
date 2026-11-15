@@ -1,4 +1,4 @@
-import dream/http/request.{type Request}
+import dream/http/request.{type Request, body_as_string}
 import dream/http/response.{type Response, json_response}
 import dream/http/status.{bad_request, created}
 import dream/http/validation.{validate_json}
@@ -18,7 +18,14 @@ fn post_decoder() -> decode.Decoder(CreatePost) {
 }
 
 pub fn create_post(request: Request, _context, _services) -> Response {
-  case validate_json(request.body, post_decoder()) {
+  case body_as_string(request) {
+    Ok(body) -> create_post_from_json(body)
+    Error(Nil) -> json_response(bad_request, not_text_json())
+  }
+}
+
+fn create_post_from_json(body: String) -> Response {
+  case validate_json(body, post_decoder()) {
     Ok(post) -> {
       // Valid post data - proceed with business logic
       json_response(created, post_to_json(post))
@@ -47,4 +54,9 @@ fn post_to_json(post: CreatePost) -> String {
 
 fn format_field_as_json(field: Option(String)) -> json.Json {
   json.nullable(field, json.string)
+}
+
+fn not_text_json() -> String {
+  json.object([#("error", json.string("Request body is not text"))])
+  |> json.to_string
 }

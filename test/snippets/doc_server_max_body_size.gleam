@@ -1,7 +1,7 @@
 //// Doc comment example: dream/servers/mist/server.max_body_size
 
-import dream/http.{ok, text_response}
-import dream/http/request.{type Request, Post}
+import dream/http.{bad_request, ok, text_response}
+import dream/http/request.{type Request, Post, body_as_string}
 import dream/router.{route, router}
 import dream/servers/mist/server
 
@@ -28,5 +28,8 @@ pub fn my_router() {
 }
 
 fn upload(request: Request, _context, services: Services) {
-  text_response(ok, services.greeting <> " " <> request.body)
+  case body_as_string(request) {
+    Ok(body) -> text_response(ok, services.greeting <> " " <> body)
+    Error(Nil) -> text_response(bad_request, "Request body is not text")
+  }
 }

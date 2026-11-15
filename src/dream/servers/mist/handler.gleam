@@ -13,7 +13,6 @@ import gleam/http/request as http_request
 import gleam/http/response as http_response
 import gleam/list
 import gleam/option
-import gleam/result
 import gleam/yielder
 import mist.{type Connection, type ResponseData, Bytes}
 
@@ -182,8 +181,8 @@ fn prepare_streaming_request(
 ) -> Result(Request, http_response.Response(ResponseData)) {
   case mist.stream(mist_request) {
     Ok(chunk_provider) -> {
-      let stream = yielder.unfold(chunk_provider, stream_unfolder)
-      Ok(Request(..partial_request, stream: option.Some(stream)))
+      let chunks = yielder.unfold(chunk_provider, stream_unfolder)
+      Ok(Request(..partial_request, body: request.Stream(chunks)))
     }
     Error(_) -> Error(bad_request_response())
   }
@@ -207,11 +206,19 @@ fn prepare_buffered_request(
 ) -> Result(Request, http_response.Response(ResponseData)) {
   case mist.read_body(mist_request, max_body_limit: max_body_size) {
     Ok(request_with_body) -> {
-      let body_string =
-        bit_array.to_string(request_with_body.body) |> result.unwrap("")
-      Ok(Request(..partial_request, body: body_string))
+      let body = buffered_body(request_with_body.body)
+      Ok(Request(..partial_request, body: body))
     }
     Error(_) -> Error(bad_request_response())
+  }
+}
+
+/// A body that is valid UTF-8 becomes `Text`. Any other body keeps its exact
+/// bytes as `Bytes`, so a binary upload is never replaced by an empty string.
+fn buffered_body(bytes: BitArray) -> request.RequestBody {
+  case bit_array.to_string(bytes) {
+    Ok(text) -> request.Text(text)
+    Error(Nil) -> request.Bytes(bytes)
   }
 }
 

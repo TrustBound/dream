@@ -192,16 +192,15 @@ fn create_binary_stream_response(
 
 Routes must explicitly enable streaming to receive streamed request bodies:
 
-#### Buffered and streaming routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_ingress.gleam#L6-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Buffered and streaming routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_ingress.gleam#L6-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/request.{type Request, Post, Put}
+import dream/http/request.{type Request, Bytes, Post, Put, Stream, Text}
 import dream/http/response.{type Response, text_response}
 import dream/http/status
 import dream/router.{type Router, route, router, stream_route}
 import gleam/bit_array
 import gleam/int
-import gleam/option
 import gleam/string
 import gleam/yielder
 
@@ -225,20 +224,20 @@ pub fn create_router() -> Router(context, services) {
 ```
 
 **Key difference:**
-- Regular routes: `request.body` is `String`, `request.stream` is `None`
-- Streaming routes: `request.body` is `""`, `request.stream` is `Some(Yielder(BitArray))`
+- Regular routes: `request.body` is `Text(String)` for a UTF-8 body, or
+  `Bytes(BitArray)` with the exact bytes for any other body
+- Streaming routes: `request.body` is `Stream(Yielder(BitArray))`
 
-### Process Streaming Uploads <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_ingress.gleam#L39-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Process Streaming Uploads <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_ingress.gleam#L42-L64"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn upload_stream(request: Request, _context, _services) -> Response {
-  request.stream
-  |> option.map(count_stream_bytes)
-  |> option.map(create_upload_success_response)
-  |> option.unwrap(text_response(
-    status.bad_request,
-    "Expected streaming request body",
-  ))
+  case request.body {
+    Stream(stream) ->
+      count_stream_bytes(stream)
+      |> create_upload_success_response
+    _ -> text_response(status.bad_request, "Expected streaming request body")
+  }
 }
 
 fn count_stream_bytes(stream: yielder.Yielder(BitArray)) -> Int {
@@ -257,14 +256,13 @@ fn create_upload_success_response(total_bytes: Int) -> Response {
 }
 ```
 
-### Saving Streamed Files <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_saving.gleam#L6-L45"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Saving Streamed Files <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_saving.gleam#L6-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/request.{type Request}
+import dream/http/request.{type Request, Stream}
 import dream/http/response.{type Response, text_response}
 import dream/http/status
 import gleam/bit_array
-import gleam/option.{None, Some}
 import gleam/result
 import gleam/yielder
 import simplifile
@@ -274,13 +272,12 @@ pub type Services {
 }
 
 pub fn save_upload(request: Request, _context, services: Services) -> Response {
-  request.stream
-  |> option.map(save_stream_to_file(_, services.upload_path))
-  |> option.map(handle_save_result)
-  |> option.unwrap(text_response(
-    status.bad_request,
-    "Expected streaming request",
-  ))
+  case request.body {
+    Stream(stream) ->
+      save_stream_to_file(stream, services.upload_path)
+      |> handle_save_result
+    _ -> text_response(status.bad_request, "Expected streaming request")
+  }
 }
 
 fn save_stream_to_file(
@@ -309,7 +306,7 @@ fn handle_save_result(result: Result(Nil, simplifile.FileError)) -> Response {
 Middleware can transform streaming request bodies. A middleware is a function
 that gets the request, the context, the services and the next handler:
 
-#### Uppercase the request stream <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_middleware.gleam#L6-L42"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Uppercase the request stream <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_middleware.gleam#L6-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request, Post, Request}
@@ -318,7 +315,6 @@ import dream/http/response.{
 }
 import dream/http/status
 import dream/router.{type Router, router, stream_route}
-import gleam/option.{None, Some}
 import gleam/yielder
 
 pub fn uppercase_incoming(
@@ -327,14 +323,14 @@ pub fn uppercase_incoming(
   services: services,
   next: fn(Request, context, services) -> Response,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> {
+  case request.body {
+    request.Stream(stream) -> {
       let uppercase_stream = yielder.map(stream, uppercase_chunk)
       let transformed_request =
-        Request(..request, stream: Some(uppercase_stream))
+        Request(..request, body: request.Stream(uppercase_stream))
       next(transformed_request, context, services)
     }
-    None -> next(request, context, services)
+    _ -> next(request, context, services)
   }
 }
 
@@ -355,7 +351,7 @@ fn uppercase_bytes(remaining: BitArray, uppercased: BitArray) -> BitArray {
 
 Middleware can also transform streaming responses:
 
-#### Replace spaces in the response stream <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_middleware.gleam#L53-L87"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Replace spaces in the response stream <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_middleware.gleam#L52-L86"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn replace_space_outgoing(
@@ -395,7 +391,7 @@ fn replace_space_bytes(remaining: BitArray, replaced: BitArray) -> BitArray {
 }
 ```
 
-### Bi-Directional Streaming Example <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_middleware.gleam#L89-L105"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Bi-Directional Streaming Example <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_middleware.gleam#L88-L104"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_router() -> Router(context, services) {
@@ -410,9 +406,9 @@ pub fn create_router() -> Router(context, services) {
 
 // The controller sends the request stream back as the response
 pub fn echo_stream(request: Request, _context, _services) -> Response {
-  case request.stream {
-    Some(stream) -> stream_response(status.ok, stream, "text/plain")
-    None -> text_response(status.bad_request, "Expected streaming request")
+  case request.body {
+    request.Stream(stream) -> stream_response(status.ok, stream, "text/plain")
+    _ -> text_response(status.bad_request, "Expected streaming request")
   }
 }
 ```
@@ -511,7 +507,7 @@ fn number_to_line(number: Int) -> BitArray {
 }
 ```
 
-### 2. Handle Errors Gracefully <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_upload_checks.gleam#L18-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### 2. Handle Errors Gracefully <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_upload_checks.gleam#L17-L64"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 const max_upload_bytes = 1_000_000
@@ -521,13 +517,12 @@ pub type UploadError {
 }
 
 pub fn upload_stream(request: Request, _context, _services) -> Response {
-  request.stream
-  |> option.map(process_stream_safely)
-  |> option.map(handle_upload_result)
-  |> option.unwrap(text_response(
-    status.bad_request,
-    "Expected streaming request",
-  ))
+  case request.body {
+    Stream(stream) ->
+      process_stream_safely(stream)
+      |> handle_upload_result
+    _ -> text_response(status.bad_request, "Expected streaming request")
+  }
 }
 
 fn process_stream_safely(
@@ -565,10 +560,10 @@ fn handle_upload_result(result: Result(String, UploadError)) -> Response {
 }
 ```
 
-### 3. Use Streaming Routes Explicitly <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_ingress.gleam#L64-L84"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### 3. Use Streaming Routes Explicitly <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_ingress.gleam#L66-L86"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// DON'T: assume every POST route streams. This body is buffered as a String.
+// DON'T: assume every POST route streams. This body arrives buffered.
 pub fn create_buffered_upload_router() -> Router(context, services) {
   router()
   |> route(
@@ -591,7 +586,7 @@ pub fn create_streaming_upload_router() -> Router(context, services) {
 }
 ```
 
-### 4. Clean Up Resources <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_saving.gleam#L47-L118"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### 4. Clean Up Resources <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_saving.gleam#L45-L116"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type UploadError {
@@ -604,9 +599,9 @@ pub fn save_upload_with_limit(
   _context,
   services: Services,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> save_or_clean_up(stream, services)
-    None -> text_response(status.bad_request, "Expected streaming upload")
+  case request.body {
+    Stream(stream) -> save_or_clean_up(stream, services)
+    _ -> text_response(status.bad_request, "Expected streaming upload")
   }
 }
 
@@ -678,13 +673,12 @@ answers.
 | Feature | Buffered Route | Streaming Route |
 |---------|----------------|-----------------|
 | Route | `route(...)` | `stream_route(...)` |
-| `request.body` | Full body as `String` | Empty `""` |
-| `request.stream` | `None` | `Some(Yielder(BitArray))` |
+| `request.body` | `Text(String)`, or `Bytes(BitArray)` when not UTF-8 | `Stream(Yielder(BitArray))` |
 | Memory | Loads full body | Processes chunks |
 | Max size | Limited by `max_body_size` | Can be unlimited |
 | Use for | Forms, JSON APIs | File uploads, large payloads |
 
-### Response Types <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_types.gleam#L6-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Response Types <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_types.gleam#L6-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request, Request}
@@ -694,7 +688,6 @@ import dream/http/response.{
 import dream/http/status
 import gleam/bit_array
 import gleam/int
-import gleam/option.{Some}
 import gleam/yielder.{type Yielder}
 
 // Buffered text response: the entire response is in memory
@@ -814,7 +807,7 @@ In a real app, a worker process sends the `ProgressUpdate` messages. Here the
 handler sends them to itself, so the example stays small. After the event for
 100%, `sse.stop_connection()` closes the stream.
 
-### Pattern 3: File Upload with Validation <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_upload_checks.gleam#L68-L153"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Pattern 3: File Upload with Validation <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_upload_checks.gleam#L66-L153"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type ImageError {
@@ -832,10 +825,12 @@ pub fn upload_image(
   _context,
   services: Services,
 ) -> Response {
-  request.stream
-  |> option.map(validate_and_save_image(_, services.upload_path))
-  |> option.map(map_validation_result_to_response)
-  |> option.unwrap(text_response(status.bad_request, "Expected file upload"))
+  case request.body {
+    Stream(stream) ->
+      validate_and_save_image(stream, services.upload_path)
+      |> map_validation_result_to_response
+    _ -> text_response(status.bad_request, "Expected file upload")
+  }
 }
 
 fn validate_and_save_image(
@@ -1040,7 +1035,7 @@ See [Testing Guide](testing.md) for more examples.
 
 ## Common Pitfalls
 
-### ❌ Don't Consume Stream Twice <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_pitfalls.gleam#L15-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ❌ Don't Consume Stream Twice <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_pitfalls.gleam#L14-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // BAD: the stream is read twice
@@ -1063,11 +1058,11 @@ fn number_to_line(number: Int) -> BitArray {
 ```
 
 `yielder.length` reads every chunk to count them. Then the client reads the
-stream again, so the work runs twice. A request body stream (`request.stream`)
+stream again, so the work runs twice. A request body stream (`Stream` in `request.body`)
 is worse: it reads from the socket, so after the first read the bytes are gone
 and a second read gets nothing.
 
-### ❌ Don't Mix Streaming and Buffering <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_pitfalls.gleam#L33-L42"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ❌ Don't Mix Streaming and Buffering <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_pitfalls.gleam#L32-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // BAD: defeats the purpose of streaming
@@ -1082,20 +1077,23 @@ pub fn send_lazy(stream: Yielder(BitArray)) -> Response {
 }
 ```
 
-### ❌ Don't Forget Error Handling <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_pitfalls.gleam#L44-L65"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ❌ Don't Forget Error Handling <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_pitfalls.gleam#L43-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// BAD: a missing stream becomes an empty upload
+// BAD: a buffered body becomes an empty upload
 pub fn upload_without_check(request: Request, _context, _services) -> Response {
-  let stream = option.unwrap(request.stream, yielder.empty())
+  let stream = case request.body {
+    Stream(stream) -> stream
+    _ -> yielder.empty()
+  }
   save_stream(stream)
 }
 
-// GOOD: handle both cases
+// GOOD: reject a body that is not a stream
 pub fn upload_with_check(request: Request, _context, _services) -> Response {
-  case request.stream {
-    Some(stream) -> save_stream(stream)
-    None -> text_response(status.bad_request, "Expected streaming upload")
+  case request.body {
+    Stream(stream) -> save_stream(stream)
+    _ -> text_response(status.bad_request, "Expected streaming upload")
   }
 }
 
@@ -1109,13 +1107,14 @@ fn add_chunk_size(total_bytes: Int, chunk: BitArray) -> Int {
 }
 ```
 
-The bad controller treats a missing stream as an empty upload. A client that
-sends its body to a buffered route gets `200 Saved 0 bytes`, and nobody learns
-that the data was lost.
+The bad controller treats a body that is not a `Stream` as an empty upload.
+When the route is registered with `route` instead of `stream_route`, the body
+arrives as `Text` or `Bytes`, the client gets `200 Saved 0 bytes`, and nobody
+learns that the data was lost.
 
 ## API Reference
 
-### Response Builders <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_types.gleam#L31-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Response Builders <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_types.gleam#L30-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // Stream with a custom content type
@@ -1127,7 +1126,7 @@ pub fn create_csv_download(csv_rows: Yielder(BitArray)) -> Response {
 `sse_response` is deprecated. For Server-Sent Events, use
 `dream/servers/mist/sse.upgrade_to_sse`. See the [SSE Guide](sse.md).
 
-### Router Functions <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_ingress.gleam#L86-L95"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Router Functions <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_ingress.gleam#L88-L97"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // stream_route works with any HTTP method
@@ -1142,7 +1141,7 @@ pub fn create_file_router() -> Router(context, services) {
 }
 ```
 
-### Request Fields <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_types.gleam#L36-L48"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Request Fields <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_types.gleam#L35-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // A streaming route gives the controller a request like this one
@@ -1150,17 +1149,13 @@ pub fn create_streaming_request(
   request: Request,
   chunks: Yielder(BitArray),
 ) -> Request {
-  Request(
-    ..request,
-    // Buffered body: empty for streaming routes
-    body: "",
-    // Streaming body: Some for streaming routes
-    stream: Some(chunks),
-  )
+  // The response module also has a Stream constructor, so name the
+  // request one by its module
+  Request(..request, body: request.Stream(chunks))
 }
 ```
 
-### Response Body Types <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_types.gleam#L50-L59"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Response Body Types <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/streaming_guide_types.gleam#L45-L54"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn describe_body(body: ResponseBody) -> String {

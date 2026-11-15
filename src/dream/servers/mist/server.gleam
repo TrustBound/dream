@@ -352,8 +352,8 @@ pub fn bind(
 /// ### Limit the body size <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_max_body_size.gleam#L3-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
-/// import dream/http.{ok, text_response}
-/// import dream/http/request.{type Request, Post}
+/// import dream/http.{bad_request, ok, text_response}
+/// import dream/http/request.{type Request, Post, body_as_string}
 /// import dream/router.{route, router}
 /// import dream/servers/mist/server
 ///

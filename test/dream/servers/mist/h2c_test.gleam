@@ -322,7 +322,10 @@ fn json_controller(_request: Request, _context, _services) -> Response {
 }
 
 fn echo_body_controller(request: Request, _context, _services) -> Response {
-  text_response(200, request.body)
+  case request.body_as_string(request) {
+    Ok(body) -> text_response(200, body)
+    Error(Nil) -> text_response(400, "Request body is not text")
+  }
 }
 
 fn with_h2c_server(

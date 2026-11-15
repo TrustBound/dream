@@ -542,31 +542,21 @@ This separation means:
 ## Step 11: Create the Controller
 
 Create `src/controllers/users_controller.gleam`. Here are its
-imports, a helper that decodes the request body, and the first three
-actions:
+imports and the first three actions:
 
-### The users controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/controllers/users_controller.gleam#L6-L78"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The users controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/controllers/users_controller.gleam#L6-L68"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import context.{type DatabaseContext}
-import dream/http.{type Request, type Response, require_int}
-import dream/http/error.{type Error, BadRequest}
+import dream/http.{type Request, type Response, require_int, require_json}
 import dream/http/response.{json_response}
 import dream/http/status
-import dream/http/validation.{validate_json}
 import gleam/result
 import models/user
 import operations/user_operations
 import services.{type Services}
 import utilities/response_helpers
 import views/user_view
-
-fn parse_user_data(body: String) -> Result(#(String, String), Error) {
-  case validate_json(body, user.decoder()) {
-    Ok(d) -> Ok(d)
-    Error(_) -> Error(BadRequest("Invalid user data"))
-  }
-}
 
 /// List all users
 pub fn index(
@@ -610,8 +600,7 @@ pub fn create(
   services: Services,
 ) -> Response {
   let result = {
-    use data <- result.try(parse_user_data(request.body))
-    let #(name, email) = data
+    use #(name, email) <- result.try(require_json(request, user.decoder()))
     let db = services.database.connection
     user_operations.create_user(db, name, email)
   }
@@ -637,8 +626,10 @@ Controllers orchestrate the flow:
 
 1. Extract and validate path parameters using `require_int` (returns a
    `Result` instead of panicking).
-2. Decode the JSON body with `parse_user_data`, which returns
-   `BadRequest` if the body is not valid user data.
+2. Decode the JSON body with `require_json(request, user.decoder())`.
+   It reads the body as text, parses the JSON, and runs the decoder.
+   If the body is not text, not JSON, or not valid user data, it
+   returns `BadRequest` with the reason.
 3. Call operations for data access (they return
    `Result(_, dream.Error)`).
 4. Handle errors uniformly through `response_helpers.handle_error`
@@ -679,10 +670,11 @@ This pattern:
 Create `src/router.gleam`. Here are the imports and the five users
 routes:
 
-### The users routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/router.gleam#L1-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The users routes <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/database/src/router.gleam#L1-L46"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import context.{type DatabaseContext}
+import controllers/health_controller
 import controllers/posts_controller
 import controllers/users_controller
 import dream/http/request.{Delete, Get, Post, Put}
@@ -691,6 +683,12 @@ import services.{type Services}
 
 pub fn create_router() -> Router(DatabaseContext, Services) {
   router()
+  |> route(
+    method: Get,
+    path: "/health",
+    controller: health_controller.show,
+    middleware: [],
+  )
   |> route(
     method: Get,
     path: "/users",
@@ -723,9 +721,10 @@ pub fn create_router() -> Router(DatabaseContext, Services) {
   )
 ```
 
-The router in `examples/database` goes on with three posts routes. If
-you build only the users API, remove the `posts_controller` import and
-end the pipeline after the last users route with a closing `}`.
+The router in `examples/database` starts with a `/health` route and goes
+on with three posts routes. If you build only the users API, remove the
+`health_controller` and `posts_controller` imports and the `/health`
+route, and end the pipeline after the last users route with a closing `}`.
 
 Notice the type: `Router(DatabaseContext, Services)`
 

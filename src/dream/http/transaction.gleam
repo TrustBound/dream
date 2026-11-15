@@ -53,6 +53,7 @@
 ////
 //// Use this for content negotiation without query strings.
 
+import dream/http/request
 import gleam/float
 import gleam/int
 import gleam/list
@@ -130,6 +131,12 @@ pub type ResponseBody {
 }
 
 /// HTTP request type
+///
+/// `body` is a `RequestBody` from `dream/http/request`: `Text` or `Bytes` on a
+/// normal route, `Stream` on a streaming route. This module uses that type
+/// instead of a copy, because its own `ResponseBody` already has constructors
+/// named `Text`, `Bytes` and `Stream`, and one module cannot define the same
+/// constructor name twice.
 pub type Request {
   Request(
     method: Method,
@@ -143,7 +150,7 @@ pub type Request {
     host: option.Option(String),
     port: option.Option(Int),
     remote_address: option.Option(String),
-    body: String,
+    body: request.RequestBody,
     headers: List(Header),
     cookies: List(Cookie),
     content_type: option.Option(String),
@@ -421,7 +428,7 @@ pub fn parse_method(method_name: String) -> option.Option(Method) {
 // Request utilities
 
 /// Get a query parameter value from the raw query string
-/// 
+///
 /// Properly decodes URL-encoded values (e.g., %20 → space, %26 → &)
 /// Returns None if the parameter is not found.
 pub fn get_query_param(query: String, name: String) -> option.Option(String) {
@@ -472,7 +479,7 @@ fn match_query_key(
 }
 
 /// Decode a URL-encoded component (key or value)
-/// 
+///
 /// Handles percent-encoded sequences (e.g., %20, %26) and plus signs (+ → space)
 /// Falls back to original string if decoding fails
 fn decode_url_component(component: String) -> String {

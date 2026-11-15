@@ -1,10 +1,13 @@
-//// Streaming API reference: the Request, ResponseBody and Response types
+//// Streaming API reference: the Request, RequestBody, ResponseBody and
+//// Response types
 ////
 //// Each function names every field or variant of a type, so the tests fail
 //// when a field or variant changes.
 
 import dream/http/header.{Header}
-import dream/http/request.{type Request, Http, Http1, Post, Request}
+import dream/http/request.{
+  type Request, type RequestBody, Http, Http1, Post, Request,
+}
 import dream/http/response.{
   type Response, type ResponseBody, Bytes, Response, Stream, Text,
 }
@@ -22,10 +25,8 @@ pub fn create_upload_request(chunks: Yielder(BitArray)) -> Request {
     host: None,
     port: None,
     remote_address: None,
-    // A streaming route gets an empty buffered body...
-    body: "",
-    // ...and the request body as a stream of chunks.
-    stream: Some(chunks),
+    // A streaming route gets the request body as a stream of chunks.
+    body: request.Stream(chunks),
     headers: [],
     cookies: [],
     content_type: Some("application/octet-stream"),
@@ -52,4 +53,15 @@ pub fn create_csv_export_response(rows: Yielder(BitArray)) -> Response {
     cookies: [],
     content_type: Some("text/csv"),
   )
+}
+
+pub fn describe_request_body(body: RequestBody) -> String {
+  case body {
+    // A normal route, body is valid UTF-8: JSON, form data, plain text
+    request.Text(_text) -> "buffered text"
+    // A normal route, body is not valid UTF-8: images, PDFs
+    request.Bytes(_bytes) -> "buffered bytes"
+    // A stream_route: uploads read chunk by chunk
+    request.Stream(_chunks) -> "stream"
+  }
 }

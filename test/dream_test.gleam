@@ -22,6 +22,7 @@ import dream/router_test
 import dream/servers/mist/chunked_stream_test
 import dream/servers/mist/h2c_test
 import dream/servers/mist/handler_test
+import dream/servers/mist/request_body_test
 import dream/servers/mist/request_test as mist_request_test
 import dream/servers/mist/response_test as mist_response_test
 import dream/servers/mist/server_test
@@ -69,6 +70,10 @@ pub fn main() {
       unit.to_test_cases(
         "dream/servers/mist/request",
         mist_request_test.tests(),
+      ),
+      unit.to_test_cases(
+        "dream/servers/mist/request_body",
+        request_body_test.tests(),
       ),
       unit.to_test_cases(
         "dream/servers/mist/response",

@@ -905,27 +905,10 @@ fn guide_type_tests() -> UnitTest {
       |> equal(Some("text/csv"))
       |> or_fail_with("create_csv_download should set text/csv")
     }),
-    it("create_streaming_request empties the buffered body", fn() {
+    it("create_streaming_request replaces the body with the stream", fn() {
       // Arrange
       let request =
         test_request.create_request_with_body(Post, "/upload", "buffered")
-
-      // Act
-      let streaming_request =
-        streaming_guide_types.create_streaming_request(
-          request,
-          yielder.from_list([<<"chunk":utf8>>]),
-        )
-
-      // Assert
-      streaming_request.body
-      |> should()
-      |> equal("")
-      |> or_fail_with("the streaming request body should be empty")
-    }),
-    it("create_streaming_request sets the request stream", fn() {
-      // Arrange
-      let request = test_request.create_request(Post, "/upload")
 
       // Act
       let streaming_request =
@@ -1470,10 +1453,15 @@ fn text_body(response: Response) -> String {
 }
 
 fn request_stream_text(request: Request) -> Option(String) {
-  request.stream
-  |> option.map(yielder.to_list)
-  |> option.map(bit_array.concat)
-  |> option.then(fn(bytes) { option.from_result(bit_array.to_string(bytes)) })
+  case request.body {
+    request.Stream(stream) ->
+      stream
+      |> yielder.to_list
+      |> bit_array.concat
+      |> bit_array.to_string
+      |> option.from_result
+    _other -> None
+  }
 }
 
 fn echo_request_stream(
@@ -1481,9 +1469,10 @@ fn echo_request_stream(
   _context: Nil,
   _services: Nil,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> response.stream_response(200, stream, "text/plain")
-    None -> response.text_response(400, "no stream")
+  case request.body {
+    request.Stream(stream) ->
+      response.stream_response(200, stream, "text/plain")
+    _other -> response.text_response(400, "no stream")
   }
 }
 

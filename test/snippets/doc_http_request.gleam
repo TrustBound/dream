@@ -9,7 +9,6 @@ import dream/http/status
 import gleam/int
 import gleam/json
 import gleam/option.{type Option}
-import gleam/result
 
 pub fn describe_protocol(request: Request) -> String {
   case request.protocol {
@@ -31,17 +30,16 @@ pub fn show_user(request: Request, _context, _services) -> Response {
   let method = method_to_string(request.method)
   let path = request.path
 
-  // Get body safely
-  let body = result.unwrap(body_as_string(request), "")
-
-  // Extract path parameter
-  case get_int_param(request, "id") {
-    Ok(id) ->
+  // Read the body as text and the path parameter as an Int
+  case body_as_string(request), get_int_param(request, "id") {
+    Ok(body), Ok(id) ->
       text_response(
         status.ok,
         method <> " " <> path <> " " <> int.to_string(id) <> " " <> body,
       )
-    Error(message) -> text_response(status.bad_request, message)
+    Error(Nil), _ ->
+      text_response(status.bad_request, "Request body is not text")
+    Ok(_body), Error(message) -> text_response(status.bad_request, message)
   }
 }
 

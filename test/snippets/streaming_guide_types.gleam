@@ -10,7 +10,6 @@ import dream/http/response.{
 import dream/http/status
 import gleam/bit_array
 import gleam/int
-import gleam/option.{Some}
 import gleam/yielder.{type Yielder}
 
 // Buffered text response: the entire response is in memory
@@ -38,13 +37,9 @@ pub fn create_streaming_request(
   request: Request,
   chunks: Yielder(BitArray),
 ) -> Request {
-  Request(
-    ..request,
-    // Buffered body: empty for streaming routes
-    body: "",
-    // Streaming body: Some for streaming routes
-    stream: Some(chunks),
-  )
+  // The response module also has a Stream constructor, so name the
+  // request one by its module
+  Request(..request, body: request.Stream(chunks))
 }
 
 pub fn describe_body(body: ResponseBody) -> String {

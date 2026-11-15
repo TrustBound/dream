@@ -30,6 +30,7 @@ import snippets/doc_http_json_response
 import snippets/doc_http_redirect_response
 import snippets/doc_http_remove_header
 import snippets/doc_http_request
+import snippets/doc_http_request_body
 import snippets/doc_http_request_methods
 import snippets/doc_http_request_module
 import snippets/doc_http_response_body
@@ -188,7 +189,7 @@ fn request_module_tests() -> UnitTest {
         Request(
           ..test_request.create_request(Post, "/users/123"),
           params: [#("id", "123")],
-          body: "hello",
+          body: request.Text("hello"),
         )
 
       // Act
@@ -200,6 +201,24 @@ fn request_module_tests() -> UnitTest {
       |> extract_body_text()
       |> equal("POST /users/123 123 hello")
       |> or_fail_with("show_user should describe the request")
+    }),
+    it("request example answers 400 for a body that is not text", fn() {
+      // Arrange
+      let request =
+        Request(
+          ..test_request.create_request(Post, "/users/123"),
+          params: [#("id", "123")],
+          body: request.Bytes(<<0xFF, 0xD8>>),
+        )
+
+      // Act
+      let response = doc_http_request.show_user(request, Nil, Nil)
+
+      // Assert
+      #(response.status, response.body)
+      |> should()
+      |> equal(#(400, Text("Request body is not text")))
+      |> or_fail_with("show_user should reject a binary body")
     }),
     it("body_as_string example returns the streamed body", fn() {
       // Arrange
@@ -218,6 +237,50 @@ fn request_module_tests() -> UnitTest {
       |> extract_body_text()
       |> equal("hello world")
       |> or_fail_with("show_body should return the whole body")
+    }),
+    it("RequestBody example measures a Text body in bytes", fn() {
+      // Arrange
+      let request = test_request.create_request_with_body(Post, "/", "héllo")
+
+      // Act
+      let size = doc_http_request_body.body_size(request)
+
+      // Assert
+      size
+      |> should()
+      |> equal(6)
+      |> or_fail_with("body_size should count the UTF-8 bytes of the text")
+    }),
+    it("RequestBody example measures a Bytes body", fn() {
+      // Arrange
+      let request =
+        test_request.create_request_with_bytes(Post, "/", <<0xFF, 0xD8, 0xFF>>)
+
+      // Act
+      let size = doc_http_request_body.body_size(request)
+
+      // Assert
+      size
+      |> should()
+      |> equal(3)
+      |> or_fail_with("body_size should count the bytes")
+    }),
+    it("RequestBody example adds up the chunks of a Stream body", fn() {
+      // Arrange
+      let request =
+        test_request.create_streaming_request_from_strings(Post, "/", [
+          "hello ",
+          "world",
+        ])
+
+      // Act
+      let size = doc_http_request_body.body_size(request)
+
+      // Assert
+      size
+      |> should()
+      |> equal(11)
+      |> or_fail_with("body_size should add up the chunk sizes")
     }),
     it("get_param example reads value and as_int", fn() {
       // Arrange

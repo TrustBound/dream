@@ -216,15 +216,13 @@ pub fn find_product(
 }
 ```
 
-### Map to HTTP Status <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/rest_api_guide_create.gleam#L6-L68"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Map to HTTP Status <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/rest_api_guide_create.gleam#L6-L59"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type AppContext}
-import dream/http.{
-  type Request, type Response, type ValidationError, created, json_response,
-  validate_json,
-}
+import dream/http.{type Request, type Response, created, json_response}
 import dream/http/error.{type Error, UnprocessableContent}
+import dream/http/params
 import gleam/json
 import gleam/result
 import snippets/rest_api_guide_validation.{
@@ -237,10 +235,7 @@ pub fn create(
   services: Services,
 ) -> Response {
   let result = {
-    use data <- result.try(
-      validate_json(request.body, decoder())
-      |> result.map_error(validation_error_to_error),
-    )
+    use data <- result.try(params.require_json(request, decoder()))
     use valid_data <- result.try(
       validate_product_data(data)
       |> result.map_error(UnprocessableContent),
@@ -252,10 +247,6 @@ pub fn create(
     Ok(product) -> json_response(created, to_json(product))
     Error(create_error) -> error_to_response(create_error)
   }
-}
-
-fn validation_error_to_error(validation_error: ValidationError) -> Error {
-  UnprocessableContent(validation_error.message)
 }
 
 fn create_product(
@@ -284,10 +275,12 @@ fn error_json(message: String) -> String {
 }
 ```
 
-`validate_json` returns a `ValidationError`, so the controller maps it to
-`UnprocessableContent` first. It then runs `validate_product_data` and maps
-its message to `UnprocessableContent` too, so a negative price gives a 422
-response with `{"error":"Price cannot be negative"}`. `error_to_response` then uses
+`require_json` reads and decodes the body. When the body is not text, is
+not JSON, or has a field of the wrong type, it returns `BadRequest`, so the
+client gets a 400 response with the reason. The controller then runs
+`validate_product_data` and maps its message to `UnprocessableContent`, so a
+negative price gives a 422 response with
+`{"error":"Price cannot be negative"}`. `error_to_response` then uses
 `error.to_status_code` and `error.message` to build the JSON response, so
 each `Error` variant gets its own status code.
 

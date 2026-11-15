@@ -4,12 +4,11 @@
 //// docs/guides/streaming.md. The bad functions compile and run, but they do
 //// extra work or hide a missing request body.
 
-import dream/http/request.{type Request}
+import dream/http/request.{type Request, Stream}
 import dream/http/response.{type Response, stream_response, text_response}
 import dream/http/status
 import gleam/bit_array
 import gleam/int
-import gleam/option.{None, Some}
 import gleam/yielder.{type Yielder}
 
 // BAD: the stream is read twice
@@ -41,17 +40,20 @@ pub fn send_lazy(stream: Yielder(BitArray)) -> Response {
   stream_response(status.ok, stream, "text/plain")
 }
 
-// BAD: a missing stream becomes an empty upload
+// BAD: a buffered body becomes an empty upload
 pub fn upload_without_check(request: Request, _context, _services) -> Response {
-  let stream = option.unwrap(request.stream, yielder.empty())
+  let stream = case request.body {
+    Stream(stream) -> stream
+    _ -> yielder.empty()
+  }
   save_stream(stream)
 }
 
-// GOOD: handle both cases
+// GOOD: reject a body that is not a stream
 pub fn upload_with_check(request: Request, _context, _services) -> Response {
-  case request.stream {
-    Some(stream) -> save_stream(stream)
-    None -> text_response(status.bad_request, "Expected streaming upload")
+  case request.body {
+    Stream(stream) -> save_stream(stream)
+    _ -> text_response(status.bad_request, "Expected streaming upload")
   }
 }
 

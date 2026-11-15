@@ -9,7 +9,7 @@
 //// ### Validate a JSON body <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_validation_module.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
-//// import dream/http/request.{type Request}
+//// import dream/http/request.{type Request, body_as_string}
 //// import dream/http/response.{type Response}
 //// import dream/http/status
 //// import dream/http/validation.{type ValidationError}
@@ -28,7 +28,18 @@
 //// }
 ////
 //// pub fn create(request: Request, _context, _services) -> Response {
-////   let validation_result = validation.validate_json(request.body, user_decoder())
+////   case body_as_string(request) {
+////     Ok(body) -> create_from_json(body)
+////     Error(Nil) ->
+////       response.json_response(
+////         status.bad_request,
+////         error_json("Request body is not text"),
+////       )
+////   }
+//// }
+////
+//// fn create_from_json(body: String) -> Response {
+////   let validation_result = validation.validate_json(body, user_decoder())
 ////
 ////   case validation_result {
 ////     Ok(user) -> response.json_response(status.created, user_to_json(user))
@@ -67,6 +78,12 @@
 //// - `field`: The JSON field that failed (if applicable)
 //// - `expected`: What type was expected
 //// - `found`: What type was actually found
+////
+//// `validate_json` takes text. A request body can also be `Bytes` or a
+//// `Stream`, so read it with `request.body_as_string` first, as the example
+//// does. When one `BadRequest` with the message is enough, use
+//// `params.require_json`: it reads the body, parses it and decodes it in one
+//// call.
 
 import gleam/dynamic
 import gleam/dynamic/decode
@@ -125,10 +142,10 @@ pub type ValidationError {
 ///
 /// ## Example
 ///
-/// ### Create a post from JSON <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_validate_json.gleam#L1-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Create a post from JSON <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_http_data_validate_json.gleam#L1-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
-/// import dream/http/request.{type Request}
+/// import dream/http/request.{type Request, body_as_string}
 /// import dream/http/response.{type Response, json_response}
 /// import dream/http/status.{bad_request, created}
 /// import dream/http/validation.{validate_json}
@@ -148,7 +165,14 @@ pub type ValidationError {
 /// }
 ///
 /// pub fn create_post(request: Request, _context, _services) -> Response {
-///   case validate_json(request.body, post_decoder()) {
+///   case body_as_string(request) {
+///     Ok(body) -> create_post_from_json(body)
+///     Error(Nil) -> json_response(bad_request, not_text_json())
+///   }
+/// }
+///
+/// fn create_post_from_json(body: String) -> Response {
+///   case validate_json(body, post_decoder()) {
 ///     Ok(post) -> {
 ///       // Valid post data - proceed with business logic
 ///       json_response(created, post_to_json(post))

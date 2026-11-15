@@ -9,7 +9,6 @@ import dream/http/response.{
 }
 import dream/http/status
 import dream/router.{type Router, router, stream_route}
-import gleam/option.{None, Some}
 import gleam/yielder
 
 pub fn uppercase_incoming(
@@ -18,14 +17,14 @@ pub fn uppercase_incoming(
   services: services,
   next: fn(Request, context, services) -> Response,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> {
+  case request.body {
+    request.Stream(stream) -> {
       let uppercase_stream = yielder.map(stream, uppercase_chunk)
       let transformed_request =
-        Request(..request, stream: Some(uppercase_stream))
+        Request(..request, body: request.Stream(uppercase_stream))
       next(transformed_request, context, services)
     }
-    None -> next(request, context, services)
+    _ -> next(request, context, services)
   }
 }
 
@@ -98,8 +97,8 @@ pub fn create_router() -> Router(context, services) {
 
 // The controller sends the request stream back as the response
 pub fn echo_stream(request: Request, _context, _services) -> Response {
-  case request.stream {
-    Some(stream) -> stream_response(status.ok, stream, "text/plain")
-    None -> text_response(status.bad_request, "Expected streaming request")
+  case request.body {
+    request.Stream(stream) -> stream_response(status.ok, stream, "text/plain")
+    _ -> text_response(status.bad_request, "Expected streaming request")
   }
 }

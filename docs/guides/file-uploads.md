@@ -2,7 +2,7 @@
 
 Handle multipart form uploads in Dream.
 
-## Basic Upload <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_upload.gleam#L1-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Basic Upload <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_upload.gleam#L1-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type AppContext}
@@ -10,6 +10,7 @@ import dream/http.{
   type Request, type Response, bad_request, created, internal_server_error,
   json_response,
 }
+import dream/http/request.{body_as_string}
 import gleam/bit_array
 import gleam/json
 import gleam/list
@@ -52,8 +53,9 @@ fn success_json(filename: String) -> String {
 
 The upload directory comes from your `Services`. Dream has no multipart
 parser, so `parse_multipart` and `generate_filename` are small helpers in the
-snippet file. Dream gives a buffered route the request body as a `String`, so
-these examples only handle files whose content is valid UTF-8.
+snippet file. `parse_multipart` reads the body with `body_as_string`, so
+these examples only handle files whose content is valid UTF-8. A binary file
+arrives as `Bytes`, and `parse_multipart` gives `Error(Nil)` for it.
 
 ## Validation
 
@@ -136,7 +138,7 @@ pub fn validate_file_type(content_type: String) -> Result(Nil, String) {
 }
 ```
 
-## Secure Filenames <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_upload.gleam#L117-L154"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Secure Filenames <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/file_uploads_guide_upload.gleam#L120-L157"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Make a random file name that keeps the original extension.

@@ -35,7 +35,7 @@ curl -X POST --data-binary @test.txt http://localhost:3000/upload
 
 **How it works:**
 - Route marked with `stream_route(method: Post, ...)` (not `route(...)`)
-- `request.stream` is `Some(Yielder(BitArray))`
+- `request.body` is `Stream(Yielder(BitArray))`
 - Controller processes chunks without buffering
 - Memory usage stays constant
 
@@ -129,7 +129,7 @@ examples/streaming_capabilities/
 
 ### Streaming Routes
 
-A route must enable request streaming. `stream_route` gives the controller the body as a `Yielder(BitArray)` in `request.stream`. `route` reads the whole body first. A streaming response does not need `stream_route`: `/download` is a plain `route`.
+A route must enable request streaming. `stream_route` gives the controller the body as `Stream(Yielder(BitArray))` in `request.body`. `route` reads the whole body first and gives it as `Text(String)`, or as `Bytes(BitArray)` when the body is not valid UTF-8. A streaming response does not need `stream_route`: `/download` is a plain `route`.
 
 #### Router <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/router.gleam#L8-L45"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -178,7 +178,7 @@ pub fn create() -> Router(EmptyContext, Services) {
 
 The controller folds over the chunks, so it never holds the whole body in memory:
 
-#### Upload controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/controllers/stream_controller.gleam#L14-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Upload controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/controllers/stream_controller.gleam#L13-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Ingress Streaming: Receives a stream and "saves" it (logs size)
@@ -187,8 +187,8 @@ pub fn upload(
   _context: EmptyContext,
   _services: Services,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> {
+  case request.body {
+    Stream(stream) -> {
       // Consume the stream "saving" it
       let total_bytes = stream |> yielder.fold(0, accumulate_chunk_size)
 
@@ -197,12 +197,13 @@ pub fn upload(
         "Uploaded " <> int.to_string(total_bytes) <> " bytes successfully",
       )
     }
-    None -> text_response(status.bad_request, "Expected streaming request body")
+    Text(_) | Bytes(_) ->
+      text_response(status.bad_request, "Expected streaming request body")
   }
 }
 ```
 
-#### Count the bytes in one chunk <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/controllers/stream_controller.gleam#L87-L91"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Count the bytes in one chunk <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/controllers/stream_controller.gleam#L88-L92"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn accumulate_chunk_size(acc: Int, chunk: BitArray) -> Int {
@@ -232,7 +233,7 @@ pub fn download(
 }
 ```
 
-#### Make one chunk <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/controllers/stream_controller.gleam#L93-L96"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Make one chunk <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/controllers/stream_controller.gleam#L94-L97"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn create_line(n: Int) -> BitArray {
@@ -245,7 +246,7 @@ fn create_line(n: Int) -> BitArray {
 
 Middleware can transform streams. `uppercase_incoming` changes each request chunk before the controller reads it. `replace_space_outgoing` in the same file changes each response chunk:
 
-#### Uppercase the request stream <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/middleware/transform_middleware.gleam#L10-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Uppercase the request stream <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/middleware/transform_middleware.gleam#L9-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Middleware that converts all incoming stream chunks to uppercase
@@ -255,17 +256,17 @@ pub fn uppercase_incoming(
   services: Services,
   next: fn(Request, EmptyContext, Services) -> Response,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> {
+  case request.body {
+    Stream(stream) -> {
       let transformed_stream =
         stream
         |> yielder.map(uppercase_chunk)
 
-      let new_request = Request(..request, stream: Some(transformed_stream))
+      let new_request = Request(..request, body: Stream(transformed_stream))
       next(new_request, context, services)
     }
-    // If not a stream or empty, pass through unchanged
-    None -> next(request, context, services)
+    // If not a stream, pass through unchanged
+    Text(_) | Bytes(_) -> next(request, context, services)
   }
 }
 ```
@@ -275,7 +276,7 @@ pub fn uppercase_incoming(
 ### Buffered vs Streaming
 
 **Buffered (regular routes):**
-- Loads entire request body into memory as `String`
+- Loads entire request body into memory as `Text` or `Bytes`
 - Good for: JSON APIs, form submissions (< 1MB)
 - Memory: O(request_size)
 
@@ -331,7 +332,7 @@ Do not build a large response as one `String` and send it with `text_response`: 
 
 An upload can have an empty body. A fold over an empty stream gives its start value, so the upload controller replies "Uploaded 0 bytes successfully" with no special case:
 
-#### Fold handles an empty stream <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/controllers/stream_controller.gleam#L23-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Fold handles an empty stream <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/controllers/stream_controller.gleam#L22-L27"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
       let total_bytes = stream |> yielder.fold(0, accumulate_chunk_size)
@@ -346,7 +347,7 @@ An upload can have an empty body. A fold over an empty stream gives its start va
 
 Check each chunk when it arrives, and decide what to do with bad input. `uppercase_chunk` changes a chunk only when it is valid UTF-8, and passes other chunks through unchanged:
 
-#### Check one chunk <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/middleware/transform_middleware.gleam#L53-L63"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Check one chunk <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/middleware/transform_middleware.gleam#L52-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn uppercase_chunk(chunk: BitArray) -> BitArray {
