@@ -148,7 +148,12 @@ controller type, but the real work happens in the SSE actor.
   `process.send(subject, message)` to push messages into the actor.
 - Your `Dependencies`.
 
-It returns a tuple of initial state and an optional `Selector(message)`:
+It returns a tuple of initial state and an optional `Selector(message)`.
+The actor always receives messages sent to its subject. With
+`Some(selector)`, it also receives the messages that the selector selects,
+for example events from a broadcaster (see
+[Broadcasting with SSE](#broadcasting-with-sse)). This handler needs no
+other messages, so it returns `None`:
 
 ### The on_init handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L28-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -279,16 +284,16 @@ background jobs, etc.) to push events into SSE connections. Use the
 2. From anywhere in your app, `process.send(subject, your_message)`.
 3. The SSE actor's `on_message` receives it and sends an event to the client.
 
-Dream's `broadcaster` module works with SSE. In Dream 2.5.0, `upgrade_to_sse`
-does not use a selector that `on_init` returns, so the controller below
-subscribes in `on_message` instead:
+Dream's `broadcaster` module works with SSE. The controller below
+subscribes in `on_init` and returns the channel's selector:
 
-1. `on_init` sends a `Subscribe` message to the actor itself.
-2. On `Subscribe`, `on_message` subscribes to the broadcaster and returns
-   `continue_connection_with_selector` with a selector that listens to both
-   the actor's own subject and the broadcaster channel. It also sends a
-   `subscribed` event, so the client knows that the stream is live.
-3. On `Published`, `on_message` sends the event to the client.
+1. `on_init` subscribes to the broadcaster and returns
+   `Some(selector)`. The actor then receives each published event.
+2. `on_message` sends each event to the client.
+
+The actor also keeps its own subject. `upgrade_to_sse` merges the selector
+from `on_init` with that subject, so messages sent to the subject still
+arrive.
 
 ### An SSE controller that uses a broadcaster <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_broadcast.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -299,7 +304,7 @@ import dream/servers/mist/sse
 import dream/services/broadcaster
 import gleam/erlang/process
 import gleam/int
-import gleam/option.{None}
+import gleam/option.{Some}
 
 pub type AppEvent {
   AppEvent(text: String)
@@ -307,15 +312,6 @@ pub type AppEvent {
 
 pub type Dependencies {
   Dependencies(event_bus: broadcaster.Broadcaster(AppEvent))
-}
-
-pub type StreamMessage {
-  Subscribe
-  Published(AppEvent)
-}
-
-pub type State {
-  State(count: Int, self: process.Subject(StreamMessage))
 }
 
 pub fn handle_events(
@@ -332,49 +328,29 @@ pub fn handle_events(
 }
 
 fn handle_init(
-  subject: process.Subject(StreamMessage),
-  _dependencies: Dependencies,
-) -> #(State, option.Option(process.Selector(StreamMessage))) {
-  // Subscribe in on_message: Dream 2.5.0 does not use a selector
-  // that on_init returns.
-  process.send(subject, Subscribe)
-  #(State(count: 0, self: subject), None)
+  _subject: process.Subject(AppEvent),
+  dependencies: Dependencies,
+) -> #(Int, option.Option(process.Selector(AppEvent))) {
+  let selector =
+    broadcaster.subscribe(dependencies.event_bus)
+    |> broadcaster.channel_to_selector
+  #(0, Some(selector))
 }
 
 fn handle_message(
-  state: State,
-  message: StreamMessage,
+  count: Int,
+  message: AppEvent,
   connection: sse.SSEConnection,
-  dependencies: Dependencies,
-) -> sse.Action(State, StreamMessage) {
-  case message {
-    Subscribe -> {
-      let selector = subscribe_to_events(state.self, dependencies.event_bus)
-      let _ = sse.send_event(connection, sse.event("subscribed"))
-      sse.continue_connection_with_selector(state, selector)
-    }
-    Published(AppEvent(text)) -> {
-      let event =
-        sse.event(text)
-        |> sse.event_id(int.to_string(state.count))
-      let _ = sse.send_event(connection, event)
-      sse.continue_connection(State(..state, count: state.count + 1))
-    }
+  _dependencies: Dependencies,
+) -> sse.Action(Int, AppEvent) {
+  let AppEvent(text) = message
+  let event =
+    sse.event(text)
+    |> sse.event_id(int.to_string(count))
+  case sse.send_event(connection, event) {
+    Ok(Nil) -> sse.continue_connection(count + 1)
+    Error(Nil) -> sse.stop_connection()
   }
-}
-
-fn subscribe_to_events(
-  self: process.Subject(StreamMessage),
-  event_bus: broadcaster.Broadcaster(AppEvent),
-) -> process.Selector(StreamMessage) {
-  let channel = broadcaster.subscribe(event_bus)
-  let published =
-    broadcaster.channel_to_selector(channel)
-    |> process.map_selector(Published)
-  // The new selector replaces the old one, so it also selects `self`
-  process.new_selector()
-  |> process.select(self)
-  |> process.merge_selector(published)
 }
 ```
 

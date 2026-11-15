@@ -163,7 +163,9 @@ dedicated OTP actor. Import it from `dream/servers/mist/sse`.
 - `dependencies`: Application dependencies passed to all handlers
 - `on_init`: Called once when the actor starts. Receives the actor's
   `Subject(message)` for external message sending. Returns initial state
-  and optional selector.
+  and an optional selector. The actor always receives messages sent to the
+  subject. With `Some(selector)`, it also receives the messages that the
+  selector selects.
 - `on_message`: Called for each message. Returns the next action.
 
 #### Send tick events <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_sse.gleam#L13-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>

@@ -613,7 +613,7 @@ fn lifecycle_tests() -> UnitTest {
   describe("lifecycle", [
     it("start_server starts a server", fn() {
       // Act
-      let started = naming_lifecycle.start_server(19_971)
+      let started = naming_lifecycle.start_server(free_port())
       let result = result.map(started, server.stop)
 
       // Assert
@@ -624,7 +624,7 @@ fn lifecycle_tests() -> UnitTest {
     }),
     it("stop_server stops a server", fn() {
       // Arrange
-      let started = naming_lifecycle.start_server(19_972)
+      let started = naming_lifecycle.start_server(free_port())
 
       // Act
       let result = result.map(started, naming_lifecycle.stop_server)
@@ -809,7 +809,7 @@ fn builder_tests() -> UnitTest {
   describe("builder pattern exception", [
     it("the server builder binds and listens", fn() {
       // Act
-      let started = naming_builder.start(19_973)
+      let started = naming_builder.start(free_port())
       let result = result.map(started, server.stop)
 
       // Assert
@@ -908,3 +908,7 @@ fn variable_tests() -> UnitTest {
     }),
   ])
 }
+
+/// Asks the operating system for a free TCP port.
+@external(erlang, "port_ffi", "free_port")
+fn free_port() -> Int

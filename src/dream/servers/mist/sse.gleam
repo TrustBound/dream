@@ -92,7 +92,8 @@
 ////     |> sse.event_id(count)
 ////   case sse.send_event(connection, event) {
 ////     Ok(Nil) -> {
-////       // Only messages sent to the subject from on_init reach this actor
+////       // The actor receives messages sent to its subject, and messages
+////       // from the selector that on_init returns
 ////       process.send_after(ticker.subject, 1000, Tick)
 ////       sse.continue_connection(Ticker(..ticker, count: ticker.count + 1))
 ////     }
@@ -163,7 +164,10 @@ pub opaque type Action(state, message) {
 /// * `dependencies` - Application dependencies passed to all handlers
 /// * `on_init` - Called once when the actor starts. Receives a
 ///   `Subject(message)` that external code can send messages to.
-///   Returns initial state and an optional selector.
+///   Returns initial state and an optional selector. The actor always
+///   receives messages sent to the subject. If `on_init` returns
+///   `Some(selector)`, the actor also receives the messages that the
+///   selector selects, for example events from a broadcaster channel.
 /// * `on_message` - Called for each message the actor receives.
 ///   Returns the next action.
 ///
@@ -358,7 +362,9 @@ pub fn continue_connection(state: state) -> Action(state, message) {
 /// Continue the SSE message loop with a new selector.
 ///
 /// Use this to change which messages the actor listens for after
-/// handling a message.
+/// handling a message. The new selector replaces the current one,
+/// including the actor's own subject. If the actor must still receive
+/// messages sent to its subject, select the subject in the new selector.
 pub fn continue_connection_with_selector(
   state: state,
   selector: Selector(message),

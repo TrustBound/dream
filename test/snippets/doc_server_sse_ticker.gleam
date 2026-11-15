@@ -49,7 +49,8 @@ fn handle_message(
     |> sse.event_id(count)
   case sse.send_event(connection, event) {
     Ok(Nil) -> {
-      // Only messages sent to the subject from on_init reach this actor
+      // The actor receives messages sent to its subject, and messages
+      // from the selector that on_init returns
       process.send_after(ticker.subject, 1000, Tick)
       sse.continue_connection(Ticker(..ticker, count: ticker.count + 1))
     }

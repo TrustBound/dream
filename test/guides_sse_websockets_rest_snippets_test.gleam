@@ -133,8 +133,8 @@ fn sse_guide_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal(Ok("data: subscribed\n\nid: 0\ndata: hello\n\n"))
-      |> or_fail_with("the client should get the subscribed event, then hello")
+      |> equal(Ok("id: 0\ndata: hello\n\n"))
+      |> or_fail_with("the client should get the published hello event")
     }),
   ])
 }
@@ -941,8 +941,8 @@ fn read_events_from(
   result.try(received, bit_array_to_string)
 }
 
-/// Starts the broadcast controller, waits for its "subscribed" event,
-/// publishes `text` on `event_bus`, and returns the whole response.
+/// Starts the broadcast controller, waits until its connection subscribes
+/// to `event_bus`, publishes `text`, and returns the whole response.
 fn read_broadcast_stream(
   event_bus: broadcaster.Broadcaster(sse_guide_broadcast.AppEvent),
   text: String,
@@ -973,12 +973,34 @@ fn publish_and_read(
 ) -> Result(String, String) {
   use socket <- result.try(open_stream(port, "/events", 2000))
   let received = {
-    use subscribed <- result.try(read_until_events(socket, <<>>, 1, 3000))
+    use _count <- result.try(wait_for_one_subscriber(event_bus, 300))
     broadcaster.publish(event_bus, AppEvent(text))
-    read_until_events(socket, subscribed, 2, 3000)
+    read_until_events(socket, <<>>, 1, 3000)
   }
   close_socket(socket)
   result.try(received, bit_array_to_string)
+}
+
+/// Asks `event_bus` for its subscriber count every 10 milliseconds until the
+/// count is 1. The broadcaster handles a subscription before it answers a
+/// later count request, so a count of 1 means the stream is subscribed.
+fn wait_for_one_subscriber(
+  event_bus: broadcaster.Broadcaster(sse_guide_broadcast.AppEvent),
+  attempts_remaining: Int,
+) -> Result(Int, String) {
+  use count <- result.try(
+    broadcaster.count_subscribers(event_bus)
+    |> result.replace_error("the broadcaster did not report its subscribers"),
+  )
+  case count, attempts_remaining {
+    1, _ -> Ok(count)
+    _, attempts if attempts <= 1 ->
+      Error("the stream did not subscribe to the broadcaster")
+    _, attempts -> {
+      process.sleep(10)
+      wait_for_one_subscriber(event_bus, attempts - 1)
+    }
+  }
 }
 
 fn start_server(

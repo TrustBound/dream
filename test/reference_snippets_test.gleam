@@ -758,7 +758,7 @@ fn dream_vs_mist_tests() -> UnitTest {
   describe("dream vs mist", [
     it("raw mist answers GET / with Hello, World!", fn() {
       // Arrange
-      let port = 19_871
+      let port = free_port()
 
       // Act
       let result =
@@ -778,7 +778,7 @@ fn dream_vs_mist_tests() -> UnitTest {
     }),
     it("raw mist answers an unknown path with 404", fn() {
       // Arrange
-      let port = 19_872
+      let port = free_port()
 
       // Act
       let result =
@@ -818,7 +818,7 @@ fn dream_vs_mist_tests() -> UnitTest {
     }),
     it("raw mist parses the user id from the path", fn() {
       // Arrange
-      let port = 19_873
+      let port = free_port()
 
       // Act
       let result =
@@ -838,7 +838,7 @@ fn dream_vs_mist_tests() -> UnitTest {
     }),
     it("raw mist answers a bad user id with 404", fn() {
       // Arrange
-      let port = 19_874
+      let port = free_port()
 
       // Act
       let result =
@@ -898,7 +898,7 @@ fn dream_vs_mist_tests() -> UnitTest {
     }),
     it("raw mist greets the user who sends a valid token", fn() {
       // Arrange
-      let port = 19_875
+      let port = free_port()
 
       // Act
       let result =
@@ -918,7 +918,7 @@ fn dream_vs_mist_tests() -> UnitTest {
     }),
     it("raw mist refuses the home page without a token", fn() {
       // Arrange
-      let port = 19_876
+      let port = free_port()
 
       // Act
       let result =
@@ -938,7 +938,7 @@ fn dream_vs_mist_tests() -> UnitTest {
     }),
     it("raw mist creates a post for a valid token", fn() {
       // Arrange
-      let port = 19_877
+      let port = free_port()
 
       // Act
       let result =
@@ -1075,3 +1075,7 @@ fn send_request(
     Error(_transport_error) -> Error("request failed")
   }
 }
+
+/// Asks the operating system for a free TCP port.
+@external(erlang, "port_ffi", "free_port")
+fn free_port() -> Int

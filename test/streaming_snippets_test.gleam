@@ -448,7 +448,7 @@ fn guide_sse_tests() -> UnitTest {
   describe("guide sse", [
     it("handle_events sends one ping event", fn() {
       // Arrange
-      let port = 19_986
+      let port = free_port()
       let app_router =
         router()
         |> route(
@@ -474,7 +474,7 @@ fn guide_sse_tests() -> UnitTest {
     }),
     it("long_running_task sends progress events up to 100", fn() {
       // Arrange
-      let port = 19_987
+      let port = free_port()
       let app_router =
         router()
         |> route(
@@ -1338,7 +1338,7 @@ fn quick_sse_tests() -> UnitTest {
   describe("quick reference sse", [
     it("events sends one event per item in Services", fn() {
       // Arrange
-      let port = 19_988
+      let port = free_port()
       let app_router =
         router()
         |> route(
@@ -1365,7 +1365,7 @@ fn quick_sse_tests() -> UnitTest {
     }),
     it("long_task sends progress events up to 100", fn() {
       // Arrange
-      let port = 19_989
+      let port = free_port()
       let app_router =
         router()
         |> route(
@@ -1534,3 +1534,7 @@ fn request_until_closed(
   payload: BitArray,
   timeout: Int,
 ) -> Result(BitArray, Dynamic)
+
+/// Asks the operating system for a free TCP port.
+@external(erlang, "port_ffi", "free_port")
+fn free_port() -> Int

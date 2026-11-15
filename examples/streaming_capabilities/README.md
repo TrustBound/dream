@@ -82,6 +82,8 @@ curl http://localhost:3000/proxy
 - Simulates streaming from external API
 - No buffering between upstream and client
 - Memory efficient for large proxied responses
+- If the upstream stream fails, the response ends with a
+  `Proxy stream failed: ...` line, because the 200 status is already sent
 
 ## Testing
 
