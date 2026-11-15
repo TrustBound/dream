@@ -30,6 +30,7 @@ import dream_test/unit
 import gleam/io
 import gleam/list
 import snippets_test
+import websocket_chat_readme_snippets_test
 
 pub fn main() {
   let all_tests =
@@ -70,6 +71,10 @@ pub fn main() {
       unit.to_test_cases(
         "doc_server_snippets",
         doc_server_snippets_test.tests(),
+      ),
+      unit.to_test_cases(
+        "websocket_chat_readme_snippets",
+        websocket_chat_readme_snippets_test.tests(),
       ),
     ]
     |> list.flatten

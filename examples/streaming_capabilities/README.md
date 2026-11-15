@@ -129,78 +129,142 @@ examples/streaming_capabilities/
 
 ### Streaming Routes
 
-Routes must explicitly enable streaming:
+A route must enable request streaming. `stream_route` gives the controller the body as a `Yielder(BitArray)` in `request.stream`. `route` reads the whole body first. A streaming response does not need `stream_route`: `/download` is a plain `route`.
+
+#### Router <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/router.gleam#L8-L45"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/router.{route, router, stream_route}
-import dream/http/request.{Post}
-
-pub fn create() {
-  router
-  // Regular route - body buffered as String
-  |> route(method: Post, path: "/upload", controller: buffered_upload, middleware: [])
-  
-  // Streaming route - body as Yielder(BitArray)
-  |> stream_route(method: Post, path: "/upload_stream", controller: streaming_upload, middleware: [])
+pub fn create() -> Router(EmptyContext, Services) {
+  router()
+  // 1. Ingress Streaming (Uploads)
+  // POST /upload - Streams data directly to "disk" (simulated)
+  |> stream_route(
+    method: Post,
+    path: "/upload",
+    controller: stream_controller.upload,
+    middleware: [],
+  )
+  // 2. Egress Streaming (Downloads)
+  // GET /download - Streams generated data back to client
+  |> router.route(
+    method: Get,
+    path: "/download",
+    controller: stream_controller.download,
+    middleware: [],
+  )
+  // 3. Bi-Directional Streaming Middleware
+  // POST /echo_transform - Uppercase IN -> Underscore OUT
+  |> stream_route(
+    method: Post,
+    path: "/echo_transform",
+    controller: stream_controller.echo_transform,
+    middleware: [
+      transform_middleware.uppercase_incoming,
+      transform_middleware.replace_space_outgoing,
+    ],
+  )
+  // 4. Proxy Streaming
+  // GET /proxy - Streams from external API to client
+  |> router.route(
+    method: Get,
+    path: "/proxy",
+    controller: stream_controller.proxy,
+    middleware: [],
+  )
 }
 ```
 
 ### Request Streaming
 
+The controller folds over the chunks, so it never holds the whole body in memory:
+
+#### Upload controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/controllers/stream_controller.gleam#L14-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn upload(request: Request, context, services) -> Response {
+/// Ingress Streaming: Receives a stream and "saves" it (logs size)
+pub fn upload(
+  request: Request,
+  _context: EmptyContext,
+  _services: Services,
+) -> Response {
   case request.stream {
     Some(stream) -> {
-      // Process chunks without loading all into memory
-      let total_bytes =
-        stream
-        |> yielder.fold(0, fn(acc, chunk) {
-          acc + bit_array.byte_size(chunk)
-        })
-      
-      text_response(status.ok, "Uploaded " <> int.to_string(total_bytes) <> " bytes")
+      // Consume the stream "saving" it
+      let total_bytes = stream |> yielder.fold(0, accumulate_chunk_size)
+
+      text_response(
+        status.ok,
+        "Uploaded " <> int.to_string(total_bytes) <> " bytes successfully",
+      )
     }
-    None -> text_response(status.bad_request, "Expected streaming request")
+    None -> text_response(status.bad_request, "Expected streaming request body")
   }
+}
+```
+
+#### Count the bytes in one chunk <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/controllers/stream_controller.gleam#L87-L91"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+fn accumulate_chunk_size(acc: Int, chunk: BitArray) -> Int {
+  let size = bit_array.byte_size(chunk)
+  // Simulate saving to disk
+  acc + size
 }
 ```
 
 ### Response Streaming
 
+The controller makes the chunks on demand and gives the yielder to `stream_response`:
+
+#### Download controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/controllers/stream_controller.gleam#L34-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn download(request: Request, context, services) -> Response {
-  let stream =
-    yielder.range(1, 1000)
-    |> yielder.map(fn(n) {
-      let line = "Line " <> int.to_string(n) <> "\n"
-      <<line:utf8>>
-    })
-  
+/// Egress Streaming: Generates data on the fly and streams it out
+pub fn download(
+  _request: Request,
+  _context: EmptyContext,
+  _services: Services,
+) -> Response {
+  // Generate a stream of numbers
+  let stream = yielder.range(1, 1000) |> yielder.map(create_line)
+
   stream_response(status.ok, stream, "text/plain")
+}
+```
+
+#### Make one chunk <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/controllers/stream_controller.gleam#L93-L96"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+fn create_line(n: Int) -> BitArray {
+  let line = "Line " <> int.to_string(n) <> "\n"
+  bit_array.from_string(line)
 }
 ```
 
 ### Streaming Middleware
 
-Middleware can transform streams:
+Middleware can transform streams. `uppercase_incoming` changes each request chunk before the controller reads it. `replace_space_outgoing` in the same file changes each response chunk:
+
+#### Uppercase the request stream <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/middleware/transform_middleware.gleam#L10-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn uppercase_incoming(request, context, services, next) {
+/// Middleware that converts all incoming stream chunks to uppercase
+pub fn uppercase_incoming(
+  request: Request,
+  context: EmptyContext,
+  services: Services,
+  next: fn(Request, EmptyContext, Services) -> Response,
+) -> Response {
   case request.stream {
     Some(stream) -> {
-      let uppercase_stream =
+      let transformed_stream =
         stream
-        |> yielder.map(fn(chunk) {
-          chunk
-          |> bit_array.to_string()
-          |> result.unwrap("")
-          |> string.uppercase()
-          |> bit_array.from_string()
-        })
-      
-      let transformed_request = Request(..request, stream: Some(uppercase_stream))
-      next(transformed_request, context, services)
+        |> yielder.map(uppercase_chunk)
+
+      let new_request = Request(..request, stream: Some(transformed_stream))
+      next(new_request, context, services)
     }
+    // If not a stream or empty, pass through unchanged
     None -> next(request, context, services)
   }
 }
@@ -222,65 +286,78 @@ pub fn uppercase_incoming(request, context, services, next) {
 
 ### Example: 100MB File Upload
 
-**Buffered route:**
+A route made with `route` loads the full body before the controller runs, so a 100MB upload uses 100MB of memory. The example's `/download` route is a buffered route:
+
+#### Buffered route <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/router.gleam#L20-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-router()
-|> route(method: Post, path: "/upload", controller: upload, middleware: [])
-// Memory usage: 100MB (full body loaded)
+  |> router.route(
+    method: Get,
+    path: "/download",
+    controller: stream_controller.download,
+    middleware: [],
+  )
 ```
 
-**Streaming route:**
+A route made with `stream_route` gives the body in chunks (64KB by default), so memory use stays the same for any upload size. The example's `/upload` route is a streaming route:
+
+#### Streaming route <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/router.gleam#L12-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-router()
-|> stream_route(method: Post, path: "/upload", controller: upload, middleware: [])
-// Memory usage: 64KB (default chunk size)
+  |> stream_route(
+    method: Post,
+    path: "/upload",
+    controller: stream_controller.upload,
+    middleware: [],
+  )
 ```
 
 ## Best Practices
 
 ### 1. Use Streaming for Large Data
 
-```gleam
-// DON'T: Buffer large responses
-let all_products = query_products(db)  // 1M rows
-let csv = products_to_csv(all_products)  // ~100MB string
-text_response(status.ok, csv)  // Entire response in memory
+Do not build a large response as one `String` and send it with `text_response`: the full response is then in memory. Give `stream_response` a yielder instead, so memory use stays constant:
 
-// DO: Stream large responses
-let product_stream = query_products_stream(db)  // Yielder
-let csv_stream = products_to_csv_stream(product_stream)
-stream_response(status.ok, csv_stream, "text/csv")  // Constant memory
+#### Stream the response <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/controllers/stream_controller.gleam#L40-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+  // Generate a stream of numbers
+  let stream = yielder.range(1, 1000) |> yielder.map(create_line)
+
+  stream_response(status.ok, stream, "text/plain")
 ```
 
 ### 2. Handle Empty Streams
 
+An upload can have an empty body. A fold over an empty stream gives its start value, so the upload controller replies "Uploaded 0 bytes successfully" with no special case:
+
+#### Fold handles an empty stream <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/controllers/stream_controller.gleam#L23-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn upload(request, context, services) -> Response {
-  case request.stream {
-    Some(stream) -> {
-      case yielder.first(stream) {
-        Ok(_) -> process_stream(stream)
-        Error(_) -> text_response(status.ok, "Uploaded 0 bytes successfully")
-      }
-    }
-    None -> text_response(status.bad_request, "Expected streaming request")
-  }
-}
+      let total_bytes = stream |> yielder.fold(0, accumulate_chunk_size)
+
+      text_response(
+        status.ok,
+        "Uploaded " <> int.to_string(total_bytes) <> " bytes successfully",
+      )
 ```
 
 ### 3. Validate Chunks Early
 
+Check each chunk when it arrives, and decide what to do with bad input. `uppercase_chunk` changes a chunk only when it is valid UTF-8, and passes other chunks through unchanged:
+
+#### Check one chunk <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/streaming_capabilities/src/middleware/transform_middleware.gleam#L53-L63"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn upload_image(request, context, services) -> Response {
-  case request.stream {
-    Some(stream) -> {
-      // Validate first chunk for magic bytes
-      case validate_first_chunk(stream) {
-        Ok(valid_stream) -> save_image(valid_stream, services)
-        Error(_) -> text_response(status.unprocessable_content, "Invalid image")
-      }
+fn uppercase_chunk(chunk: BitArray) -> BitArray {
+  case bit_array.to_string(chunk) {
+    Ok(text) -> {
+      text
+      |> string.uppercase
+      |> bit_array.from_string
     }
-    None -> text_response(status.bad_request, "Expected image upload")
+    // If invalid UTF-8, pass through (or handle error)
+    Error(_) -> chunk
   }
 }
 ```

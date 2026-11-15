@@ -114,7 +114,7 @@ Here's the complete picture of how everything fits together:
     │  │  WebSocket Handlers                      │ │
     │  │  on_init    → Subscribe to broadcaster   │ │
     │  │  on_message → Broadcast to all users     │ │
-    │  │  on_close   → Unsubscribe & notify       │ │
+    │  │  on_close   → Notify other users         │ │
     │  └──────────────┬───────────────────────────┘ │
     │                 │                              │
     │  ┌──────────────▼───────────────────────────┐ │
@@ -186,9 +186,14 @@ examples/websocket_chat/
 
 When a user visits `http://localhost:8080`, the `home` controller serves an HTML page:
 
+#### Home controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/home.gleam#L11-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-// controllers/home.gleam
-pub fn show(request: Request, context: EmptyContext, services: Services) -> Response {
+pub fn show(
+  _request: Request,
+  _context: EmptyContext,
+  _services: Services,
+) -> Response {
   html_response(status.ok, chat_view.render_page())
 }
 ```
@@ -224,36 +229,38 @@ Sec-WebSocket-Version: 13
 
 The router sends this request to the chat controller:
 
+#### Router <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/router.gleam#L16-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-// router.gleam
-router()
-|> route(method: Get, path: "/chat", controller: chat.handle_chat_upgrade, middleware: [])
+pub fn create() {
+  router()
+  |> route(Get, "/", home.show, [])
+  |> route(Get, "/chat", chat.handle_chat_upgrade, [])
+  |> route(Get, "/assets/**filepath", static_controller.serve_assets, [])
+}
 ```
 
 The controller extracts the username and prepares for the upgrade:
 
+#### Upgrade controller <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L23-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-// controllers/chat.gleam
 pub fn handle_chat_upgrade(
   request: Request,
   _context: EmptyContext,
   services: Services,
 ) -> Response {
-  // 1. Extract username from query parameter
   let user = request.get_query_param(request.query, "user")
   let user = option.unwrap(user, "Anonymous")
 
-  // 2. Bundle dependencies (user + services)
-  // This is how Dream avoids closures - bundle everything into a type
   let dependencies = ChatDependencies(user: user, services: services)
 
-  // 3. Upgrade to WebSocket, passing three handler functions
   websocket.upgrade_websocket(
     request,
     dependencies: dependencies,
-    on_init: handle_websocket_init,     // Called once when connected
-    on_message: handle_websocket_message, // Called for each message
-    on_close: handle_websocket_close,    // Called when disconnected
+    on_init: handle_websocket_init,
+    on_message: handle_websocket_message,
+    on_close: handle_websocket_close,
   )
 }
 ```
@@ -264,76 +271,68 @@ pub fn handle_chat_upgrade(
 
 When the WebSocket connection is established, Dream calls `handle_websocket_init`:
 
+#### `on_init` handler <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L45-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn handle_websocket_init(
-  connection: websocket.Connection,
+fn handle_websocket_init(
+  _connection: websocket.Connection,
   dependencies: ChatDependencies,
-) -> websocket.Action(ChatState, ChatMessage) {
-  // 1. Subscribe this connection to the chat broadcaster
-  // This is like saying "add me to the mailing list"
-  let client_id = chat_service.subscribe(dependencies.services, connection)
+) -> #(String, option.Option(process.Selector(ChatMessage))) {
+  let ChatDependencies(user: user, services: services) = dependencies
 
-  // 2. Send a join notification to all OTHER users
-  let join_msg = ChatMessage(
-    sender: dependencies.user,
-    content: dependencies.user <> " joined the chat",
-    message_type: "notification",
-  )
-  chat_service.broadcast(dependencies.services, join_msg, except: [client_id])
+  // 1. Subscribe to broadcaster
+  let channel = broadcaster.subscribe(services.pubsub)
 
-  // 3. Set up this connection's state
-  // The state is stored by Dream and passed to future handler calls
-  let state = ChatState(
-    client_id: client_id,
-    user: dependencies.user,
-    services: dependencies.services,
-  )
+  // 2. Create selector for chat messages
+  let selector = broadcaster.channel_to_selector(channel)
 
-  // 4. Tell Dream to continue with this state
-  websocket.continue_with_state(state)
+  // 3. Notify join
+  broadcaster.publish(services.pubsub, UserJoined(user))
+
+  // Initial state is the username
+  #(user, Some(selector))
 }
 ```
 
 **What's happening here:**
 
-1. **Subscribe to broadcaster** - The broadcaster service is like a mailing list. Every connection subscribes so it can receive messages.
+1. **Subscribe to broadcaster** - The broadcaster service is like a mailing list. Every connection subscribes, and gets a channel that receives each published message.
 
-2. **Broadcast join notification** - Tell everyone else "Alice joined". The `except: [client_id]` means "send to everyone BUT Alice" (she doesn't need to know she joined).
+2. **Make a selector** - `channel_to_selector` turns the channel into a selector. Dream uses it to give broadcaster messages to `on_message` as `CustomMessage`.
 
-3. **Create state** - This `ChatState` will be passed to every future message handler. It's how we remember the user's name and client ID.
+3. **Publish join notification** - Send `UserJoined(user)` to all subscribers. This connection subscribed in step 1, so the new user also gets the notification.
 
-4. **Return continuation** - Tell Dream "keep this connection alive with this state".
+4. **Return state and selector** - The state is the username (a `String`). Dream passes it to every later handler call for this connection.
 
 ### Step 5: User Sends a Message - `on_message` Handler Runs
 
-When the JavaScript calls `ws.send("Hello!")`, Dream receives it and calls `handle_websocket_message`:
+When the JavaScript calls `ws.send("Hello!")`, Dream receives it and calls `handle_websocket_message`. The handler has two jobs. A `TextMessage` from the browser is published to the broadcaster as `TextMessage(state, text)`. A `CustomMessage` from the broadcaster is changed to JSON and sent to this connection's browser:
+
+#### `on_message` handler <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L67-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn handle_websocket_message(
-  state: ChatState,
+fn handle_websocket_message(
+  state: String,
   message: websocket.Message(ChatMessage),
+  connection: websocket.Connection,
   dependencies: ChatDependencies,
-) -> websocket.Action(ChatState, ChatMessage) {
+) -> websocket.Action(String, ChatMessage) {
+  let ChatDependencies(services: services, ..) = dependencies
+
   case message {
-    // User sent text like "Hello!"
     websocket.TextMessage(text) -> {
-      // 1. Create a chat message with sender's name
-      let chat_msg = ChatMessage(
-        sender: state.user,
-        content: text,
-        message_type: "message",
-      )
-
-      // 2. Broadcast to ALL users (including sender)
-      // This is different from join - everyone sees chat messages
-      chat_service.broadcast(state.services, chat_msg, except: [])
-
-      // 3. Keep the state unchanged and continue
-      websocket.continue_with_state(state)
+      // Broadcast user message
+      broadcaster.publish(services.pubsub, TextMessage(state, text))
+      websocket.continue_connection(state)
     }
-
-    // Handle other message types (binary, close, etc.)
-    _ -> websocket.continue_with_state(state)
+    websocket.CustomMessage(chat_message) -> {
+      // Received from PubSub, send to client
+      let json_message = format_chat_message_to_json(chat_message)
+      let _ = websocket.send_text(connection, json.to_string(json_message))
+      websocket.continue_connection(state)
+    }
+    websocket.BinaryMessage(_) | websocket.ConnectionClosed ->
+      websocket.continue_connection(state)
   }
 }
 ```
@@ -345,11 +344,10 @@ Alice's Browser            Server            Bob's Browser
       |                      |                      |
       |--"Hello!"----------->|                      |
       |                      |                      |
-      |          [Create ChatMessage]               |
-      |          [sender: "Alice"]                  |
-      |          [content: "Hello!"]                |
+      | [publish TextMessage("Alice", "Hello!")]    |
       |                      |                      |
-      |          [Broadcast to all]                 |
+      |   [each connection gets a CustomMessage]    |
+      |   [and sends it to its browser as JSON]     |
       |<--Alice: Hello!------|                      |
       |                      |---Alice: Hello!----->|
 ```
@@ -363,46 +361,69 @@ This is where the **broadcaster service** comes in. It's the infrastructure that
 #### What is the Broadcaster?
 
 The broadcaster is a long-running process that:
-1. **Keeps a registry** of all connected WebSocket connections
+1. **Keeps a list** of all subscribed channels
 2. **Receives messages** from any part of your application
-3. **Sends to all subscribers** (or all except certain IDs)
+3. **Sends each message to all subscribers**
 
 Think of it like a radio station - clients "tune in" by subscribing, and the broadcaster sends signals to everyone listening.
 
 #### How to Use the Broadcaster
 
-**Initialize it once when your app starts:**
+Start it once when your app starts. `services.initialize` calls `init_chat_pubsub`, which starts the broadcaster:
+
+##### Start the broadcaster in `services.initialize` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/services.gleam#L19-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// services/chat_service.gleam
 pub fn initialize() -> Services {
-  // Start the broadcaster process
-  let assert Ok(broadcaster) = broadcaster.start_broadcaster()
-  Services(broadcaster: broadcaster)
+  let pubsub = init_chat_pubsub()
+  Services(pubsub: pubsub)
 }
 ```
 
-**Subscribe when a WebSocket connects:**
+##### `init_chat_pubsub` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/services/chat_service.gleam#L21-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// Returns a unique ClientId for this connection
-let client_id = chat_service.subscribe(services, connection)
+pub fn init_chat_pubsub() -> ChatPubSub {
+  let assert Ok(pubsub) = broadcaster.start_broadcaster()
+  pubsub
+}
 ```
 
-**Broadcast a message to all subscribers:**
+Subscribe when a WebSocket connects. `subscribe` returns a channel, and `channel_to_selector` makes a selector from it:
+
+##### Subscribe in `on_init` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L51-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// Send to everyone
-chat_service.broadcast(services, message, except: [])
+  // 1. Subscribe to broadcaster
+  let channel = broadcaster.subscribe(services.pubsub)
 
-// Send to everyone EXCEPT certain IDs (e.g., the sender)
-chat_service.broadcast(services, message, except: [client_id])
+  // 2. Create selector for chat messages
+  let selector = broadcaster.channel_to_selector(channel)
 ```
 
-**Unsubscribe when disconnecting:**
+Publish a message to all subscribers. There is no "all except" option: each subscriber gets each message:
+
+##### Publish in `on_message` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L78"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-chat_service.unsubscribe(services, client_id)
+      broadcaster.publish(services.pubsub, TextMessage(state, text))
+```
+
+##### When a connection ends, the broadcaster removes its channel
+
+The example does not unsubscribe. The broadcaster monitors the process that owns each channel. Each WebSocket connection runs in its own process, and `subscribe` in `on_init` makes that process the owner of the channel. When the connection closes or crashes, its process ends, and the broadcaster removes the channel. A closed connection does not stay in the subscriber list, and no memory leaks.
+
+Call `broadcaster.unsubscribe` only to stop the messages earlier, while the connection is still open. For example, a user leaves a room but keeps the socket open. Keep the `Channel` from `subscribe` in the connection state, then give it to `unsubscribe`:
+
+##### Unsubscribe while the connection is open <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/doc_server_broadcaster_functions.gleam#L31-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn leave(
+  my_broadcaster: broadcaster.Broadcaster(message),
+  channel: broadcaster.Channel(message),
+) -> Nil {
+  broadcaster.unsubscribe(my_broadcaster, channel)
+}
 ```
 
 #### Why is Broadcaster a Separate Service?
@@ -424,68 +445,59 @@ chat_service.unsubscribe(services, client_id)
 
 When a user closes their browser tab or disconnects, Dream calls `handle_websocket_close`:
 
+#### `on_close` handler <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L117-L123"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn handle_websocket_close(
-  state: ChatState,
+fn handle_websocket_close(
+  state: String,
   dependencies: ChatDependencies,
 ) -> Nil {
-  // 1. Unsubscribe from the broadcaster
-  // This is like removing yourself from the mailing list
-  chat_service.unsubscribe(state.services, state.client_id)
-
-  // 2. Tell everyone else that this user left
-  let leave_msg = ChatMessage(
-    sender: state.user,
-    content: state.user <> " left the chat",
-    message_type: "notification",
-  )
-  chat_service.broadcast(state.services, leave_msg, except: [state.client_id])
+  let ChatDependencies(services: services, ..) = dependencies
+  broadcaster.publish(services.pubsub, UserLeft(state))
 }
 ```
 
-**Cleanup is critical:**
-- If you don't unsubscribe, the broadcaster will try to send to a closed connection (crashes!)
-- Sending a leave notification gives good UX (users know who left)
+**What happens on close:**
+- The handler publishes `UserLeft(state)`, so the other users know who left
+- The handler does not unsubscribe. The connection's process ends, and the broadcaster removes its channel (see [When a connection ends, the broadcaster removes its channel](#when-a-connection-ends-the-broadcaster-removes-its-channel))
 - The `on_close` handler always runs, even if the connection dies unexpectedly
 
 ---
 
 ## Complete Message Type Reference
 
-### Gleam ChatMessage Type
+### Gleam ChatMessage Type <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/types/chat_message.gleam#L4-L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type ChatMessage {
-  ChatMessage(
-    sender: String,        // Who sent this message?
-    content: String,       // What's the message content?
-    message_type: String,  // "message" or "notification"
-  )
+  TextMessage(user: String, text: String)
+  UserJoined(user: String)
+  UserLeft(user: String)
 }
 ```
 
 ### JSON Format Sent to Browsers
 
+`format_chat_message_to_json` in `controllers/chat.gleam` makes this JSON:
+
 ```json
 // Regular chat message
 {
-  "sender": "Alice",
-  "content": "Hello everyone!",
-  "type": "message"
+  "type": "message",
+  "user": "Alice",
+  "text": "Hello everyone!"
 }
 
 // Join notification
 {
-  "sender": "Bob",
-  "content": "Bob joined the chat",
-  "type": "notification"
+  "type": "joined",
+  "user": "Bob"
 }
 
 // Leave notification
 {
-  "sender": "Alice",
-  "content": "Alice left the chat",
-  "type": "notification"
+  "type": "left",
+  "user": "Alice"
 }
 ```
 
@@ -601,42 +613,59 @@ If the connection is closed, `ws.send()` will throw an error. Checking prevents 
 
 #### 4. Displaying Messages
 
+Inside `connect()`, the `onmessage` handler reads the `type` field of each JSON message from the server. A `joined` or `left` message becomes a system line. A `message` shows `data.user` and `data.text`:
+
 ```javascript
-function displayMessage(data) {
-  const messageDiv = document.createElement('div');
-  
-  // Different styling for messages vs notifications
-  if (data.type === 'notification') {
-    messageDiv.className = 'message notification';
-    messageDiv.textContent = data.content;  // "Alice joined the chat"
-  } else {
-    messageDiv.className = 'message';
-    
-    const senderSpan = document.createElement('span');
-    senderSpan.className = 'sender';
-    senderSpan.textContent = data.sender + ': ';
-    
-    const contentSpan = document.createElement('span');
-    contentSpan.className = 'content';
-    contentSpan.textContent = data.content;
-    
-    messageDiv.appendChild(senderSpan);
-    messageDiv.appendChild(contentSpan);
-  }
-  
-  // Add to message list
-  messagesList.appendChild(messageDiv);
-  
-  // Auto-scroll to bottom
-  messagesList.scrollTop = messagesList.scrollHeight;
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    if (data.type === "joined") {
+      addSystemMessage(`${data.user} joined the chat`);
+    } else if (data.type === "left") {
+      addSystemMessage(`${data.user} left the chat`);
+    } else if (data.type === "message") {
+      addMessage(data.user, data.text, data.user === currentUser);
+    }
+  };
+```
+
+`addMessage` and `addSystemMessage` add the message to the page:
+
+```javascript
+function addMessage(user, text, isCurrentUser) {
+  const messageDiv = document.createElement("div");
+  messageDiv.className = `message ${
+    isCurrentUser ? "user-message" : "other-message"
+  }`;
+
+  const userDiv = document.createElement("div");
+  userDiv.className = "user";
+  userDiv.textContent = user;
+
+  const textDiv = document.createElement("div");
+  textDiv.className = "text";
+  textDiv.textContent = text;
+
+  messageDiv.appendChild(userDiv);
+  messageDiv.appendChild(textDiv);
+  messagesDiv.appendChild(messageDiv);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function addSystemMessage(text) {
+  const messageDiv = document.createElement("div");
+  messageDiv.className = "message system-message";
+  messageDiv.textContent = text;
+  messagesDiv.appendChild(messageDiv);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 ```
 
 **UX Considerations:**
 
-- Notifications have gray text, messages have white
+- Your own messages are purple and at the right, messages from others are white, and join and leave lines are green and centered
 - Auto-scroll keeps latest messages visible
-- Sender name is bolded for readability
+- The sender name is bold for readability
 
 ### CSS: Modern Gradient Design
 
@@ -700,34 +729,62 @@ body {
 Dream has a strict rule: **no closures in controller code**. This might seem restrictive, but there's a good reason:
 
 **Problem with closures:**
+
+The controller below works, but it is the pattern to avoid. Each handler is a closure that captures `user` and `services` from the controller. The `dependencies` value is `Nil`, so no type shows what the handlers need. You cannot name a handler, test it alone, or reuse it in a different controller.
+
+#### Closures that capture dependencies (avoid this) <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websocket_chat_readme_closure.gleam#L16-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-// ❌ BAD - Closure captures dependencies invisibly
-pub fn handle_upgrade(request, context, services) {
-  let user = get_user(request)
-  
-  // This looks innocent, but it's hiding dependencies
-  websocket.upgrade(request, on_init: fn(conn) {
-    // `user` and `services` are captured from outer scope
-    // A future developer can't see what this function needs!
-    subscribe(services, conn, user)
-  })
+pub fn handle_upgrade(
+  request: Request,
+  _context: EmptyContext,
+  services: Services,
+) -> Response {
+  let user = option.unwrap(get_query_param(request.query, "user"), "Anonymous")
+
+  // ❌ BAD: each handler captures `user` and `services` from this scope
+  websocket.upgrade_websocket(
+    request,
+    dependencies: Nil,
+    on_init: fn(_connection, _dependencies) {
+      let channel = broadcaster.subscribe(services.pubsub)
+      #(user, Some(broadcaster.channel_to_selector(channel)))
+    },
+    on_message: fn(state, message, connection, _dependencies) {
+      case message {
+        websocket.TextMessage(text) -> {
+          broadcaster.publish(services.pubsub, user <> ": " <> text)
+          websocket.continue_connection(state)
+        }
+        websocket.CustomMessage(chat_line) -> {
+          let _ = websocket.send_text(connection, chat_line)
+          websocket.continue_connection(state)
+        }
+        websocket.BinaryMessage(_) | websocket.ConnectionClosed ->
+          websocket.continue_connection(state)
+      }
+    },
+    on_close: fn(_state, _dependencies) {
+      broadcaster.publish(services.pubsub, user <> " left")
+    },
+  )
 }
 ```
 
-**Dream's solution: explicit dependencies:**
+Dream's solution is explicit dependencies. The upgrade controller bundles the user and the services into one value, and passes named functions as handlers:
+
+#### Explicit dependencies <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L31-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-// ✅ GOOD - Dependencies are explicit parameters
-pub fn handle_upgrade(request, context, services) {
-  let user = get_user(request)
   let dependencies = ChatDependencies(user: user, services: services)
-  
-  // Clear: every handler receives dependencies as a parameter
+
   websocket.upgrade_websocket(
     request,
     dependencies: dependencies,
-    on_init: handle_websocket_init,  // Gets dependencies as parameter
+    on_init: handle_websocket_init,
+    on_message: handle_websocket_message,
+    on_close: handle_websocket_close,
   )
-}
 ```
 
 **Benefits:**
@@ -740,25 +797,28 @@ pub fn handle_upgrade(request, context, services) {
 
 This example bundles dependencies into a single type:
 
+#### `ChatDependencies` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L12-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub type ChatDependencies {
-  ChatDependencies(
-    user: String,      // The username from the query parameter
-    services: Services, // App services (broadcaster, database, etc.)
-  )
+/// Dependencies for WebSocket handlers
+///
+/// Wraps user and services to pass them through to handlers.
+type ChatDependencies {
+  ChatDependencies(user: String, services: Services)
 }
 ```
 
 **Why bundle?**
 
-Without bundling, every handler would need many parameters:
+Without bundling, every handler would need a parameter for the user, one for the services, and one for each later addition. With bundling, each handler takes one `ChatDependencies` parameter:
+
+#### A handler takes one dependencies parameter <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L45-L48"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// Without bundling - too many parameters!
-fn handle_init(conn, user, services, config, logger, ...) { ... }
-
-// With bundling - clean!
-fn handle_init(conn, dependencies: ChatDependencies) { ... }
+fn handle_websocket_init(
+  _connection: websocket.Connection,
+  dependencies: ChatDependencies,
+) -> #(String, option.Option(process.Selector(ChatMessage))) {
 ```
 
 You can add more fields to `ChatDependencies` without changing every handler signature.
@@ -769,31 +829,45 @@ Dream abstracts the underlying WebSocket server (Mist) so your application isn't
 
 ### What You Use (Dream Types)
 
+`on_message` matches Dream's message types and returns Dream's actions. `websocket.stop_connection()` closes a connection; this example does not use it:
+
+#### Dream message types in `on_message` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L75-L89"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import dream/servers/mist/websocket
-
-// Dream's message types
-case message {
-  websocket.TextMessage(text) -> ...
-  websocket.BinaryMessage(data) -> ...
-  websocket.CustomMessage(custom) -> ...
-  websocket.ConnectionClosed -> ...
-}
-
-// Dream's action types
-websocket.continue_with_state(state)
-websocket.stop_connection()
+  case message {
+    websocket.TextMessage(text) -> {
+      // Broadcast user message
+      broadcaster.publish(services.pubsub, TextMessage(state, text))
+      websocket.continue_connection(state)
+    }
+    websocket.CustomMessage(chat_message) -> {
+      // Received from PubSub, send to client
+      let json_message = format_chat_message_to_json(chat_message)
+      let _ = websocket.send_text(connection, json.to_string(json_message))
+      websocket.continue_connection(state)
+    }
+    websocket.BinaryMessage(_) | websocket.ConnectionClosed ->
+      websocket.continue_connection(state)
+  }
 ```
 
 ### What You Don't See (Mist Types - Internal Only)
 
-```gleam
-// ❌ You NEVER import or use these in your controller
-import mist
+The controller never imports `mist`. Inside `dream/servers/mist/websocket`, Dream changes mist's text, binary and close frames into the types above. These are all the imports of the chat controller:
 
-mist.Text(text)           // Hidden by websocket.TextMessage
-mist.Binary(data)         // Hidden by websocket.BinaryMessage
-mist.ServerClose(...)     // Hidden by websocket.ConnectionClosed
+#### Chat controller imports <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L1-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+import dream/context.{type EmptyContext}
+import dream/http/request.{type Request}
+import dream/http/response.{type Response}
+import dream/servers/mist/websocket
+import dream/services/broadcaster
+import gleam/erlang/process
+import gleam/json
+import gleam/option.{Some}
+import services.{type Services}
+import types/chat_message.{type ChatMessage, TextMessage, UserJoined, UserLeft}
 ```
 
 **Why does this matter?**
@@ -914,69 +988,114 @@ The test creates REAL WebSocket connections to your running server. This is true
 
 ### Pattern: Routing WebSocket Messages
 
-You might want different handlers for different message types:
+The browser in this example sends plain text. If your client sends JSON in the same format that the server sends (`{"type": "message", "user": "Alice", "text": "hi"}`), parse the text into a typed message first. Then a `case` sends each type to its own handler. Text that does not parse, or has an unknown `type`, gets a separate result:
+
+#### Parse and route chat messages <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websocket_chat_readme_message_routing.gleam#L9-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-fn handle_websocket_message(state, message, deps) {
-  case message {
-    websocket.TextMessage(text) -> {
-      // Parse the text to determine message type
-      case parse_message_type(text) {
-        ChatMessage(content) -> handle_chat_message(state, content, deps)
-        TypingIndicator -> handle_typing_indicator(state, deps)
-        ReadReceipt(msg_id) -> handle_read_receipt(state, msg_id, deps)
-      }
-    }
-    _ -> websocket.continue_with_state(state)
+pub type ChatEvent {
+  TextMessage(user: String, text: String)
+  UserJoined(user: String)
+  UserLeft(user: String)
+}
+
+pub fn route_chat_event(json_text: String) -> String {
+  case parse_chat_event(json_text) {
+    Ok(TextMessage(user, text)) -> handle_text_message(user, text)
+    Ok(UserJoined(user)) -> handle_user_joined(user)
+    Ok(UserLeft(user)) -> handle_user_left(user)
+    Error(Nil) -> "Unknown message"
   }
 }
+
+pub fn parse_chat_event(json_text: String) -> Result(ChatEvent, Nil) {
+  json.parse(from: json_text, using: chat_event_decoder())
+  |> result.replace_error(Nil)
+}
+
+fn chat_event_decoder() -> decode.Decoder(ChatEvent) {
+  use event_type <- decode.field("type", decode.string)
+  use user <- decode.field("user", decode.string)
+  case event_type {
+    "message" -> text_message_decoder(user)
+    "joined" -> decode.success(UserJoined(user))
+    "left" -> decode.success(UserLeft(user))
+    _ -> decode.failure(UserLeft(user), expected: "ChatEvent")
+  }
+}
+
+fn text_message_decoder(user: String) -> decode.Decoder(ChatEvent) {
+  use text <- decode.field("text", decode.string)
+  decode.success(TextMessage(user, text))
+}
+
+fn handle_text_message(user: String, text: String) -> String {
+  user <> ": " <> text
+}
+
+fn handle_user_joined(user: String) -> String {
+  user <> " joined the chat"
+}
+
+fn handle_user_left(user: String) -> String {
+  user <> " left the chat"
+}
 ```
+
+In a WebSocket handler, call `route_chat_event` with the text of each `websocket.TextMessage`.
 
 ### Pattern: Authentication in WebSocket
 
-WebSockets don't have headers for each message, so authenticate during upgrade:
+WebSocket messages do not have headers, so authenticate during the upgrade. The browser `WebSocket` API cannot set custom headers, so this example reads the token from the query string (`/chat?token=...`). A cookie also works. The controller upgrades the connection only when the token belongs to a user. Otherwise it returns 401 and no WebSocket opens:
+
+#### Check a token before the upgrade <a href="https://github.com/TrustBound/dream/blob/2.5.0/test/snippets/websocket_chat_readme_authentication.gleam#L17-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn handle_upgrade(request, context, services) {
-  // Check auth token during upgrade
-  case validate_auth_token(request) {
-    Ok(user) -> {
-      let dependencies = ChatDependencies(user: user.name, services: services)
-      websocket.upgrade_websocket(request, dependencies: dependencies, ...)
-    }
-    Error(_) -> response.unauthorized("Invalid auth token")
+pub fn handle_upgrade(
+  request: Request,
+  _context: context,
+  _services: services,
+) -> Response {
+  case authenticate(request) {
+    Ok(user) -> upgrade_for_user(request, user)
+    Error(Nil) -> text_response(status.unauthorized, "Invalid auth token")
+  }
+}
+
+pub fn authenticate(request: Request) -> Result(String, Nil) {
+  get_query_param(request.query, "token")
+  |> option.to_result(Nil)
+  |> result.try(user_for_token)
+}
+
+fn user_for_token(token: String) -> Result(String, Nil) {
+  case token {
+    "token-for-ada" -> Ok("ada")
+    _ -> Error(Nil)
   }
 }
 ```
 
-### Gotcha: Unsubscribe or Leak Memory!
-
-Always unsubscribe in `on_close`:
-
-```gleam
-fn handle_websocket_close(state, deps) {
-  // ⚠️ CRITICAL: Always unsubscribe!
-  chat_service.unsubscribe(state.services, state.client_id)
-  
-  // Without this, the broadcaster keeps trying to send to a dead connection
-}
-```
+`upgrade_for_user` gives the user to the handlers in a `Dependencies` value, as in the chat controller. A real app looks up the token in a store, not in a `case`.
 
 ### Gotcha: Connection State is Per-Connection
 
-Each WebSocket connection has its own state. If you need shared state across users, use a service:
+Each WebSocket connection has its own state. A list of messages in connection state would be a separate list for each user. If you need shared state across users, use a service. This example keeps only the username in connection state, and shares messages through the broadcaster:
+
+#### State holds only the username <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L51-L61"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// ❌ BAD - State is per-connection, not shared
-type ChatState {
-  ChatState(
-    all_messages: List(String), // Each connection has its own list!
-  )
-}
+  // 1. Subscribe to broadcaster
+  let channel = broadcaster.subscribe(services.pubsub)
 
-// ✅ GOOD - Shared state in a service
-// Each connection subscribes to the service
-let client_id = chat_service.subscribe(services, connection)
+  // 2. Create selector for chat messages
+  let selector = broadcaster.channel_to_selector(channel)
+
+  // 3. Notify join
+  broadcaster.publish(services.pubsub, UserJoined(user))
+
+  // Initial state is the username
+  #(user, Some(selector))
 ```
 
 ## Troubleshooting
@@ -1052,110 +1171,152 @@ gleam build
 
 Want to adapt this example for your use case? Here's a step-by-step guide:
 
-### 1. Define Your Message Types
+### 1. Define Your Message Types <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/types/chat_message.gleam#L4-L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// types/my_message.gleam
-pub type MyMessage {
-  // What messages will your app send/receive?
-  UserTyping(user: String)
-  DocumentEdit(doc_id: String, change: String)
-  StatusUpdate(user_id: String, status: String)
+pub type ChatMessage {
+  TextMessage(user: String, text: String)
+  UserJoined(user: String)
+  UserLeft(user: String)
 }
 ```
 
 ### 2. Create Your Service
 
+Start a broadcaster for your message type and keep it in `Services`. Handlers call `broadcaster.subscribe` and `broadcaster.publish` directly:
+
+#### Broadcaster type for your messages <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/services/chat_service.gleam#L1-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-// services/my_service.gleam
 import dream/services/broadcaster
+import types/chat_message.{type ChatMessage}
 
+/// Chat PubSub service type
+///
+/// This is a type alias for a broadcaster specialized for chat messages.
+/// The broadcaster handles all subscription and message distribution logic.
+pub type ChatPubSub =
+  broadcaster.Broadcaster(ChatMessage)
+```
+
+#### `Services` holds the broadcaster <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/services.gleam#L1-L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+import services/chat_service.{type ChatPubSub, init_chat_pubsub}
+
+/// Application services
+///
+/// Holds all application-level dependencies shared across requests.
 pub type Services {
-  Services(broadcaster: broadcaster.Broadcaster)
-}
-
-pub fn initialize() -> Services {
-  let assert Ok(broadcaster) = broadcaster.start_broadcaster()
-  Services(broadcaster: broadcaster)
-}
-
-pub fn subscribe(services, connection) {
-  broadcaster.subscribe(services.broadcaster, connection)
-}
-
-pub fn broadcast(services, message) {
-  let json = encode_message(message)
-  broadcaster.send(services.broadcaster, json, except: [])
+  Services(pubsub: ChatPubSub)
 }
 ```
 
-### 3. Create Your Dependencies Type
+#### Start it once <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/services.gleam#L19-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// controllers/my_controller.gleam
-pub type MyDependencies {
-  MyDependencies(
-    // What does your app need?
-    user_id: String,
-    session_id: String,
-    services: Services,
-  )
+pub fn initialize() -> Services {
+  let pubsub = init_chat_pubsub()
+  Services(pubsub: pubsub)
+}
+```
+
+### 3. Create Your Dependencies Type <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L12-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+/// Dependencies for WebSocket handlers
+///
+/// Wraps user and services to pass them through to handlers.
+type ChatDependencies {
+  ChatDependencies(user: String, services: Services)
 }
 ```
 
 ### 4. Write Your Handlers
 
+Each handler takes the dependencies as a parameter. Change what they publish and what state they keep:
+
+#### `on_init` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L42-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn handle_websocket_init(
-  connection: websocket.Connection,
-  dependencies: MyDependencies,
-) -> websocket.Action(MyState, MyMessage) {
-  // Subscribe, set up state, notify others, etc.
-  let client_id = my_service.subscribe(dependencies.services, connection)
-  
-  let state = MyState(
-    client_id: client_id,
-    user_id: dependencies.user_id,
-    // ... other state
-  )
-  
-  websocket.continue_with_state(state)
-}
+/// Initialize WebSocket connection
+///
+/// Subscribes to the broadcaster and notifies other users of join.
+fn handle_websocket_init(
+  _connection: websocket.Connection,
+  dependencies: ChatDependencies,
+) -> #(String, option.Option(process.Selector(ChatMessage))) {
+  let ChatDependencies(user: user, services: services) = dependencies
 
-pub fn handle_websocket_message(
-  state: MyState,
-  message: websocket.Message(MyMessage),
-  dependencies: MyDependencies,
-) -> websocket.Action(MyState, MyMessage) {
-  case message {
-    websocket.TextMessage(text) -> {
-      // Handle your specific message format
-      // Broadcast to others, update state, etc.
-      websocket.continue_with_state(state)
-    }
-    _ -> websocket.continue_with_state(state)
-  }
-}
+  // 1. Subscribe to broadcaster
+  let channel = broadcaster.subscribe(services.pubsub)
 
-pub fn handle_websocket_close(
-  state: MyState,
-  dependencies: MyDependencies,
-) -> Nil {
-  // Always unsubscribe!
-  my_service.unsubscribe(state.services, state.client_id)
+  // 2. Create selector for chat messages
+  let selector = broadcaster.channel_to_selector(channel)
+
+  // 3. Notify join
+  broadcaster.publish(services.pubsub, UserJoined(user))
+
+  // Initial state is the username
+  #(user, Some(selector))
 }
 ```
 
-### 5. Set Up Routing
+#### `on_message` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L64-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// router.gleam
-import dream/router.{route, router}
+/// Handle WebSocket messages
+///
+/// Processes text messages from the client and custom messages from the broadcaster.
+fn handle_websocket_message(
+  state: String,
+  message: websocket.Message(ChatMessage),
+  connection: websocket.Connection,
+  dependencies: ChatDependencies,
+) -> websocket.Action(String, ChatMessage) {
+  let ChatDependencies(services: services, ..) = dependencies
 
-pub fn routes() -> Router {
+  case message {
+    websocket.TextMessage(text) -> {
+      // Broadcast user message
+      broadcaster.publish(services.pubsub, TextMessage(state, text))
+      websocket.continue_connection(state)
+    }
+    websocket.CustomMessage(chat_message) -> {
+      // Received from PubSub, send to client
+      let json_message = format_chat_message_to_json(chat_message)
+      let _ = websocket.send_text(connection, json.to_string(json_message))
+      websocket.continue_connection(state)
+    }
+    websocket.BinaryMessage(_) | websocket.ConnectionClosed ->
+      websocket.continue_connection(state)
+  }
+}
+```
+
+#### `on_close` <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/controllers/chat.gleam#L114-L123"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+/// Handle WebSocket close
+///
+/// Notifies other users when a user leaves.
+fn handle_websocket_close(
+  state: String,
+  dependencies: ChatDependencies,
+) -> Nil {
+  let ChatDependencies(services: services, ..) = dependencies
+  broadcaster.publish(services.pubsub, UserLeft(state))
+}
+```
+
+### 5. Set Up Routing <a href="https://github.com/TrustBound/dream/blob/2.5.0/examples/websocket_chat/src/router.gleam#L16-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn create() {
   router()
-  |> route(method: Get, path: "/ws", controller: my_controller.handle_upgrade, middleware: [])
-  |> route(method: Get, path: "/", controller: home_controller.show, middleware: [])
+  |> route(Get, "/", home.show, [])
+  |> route(Get, "/chat", chat.handle_chat_upgrade, [])
+  |> route(Get, "/assets/**filepath", static_controller.serve_assets, [])
 }
 ```
 
