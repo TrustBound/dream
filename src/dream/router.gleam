@@ -113,9 +113,11 @@
 //// literal, extension pattern (`*.jpg`), single wildcard, multi-segment
 //// wildcard, and parameter last.
 ////
-//// The router does not go back to try a route of lower priority. With the
+//// When a route of higher priority fits a segment but not the rest of the
+//// path, the router goes back and tries the route of next priority. With the
 //// routes `/users/:id/posts` and `/users/**rest`, the path `/users/1/comments`
-//// follows `:id`, finds no match after it, and gets a 404.
+//// follows `:id`, finds no match after it, and then matches `/users/**rest`
+//// with `rest` = `1/comments`.
 ////
 //// This means `/users/new` will match before `/users/:id` even if defined in reverse order.
 ////
