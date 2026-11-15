@@ -20,15 +20,16 @@ pub fn tests() -> UnitTest {
   describe("tls", [
     it("agrees on HTTP/2 over TLS and answers the request", fn() {
       // Arrange
+      let port = free_port()
       let #(certfile, keyfile) = write_certificate("build/test_tls")
       let assert Ok(handle) =
         server.new()
         |> server.router(tls_router())
         |> server.tls(certfile:, keyfile:)
-        |> server.listen_with_handle(19_990)
+        |> server.listen_with_handle(port)
 
       // Act
-      let result = request(19_990, atom.create("http2"), "/tls/hello")
+      let result = request(port, atom.create("http2"), "/tls/hello")
       server.stop(handle)
 
       // Assert
@@ -39,15 +40,16 @@ pub fn tests() -> UnitTest {
     }),
     it("answers HTTP/1.1 over TLS to clients that ask for it", fn() {
       // Arrange
+      let port = free_port()
       let #(certfile, keyfile) = write_certificate("build/test_tls")
       let assert Ok(handle) =
         server.new()
         |> server.router(tls_router())
         |> server.tls(certfile:, keyfile:)
-        |> server.listen_with_handle(19_991)
+        |> server.listen_with_handle(port)
 
       // Act
-      let result = request(19_991, atom.create("http"), "/tls/hello")
+      let result = request(port, atom.create("http"), "/tls/hello")
       server.stop(handle)
 
       // Assert
@@ -58,6 +60,7 @@ pub fn tests() -> UnitTest {
     }),
     it("keeps TLS when settings are changed after tls()", fn() {
       // Arrange
+      let port = free_port()
       let #(certfile, keyfile) = write_certificate("build/test_tls")
       let assert Ok(handle) =
         server.new()
@@ -65,10 +68,10 @@ pub fn tests() -> UnitTest {
         |> server.router(tls_router())
         |> server.bind("localhost")
         |> server.max_body_size(1000)
-        |> server.listen_with_handle(19_992)
+        |> server.listen_with_handle(port)
 
       // Act
-      let result = request(19_992, atom.create("http2"), "/tls/hello")
+      let result = request(port, atom.create("http2"), "/tls/hello")
       server.stop(handle)
 
       // Assert
@@ -106,6 +109,7 @@ pub fn tests() -> UnitTest {
     }),
     it("listen_with_handle fails when the certificate file is missing", fn() {
       // Arrange
+      let port = free_port()
       let #(_certfile, keyfile) = write_certificate("build/test_tls")
 
       // Act
@@ -113,7 +117,7 @@ pub fn tests() -> UnitTest {
         server.new()
         |> server.router(tls_router())
         |> server.tls(certfile: "build/test_tls/missing.pem", keyfile:)
-        |> server.listen_with_handle(19_993)
+        |> server.listen_with_handle(port)
 
       // Assert
       result
@@ -160,3 +164,6 @@ fn request_ffi(
   protocol: Atom,
   path: String,
 ) -> Result(#(Atom, Int, BitArray), anything)
+
+@external(erlang, "doc_server_ffi", "free_port")
+fn free_port() -> Int

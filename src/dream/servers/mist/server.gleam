@@ -532,9 +532,18 @@ pub fn listen_with_handle(
 
 /// Stop a server that was started with `listen_with_handle()`
 ///
-/// Stops the server process. This sends a normal exit signal to the supervisor,
-/// so call it from the process that started the server: the supervisor ignores
-/// that signal from any other process, and the server keeps running.
+/// Stops the server and returns when it is down, so the port is free for a new
+/// server when `stop` returns. You can call it from any process, not only from
+/// the process that started the server.
+///
+/// The server supervisor stops each of its children with the shutdown time that
+/// the child specification gives, then exits with reason `normal`. The process
+/// that started the server keeps running. A request that is in progress when
+/// `stop` is called does not get a response: its connection closes.
+///
+/// `stop` is idempotent. If the server is already down, `stop` returns `Nil`
+/// and does not crash the caller.
+///
 /// Note: In tests, you typically don't need to call this - the server will
 /// be cleaned up automatically when the test process exits.
 ///
@@ -564,14 +573,14 @@ pub fn listen_with_handle(
 /// ```
 pub fn stop(handle: ServerHandle) -> Nil {
   case handle {
-    ServerHandle(process_pid) -> {
-      // Send a normal exit signal instead of killing brutally
-      // This allows the supervisor to clean up gracefully
-      process.send_exit(process_pid)
-      Nil
-    }
+    ServerHandle(process_pid) -> stop_supervisor(process_pid)
   }
 }
+
+/// Stops the supervisor with `gen_server:stop/1` and waits until it is down.
+/// See `dream_mist_server_ffi.erl` for why this works from any process.
+@external(erlang, "dream_mist_server_ffi", "stop_supervisor")
+fn stop_supervisor(supervisor_pid: process.Pid) -> Nil
 
 /// Helper function to update context with request_id
 /// This is a simple implementation that just returns the template context

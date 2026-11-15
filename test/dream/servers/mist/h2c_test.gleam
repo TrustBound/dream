@@ -27,10 +27,11 @@ import gleam/string
 pub fn tests() -> UnitTest {
   describe("h2c", [
     it("GET returns correct body over h2c", fn() {
-      use handle <- with_h2c_server(19_980)
+      let port = free_port()
+      use handle <- with_h2c_server(port)
 
       let result =
-        h2c_request("/h2c/hello", 19_980)
+        h2c_request("/h2c/hello", port)
         |> client.send()
 
       server.stop(handle)
@@ -55,10 +56,11 @@ pub fn tests() -> UnitTest {
       }
     }),
     it("path params work over h2c", fn() {
-      use handle <- with_h2c_server(19_981)
+      let port = free_port()
+      use handle <- with_h2c_server(port)
 
       let result =
-        h2c_request("/h2c/echo/test-value", 19_981)
+        h2c_request("/h2c/echo/test-value", port)
         |> client.send()
 
       server.stop(handle)
@@ -86,10 +88,11 @@ pub fn tests() -> UnitTest {
       }
     }),
     it("JSON response has correct content-type over h2c", fn() {
-      use handle <- with_h2c_server(19_982)
+      let port = free_port()
+      use handle <- with_h2c_server(port)
 
       let result =
-        h2c_request("/h2c/json", 19_982)
+        h2c_request("/h2c/json", port)
         |> client.send()
 
       server.stop(handle)
@@ -126,10 +129,11 @@ pub fn tests() -> UnitTest {
       }
     }),
     it("404 for unknown route over h2c", fn() {
-      use handle <- with_h2c_server(19_983)
+      let port = free_port()
+      use handle <- with_h2c_server(port)
 
       let result =
-        h2c_request("/h2c/nonexistent", 19_983)
+        h2c_request("/h2c/nonexistent", port)
         |> client.send()
 
       server.stop(handle)
@@ -156,11 +160,12 @@ pub fn tests() -> UnitTest {
       }
     }),
     it("POST with body echoes back over h2c", fn() {
-      use handle <- with_h2c_server(19_984)
+      let port = free_port()
+      use handle <- with_h2c_server(port)
 
       let payload = "h2c-test-payload"
       let result =
-        h2c_request("/h2c/echo-body", 19_984)
+        h2c_request("/h2c/echo-body", port)
         |> client.method(http.Post)
         |> client.body(payload)
         |> client.send()
@@ -192,7 +197,8 @@ pub fn tests() -> UnitTest {
       }
     }),
     it("concurrent requests succeed over h2c", fn() {
-      use handle <- with_h2c_server(19_985)
+      let port = free_port()
+      use handle <- with_h2c_server(port)
 
       let subject1 = process.new_subject()
       let subject2 = process.new_subject()
@@ -201,7 +207,7 @@ pub fn tests() -> UnitTest {
       let _pid1 =
         process.spawn_unlinked(fn() {
           let result =
-            h2c_request("/h2c/hello", 19_985)
+            h2c_request("/h2c/hello", port)
             |> client.send()
           process.send(subject1, result)
         })
@@ -209,7 +215,7 @@ pub fn tests() -> UnitTest {
       let _pid2 =
         process.spawn_unlinked(fn() {
           let result =
-            h2c_request("/h2c/hello", 19_985)
+            h2c_request("/h2c/hello", port)
             |> client.send()
           process.send(subject2, result)
         })
@@ -217,7 +223,7 @@ pub fn tests() -> UnitTest {
       let _pid3 =
         process.spawn_unlinked(fn() {
           let result =
-            h2c_request("/h2c/hello", 19_985)
+            h2c_request("/h2c/hello", port)
             |> client.send()
           process.send(subject3, result)
         })
@@ -351,3 +357,6 @@ fn assertion_failed(operator: String, message: String) -> AssertionResult {
     payload: None,
   ))
 }
+
+@external(erlang, "doc_server_ffi", "free_port")
+fn free_port() -> Int
