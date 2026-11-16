@@ -22,6 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The router tries the next route when a route fits the start of a path but
   fails deeper down, so a wildcard route can now receive requests that got a
   404 before.
+- The `Dream` type has a fourth type parameter, `router`: `NoRouter` before
+  `server.router()`, and the `Router(context, services)` after it. The
+  compiler now enforces the builder order: `context()` and `services()` come
+  before `router()`, and `listen()` and `listen_with_handle()` need a router.
+  In Dream 2, `context()` and `services()` after `router()` dropped the router
+  with no error, and `listen()` crashed at start, as it did with no router.
+  `dream.get_router` and `dream.get_services` no longer return an `Option`,
+  and `dream.create` takes the router state and the services without an
+  `Option`. See the Migration Guide in `releases/release-3.0.0.md`.
 
 ### Added
 

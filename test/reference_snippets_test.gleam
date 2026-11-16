@@ -197,7 +197,7 @@ fn architecture_server_tests() -> UnitTest {
       // Assert
       services
       |> should()
-      |> equal(Some(architecture_server.initialize_services()))
+      |> equal(architecture_server.initialize_services())
       |> or_fail_with("custom server should hold initialize_services()")
     }),
     it("create_router answers GET / with Home", fn() {

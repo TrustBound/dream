@@ -21,7 +21,23 @@
 //// ```
 ////
 //// The builder pattern lets you configure your server step by step. Start with `new()`,
-//// add your router, and optionally set custom context and services before calling `listen()`.
+//// optionally set custom context and services, add your router, then call `listen()`.
+////
+//// ## Builder Order
+////
+//// Call `context()` and `services()` before `router()`, then `listen()`.
+//// `bind()`, `max_body_size()` and `tls()` work at any point before `listen()`.
+//// The compiler enforces this order:
+////
+//// - A router's type includes the context and services types:
+////   `Router(context, services)`. `context()` and `services()` change those
+////   types, so a router given before them cannot stay in the app. Thus
+////   `context()` and `services()` accept only an app that has no router yet
+////   (its type ends in `NoRouter`), and calling them after `router()` is a
+////   type error.
+//// - `listen()` and `listen_with_handle()` accept only an app that has a
+////   router (its type ends in `Router(context, services)`), so an app
+////   without a router does not compile.
 ////
 //// ## Custom Context and Services
 ////
@@ -57,7 +73,7 @@
 //// The type system ensures your controllers receive the correct context type.
 
 import dream/context.{type EmptyContext, EmptyContext}
-import dream/dream
+import dream/dream.{type NoRouter, NoRouter}
 import dream/router.{type EmptyServices, type Router, EmptyServices}
 import dream/servers/mist/handler
 import dream/servers/mist/port_probe
@@ -83,10 +99,11 @@ pub opaque type ServerHandle {
 
 /// Create a new Dream server with defaults
 ///
-/// Returns a server configured with `EmptyContext` (no per-request data) and
-/// `EmptyServices` (no dependencies). For simple applications, you only need to add
-/// a router. For more complex apps, use `context()` and `services()` to provide your
-/// own types before calling `listen()`.
+/// Returns a server configured with `EmptyContext` (no per-request data),
+/// `EmptyServices` (no dependencies) and no router (`NoRouter`). For simple
+/// applications, you only need to add a router. For more complex apps, use
+/// `context()` and `services()` to provide your own types before you call
+/// `router()`.
 ///
 /// ## Simple Example (no context or services)
 ///
@@ -128,15 +145,16 @@ pub fn new() -> dream.Dream(
   mist.Builder(Connection, ResponseData),
   EmptyContext,
   EmptyServices,
+  NoRouter,
 ) {
   dream.create(
     server: mist.new(fn(_request) {
       http_response.new(404)
       |> http_response.set_body(Bytes(bytes_tree.new()))
     }),
-    router: option.None,
+    router: NoRouter,
     context: EmptyContext,
-    services: option.Some(EmptyServices),
+    services: EmptyServices,
     // Sensible default for buffered bodies: 10MB
     max_body_size: 10_000_000,
     bind_interface: option.None,
@@ -148,6 +166,10 @@ pub fn new() -> dream.Dream(
 /// Use this to replace the default `EmptyContext` with your own context type that holds
 /// user authentication, session data, or any other per-request information.
 /// The type system tracks your context through middleware and controllers.
+///
+/// Call `context()` before `router()`. A router's type includes the context
+/// type, so `context()` accepts only an app that has no router yet. Calling it
+/// after `router()` is a compile error.
 ///
 /// ## Example
 ///
@@ -176,13 +198,19 @@ pub fn context(
   dream_instance: dream.Dream(
     mist.Builder(Connection, ResponseData),
     _old_context,
-    old_services,
+    services,
+    NoRouter,
   ),
   new_context: context,
-) -> dream.Dream(mist.Builder(Connection, ResponseData), context, old_services) {
+) -> dream.Dream(
+  mist.Builder(Connection, ResponseData),
+  context,
+  services,
+  NoRouter,
+) {
   dream.create(
     server: dream.get_server(dream_instance, risks_understood: True),
-    router: option.None,
+    router: NoRouter,
     context: new_context,
     services: dream.get_services(dream_instance),
     max_body_size: dream.get_max_body_size(dream_instance),
@@ -195,6 +223,10 @@ pub fn context(
 ///
 /// Services are shared dependencies available to all requests—database connections,
 /// HTTP clients, caches, etc. Define a type that holds all your services and pass it here.
+///
+/// Call `services()` before `router()`. A router's type includes the services
+/// type, so `services()` accepts only an app that has no router yet. Calling it
+/// after `router()` is a compile error.
 ///
 /// ## Example
 ///
@@ -226,16 +258,22 @@ pub fn context(
 pub fn services(
   dream_instance: dream.Dream(
     mist.Builder(Connection, ResponseData),
-    old_context,
-    router.EmptyServices,
+    context,
+    EmptyServices,
+    NoRouter,
   ),
   services_instance: services,
-) -> dream.Dream(mist.Builder(Connection, ResponseData), old_context, services) {
+) -> dream.Dream(
+  mist.Builder(Connection, ResponseData),
+  context,
+  services,
+  NoRouter,
+) {
   dream.create(
     server: dream.get_server(dream_instance, risks_understood: True),
-    router: option.None,
+    router: NoRouter,
     context: dream.get_context(dream_instance),
-    services: option.Some(services_instance),
+    services: services_instance,
     max_body_size: dream.get_max_body_size(dream_instance),
     bind_interface: dream.get_bind_interface(dream_instance),
   )
@@ -246,6 +284,10 @@ pub fn services(
 ///
 /// The router defines which controllers handle which requests. It must be configured
 /// with the same context and services types you've set up, which the type system enforces.
+///
+/// Call `router()` once, after `context()` and `services()`. It accepts only
+/// an app that has no router yet (`NoRouter`), and returns an app whose type
+/// holds the `Router(context, services)`. Only that app can `listen()`.
 ///
 /// ## Example
 ///
@@ -281,12 +323,18 @@ pub fn router(
     mist.Builder(Connection, ResponseData),
     context,
     services,
+    NoRouter,
   ),
   router_instance: Router(context, services),
-) -> dream.Dream(mist.Builder(Connection, ResponseData), context, services) {
+) -> dream.Dream(
+  mist.Builder(Connection, ResponseData),
+  context,
+  services,
+  Router(context, services),
+) {
   dream.create(
     server: dream.get_server(dream_instance, risks_understood: True),
-    router: option.Some(router_instance),
+    router: router_instance,
     context: dream.get_context(dream_instance),
     services: dream.get_services(dream_instance),
     max_body_size: dream.get_max_body_size(dream_instance),
@@ -324,9 +372,15 @@ pub fn bind(
     mist.Builder(Connection, ResponseData),
     context,
     services,
+    router_state,
   ),
   interface: String,
-) -> dream.Dream(mist.Builder(Connection, ResponseData), context, services) {
+) -> dream.Dream(
+  mist.Builder(Connection, ResponseData),
+  context,
+  services,
+  router_state,
+) {
   dream.create(
     server: mist.bind(
       dream.get_server(dream_instance, risks_understood: True),
@@ -371,9 +425,15 @@ pub fn max_body_size(
     mist.Builder(Connection, ResponseData),
     context,
     services,
+    router_state,
   ),
   size: Int,
-) -> dream.Dream(mist.Builder(Connection, ResponseData), context, services) {
+) -> dream.Dream(
+  mist.Builder(Connection, ResponseData),
+  context,
+  services,
+  router_state,
+) {
   dream.create(
     server: dream.get_server(dream_instance, risks_understood: True),
     router: dream.get_router(dream_instance),
@@ -424,10 +484,16 @@ pub fn tls(
     mist.Builder(Connection, ResponseData),
     context,
     services,
+    router_state,
   ),
   certfile certfile: String,
   keyfile keyfile: String,
-) -> dream.Dream(mist.Builder(Connection, ResponseData), context, services) {
+) -> dream.Dream(
+  mist.Builder(Connection, ResponseData),
+  context,
+  services,
+  router_state,
+) {
   dream.set_tls(
     dream_instance,
     option.Some(dream.Tls(certfile: certfile, keyfile: keyfile)),
@@ -439,9 +505,9 @@ pub fn tls(
 /// Starts the server on the specified port and blocks forever. This is what you call
 /// in your `main()` function. If the server fails to start, it panics with the reason.
 ///
-/// This function will panic if you haven't called `router()` first—
-/// you can't run a web server without defining what it does. `services()` is
-/// optional: the default services are `EmptyServices`.
+/// `listen()` accepts only an app that has a router: an app without a call to
+/// `router()` does not compile. `services()` is optional: the default services
+/// are `EmptyServices`.
 ///
 /// ## Example
 ///
@@ -465,6 +531,7 @@ pub fn listen(
     mist.Builder(Connection, ResponseData),
     context,
     services,
+    Router(context, services),
   ),
   port: Int,
 ) -> Nil {
@@ -476,6 +543,7 @@ pub fn listen(
 ///
 /// Like `listen()`, but returns immediately with a `ServerHandle` that can be used
 /// to stop the server programmatically. Useful for tests and programmatic server control.
+/// Like `listen()`, it accepts only an app that has a router.
 ///
 /// ## Example
 ///
@@ -521,6 +589,7 @@ pub fn listen_with_handle(
     mist.Builder(Connection, ResponseData),
     context,
     services,
+    Router(context, services),
   ),
   port: Int,
 ) -> Result(ServerHandle, actor.StartError) {
@@ -614,16 +683,15 @@ fn build_handler(
     mist.Builder(Connection, ResponseData),
     context,
     services,
+    Router(context, services),
   ),
-  router_instance: Router(context, services),
-  services_instance: services,
 ) -> fn(http_request.Request(Connection)) ->
   http_response.Response(ResponseData) {
   handler.create(
-    router_instance,
+    dream.get_router(dream_instance),
     dream.get_max_body_size(dream_instance),
     dream.get_context(dream_instance),
-    services_instance,
+    dream.get_services(dream_instance),
     update_context_with_request_id,
   )
 }
@@ -633,6 +701,7 @@ fn build_server(
     mist.Builder(Connection, ResponseData),
     context,
     services,
+    router_state,
   ),
   handler_function: fn(http_request.Request(Connection)) ->
     http_response.Response(ResponseData),
@@ -703,6 +772,7 @@ fn listen_internal(
     mist.Builder(Connection, ResponseData),
     context,
     services,
+    Router(context, services),
   ),
   port: Int,
   block_forever: Bool,
@@ -714,13 +784,7 @@ fn listen_internal(
   case port_probe.is_in_use(bind_interface, port) {
     True -> Error(port_in_use_error(port, bind_interface_label))
     False -> {
-      // Extract router and services - panic if not set
-      let assert option.Some(router_instance) = dream.get_router(dream_instance)
-      let assert option.Some(services_instance) =
-        dream.get_services(dream_instance)
-
-      let handler_function =
-        build_handler(dream_instance, router_instance, services_instance)
+      let handler_function = build_handler(dream_instance)
       let server_with_port =
         build_server(dream_instance, handler_function, port)
 

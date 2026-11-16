@@ -186,7 +186,7 @@ gleam deps update dream
 
 ### Migration Guide
 
-Most projects need only the request body change in step 3. Steps 1 and 2 apply only in the cases they name.
+Most projects need only the request body change in step 3. Steps 1, 2 and 4 apply only in the cases they name.
 
 Each "before and after" below is a diff of a real file in this repository, from Dream 2.4.1 to Dream 3.0.0. The badge on a diff links to that file in GitHub's compare view.
 
@@ -337,7 +337,46 @@ pub type RequestBody {
 - `require_form` returns `BadRequest("Request body is not text")` for a body that is not text. It now also reads a `Stream` body.
 - A binary upload on a `route` now arrives as `Bytes`. In Dream 2 it arrived as `""`.
 
-#### 4. Other changes that can affect an app
+#### 4. Your code names the `Dream` type, or calls `context()` or `services()` after `router()`
+
+**What changed.** The `Dream` type has a fourth type parameter, `router`. It is `NoRouter` until you call `server.router()`, and then it is the `Router(context, services)` you gave. The compiler now enforces the builder order:
+
+- `server.context()` and `server.services()` accept only an app that has no router yet. Call them before `server.router()`.
+- `server.listen()` and `server.listen_with_handle()` accept only an app that has a router.
+- `server.router()` accepts only an app that has no router yet, so you call it one time.
+- `bind()`, `max_body_size()` and `tls()` work before or after `router()`.
+
+The accessors in `dream/dream` follow the new shape. `get_router` returns `NoRouter` or the router, not an `Option`. `get_services` returns the services, not an `Option`. `create` takes the router state and the services without an `Option`.
+
+**Why.** A router's type includes the context and services types: `Router(context, services)`. `context()` and `services()` change those types, so a router given before them cannot stay in the app. In Dream 2, `context()` and `services()` dropped the router with no error, and `listen()` crashed at start. The compiler caught the wrong order only when the controllers used the context type. A router whose controllers ignore the context compiled, and so did an app with no router at all.
+
+**How to upgrade.**
+
+- If the build fails with a type mismatch between `NoRouter` and `Router(...)`, move `context()` and `services()` above `router()`, and make sure that `router()` comes before `listen()`.
+- If you write the `Dream` type, add the fourth parameter. This app has its own context and services, in the right order:
+
+##### Context, services, router, in that order <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_type.gleam#L22-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn create_server() -> Dream(
+  mist.Builder(Connection, ResponseData),
+  MyContext,
+  Services,
+  Router(MyContext, Services),
+) {
+  server.new()
+  |> server.context(MyContext(request_id: "", user: None))
+  |> server.services(Services(
+    database_url: "postgres://localhost/app",
+    cache_size: 100,
+  ))
+  |> server.router(my_router())
+}
+```
+
+- If you use `dream.get_router` or `dream.get_services`, remove the `Some` and `None` cases.
+
+#### 5. Other changes that can affect an app
 
 - **Router fallback.** When a route fits the start of a path but fails deeper down, the router now tries the next route. With `/users/:id/posts` and `/users/**rest`, `GET /users/1/comments` now finds `/users/**rest`. In Dream 2 it returned 404. A wildcard route can now receive requests that got a 404 before.
 - **`server.stop`.** `stop` now stops the server from any process, and it returns after the server is down. In Dream 2 it did nothing unless the process that started the server called it.

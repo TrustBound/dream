@@ -58,15 +58,16 @@ Paths like `/users/:id/posts/:post_id` are parsed into patterns. Parameters are 
 
 Dream provides a Mist HTTP server adapter. Mist is the underlying BEAM web server.
 
-`Dream(server, context, services)` is an opaque type. You build it with the functions in `dream/servers/mist/server`. With no context or services, its type is `Dream(Builder(Connection, ResponseData), EmptyContext, EmptyServices)`:
+`Dream(server, context, services, router)` is an opaque type. You build it with the functions in `dream/servers/mist/server`. The `router` parameter is `NoRouter` until you call `router()`, and then it is the `Router(context, services)` you gave. With no context or services, the type of an app with a router is `Dream(Builder(Connection, ResponseData), EmptyContext, EmptyServices, Router(EmptyContext, EmptyServices))`:
 
-#### Server with no context or services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L49-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Server with no context or services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L49-L58"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_simple_server() -> Dream(
   Builder(Connection, ResponseData),
   EmptyContext,
   EmptyServices,
+  Router(EmptyContext, EmptyServices),
 ) {
   server.new()
   |> server.router(create_router())
@@ -74,15 +75,16 @@ pub fn create_simple_server() -> Dream(
 }
 ```
 
-**Builder pattern:**
+**Builder pattern:** call `context()` and `services()` before `router()`, then `listen()`. The compiler enforces this order. A router's type includes the context and services types, so `context()` and `services()` accept only an app that has no router yet. `listen()` accepts only an app that has a router.
 
-#### Server with context and services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L69-L79"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Server with context and services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L71-L82"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_custom_server() -> Dream(
   Builder(Connection, ResponseData),
   MyContext,
   Services,
+  Router(MyContext, Services),
 ) {
   server.new()
   |> server.context(MyContext(request_id: "", user: None))
@@ -151,13 +153,14 @@ Context holds per-request data that middleware can modify.
 
 Dream uses `EmptyContext` until you set a context. Dream also provides `AppContext(request_id: String)` in `dream/context`:
 
-#### Use AppContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L59-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Use AppContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L60-L69"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_app_context_server() -> Dream(
   Builder(Connection, ResponseData),
   AppContext,
   EmptyServices,
+  Router(AppContext, EmptyServices),
 ) {
   server.new()
   |> server.context(AppContext(request_id: ""))
@@ -206,13 +209,14 @@ pub fn initialize_services() -> Services {
 
 Injected once in `main()`, used everywhere:
 
-#### Inject services at startup <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L69-L84"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Inject services at startup <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L71-L87"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_custom_server() -> Dream(
   Builder(Connection, ResponseData),
   MyContext,
   Services,
+  Router(MyContext, Services),
 ) {
   server.new()
   |> server.context(MyContext(request_id: "", user: None))
@@ -258,7 +262,7 @@ The compiler catches most errors before runtime.
 
 Every configurable component uses the builder pattern:
 
-### Server, router and HTTP client builders <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_builders.gleam#L35-L61"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Server, router and HTTP client builders <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_builders.gleam#L35-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // Server
@@ -266,6 +270,7 @@ pub fn create_server() -> Dream(
   Builder(Connection, ResponseData),
   EmptyContext,
   EmptyServices,
+  Router(EmptyContext, EmptyServices),
 ) {
   server.new()
   |> server.router(create_router())
@@ -684,7 +689,7 @@ pub fn index_log_entry(
 - HTTPS support, configurable timeouts, builder pattern
 - Built on Erlang's battle-tested `httpc`
 
-#### Build and send a request <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_builders.gleam#L53-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Build and send a request <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_builders.gleam#L54-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // HTTP client

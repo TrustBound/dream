@@ -50,6 +50,7 @@ pub fn create_simple_server() -> Dream(
   Builder(Connection, ResponseData),
   EmptyContext,
   EmptyServices,
+  Router(EmptyContext, EmptyServices),
 ) {
   server.new()
   |> server.router(create_router())
@@ -60,6 +61,7 @@ pub fn create_app_context_server() -> Dream(
   Builder(Connection, ResponseData),
   AppContext,
   EmptyServices,
+  Router(AppContext, EmptyServices),
 ) {
   server.new()
   |> server.context(AppContext(request_id: ""))
@@ -70,6 +72,7 @@ pub fn create_custom_server() -> Dream(
   Builder(Connection, ResponseData),
   MyContext,
   Services,
+  Router(MyContext, Services),
 ) {
   server.new()
   |> server.context(MyContext(request_id: "", user: None))

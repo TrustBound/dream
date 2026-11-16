@@ -1,5 +1,6 @@
 //// Examples for the doc comments of the `dream/dream` functions.
 
+import dream/context.{type EmptyContext}
 import dream/dream.{
   parse_cookie_string, parse_cookies_from_headers, route_request,
 }
@@ -8,7 +9,7 @@ import dream/http/header.{Header}
 import dream/http/request.{type Request, Get}
 import dream/http/response.{type Response, text_response}
 import dream/http/status
-import dream/router.{route, router}
+import dream/router.{type EmptyServices, type Router, route, router}
 import dream/servers/mist/server
 import gleam/option.{type Option, None, Some}
 import mist.{type Connection, type ResponseData}
@@ -41,12 +42,10 @@ pub fn raw_server(app) -> mist.Builder(Connection, ResponseData) {
   mist_server
 }
 
-pub fn router_status() -> String {
+pub fn configured_router() -> Router(EmptyContext, EmptyServices) {
   let app = server.new() |> server.router(my_router())
-  case dream.get_router(app) {
-    Some(_router) -> "Router is configured"
-    None -> "No router yet"
-  }
+  // Returns the router; before router(), get_router returns NoRouter
+  dream.get_router(app)
 }
 
 pub fn configured_context() -> MyContext {
@@ -55,12 +54,10 @@ pub fn configured_context() -> MyContext {
   context
 }
 
-pub fn services_status() -> String {
+pub fn configured_services() -> MyServices {
   let app = server.new() |> server.services(my_services())
-  case dream.get_services(app) {
-    Some(_services) -> "Services are configured"
-    None -> "No services yet"
-  }
+  // Returns my_services(); without services(), it returns EmptyServices
+  dream.get_services(app)
 }
 
 pub fn configured_max_body_size() -> Int {

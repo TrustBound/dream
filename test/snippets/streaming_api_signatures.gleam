@@ -65,6 +65,6 @@ pub const route: fn(
 ) -> Router(context, services) = router.route
 
 pub const max_body_size: fn(
-  Dream(Builder(Connection, ResponseData), context, services),
+  Dream(Builder(Connection, ResponseData), context, services, router_state),
   Int,
-) -> Dream(Builder(Connection, ResponseData), context, services) = server.max_body_size
+) -> Dream(Builder(Connection, ResponseData), context, services, router_state) = server.max_body_size

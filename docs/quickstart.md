@@ -182,6 +182,11 @@ with more configuration applied. There is no global state.
 > Note: When using Dream’s default `EmptyContext`, you don’t need to call
 > `server.context()` explicitly – it is set up automatically.
 
+> Note: If you add `server.context()` or `server.services()`, call them
+> before `server.router()`. `server.listen()` comes after `server.router()`.
+> The compiler enforces this order: the router's type includes the context
+> and services types. See [Builder order](concepts.md#builder-order).
+
 ### A note on performance
 
 Dream uses a radix trie for routing, giving O(path depth) lookup

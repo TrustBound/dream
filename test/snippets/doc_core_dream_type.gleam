@@ -23,6 +23,7 @@ pub fn create_server() -> Dream(
   mist.Builder(Connection, ResponseData),
   MyContext,
   Services,
+  Router(MyContext, Services),
 ) {
   server.new()
   |> server.context(MyContext(request_id: "", user: None))

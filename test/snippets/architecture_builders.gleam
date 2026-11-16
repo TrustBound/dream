@@ -37,6 +37,7 @@ pub fn create_server() -> Dream(
   Builder(Connection, ResponseData),
   EmptyContext,
   EmptyServices,
+  Router(EmptyContext, EmptyServices),
 ) {
   server.new()
   |> server.router(create_router())

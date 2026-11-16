@@ -150,6 +150,15 @@ Yes, Services is a "god object" that holds multiple dependencies. We're okay wit
 
 **See:** [examples/database/src/services.gleam](../examples/database/src/services.gleam)
 
+### Builder order
+
+Call the server builder functions in this order: `context()`, `services()`, `router()`, then `listen()`. The compiler enforces this order:
+
+- A router's type includes the context and services types: `Router(context, services)`. Thus `context()` and `services()` accept only an app that has no router yet. If you call one of them after `router()`, the build fails with a type mismatch between `NoRouter` and `Router(...)`.
+- `listen()` and `listen_with_handle()` accept only an app that has a router. If you forget `router()`, the build fails with the same type mismatch.
+
+`bind()`, `max_body_size()` and `tls()` work before or after `router()`.
+
 ---
 
 ## Context

@@ -149,18 +149,18 @@ fn dream_module_tests() -> UnitTest {
       |> equal(dream.get_server(app, risks_understood: True))
       |> or_fail_with("raw_server should return the app's Mist builder")
     }),
-    it("get_router example finds the router", fn() {
+    it("get_router example returns the router", fn() {
       // Arrange
-      let expected = "Router is configured"
+      let expected = doc_core_dream.my_router()
 
       // Act
-      let status = doc_core_dream.router_status()
+      let configured_router = doc_core_dream.configured_router()
 
       // Assert
-      status
+      configured_router
       |> should()
       |> equal(expected)
-      |> or_fail_with("router_status should say the router is configured")
+      |> or_fail_with("configured_router should return my_router()")
     }),
     it("get_context example returns the context", fn() {
       // Arrange
@@ -175,18 +175,18 @@ fn dream_module_tests() -> UnitTest {
       |> equal(expected)
       |> or_fail_with("configured_context should be MyContext(user: None)")
     }),
-    it("get_services example finds the services", fn() {
+    it("get_services example returns the services", fn() {
       // Arrange
-      let expected = "Services are configured"
+      let expected = doc_core_dream.my_services()
 
       // Act
-      let status = doc_core_dream.services_status()
+      let services = doc_core_dream.configured_services()
 
       // Assert
-      status
+      services
       |> should()
       |> equal(expected)
-      |> or_fail_with("services_status should say services are configured")
+      |> or_fail_with("configured_services should return my_services()")
     }),
     it("get_max_body_size example returns 5_000_000", fn() {
       // Arrange
