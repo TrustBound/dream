@@ -1,15 +1,29 @@
-//// Request Matching Configuration
+//// README: Request Matching
 ////
-//// Example showing how to configure request key generation for recordings.
+//// Builds a request key that ignores headers and body, and starts a
+//// playback recorder with it.
 
 import dream_http_client/matching
+import dream_http_client/recorder.{type Recorder, directory, key, mode, start}
 
-pub fn create_default_key() -> matching.MatchKey {
-  // Default: match on method + URL only
-  matching.request_key(method: True, url: True, headers: False, body: False)
+// Build a request key function from include/exclude flags
+pub fn method_and_url_key() -> matching.MatchKey {
+  matching.request_key(
+    method: True,
+    url: True,
+    // Ignore auth tokens, timestamps
+    headers: False,
+    // Ignore request IDs in body
+    body: False,
+  )
 }
 
-pub fn create_custom_key() -> matching.MatchKey {
-  // Custom: match on method + URL + headers + body
-  matching.request_key(method: True, url: True, headers: True, body: True)
+pub fn start_playback(
+  recordings_directory: String,
+) -> Result(Recorder, String) {
+  recorder.new()
+  |> directory(recordings_directory)
+  |> mode("playback")
+  |> key(method_and_url_key())
+  |> start()
 }

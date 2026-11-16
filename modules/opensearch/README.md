@@ -27,64 +27,81 @@ A standalone HTTP client for interacting with OpenSearch (or Elasticsearch) clus
 gleam add dream_opensearch
 ```
 
-## Quick Start
+## Quick Start <a href="https://github.com/TrustBound/dream/blob/dream_opensearch-2.0.0/modules/opensearch/test/snippets/readme_quick_start.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream_opensearch/client
+import dream_opensearch/client.{type Client}
 import dream_opensearch/document
 import dream_opensearch/query
 import gleam/json
 
 // Create client
-let client = client.new("http://localhost:9200")
+pub fn create_client() -> Client {
+  client.new("http://localhost:9200")
+}
 
 // Index a document
-let doc = json.object([
-  #("name", json.string("Alice")),
-  #("email", json.string("alice@example.com")),
-])
-document.index(client, "users", "123", json.to_string(doc))
+pub fn index_alice(opensearch: Client) -> Result(String, String) {
+  let user =
+    json.object([
+      #("name", json.string("Alice")),
+      #("email", json.string("alice@example.com")),
+    ])
+  document.index(opensearch, "users", "123", json.to_string(user))
+}
 
 // Search documents
-let search_query = query.match("name", "Alice")
-case document.search(client, "users", search_query) {
-  Ok(results) -> process_results(results)
-  Error(msg) -> handle_error(msg)
+pub fn search_for_alice(opensearch: Client) -> Result(String, String) {
+  let search_query = query.match("name", "Alice")
+  document.search(opensearch, "users", search_query)
 }
 
 // Delete document
-document.delete(client, "users", "123")
+pub fn delete_alice(opensearch: Client) -> Result(String, String) {
+  document.delete(opensearch, "users", "123")
+}
 ```
 
 ## Usage
 
-### Client Setup
+### Client Setup <a href="https://github.com/TrustBound/dream/blob/dream_opensearch-2.0.0/modules/opensearch/test/snippets/readme_client_setup.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream_opensearch/client
+import dream_opensearch/client.{type Client}
 
 // Basic setup
-let client = client.new("http://localhost:9200")
+pub fn create_local_client() -> Client {
+  client.new("http://localhost:9200")
+}
 
-// With authentication
-let client = client.new("https://user:pass@search.example.com:9200")
+// Do not do this: the client does not read a user name and password from
+// the URL, so the request does not authenticate.
+pub fn create_client_with_credentials_in_url() -> Client {
+  client.new("https://user:pass@search.example.com:9200")
+}
 ```
 
-### Indexing Documents
+The second function is a bad example. The client keeps the URL as you give it, but it sends no `authorization` header, so OpenSearch gets no credentials. This version of `dream_opensearch` has no way to send credentials.
+
+### Indexing Documents <a href="https://github.com/TrustBound/dream/blob/dream_opensearch-2.0.0/modules/opensearch/test/snippets/readme_indexing_documents.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
+import dream_opensearch/client.{type Client}
 import dream_opensearch/document
 import gleam/json
 
-let doc = json.object([
-  #("name", json.string("Alice")),
-  #("email", json.string("alice@example.com")),
-  #("age", json.int(30)),
-])
+pub fn index_user(opensearch: Client) -> String {
+  let user =
+    json.object([
+      #("name", json.string("Alice")),
+      #("email", json.string("alice@example.com")),
+      #("age", json.int(30)),
+    ])
 
-case document.index(client, "users", "123", json.to_string(doc)) {
-  Ok(response) -> io.println("Indexed successfully")
-  Error(msg) -> io.println("Error: " <> msg)
+  case document.index(opensearch, "users", "123", json.to_string(user)) {
+    Ok(_response) -> "Indexed successfully"
+    Error(message) -> "Error: " <> message
+  }
 }
 ```
 
@@ -92,83 +109,135 @@ case document.index(client, "users", "123", json.to_string(doc)) {
 
 Use query builders for common queries:
 
+#### Search with each query builder <a href="https://github.com/TrustBound/dream/blob/dream_opensearch-2.0.0/modules/opensearch/test/snippets/readme_searching.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
+import dream_opensearch/client.{type Client}
 import dream_opensearch/document
 import dream_opensearch/query
 
 // Full-text search
-let query = query.match("name", "Alice")
-document.search(client, "users", query)
+pub fn search_by_name(opensearch: Client) -> Result(String, String) {
+  let name_query = query.match("name", "Alice")
+  document.search(opensearch, "users", name_query)
+}
 
 // Exact term match
-let query = query.term("status", "active")
-document.search(client, "users", query)
+pub fn search_by_status(opensearch: Client) -> Result(String, String) {
+  let status_query = query.term("status", "active")
+  document.search(opensearch, "users", status_query)
+}
 
 // Range query
-let query = query.range("age", "18", "65")
-document.search(client, "users", query)
+pub fn search_by_age(opensearch: Client) -> Result(String, String) {
+  let age_query = query.range("age", "18", "65")
+  document.search(opensearch, "users", age_query)
+}
 
 // Match all
-let query = query.match_all()
-document.search(client, "users", query)
+pub fn search_all(opensearch: Client) -> Result(String, String) {
+  let all_query = query.match_all()
+  document.search(opensearch, "users", all_query)
+}
 ```
 
 ### Custom Queries
 
 For complex queries, build JSON manually:
 
+#### Search with a bool query <a href="https://github.com/TrustBound/dream/blob/dream_opensearch-2.0.0/modules/opensearch/test/snippets/readme_custom_queries.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
+import dream_opensearch/client.{type Client}
+import dream_opensearch/document
 import gleam/json
 
-let query = json.object([
-  #("query", json.object([
-    #("bool", json.object([
-      #("must", json.array([
-        json.object([#("match", json.object([#("name", json.string("Alice"))]))]),
-      ])),
-      #("filter", json.array([
-        json.object([#("term", json.object([#("status", json.string("active"))]))]),
-      ])),
-    ])),
-  ])),
-])
+pub fn search_active_users_named_alice(
+  opensearch: Client,
+) -> Result(String, String) {
+  let bool_query =
+    json.object([
+      #(
+        "query",
+        json.object([
+          #(
+            "bool",
+            json.object([
+              #(
+                "must",
+                json.preprocessed_array([
+                  json.object([
+                    #("match", json.object([#("name", json.string("Alice"))])),
+                  ]),
+                ]),
+              ),
+              #(
+                "filter",
+                json.preprocessed_array([
+                  json.object([
+                    #("term", json.object([#("status", json.string("active"))])),
+                  ]),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    ])
 
-document.search(client, "users", json.to_string(query))
+  document.search(opensearch, "users", json.to_string(bool_query))
+}
 ```
 
-### Index Management
+### Index Management <a href="https://github.com/TrustBound/dream/blob/dream_opensearch-2.0.0/modules/opensearch/test/snippets/readme_index_management.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
+import dream_opensearch/client.{type Client}
 import dream_opensearch/document
 import gleam/json
 
 // Create index with mapping
-let mapping = json.object([
-  #("mappings", json.object([
-    #("properties", json.object([
-      #("name", json.object([#("type", json.string("text"))])),
-      #("email", json.object([#("type", json.string("keyword"))])),
-    ])),
-  ])),
-])
-document.create_index(client, "users", json.to_string(mapping))
+pub fn create_users_index(opensearch: Client) -> Result(String, String) {
+  let mapping =
+    json.object([
+      #(
+        "mappings",
+        json.object([
+          #(
+            "properties",
+            json.object([
+              #("name", json.object([#("type", json.string("text"))])),
+              #("email", json.object([#("type", json.string("keyword"))])),
+            ]),
+          ),
+        ]),
+      ),
+    ])
+  document.create_index(opensearch, "users", json.to_string(mapping))
+}
 
 // Delete index
-document.delete_index(client, "old_index")
+pub fn delete_old_index(opensearch: Client) -> Result(String, String) {
+  document.delete_index(opensearch, "old_index")
+}
 ```
 
-### Bulk Operations
+### Bulk Operations <a href="https://github.com/TrustBound/dream/blob/dream_opensearch-2.0.0/modules/opensearch/test/snippets/readme_bulk_operations.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
+import dream_opensearch/client.{type Client}
 import dream_opensearch/document
 
-// NDJSON format: action and document on alternating lines
-let ndjson = "{ \"index\": { \"_index\": \"users\", \"_id\": \"1\" } }\n"
-  <> "{ \"name\": \"Alice\", \"email\": \"alice@example.com\" }\n"
-  <> "{ \"index\": { \"_index\": \"users\", \"_id\": \"2\" } }\n"
-  <> "{ \"name\": \"Bob\", \"email\": \"bob@example.com\" }\n"
+pub fn bulk_index_users(opensearch: Client) -> Result(String, String) {
+  // NDJSON format: action and document on alternating lines
+  let ndjson =
+    "{ \"index\": { \"_index\": \"users\", \"_id\": \"1\" } }\n"
+    <> "{ \"name\": \"Alice\", \"email\": \"alice@example.com\" }\n"
+    <> "{ \"index\": { \"_index\": \"users\", \"_id\": \"2\" } }\n"
+    <> "{ \"name\": \"Bob\", \"email\": \"bob@example.com\" }\n"
 
-document.bulk(client, ndjson)
+  document.bulk(opensearch, ndjson)
+}
 ```
 
 ## API Reference

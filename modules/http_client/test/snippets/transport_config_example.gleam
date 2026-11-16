@@ -1,3 +1,7 @@
+//// README: Transport Settings
+////
+//// Sets the global gun connection pool for many concurrent requests.
+
 import dream_http_client/client
 
 pub fn configure_high_concurrency() -> Nil {

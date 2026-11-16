@@ -28,50 +28,102 @@ gleam add dream_postgres
 
 ## Quick Start
 
-### Connection Setup
+### Connection Setup <a href="https://github.com/TrustBound/dream/blob/dream_postgres-1.0.2/modules/postgres/test/snippets/readme_connection_setup.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_postgres/client as postgres
 import gleam/erlang/process
+import gleam/otp/actor
 
-let pool_name = process.new_name("db_pool")
-let assert Ok(db) = postgres.new(pool_name)
+pub fn database_config() -> postgres.Config {
+  let pool_name = process.new_name("db_pool")
+  postgres.new(pool_name)
   |> postgres.host("localhost")
   |> postgres.port(5432)
   |> postgres.database("myapp")
   |> postgres.user("postgres")
   |> postgres.password("secret")
   |> postgres.pool_size(15)
+}
+
+pub fn connect_database() -> Result(postgres.Connection, actor.StartError) {
+  database_config()
   |> postgres.connect()
+}
 ```
 
-### Or from URL
+### Or from URL <a href="https://github.com/TrustBound/dream/blob/dream_postgres-1.0.2/modules/postgres/test/snippets/readme_connection_from_url.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_postgres/client as postgres
 
-let db = postgres.from_url("postgresql://user:pass@localhost:5432/myapp")
+pub fn connect_from_url() -> postgres.Connection {
+  postgres.from_url("postgresql://user:pass@localhost:5432/myapp")
+}
 ```
 
 ### Query Execution
 
 Use with [Squirrel](https://hex.pm/packages/squirrel) or Pog directly:
 
+#### Run a query with Pog <a href="https://github.com/TrustBound/dream/blob/dream_postgres-1.0.2/modules/postgres/test/snippets/readme_query_execution.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
+import dream_postgres/client as postgres
 import dream_postgres/query
-import user/sql  // Your Squirrel-generated queries
+import gleam/dynamic/decode
+import gleam/int
+import gleam/list
+import gleam/string
+import pog
+
+pub type User {
+  User(id: Int, name: String)
+}
+
+fn user_decoder() -> decode.Decoder(User) {
+  use id <- decode.field(0, decode.int)
+  use name <- decode.field(1, decode.string)
+  decode.success(User(id:, name:))
+}
+
+pub fn find_user(
+  db: postgres.Connection,
+  id: Int,
+) -> Result(postgres.Returned(User), postgres.QueryError) {
+  pog.query("SELECT id, name FROM users WHERE id = $1")
+  |> pog.parameter(pog.int(id))
+  |> pog.returning(user_decoder())
+  |> pog.execute(db)
+}
+
+pub fn list_users(
+  db: postgres.Connection,
+) -> Result(postgres.Returned(User), postgres.QueryError) {
+  pog.query("SELECT id, name FROM users")
+  |> pog.returning(user_decoder())
+  |> pog.execute(db)
+}
 
 // Get first row
-case sql.get_user(db, id) |> query.first_row() {
-  Ok(user) -> decode_user(user)
-  Error(query.NotFound) -> handle_not_found()
-  Error(query.DatabaseError) -> handle_error()
+pub fn describe_user(
+  result: Result(postgres.Returned(User), postgres.QueryError),
+) -> String {
+  case query.first_row(result) {
+    Ok(user) -> "User " <> int.to_string(user.id) <> ": " <> user.name
+    Error(query.NotFound) -> "No such user"
+    Error(query.DatabaseError) -> "The database query failed"
+  }
 }
 
 // Get all rows
-case sql.list_users(db) |> query.all_rows() {
-  Ok(users) -> list.map(users, decode_user)
-  Error(query.DatabaseError) -> handle_error()
+pub fn describe_user_count(
+  result: Result(postgres.Returned(User), postgres.QueryError),
+) -> String {
+  case query.all_rows(result) {
+    Ok(users) -> int.to_string(list.length(users)) <> " users"
+    Error(error) -> "The database query failed: " <> string.inspect(error)
+  }
 }
 ```
 
@@ -81,53 +133,79 @@ case sql.list_users(db) |> query.all_rows() {
 
 Configure your database connection step by step:
 
+#### Build a production config <a href="https://github.com/TrustBound/dream/blob/dream_postgres-1.0.2/modules/postgres/test/snippets/readme_connection_builder.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream_postgres/client as postgres
 import gleam/erlang/process
+import gleam/otp/actor
 
-let pool_name = process.new_name("my_db_pool")
-let config = postgres.new(pool_name)
+pub fn production_config() -> postgres.Config {
+  let pool_name = process.new_name("my_db_pool")
+  postgres.new(pool_name)
   |> postgres.host("localhost")
   |> postgres.port(5432)
   |> postgres.database("myapp_prod")
   |> postgres.user("postgres")
   |> postgres.password("secret")
-  |> postgres.pool_size(20)  // Max 20 connections
+  // Max 20 connections
+  |> postgres.pool_size(20)
+}
 
-let assert Ok(db) = postgres.connect(config)
+pub fn connect_production() -> Result(postgres.Connection, actor.StartError) {
+  production_config()
+  |> postgres.connect()
+}
 ```
 
 ### Query Result Helpers
 
 The `query` module provides simple helpers for extracting data from Pog results:
 
+#### Turn results into values <a href="https://github.com/TrustBound/dream/blob/dream_postgres-1.0.2/modules/postgres/test/snippets/readme_query_result_helpers.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
+import dream_postgres/client as postgres
 import dream_postgres/query
+import gleam/list
+import gleam/string
+
+pub type User {
+  User(id: Int, name: String)
+}
 
 // First row (for "get by ID" queries)
-case sql.get_user(db, id) |> query.first_row() {
-  Ok(row) -> {
-    // Decode row to your type
-    decode_user(row)
-  }
-  Error(query.NotFound) -> {
-    // Query succeeded but no rows returned
-    Error("User not found")
-  }
-  Error(query.DatabaseError) -> {
-    // Query failed (connection error, SQL error, etc.)
-    Error("Database error")
+pub fn user_from_result(
+  result: Result(postgres.Returned(User), postgres.QueryError),
+) -> Result(User, String) {
+  case query.first_row(result) {
+    Ok(user) -> {
+      // pog.returning already decoded the row to your type
+      Ok(user)
+    }
+    Error(query.NotFound) -> {
+      // Query succeeded but no rows returned
+      Error("User not found")
+    }
+    Error(query.DatabaseError) -> {
+      // Query failed (connection error, SQL error, etc.)
+      Error("Database error")
+    }
   }
 }
 
 // All rows (for "list" queries)
-case sql.list_users(db) |> query.all_rows() {
-  Ok(rows) -> {
-    // Process all rows
-    list.map(rows, decode_user)
-  }
-  Error(query.DatabaseError) -> {
-    Error("Database error")
+pub fn user_names_from_result(
+  result: Result(postgres.Returned(User), postgres.QueryError),
+) -> Result(List(String), String) {
+  case query.all_rows(result) {
+    Ok(users) -> {
+      // Process all rows
+      Ok(list.map(users, fn(user) { user.name }))
+    }
+    Error(error) -> {
+      Error("Database error: " <> string.inspect(error))
+    }
   }
 }
 ```
@@ -136,10 +214,18 @@ case sql.list_users(db) |> query.all_rows() {
 
 The `QueryError` type simplifies error handling:
 
+#### Handle each QueryError <a href="https://github.com/TrustBound/dream/blob/dream_postgres-1.0.2/modules/postgres/test/snippets/readme_error_handling.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub type QueryError {
-  NotFound          // Query succeeded but no rows
-  DatabaseError     // Query failed (connection, SQL, etc.)
+import dream_postgres/query
+
+pub fn explain_query_error(error: query.QueryError) -> String {
+  case error {
+    // Query succeeded but no rows
+    query.NotFound -> "The query returned no rows"
+    // Query failed (connection, SQL, etc.)
+    query.DatabaseError -> "The query failed"
+  }
 }
 ```
 
