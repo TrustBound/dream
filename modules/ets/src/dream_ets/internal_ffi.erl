@@ -25,75 +25,81 @@ ets_new(NameAtom, Options) ->
             {error, unknown}
     end.
 
+%% Each operation on an existing table runs through with_table/2, so that an
+%% operation on a table that does not exist returns {error, table_not_found}
+%% and does not crash the calling process.
+
 ets_insert(TableId, Object) ->
-    ets:insert(TableId, Object),
-    ok.
+    with_table(TableId, fun() ->
+        ets:insert(TableId, Object),
+        {ok, nil}
+    end).
 
 ets_lookup(TableId, Key) ->
-    case ets:lookup(TableId, Key) of
-        [] ->
-            {error, not_found};
-        [Object] ->
-            {ok, Object};
-        Objects ->
-            {ok, Objects}
-    end.
+    with_table(TableId, fun() -> lookup_result(ets:lookup(TableId, Key)) end).
 
 ets_delete_table(TableId) ->
-    ets:delete(TableId),
-    ok.
+    with_table(TableId, fun() ->
+        ets:delete(TableId),
+        {ok, nil}
+    end).
 
 ets_delete_key(TableId, Key) ->
-    ets:delete(TableId, Key),
-    ok.
+    with_table(TableId, fun() ->
+        ets:delete(TableId, Key),
+        {ok, nil}
+    end).
 
 ets_delete_object(TableId, Object) ->
-    ets:delete_object(TableId, Object),
-    ok.
+    with_table(TableId, fun() ->
+        ets:delete_object(TableId, Object),
+        {ok, nil}
+    end).
 
 ets_delete_all_objects(TableId) ->
-    ets:delete_all_objects(TableId),
-    ok.
+    with_table(TableId, fun() ->
+        ets:delete_all_objects(TableId),
+        {ok, nil}
+    end).
 
 ets_first(TableId) ->
-    case ets:first(TableId) of
-        '$end_of_table' ->
-            {error, empty_table};
-        Key ->
-            {ok, Key}
-    end.
+    with_table(TableId, fun() ->
+        case ets:first(TableId) of
+            '$end_of_table' ->
+                {error, empty_table};
+            Key ->
+                {ok, Key}
+        end
+    end).
 
 ets_next(TableId, Key) ->
-    case ets:next(TableId, Key) of
-        '$end_of_table' ->
-            {error, end_of_table};
-        NextKey ->
-            {ok, NextKey}
-    end.
+    with_table(TableId, fun() ->
+        case ets:next(TableId, Key) of
+            '$end_of_table' ->
+                {error, end_of_table};
+            NextKey ->
+                {ok, NextKey}
+        end
+    end).
 
 ets_member(TableId, Key) ->
-    ets:member(TableId, Key).
+    with_table(TableId, fun() -> {ok, ets:member(TableId, Key)} end).
 
 ets_insert_new(TableId, Object) ->
-    ets:insert_new(TableId, Object).
+    with_table(TableId, fun() -> {ok, ets:insert_new(TableId, Object)} end).
 
 ets_take(TableId, Key) ->
-    case ets:take(TableId, Key) of
-        [] ->
-            {error, not_found};
-        [Object] ->
-            {ok, Object};
-        Objects ->
-            {ok, Objects}
-    end.
+    with_table(TableId, fun() -> lookup_result(ets:take(TableId, Key)) end).
 
 ets_update_element(TableId, Key, {Pos, Value}) ->
-    case ets:update_element(TableId, Key, {Pos, Value}) of
-        true ->
-            {ok, nil};
-        false ->
-            {error, not_found}
-    end.
+    with_table(TableId, fun() ->
+        case ets:update_element(TableId, Key, {Pos, Value}) of
+            true ->
+                {ok, nil};
+            false ->
+                {error, not_found}
+        end
+    end).
 
 ets_info(TableId) ->
     case ets:info(TableId) of
@@ -114,15 +120,15 @@ ets_info_by_name(NameAtom) ->
 
 %% Pattern matching - returns list of matches
 ets_match(TableId, Pattern) ->
-    ets:match(TableId, Pattern).
+    with_table(TableId, fun() -> {ok, ets:match(TableId, Pattern)} end).
 
 %% Pattern matching - returns matching objects
 ets_match_object(TableId, Pattern) ->
-    ets:match_object(TableId, Pattern).
+    with_table(TableId, fun() -> {ok, ets:match_object(TableId, Pattern)} end).
 
 %% Select with match specification
 ets_select(TableId, MatchSpec) ->
-    ets:select(TableId, MatchSpec).
+    with_table(TableId, fun() -> {ok, ets:select(TableId, MatchSpec)} end).
 
 %% Save table to file
 ets_tab2file(TableId, Filename) ->
@@ -131,6 +137,8 @@ ets_tab2file(TableId, Filename) ->
     case ets:tab2file(TableId, FilenamePath) of
         ok ->
             {ok, nil};
+        {error, badtab} ->
+            missing_table_or(TableId, {invalid_operation, <<"badtab">>});
         {error, Reason} ->
             {error, {invalid_operation, format_error(Reason)}}
     end.
@@ -144,6 +152,48 @@ ets_file2tab(Filename) ->
             {ok, TableId};
         {error, Reason} ->
             {error, {invalid_operation, format_error(Reason)}}
+    end.
+
+%% Lookup and take return a list of objects
+lookup_result([]) ->
+    {error, not_found};
+lookup_result([Object]) ->
+    {ok, Object};
+lookup_result(Objects) ->
+    {ok, Objects}.
+
+%% Runs Operation, which returns {ok, Value} or {error, Reason}.
+%%
+%% ETS raises badarg when the table does not exist, and also for other
+%% causes (for example no access rights, or a bad match specification). The
+%% table is checked only after badarg, so the normal path does no extra
+%% lookup and no table can be deleted between a check and the operation.
+%% A deleted table stays deleted, so the check after badarg finds it gone.
+%% (Only if another process creates a new named table with the same name
+%% between the two steps does the check find a table; then badarg is
+%% raised, as before.) When the table exists, the badarg had another cause
+%% and is raised again with its stack trace.
+with_table(TableId, Operation) ->
+    try
+        Operation()
+    catch
+        error:badarg:Stacktrace ->
+            case ets:info(TableId) of
+                undefined ->
+                    {error, table_not_found};
+                _ ->
+                    erlang:raise(error, badarg, Stacktrace)
+            end
+    end.
+
+%% Returns {error, table_not_found} when the table does not exist, and
+%% {error, OtherError} when it does
+missing_table_or(TableId, OtherError) ->
+    case ets:info(TableId) of
+        undefined ->
+            {error, table_not_found};
+        _ ->
+            {error, OtherError}
     end.
 
 %% Format error reason as string

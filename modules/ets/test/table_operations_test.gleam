@@ -129,7 +129,7 @@ pub fn tests() -> UnitTest {
             |> config.create(),
           )
           let _ = operations.set(table, "key1", "value1")
-          Ok(operations.member(table, "key1"))
+          operations.member(table, "key1")
         }
 
         // Assert
@@ -148,7 +148,7 @@ pub fn tests() -> UnitTest {
             |> config.value_string()
             |> config.create(),
           )
-          Ok(operations.member(table, "nonexistent_key"))
+          operations.member(table, "nonexistent_key")
         }
 
         // Assert

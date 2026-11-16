@@ -5,6 +5,47 @@ All notable changes to `dream_ets` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- An operation on a table that was deleted raised the ETS `badarg` error and
+  crashed the calling process, although the docs and `EtsError` said it
+  returns `Error(TableNotFound)`. The FFI now catches `badarg`, checks that
+  the table is gone, and returns `Error(TableNotFound)`. This applies to
+  `set`, `get`, `delete`, `member`, `delete_table` (on a table that is
+  already deleted), `size`, `keys`, `values`, `to_list`, `insert_new`,
+  `take`, `update_element`, `delete_all_objects`, `match`, `match_object`,
+  `select`, `save_to_file` (it returned `Error(OperationFailed("badtab"))`)
+  and the counter helpers `increment`, `increment_by`, `decrement` and
+  `decrement_by`. A `badarg` with another cause, on a table that exists (for
+  example a bad match specification), is raised again as before.
+
+### Breaking Changes
+
+- `operations.member()` now returns `Result(Bool, EtsError)` instead of
+  `Bool`, so that a deleted table is `Error(TableNotFound)` and not `False`.
+- `operations.match()`, `operations.match_object()` and `operations.select()`
+  now return `Result(List(Dynamic), EtsError)` instead of `List(Dynamic)`.
+- In the `dream_ets/internal` module, `EtsFfiError` has a new
+  `TableNotFound` variant, and `insert`, `delete_table`, `delete_key`,
+  `delete_object`, `delete_all_objects`, `member`, `insert_new`, `match`,
+  `match_object` and `select` (and their `ets_*` FFI functions) now return
+  `Result(_, EtsFfiError)`.
+
+**Upgrading:** where you used the `Bool` from `member()`, match on
+`Ok(True)`, `Ok(False)` and `Error(_)`, or use it with
+`use exists <- result.try(operations.member(table, key))`. Where you used the
+list from `match()`, `match_object()` or `select()`, handle the `Result` in
+the same way. Code that matched on `EtsFfiError` must handle
+`TableNotFound`.
+
+### Documentation
+
+- The `member()` and `insert_new()` doc comment examples are now tested
+  snippets, and the README's error-handling example has a test for its
+  `TableNotFound` branch.
+
 ## 2.0.0 - 2025-12-08
 
 ### Breaking Changes

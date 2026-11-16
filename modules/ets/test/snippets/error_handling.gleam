@@ -33,3 +33,11 @@ pub fn describe_two_lookups() -> Result(List(String), table.EtsError) {
   let missing = describe_lookup(users, "user:456")
   Ok([found, missing])
 }
+
+pub fn describe_lookup_after_delete() -> Result(String, table.EtsError) {
+  use users <- result.try(helpers.new_string_table(
+    "error_handling_deleted_users",
+  ))
+  use _ <- result.try(operations.delete_table(users))
+  Ok(describe_lookup(users, "user:123"))
+}

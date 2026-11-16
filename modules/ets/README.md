@@ -364,7 +364,7 @@ pub fn save_to_disk() -> Result(String, table.EtsError) {
 - `operations.set(table, key, value)` - Insert or update value
 - `operations.get(table, key)` - Retrieve value (returns `Option`)
 - `operations.delete(table, key)` - Remove key-value pair
-- `operations.member(table, key)` - Check if key exists (fast)
+- `operations.member(table, key)` - Check if key exists (fast) → `Result(Bool, EtsError)`
 - `operations.delete_table(table)` - Delete entire table
 - `operations.delete_all_objects(table)` - Clear all entries
 
@@ -392,9 +392,9 @@ pub fn save_to_disk() -> Result(String, table.EtsError) {
 ### Advanced (Low-level)
 
 - `operations.update_element(table, key, pos, value)` - Update tuple element
-- `operations.match(table, pattern)` - Pattern matching
-- `operations.match_object(table, pattern)` - Object matching
-- `operations.select(table, match_spec)` - SQL-like queries
+- `operations.match(table, pattern)` - Pattern matching → `Result(List(Dynamic), EtsError)`
+- `operations.match_object(table, pattern)` - Object matching → `Result(List(Dynamic), EtsError)`
+- `operations.select(table, match_spec)` - SQL-like queries → `Result(List(Dynamic), EtsError)`
 
 ### Persistence
 
@@ -403,9 +403,9 @@ pub fn save_to_disk() -> Result(String, table.EtsError) {
 
 ## Error Handling
 
-All operations return `Result` types. Common errors:
+All operations that take a table return `Result` types. Common errors:
 
-- `TableNotFound` - Table was deleted
+- `TableNotFound` - Table was deleted. Every operation on a deleted table returns this error and does not crash the calling process.
 - `TableAlreadyExists` - Tried to create duplicate table
 - `InvalidKey` / `InvalidValue` - Encoding/decoding failed
 - `DecodeError(details)` - Failed to decode data (corruption or encoder mismatch)

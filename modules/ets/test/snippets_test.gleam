@@ -13,6 +13,8 @@ import snippets/counter_tables
 import snippets/creating_tables
 import snippets/custom_types
 import snippets/distributed_locks
+import snippets/doc_insert_new_race
+import snippets/doc_member
 import snippets/error_handling
 import snippets/insert_new
 import snippets/page_view_analytics
@@ -83,6 +85,30 @@ pub fn tests() -> UnitTest {
       |> should()
       |> equal(Ok(["Found Alice", "No user for user:456"]))
       |> or_fail_with("Should describe each lookup result")
+    }),
+    it("error handling describes a lookup on a deleted table", fn() {
+      error_handling.describe_lookup_after_delete()
+      |> should()
+      |> equal(Ok("The table was deleted"))
+      |> or_fail_with("Should take the TableNotFound branch")
+    }),
+    it("member doc describes each member result", fn() {
+      doc_member.describe_users_before_and_after_delete()
+      |> should()
+      |> equal(
+        Ok([
+          "user:123 exists",
+          "user:456 does not exist",
+          "The table was deleted",
+        ]),
+      )
+      |> or_fail_with("Should describe each member result")
+    }),
+    it("insert_new doc inserts once each way", fn() {
+      doc_insert_new_race.insert_twice_each_way()
+      |> should()
+      |> equal(Ok([True, False, True, False]))
+      |> or_fail_with("Should insert only the first time")
     }),
     it("session cache returns the stored user", fn() {
       session_cache.store_session()

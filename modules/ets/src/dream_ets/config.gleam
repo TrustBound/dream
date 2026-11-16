@@ -1268,6 +1268,7 @@ fn create_table_with_options(
     Error(internal.AlreadyExists) -> Error(table.TableAlreadyExists)
     Error(internal.InvalidOperation(msg)) -> Error(table.OperationFailed(msg))
     Error(internal.NotFound) -> Error(table.TableNotFound)
+    Error(internal.TableNotFound) -> Error(table.TableNotFound)
     Error(internal.EmptyTable) -> Error(table.EmptyTable)
     Error(internal.EndOfTable) -> Error(table.EndOfTable)
   }

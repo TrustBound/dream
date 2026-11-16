@@ -38,8 +38,7 @@ pub fn tests() -> UnitTest {
 
           // Act - match all entries (using dynamic pattern)
           let pattern = internal.to_dynamic(#("$1", "$2"))
-          let matches = operations.match(table, pattern)
-          Ok(matches)
+          operations.match(table, pattern)
         }
 
         // Assert
@@ -58,8 +57,7 @@ pub fn tests() -> UnitTest {
 
           // Act
           let pattern = internal.to_dynamic(#("$1", "$2"))
-          let matches = operations.match_object(table, pattern)
-          Ok(matches)
+          operations.match_object(table, pattern)
         }
 
         // Assert
@@ -78,8 +76,7 @@ pub fn tests() -> UnitTest {
 
           // Act - simple match spec that returns all
           let match_spec = internal.to_dynamic([#(#("$1", "$2"), [], ["$_"])])
-          let results = operations.select(table, match_spec)
-          Ok(results)
+          operations.select(table, match_spec)
         }
 
         // Assert  
