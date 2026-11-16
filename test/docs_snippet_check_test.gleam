@@ -20,6 +20,7 @@ import docs_snippet_check.{
 import dream_test/assertions/should.{equal, or_fail_with, should}
 import dream_test/unit.{type UnitTest, describe, it}
 import gleam/list
+import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import simplifile
@@ -68,7 +69,7 @@ index 1111111..2222222 100644
 fn context() -> docs_snippet_check.CheckContext {
   let files = [#(snippet_path, snippet_source)]
   CheckContext(
-    version: "3.0.0",
+    release_tag: "3.0.0",
     read_source: fn(path) {
       list.key_find(files, path) |> result.replace_error(simplifile.Enoent)
     },
@@ -134,6 +135,7 @@ pub fn tests() -> UnitTest {
     diff_passing_tests(),
     diff_failing_tests(),
     scope_tests(),
+    module_readme_tests(),
     report_tests(),
     real_git_tests(),
   ])
@@ -697,7 +699,7 @@ fn report_tests() -> UnitTest {
       line
       |> should()
       |> equal(
-        "docs/a.md:12: the badge link uses the tag 2.5.0, but the version in gleam.toml is 3.0.0",
+        "docs/a.md:12: the badge link uses the tag 2.5.0, but this file must link at the tag 3.0.0 (the docs of dream use the version in gleam.toml; a module README uses <name>-<version> from the gleam.toml of its module)",
       )
       |> or_fail_with("The problem line should name file, line and reason")
     }),
@@ -1160,6 +1162,213 @@ fn scope_tests() -> UnitTest {
         Problem("CHANGELOG.md", 8, MissingBadgeHeading),
       ])
       |> or_fail_with("Only [Unreleased] and [3.0.0] should be checked")
+    }),
+  ])
+}
+
+/// A snippet in a module. Lines 3 to 5 are `main_function()`.
+const module_snippet_path = "modules/ets/test/snippets/basic_usage.gleam"
+
+const module_snippet_source = "import gleam/io
+
+pub fn main() {
+  io.println(\"hi\")
+}
+"
+
+const module_readme_path = "modules/ets/README.md"
+
+/// The `gleam.toml` of the fake `dream_ets` module, at `version`.
+fn module_gleam_toml(version: String) -> String {
+  "name = \"dream_ets\"\nversion = \""
+  <> version
+  <> "\"\n\n[dependencies]\nname = \"other\"\n"
+}
+
+/// The test context, but it reads the files in `files`.
+fn context_with_files(
+  files: List(#(String, String)),
+) -> docs_snippet_check.CheckContext {
+  CheckContext(..context(), read_source: fn(path) {
+    list.key_find(files, path) |> result.replace_error(simplifile.Enoent)
+  })
+}
+
+/// A document with one block of lines 3 to 5 of the module snippet, under a
+/// heading whose badge links at `tag`. The fence is line 2.
+fn module_snippet_document(tag: String) -> String {
+  let heading_line =
+    "### Example <a href=\"https://github.com/TrustBound/dream/blob/"
+    <> tag
+    <> "/"
+    <> module_snippet_path
+    <> "#L3-L5"
+    <> badge_end
+  document(list.flatten([[heading_line, "```gleam"], main_function(), ["```"]]))
+}
+
+/// Checks the README of the fake `modules/ets` module, whose badge links
+/// at `tag` and whose `gleam.toml` has `version`.
+fn check_ets_readme(
+  tag: String,
+  version: String,
+) -> Result(Option(docs_snippet_check.Report), docs_snippet_check.CheckError) {
+  let files = [
+    #(module_readme_path, module_snippet_document(tag)),
+    #("modules/ets/gleam.toml", module_gleam_toml(version)),
+    #(module_snippet_path, module_snippet_source),
+  ]
+  docs_snippet_check.check_module_readme(
+    "modules/ets",
+    context_with_files(files),
+  )
+}
+
+fn module_readme_tests() -> UnitTest {
+  describe("module README", [
+    it("reads the module tag from the module's gleam.toml", fn() {
+      // Arrange
+      let gleam_toml = module_gleam_toml("2.0.0")
+
+      // Act
+      let tag =
+        docs_snippet_check.module_release_tag(
+          gleam_toml,
+          "modules/ets/gleam.toml",
+        )
+
+      // Assert
+      tag
+      |> should()
+      |> equal(Ok("dream_ets-2.0.0"))
+      |> or_fail_with("The tag should be <name>-<version>")
+    }),
+    it("passes a block whose badge links at the module tag", fn() {
+      // Arrange
+      let tag = "dream_ets-2.0.0"
+
+      // Act
+      let result = check_ets_readme(tag, "2.0.0")
+
+      // Assert
+      result
+      |> should()
+      |> equal(
+        Ok(
+          Some(Report(blocks_checked: 1, diff_blocks_checked: 0, problems: [])),
+        ),
+      )
+      |> or_fail_with("A module README block at the module tag should pass")
+    }),
+    it("fails a block whose badge links at the tag of dream", fn() {
+      // Arrange
+      let tag = "3.0.0"
+
+      // Act
+      let result = check_ets_readme(tag, "2.0.0")
+
+      // Assert
+      result
+      |> should()
+      |> equal(
+        Ok(
+          Some(
+            Report(blocks_checked: 1, diff_blocks_checked: 0, problems: [
+              Problem(
+                module_readme_path,
+                2,
+                WrongTag(found: "3.0.0", expected: "dream_ets-2.0.0"),
+              ),
+            ]),
+          ),
+        ),
+      )
+      |> or_fail_with("A module README must not link at the tag of dream")
+    }),
+    it("fails a block whose badge links at another module's tag", fn() {
+      // Arrange
+      let tag = "dream_json-1.0.2"
+
+      // Act
+      let result = check_ets_readme(tag, "2.0.0")
+
+      // Assert
+      result
+      |> should()
+      |> equal(
+        Ok(
+          Some(
+            Report(blocks_checked: 1, diff_blocks_checked: 0, problems: [
+              Problem(
+                module_readme_path,
+                2,
+                WrongTag(found: "dream_json-1.0.2", expected: "dream_ets-2.0.0"),
+              ),
+            ]),
+          ),
+        ),
+      )
+      |> or_fail_with("A module README must not link at another module's tag")
+    }),
+    it("takes the tag from the module's version, so an old tag fails", fn() {
+      // Arrange
+      let new_version = "2.1.0"
+
+      // Act
+      let result = check_ets_readme("dream_ets-2.0.0", new_version)
+
+      // Assert
+      result
+      |> should()
+      |> equal(
+        Ok(
+          Some(
+            Report(blocks_checked: 1, diff_blocks_checked: 0, problems: [
+              Problem(
+                module_readme_path,
+                2,
+                WrongTag(found: "dream_ets-2.0.0", expected: "dream_ets-2.1.0"),
+              ),
+            ]),
+          ),
+        ),
+      )
+      |> or_fail_with("After a version change, the old module tag should fail")
+    }),
+    it("skips a module with no README", fn() {
+      // Arrange
+      let files = [#("modules/empty/gleam.toml", module_gleam_toml("1.0.0"))]
+
+      // Act
+      let result =
+        docs_snippet_check.check_module_readme(
+          "modules/empty",
+          context_with_files(files),
+        )
+
+      // Assert
+      result
+      |> should()
+      |> equal(Ok(None))
+      |> or_fail_with("A module with no README should be skipped")
+    }),
+    it("passes a dream doc that links into a module at the tag of dream", fn() {
+      // Arrange
+      let files = [#(module_snippet_path, module_snippet_source)]
+
+      // Act
+      let report =
+        docs_snippet_check.check_markdown(
+          "docs/reference/architecture.md",
+          module_snippet_document("3.0.0"),
+          context_with_files(files),
+        )
+
+      // Assert
+      report
+      |> should()
+      |> equal(Report(blocks_checked: 1, diff_blocks_checked: 0, problems: []))
+      |> or_fail_with("A dream doc should link into a module at 3.0.0")
     }),
   ])
 }

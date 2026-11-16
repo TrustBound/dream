@@ -146,6 +146,10 @@ When you find a code block that doesn't follow this, change it in the same pull 
 
 Release notes and changelog entries follow this rule from version 3.0.0 on. The check reads `releases/release-<version>.md` when the version in the file name is 3.0.0 or later, and the `## [Unreleased]` section and the `## [<version>]` sections for 3.0.0 or later in `CHANGELOG.md`. It skips older notes and older changelog sections. They show code that was right for their own version.
 
+Each module in `modules/` has its own releases. The badges in a module README link at the module tag, not at the tag of Dream. The module tag is `<package>-<version>`, from the `name` and the `version` in the `gleam.toml` of the module. The path is the path of the snippet in this repository, for example `https://github.com/TrustBound/dream/blob/dream_ets-2.0.0/modules/ets/test/snippets/basic_usage.gleam#L5-L14`. A `diff` block in a module README uses the module tag as its new tag.
+
+The publish workflow creates and pushes the module tag when it publishes the module. The tag does not exist before the release, the same as the tag of Dream. Thus the badge links work on GitHub only after the publish. A Dream guide that shows a snippet from a module uses the tag of Dream, for example `blob/3.0.0/modules/postgres/test/snippets/architecture_postgres.gleam`. The check reads the `README.md` of each module, but not the other files in `modules/`. The module changelogs, release notes and other `.md` files are history.
+
 An upgrade guide shows how code changed. The old code does not compile on the new version, so it cannot be a tested snippet. Show each change as a `diff` block instead. The block is an excerpt of the real git diff of one file in this repository, between the last release tag and the new version:
 
 1. Find a file in the repository that made the change, for example with `git diff 2.4.1 -- examples/ src/ test/snippets/`.
@@ -170,6 +174,7 @@ It runs `gleam run -m docs_snippet_check`. The check reads `README.md`, `SECURIT
 - the badge is not in the exact format shown above
 - the badge links to another repository or host
 - the tag in the link is not the `version` in `gleam.toml`
+- a badge in a module README links at a tag that is not the module tag `<package>-<version>`
 - the linked file does not exist
 - the line range is malformed, reversed, or past the end of the file
 - the code block is not the same as the linked file or line range
