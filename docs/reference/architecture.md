@@ -651,7 +651,7 @@ pub fn describe_user_name(
 }
 ```
 
-`client.from_url` also exists, but it panics when the pool does not start. The builder returns a `Result` that you can handle.
+`client.from_url` also exists. It reads the same settings from a connection URL, and it also returns a `Result` that you can handle.
 
 **`dream_opensearch`** - OpenSearch client
 - Document indexing and search

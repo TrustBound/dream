@@ -11,6 +11,7 @@ import gleam/option
 import gleeunit/should
 import pog
 import snippets/readme_connection_builder
+import snippets/readme_connection_from_url
 import snippets/readme_connection_setup
 import snippets/readme_error_handling
 import snippets/readme_query_execution
@@ -44,6 +45,43 @@ pub fn database_config_sets_every_value_test() {
     option.Some("secret"),
     15,
   ))
+}
+
+// ============================================================================
+// Or from URL
+// ============================================================================
+
+pub fn describe_url_with_the_readme_url_names_database_and_host_test() {
+  // Act
+  let description =
+    readme_connection_from_url.describe_url(
+      "postgresql://user:pass@localhost:5432/myapp",
+    )
+
+  // Assert
+  description |> should.equal("Database myapp on localhost")
+}
+
+pub fn describe_url_with_an_unsupported_parameter_names_it_test() {
+  // Act
+  let description =
+    readme_connection_from_url.describe_url(
+      "postgresql://user:pass@localhost:5432/myapp?connect_timeout=10",
+    )
+
+  // Assert
+  description |> should.equal("Unsupported parameter: connect_timeout")
+}
+
+pub fn describe_url_with_a_missing_database_inspects_the_error_test() {
+  // Act
+  let description =
+    readme_connection_from_url.describe_url(
+      "postgresql://user:pass@localhost:5432",
+    )
+
+  // Assert
+  description |> should.equal("Invalid URL: MissingDatabase")
 }
 
 // ============================================================================

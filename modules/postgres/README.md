@@ -56,11 +56,34 @@ pub fn connect_database() -> Result(postgres.Connection, actor.StartError) {
 
 ```gleam
 import dream_postgres/client as postgres
+import gleam/erlang/process
+import gleam/string
 
-pub fn connect_from_url() -> postgres.Connection {
+pub fn describe_url(url: String) -> String {
+  let pool_name = process.new_name("db_pool")
+  case postgres.parse_config(pool_name, url) {
+    Ok(config) -> "Database " <> config.database <> " on " <> config.host
+    Error(postgres.UnsupportedParameter(name)) ->
+      "Unsupported parameter: " <> name
+    Error(error) -> "Invalid URL: " <> string.inspect(error)
+  }
+}
+
+pub fn connect_from_url() -> Result(postgres.Connection, postgres.FromUrlError) {
   postgres.from_url("postgresql://user:pass@localhost:5432/myapp")
 }
 ```
+
+`parse_config` reads the URL into a `Config` and does not connect. `from_url` reads the URL, sets a pool size of 15 and starts the pool. Both return a `Result`: a bad URL gives a `UrlError` value that says what is wrong, and no error holds the password.
+
+The URL format is `postgresql://user:password@host:port/database`:
+
+- The scheme is `postgresql` or `postgres`. The host and the database are required.
+- The port defaults to 5432. Without a user, the default user `postgres` is kept.
+- The user, the password and the database are percent-decoded. Encode `@`, `:` and `/` in a password as `%40`, `%3A` and `%2F`.
+- Two query parameters are supported: `sslmode` (`disable`, `require`, `verify-ca` or `verify-full`) and `application_name`. Any other parameter gives `UnsupportedParameter`.
+
+The pool connects to the database in the background. When no database listens at the URL, `from_url` still returns `Ok`, and each query returns `Error(pog.ConnectionUnavailable)`.
 
 ### Query Execution
 
@@ -243,7 +266,8 @@ This is much simpler than Pog's error types, making it easier to handle common c
 - `postgres.password(config, password)` - Set database password
 - `postgres.pool_size(config, size)` - Set connection pool size
 - `postgres.connect(config)` - Start connection pool
-- `postgres.from_url(url)` - Connect from PostgreSQL URL
+- `postgres.parse_config(pool_name, url)` - Read a PostgreSQL URL into a config, or return a `UrlError`
+- `postgres.from_url(url)` - Start a connection pool from a PostgreSQL URL, or return a `FromUrlError`
 
 ### Query Helpers
 
