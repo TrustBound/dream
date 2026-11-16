@@ -364,7 +364,7 @@ fn stop_from_another_process(
   })
 }
 
-@external(erlang, "doc_server_ffi", "free_port")
+@external(erlang, "port_ffi", "free_port")
 fn free_port() -> Int
 
 fn bind_tests() -> UnitTest {

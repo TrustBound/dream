@@ -722,7 +722,7 @@ fn request_events(app_router, port: Int) -> Result(String, String) {
   }
 }
 
-@external(erlang, "streaming_api_sse_ffi", "free_port")
+@external(erlang, "port_ffi", "free_port")
 fn free_port() -> Int
 
 @external(erlang, "streaming_api_sse_ffi", "read_events")

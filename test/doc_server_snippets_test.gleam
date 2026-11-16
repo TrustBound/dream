@@ -881,7 +881,7 @@ fn response_body(received: Result(BitArray, Dynamic)) -> String {
   }
 }
 
-@external(erlang, "doc_server_ffi", "free_port")
+@external(erlang, "port_ffi", "free_port")
 fn free_port() -> Int
 
 @external(erlang, "doc_server_ffi", "hold_port")

@@ -220,7 +220,7 @@ fn assertion_failed(operator: String, message: String) -> AssertionResult {
   ))
 }
 
-@external(erlang, "raw_http_ffi", "free_port")
+@external(erlang, "port_ffi", "free_port")
 fn free_port() -> Int
 
 @external(erlang, "raw_http_ffi", "read_events")

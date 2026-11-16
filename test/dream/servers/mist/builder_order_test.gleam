@@ -368,5 +368,5 @@ fn get_root(port: Int) -> Result(#(Int, String), String) {
   })
 }
 
-@external(erlang, "doc_server_ffi", "free_port")
+@external(erlang, "port_ffi", "free_port")
 fn free_port() -> Int

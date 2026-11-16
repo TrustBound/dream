@@ -12,6 +12,7 @@ import dream/servers/mist/server
 import dream_test/assertions/should.{be_ok, equal, or_fail_with, should}
 import dream_test/unit.{type UnitTest, describe, it}
 import fixtures/request as test_request
+import fixtures/server_start.{with_server}
 import gleam/bit_array
 import gleam/erlang/atom
 import gleam/option.{Some}
@@ -253,7 +254,9 @@ fn server_tls_tests() -> UnitTest {
       // Arrange
       let #(certfile, keyfile) = write_certificate("build/test_tls")
       let port = free_port()
-      let assert Ok(handle) = server_tls.start(certfile, keyfile, port)
+      use handle <- with_server(port, fn() {
+        server_tls.start(certfile, keyfile, port)
+      })
 
       // Act
       let result = tls_request(port, atom.create("http2"), "/")
@@ -278,5 +281,5 @@ fn tls_request(
   path: String,
 ) -> Result(#(atom.Atom, Int, BitArray), Nil)
 
-@external(erlang, "doc_server_ffi", "free_port")
+@external(erlang, "port_ffi", "free_port")
 fn free_port() -> Int

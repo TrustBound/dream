@@ -1,20 +1,23 @@
 -module(doc_server_ffi).
--export([free_port/0, hold_port/0, release_port/1, websocket_exchange/4]).
-
-%% Asks the operating system for a free TCP port, so that tests that run at
-%% the same time on this machine do not use the same port.
-free_port() ->
-    {ok, Listen} = gen_tcp:listen(0, [{ip, {127, 0, 0, 1}}]),
-    {ok, Port} = inet:port(Listen),
-    ok = gen_tcp:close(Listen),
-    Port.
+-export([hold_port/0, release_port/1, websocket_exchange/4]).
 
 %% Opens a listener on a free port and returns {Port, Listener}. The port
-%% stays in use until release_port/1 closes the listener.
+%% stays in use until release_port/1 closes the listener. The port is claimed
+%% in the port_ffi registry, so port_ffi:free_port/0 never gives it to another
+%% test, also after release_port/1.
 hold_port() ->
+    hold_port([]).
+
+hold_port(Rejected) ->
     {ok, Listen} = gen_tcp:listen(0, [{ip, {127, 0, 0, 1}}]),
     {ok, Port} = inet:port(Listen),
-    {Port, Listen}.
+    case port_ffi:claim(Port) of
+        true ->
+            lists:foreach(fun gen_tcp:close/1, Rejected),
+            {Port, Listen};
+        false ->
+            hold_port([Listen | Rejected])
+    end.
 
 release_port(Listen) ->
     gen_tcp:close(Listen),

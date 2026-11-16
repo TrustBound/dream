@@ -35,6 +35,7 @@ import dream/streaming_test
 import dream_test/reporter/bdd
 import dream_test/runner
 import dream_test/unit
+import fixtures/port_ffi_test
 import gleam/io
 import gleam/list
 import guides_deployment_templates_snippets_test
@@ -88,6 +89,7 @@ pub fn main() {
       ),
       unit.to_test_cases("dream/servers/mist/server", server_test.tests()),
       unit.to_test_cases("dream/servers/mist/tls", tls_test.tests()),
+      unit.to_test_cases("fixtures/port_ffi", port_ffi_test.tests()),
       unit.to_test_cases("dream/servers/mist/sse", sse_test.tests()),
       unit.to_test_cases("dream/services/broadcaster", broadcaster_test.tests()),
       unit.to_test_cases("dream/streaming", streaming_test.tests()),

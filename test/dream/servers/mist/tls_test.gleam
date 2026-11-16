@@ -12,6 +12,7 @@ import dream/router.{route, router}
 import dream/servers/mist/server
 import dream_test/assertions/should.{equal, or_fail_with, should}
 import dream_test/unit.{type UnitTest, describe, it}
+import fixtures/server_start.{with_server}
 import gleam/erlang/atom.{type Atom}
 import gleam/option.{None, Some}
 import gleam/otp/actor
@@ -22,11 +23,12 @@ pub fn tests() -> UnitTest {
       // Arrange
       let port = free_port()
       let #(certfile, keyfile) = write_certificate("build/test_tls")
-      let assert Ok(handle) =
+      use handle <- with_server(port, fn() {
         server.new()
         |> server.router(tls_router())
         |> server.tls(certfile:, keyfile:)
         |> server.listen_with_handle(port)
+      })
 
       // Act
       let result = request(port, atom.create("http2"), "/tls/hello")
@@ -42,11 +44,12 @@ pub fn tests() -> UnitTest {
       // Arrange
       let port = free_port()
       let #(certfile, keyfile) = write_certificate("build/test_tls")
-      let assert Ok(handle) =
+      use handle <- with_server(port, fn() {
         server.new()
         |> server.router(tls_router())
         |> server.tls(certfile:, keyfile:)
         |> server.listen_with_handle(port)
+      })
 
       // Act
       let result = request(port, atom.create("http"), "/tls/hello")
@@ -62,13 +65,14 @@ pub fn tests() -> UnitTest {
       // Arrange
       let port = free_port()
       let #(certfile, keyfile) = write_certificate("build/test_tls")
-      let assert Ok(handle) =
+      use handle <- with_server(port, fn() {
         server.new()
         |> server.tls(certfile:, keyfile:)
         |> server.router(tls_router())
         |> server.bind("localhost")
         |> server.max_body_size(1000)
         |> server.listen_with_handle(port)
+      })
 
       // Act
       let result = request(port, atom.create("http2"), "/tls/hello")
@@ -165,5 +169,5 @@ fn request_ffi(
   path: String,
 ) -> Result(#(Atom, Int, BitArray), anything)
 
-@external(erlang, "doc_server_ffi", "free_port")
+@external(erlang, "port_ffi", "free_port")
 fn free_port() -> Int

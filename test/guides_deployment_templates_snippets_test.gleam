@@ -410,7 +410,7 @@ fn body_after_headers(text: String) -> Result(String, String) {
   }
 }
 
-@external(erlang, "deployment_guide_ffi", "free_port")
+@external(erlang, "port_ffi", "free_port")
 fn free_port() -> Int
 
 @external(erlang, "raw_http_ffi", "request_until_closed")

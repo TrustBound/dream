@@ -195,5 +195,5 @@ fn request_until_closed(
   timeout_ms: Int,
 ) -> Result(BitArray, Dynamic)
 
-@external(erlang, "doc_server_ffi", "free_port")
+@external(erlang, "port_ffi", "free_port")
 fn free_port() -> Int
