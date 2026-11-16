@@ -116,16 +116,16 @@ pub fn client_setup_create_local_client_uses_localhost_9200_test() {
   opensearch.base_url |> should.equal("http://localhost:9200")
 }
 
-pub fn client_setup_credentials_in_url_stay_in_the_base_url_test() {
+pub fn client_setup_create_client_with_credentials_keeps_url_test() {
   // Act
-  let opensearch = readme_client_setup.create_client_with_credentials_in_url()
+  let opensearch = readme_client_setup.create_client_with_credentials()
 
   // Assert
   opensearch.base_url
   |> should.equal("https://user:pass@search.example.com:9200")
 }
 
-pub fn credentials_in_url_send_no_authorization_header_test() {
+pub fn credentials_in_url_send_basic_authorization_header_test() {
   // Arrange
   let server = opensearch_test_server.start(Respond(200, "{}"))
   let port = opensearch_test_server.port(server)
@@ -135,11 +135,11 @@ pub fn credentials_in_url_send_no_authorization_header_test() {
   // Act
   let _ = readme_quick_start.search_for_alice(opensearch)
 
-  // Assert
+  // Assert: base64 of "user:pass"
   opensearch_test_server.await_request(server)
   |> should.be_ok
   |> opensearch_test_server.header_values("authorization")
-  |> should.equal([])
+  |> should.equal(["Basic dXNlcjpwYXNz"])
 }
 
 // ============================================================================

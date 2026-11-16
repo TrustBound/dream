@@ -74,14 +74,14 @@ pub fn create_local_client() -> Client {
   client.new("http://localhost:9200")
 }
 
-// Do not do this: the client does not read a user name and password from
-// the URL, so the request does not authenticate.
-pub fn create_client_with_credentials_in_url() -> Client {
+// With authentication: every request sends the user name and password as
+// HTTP Basic authentication
+pub fn create_client_with_credentials() -> Client {
   client.new("https://user:pass@search.example.com:9200")
 }
 ```
 
-The second function is a bad example. The client keeps the URL as you give it, but it sends no `authorization` header, so OpenSearch gets no credentials. This version of `dream_opensearch` has no way to send credentials.
+When the URL has a user name and password, the client sends them on every request in an `authorization: Basic ...` header. It does not send them in the request line or the `host` header. Percent-encode special characters in the user name or password (for example `@` as `%40`, `:` as `%3A`, `/` as `%2F`): the client decodes them before it encodes the header. A URL with a user name and no password sends an empty password.
 
 ### Indexing Documents <a href="https://github.com/TrustBound/dream/blob/dream_opensearch-2.0.0/modules/opensearch/test/snippets/readme_indexing_documents.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 

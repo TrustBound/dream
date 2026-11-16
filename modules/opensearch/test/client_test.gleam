@@ -371,3 +371,153 @@ pub fn send_request_when_nothing_listens_returns_connection_error_test() {
   // Assert
   result |> should.equal(Error("Connection failed: Connection refused"))
 }
+
+// ============================================================================
+// send_request: credentials in the base URL
+// ============================================================================
+
+fn base_url_with_userinfo(server, userinfo: String) -> String {
+  "http://"
+  <> userinfo
+  <> "@127.0.0.1:"
+  <> string.inspect(opensearch_test_server.port(server))
+}
+
+pub fn send_request_with_user_and_password_sends_basic_authorization_test() {
+  // Arrange
+  let server = opensearch_test_server.start(Respond(200, "{}"))
+  let os_client = client.new(base_url_with_userinfo(server, "user:pass"))
+
+  // Act
+  let _ = client.send_request(os_client, http.Get, "/users/_search", "")
+
+  // Assert: base64 of "user:pass"
+  opensearch_test_server.await_request(server)
+  |> should.be_ok
+  |> opensearch_test_server.header_values("authorization")
+  |> should.equal(["Basic dXNlcjpwYXNz"])
+}
+
+pub fn send_request_with_percent_encoded_at_in_password_decodes_it_test() {
+  // Arrange
+  let server = opensearch_test_server.start(Respond(200, "{}"))
+  let os_client = client.new(base_url_with_userinfo(server, "user:p%40ss"))
+
+  // Act
+  let _ = client.send_request(os_client, http.Get, "/", "")
+
+  // Assert: base64 of "user:p@ss"
+  opensearch_test_server.await_request(server)
+  |> should.be_ok
+  |> opensearch_test_server.header_values("authorization")
+  |> should.equal(["Basic dXNlcjpwQHNz"])
+}
+
+pub fn send_request_with_percent_encoded_colon_and_slash_in_password_decodes_them_test() {
+  // Arrange
+  let server = opensearch_test_server.start(Respond(200, "{}"))
+  let os_client =
+    client.new(base_url_with_userinfo(server, "user:p%40%3A%2Fss"))
+
+  // Act
+  let _ = client.send_request(os_client, http.Get, "/", "")
+
+  // Assert: base64 of "user:p@:/ss"
+  opensearch_test_server.await_request(server)
+  |> should.be_ok
+  |> opensearch_test_server.header_values("authorization")
+  |> should.equal(["Basic dXNlcjpwQDovc3M="])
+}
+
+pub fn send_request_with_user_and_no_password_sends_empty_password_test() {
+  // Arrange
+  let server = opensearch_test_server.start(Respond(200, "{}"))
+  let os_client = client.new(base_url_with_userinfo(server, "user"))
+
+  // Act
+  let result = client.send_request(os_client, http.Get, "/", "")
+
+  // Assert: base64 of "user:"
+  result |> should.equal(Ok("{}"))
+  opensearch_test_server.await_request(server)
+  |> should.be_ok
+  |> opensearch_test_server.header_values("authorization")
+  |> should.equal(["Basic dXNlcjo="])
+}
+
+pub fn send_request_without_credentials_sends_no_authorization_test() {
+  // Arrange
+  let server = opensearch_test_server.start(Respond(200, "{}"))
+  let os_client = client.new(opensearch_test_server.base_url(server))
+
+  // Act
+  let _ = client.send_request(os_client, http.Get, "/", "")
+
+  // Assert
+  opensearch_test_server.await_request(server)
+  |> should.be_ok
+  |> opensearch_test_server.header_values("authorization")
+  |> should.equal([])
+}
+
+pub fn send_request_with_credentials_keeps_them_out_of_path_and_host_test() {
+  // Arrange
+  let server = opensearch_test_server.start(Respond(200, "{}"))
+  let os_client = client.new(base_url_with_userinfo(server, "user:pass"))
+
+  // Act
+  let _ = client.send_request(os_client, http.Get, "/users/_search", "")
+
+  // Assert
+  let request = opensearch_test_server.await_request(server) |> should.be_ok
+  opensearch_test_server.request_line(request)
+  |> should.equal(#("GET", "/users/_search"))
+  opensearch_test_server.header_values(request, "host")
+  |> should.equal([
+    "127.0.0.1:" <> string.inspect(opensearch_test_server.port(server)),
+  ])
+}
+
+pub fn send_request_with_credentials_and_query_string_keeps_query_test() {
+  // Arrange
+  let server = opensearch_test_server.start(Respond(200, "{}"))
+  let os_client = client.new(base_url_with_userinfo(server, "user:pass"))
+
+  // Act
+  let _ = client.send_request(os_client, http.Get, "/users/_search?size=5", "")
+
+  // Assert
+  opensearch_test_server.await_request(server)
+  |> should.be_ok
+  |> opensearch_test_server.request_line
+  |> should.equal(#("GET", "/users/_search?size=5"))
+}
+
+pub fn send_request_with_credentials_when_nothing_listens_hides_password_test() {
+  // Arrange
+  let os_client =
+    client.new(
+      "http://user:secret-password@127.0.0.1:"
+      <> string.inspect(opensearch_test_server.unused_port()),
+    )
+
+  // Act
+  let result = client.send_request(os_client, http.Get, "/", "")
+
+  // Assert
+  result |> should.equal(Error("Connection failed: Connection refused"))
+}
+
+pub fn send_request_with_invalid_percent_encoding_in_password_returns_error_test() {
+  // Arrange
+  let os_client = client.new("http://user:secret%zz@127.0.0.1:9200")
+
+  // Act
+  let result = client.send_request(os_client, http.Get, "/", "")
+
+  // Assert: the message names the problem and does not hold the password
+  result
+  |> should.equal(Error(
+    "Invalid credentials in the OpenSearch URL: the user name or password has invalid percent-encoding",
+  ))
+}
