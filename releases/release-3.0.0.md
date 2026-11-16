@@ -107,7 +107,9 @@ Dream's streaming adapter now uses the server's actor-based chunked responses. D
 
 ### One Request Body Type
 
-`Request.body` is now a `RequestBody`, and the `Request.stream` field is gone:
+`Request.body` is now a `RequestBody`, and the `Request.stream` field is gone.
+
+#### The `RequestBody` type <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/http/request.gleam#L238-L242"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type RequestBody {
@@ -127,7 +129,7 @@ The broadcaster removes a subscriber when the process that subscribed stops, so 
 
 Every Gleam code block in the guides, the READMEs, the doc comments and SECURITY.md comes from a snippet file that the tests compile and run. Each block has a "tested snippet" badge that links to its snippet at this release's tag. Converting them found and fixed wrong examples across the docs.
 
-`make check-snippets` keeps it that way. It checks that every Gleam code block has a heading with the badge and shows the same code as its snippet file. It runs in the pre-commit hook, in CI and before every publish, so a wrong example cannot ship. It found 509 code blocks with no problems.
+`make check-snippets` keeps it that way. It checks that every Gleam code block has a heading with the badge and shows the same code as its snippet file. It runs in the pre-commit hook, in CI and before every publish, so a wrong example cannot ship. It found 512 code blocks and 5 diff blocks with no problems.
 
 ## Bug Fixes
 
@@ -184,29 +186,41 @@ gleam deps update dream
 
 ### Migration Guide
 
-Most projects need the request body change in step 3. Steps 1 and 2 apply only in the cases they name.
+Most projects need only the request body change in step 3. Steps 1 and 2 apply only in the cases they name.
 
-1. **Your `gleam.toml` lists `mist` or `glisten`.** Dream's server packages define the same modules, and Gleam stops the build with a duplicate module error when two packages do. Replace them:
+Each "before and after" below is a diff of a real file in this repository, from Dream 2.4.1 to Dream 3.0.0. The badge on a diff links to that file in GitHub's compare view.
 
-   ```toml
-   # Before
-   mist = ">= 5.0.0 and < 6.0.0"
-   glisten = ">= 9.0.0 and < 10.0.0"
+#### 1. Your `gleam.toml` lists `mist` or `glisten`
 
-   # After
-   dream_http_server = ">= 1.2.0 and < 2.0.0"
-   dream_socket_server = ">= 1.0.0 and < 2.0.0"
-   ```
+Dream's server packages define the same modules, and Gleam stops the build with a duplicate module error when two packages do. Replace `mist` with `dream_http_server`, as Dream's own `gleam.toml` did:
 
-   Your `import mist` and `import glisten` lines stay as they are, because the module names are the same.
+#### Replace `mist` with `dream_http_server` <a href="https://github.com/TrustBound/dream/compare/2.4.1...3.0.0#diff-7cd1e07e743a743d849d706b1dafd77e5839325c3b7327d3f060335605d525be"><img align="right" alt="Tested diff" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square"></a>
 
-2. **Your project still uses `gleam_stdlib` 0.x.** Dream 2.4.1 accepted `gleam_stdlib` from 0.44. Dream 3.0.0 requires `>= 1.0.0 and < 2.0.0`.
+```diff
+--- a/gleam.toml
++++ b/gleam.toml
+ [dependencies]
+-gleam_stdlib = ">= 0.44.0 and < 2.0.0"
+-mist = ">= 5.0.3 and < 6.0.0"
++gleam_stdlib = ">= 1.0.0 and < 2.0.0"
++# dream's HTTP server: a fork of mist 6.0.3 with HTTP/2 fixes, published under
++# its own name with mist's module names.
++dream_http_server = ">= 1.2.0 and < 2.0.0"
+```
 
-3. **Request bodies.** `RequestBody` replaces `body: String` and `stream`.
+Replace `glisten` with `dream_socket_server = ">= 1.0.0 and < 2.0.0"` in the same way. Your `import mist` and `import glisten` lines stay as they are, because the module names are the same.
 
-#### What changed
+#### 2. Your project still uses `gleam_stdlib` 0.x
 
-`Request.body` is now a `RequestBody`. The `Request.stream` field is gone.
+Dream 2.4.1 accepted `gleam_stdlib` from 0.44. Dream 3.0.0 requires `>= 1.0.0 and < 2.0.0`. The diff in step 1 shows this change in Dream's own `gleam.toml`.
+
+#### 3. Request bodies
+
+`RequestBody` replaces `body: String` and `stream`.
+
+**What changed.** `Request.body` is now a `RequestBody`. The `Request.stream` field is gone.
+
+#### The `RequestBody` type <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/http/request.gleam#L238-L242"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type RequestBody {
@@ -219,97 +233,117 @@ pub type RequestBody {
 - On a route made with `route`, a body that is valid UTF-8 arrives as `Text`. An empty body is `Text("")`. Any other body arrives as `Bytes`, with the exact bytes.
 - On a route made with `stream_route`, the body arrives as `Stream`.
 
-#### Why
+**Why.** In Dream 2, a body that was not valid UTF-8 (for example a PNG or a PDF upload) reached the controller as `""`, with no error. The `body` and `stream` fields could also disagree. One value with three shapes removes both problems, and it matches `ResponseBody`.
 
-In Dream 2, a body that was not valid UTF-8 (for example a PNG or a PDF upload) reached the controller as `""`, with no error. The `body` and `stream` fields could also disagree. One value with three shapes removes both problems, and it matches `ResponseBody`.
+**How to upgrade.**
 
-#### How to upgrade
+**A controller that parses JSON.** Use the new `require_json`. It reads the body as text, parses the JSON, runs your decoder, and returns `BadRequest` with the reason when a step fails. The database example made this change:
 
-**1. A controller that parses JSON.** Use the new `require_json`. It reads the body as text, parses the JSON, runs your decoder, and returns `BadRequest` with the reason when a step fails.
+#### Parse a JSON body with `require_json` <a href="https://github.com/TrustBound/dream/compare/2.4.1...3.0.0#diff-93ef6055589a796ca5033f0c627fc0d8178a9c5bf171b6bf79301e81cbe33e1b"><img align="right" alt="Tested diff" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square"></a>
 
-Before:
-
-```gleam
-case validate_json(request.body, user.decoder()) {
-  Ok(data) -> Ok(data)
-  Error(_) -> Error(BadRequest("Invalid user data"))
-}
-```
-
-After:
-
-```gleam
-use #(name, email) <- result.try(require_json(request, user.decoder()))
+```diff
+--- a/examples/database/src/controllers/users_controller.gleam
++++ b/examples/database/src/controllers/users_controller.gleam
+@@ -16,13 +14,6 @@ import services.{type Services}
+-fn parse_user_data(body: String) -> Result(#(String, String), Error) {
+-  case validate_json(body, user.decoder()) {
+-    Ok(d) -> Ok(d)
+-    Error(_) -> Error(BadRequest("Invalid user data"))
+-  }
+-}
+@@ -65,8 +56,7 @@ pub fn create(
+   let result = {
+-    use data <- result.try(parse_user_data(request.body))
+-    let #(name, email) = data
++    use #(name, email) <- result.try(require_json(request, user.decoder()))
+     let db = services.database.connection
 ```
 
 `validate_json(text, decoder)` did not change. Use it when you already have a `String`.
 
-**2. A controller that needs the body as text.** Use `body_as_string(request)`. It returns `Error(Nil)` when the body is not valid UTF-8.
+**A controller that needs the body as text.** Use `body_as_string(request)`. It returns `Error(Nil)` when the body is not valid UTF-8. The mock server used `request.body` as a `String`, and now reads it with `body_as_string`:
 
-Before:
+#### Read a text body with `body_as_string` <a href="https://github.com/TrustBound/dream/compare/2.4.1...3.0.0#diff-aafe04b74828dcf43f35dd72b3ed668640b1d9b18a0ad42c3915b4810f92ee54"><img align="right" alt="Tested diff" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square"></a>
 
-```gleam
-let text = request.body
+```diff
+--- a/modules/mock_server/src/dream_mock_server/controllers/api_controller.gleam
++++ b/modules/mock_server/src/dream_mock_server/controllers/api_controller.gleam
+@@ -31,10 +31,7 @@ pub fn post(
+-  json_response(
+-    status.created,
+-    api_view.post_to_json(request.path, request.body),
+-  )
++  echo_text_body(request, status.created, api_view.post_to_json)
+@@ -43,7 +40,32 @@ pub fn put(
++/// Echo a text request body as JSON, or reply 400 when the body is not text
++fn echo_text_body(
++  request: Request,
++  status_code: Int,
++  format_echo: fn(String, String) -> String,
++) -> Response {
++  case body_as_string(request) {
++    Ok(body) -> json_response(status_code, format_echo(request.path, body))
++    Error(Nil) ->
++      json_response(
++        status.bad_request,
++        api_view.error_to_json("Request body is not UTF-8 text"),
++      )
++  }
+ }
 ```
 
-After:
+**A controller or middleware that reads the stream.** Match `Stream` on `request.body` in place of `Some` on `request.stream`:
 
-```gleam
-case body_as_string(request) {
-  Ok(text) -> show_text(text)
-  Error(Nil) -> text_response(status.bad_request, "Request body is not text")
-}
+#### Read a stream from `request.body` <a href="https://github.com/TrustBound/dream/compare/2.4.1...3.0.0#diff-96161bd1d29b10b5817d71e3db6be67d9a8494e6ea36bc113379cb3b2743ce32"><img align="right" alt="Tested diff" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square"></a>
+
+```diff
+--- a/examples/streaming_capabilities/src/controllers/stream_controller.gleam
++++ b/examples/streaming_capabilities/src/controllers/stream_controller.gleam
+@@ -50,13 +50,14 @@ pub fn echo_transform(
+-  case request.stream {
+-    Some(stream) -> {
++  case request.body {
++    Stream(stream) -> {
+       // Just echo the stream back!
+       // The middleware does the heavy lifting (uppercase -> replace space)
+       stream_response(status.ok, stream, "text/plain")
+     }
+-    None -> text_response(status.bad_request, "Expected streaming request body")
++    Text(_) | Bytes(_) ->
++      text_response(status.bad_request, "Expected streaming request body")
+   }
 ```
 
-**3. A controller or middleware that reads the stream.**
+**Code that builds a `Request`** (tests, middleware). Remove `stream:` and give `body:` a `RequestBody`. The test fixtures made this change:
 
-Before:
+#### Build a `Request` with a `RequestBody` <a href="https://github.com/TrustBound/dream/compare/2.4.1...3.0.0#diff-35a52c8b99fa4dc8d5c395580d1a99ff19404fdc3316a228fb5ab2dbecabb54c"><img align="right" alt="Tested diff" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square"></a>
 
-```gleam
-case request.stream {
-  Some(chunks) -> save_chunks(chunks)
-  None -> text_response(status.bad_request, "Expected a stream")
-}
+```diff
+--- a/test/fixtures/request.gleam
++++ b/test/fixtures/request.gleam
+@@ -20,8 +22,7 @@ pub fn create_request(method: Method, path: String) -> Request {
+-    body: "",
+-    stream: option.None,
++    body: Text(""),
+@@ -62,7 +72,7 @@ pub fn create_streaming_request(
+-  Request(..create_request(method, path), stream: option.Some(stream))
++  Request(..create_request(method, path), body: Stream(stream))
 ```
 
-After:
+**A module that uses request and response bodies together.** `Text`, `Bytes` and `Stream` are also the `ResponseBody` constructors. Qualify the request side: `request.Text`, `request.Bytes`, `request.Stream`.
 
-```gleam
-case request.body {
-  Stream(chunks) -> save_chunks(chunks)
-  Text(_) | Bytes(_) -> text_response(status.bad_request, "Expected a stream")
-}
-```
-
-**4. Code that builds a `Request`** (tests, middleware). Remove `stream:` and give `body:` a `RequestBody`.
-
-Before:
-
-```gleam
-Request(..request, body: "", stream: Some(chunks))
-```
-
-After:
-
-```gleam
-Request(..request, body: Stream(chunks))
-```
-
-**5. A module that uses request and response bodies together.** `Text`, `Bytes` and `Stream` are also the `ResponseBody` constructors. Qualify the request side: `request.Text`, `request.Bytes`, `request.Stream`.
-
-#### Other behaviour changes
+**Other behaviour changes.**
 
 - `require_form` returns `BadRequest("Request body is not text")` for a body that is not text. It now also reads a `Stream` body.
 - A binary upload on a `route` now arrives as `Bytes`. In Dream 2 it arrived as `""`.
 
-4. **Other changes that can affect an app.**
+#### 4. Other changes that can affect an app
 
-
-- **Router fallback (SVC-729).** When a route fits the start of a path but fails deeper down, the router now tries the next route. With `/users/:id/posts` and `/users/**rest`, `GET /users/1/comments` now finds `/users/**rest`. In Dream 2 it returned 404. A wildcard route can now receive requests that got a 404 before.
-- **`server.stop` (SVC-730).** `stop` now stops the server from any process, and it returns after the server is down. In Dream 2 it did nothing unless the process that started the server called it.
-- **Broadcaster (SVC-728).** The broadcaster removes a subscriber when the process that subscribed stops. You do not have to call `unsubscribe` before a WebSocket or SSE connection ends. New function: `broadcaster.count_subscribers`.
-- **Form, query string and cookie values (SVC-731).** A value that contains `=` is kept. `token=a=b` gives the value `a=b`. In Dream 2 the form field and the query parameter were dropped, and the cookie value was empty.
-- **SSE `on_init` selector (SVC-727).** The selector that `on_init` returns is used, as in Dream 2.4.
+- **Router fallback.** When a route fits the start of a path but fails deeper down, the router now tries the next route. With `/users/:id/posts` and `/users/**rest`, `GET /users/1/comments` now finds `/users/**rest`. In Dream 2 it returned 404. A wildcard route can now receive requests that got a 404 before.
+- **`server.stop`.** `stop` now stops the server from any process, and it returns after the server is down. In Dream 2 it did nothing unless the process that started the server called it.
+- **Broadcaster.** The broadcaster removes a subscriber when the process that subscribed stops. You do not have to call `unsubscribe` before a WebSocket or SSE connection ends. New function: `broadcaster.count_subscribers`.
+- **Form, query string and cookie values.** A value that contains `=` is kept. `token=a=b` gives the value `a=b`. In Dream 2 the form field and the query parameter were dropped, and the cookie value was empty.
+- **SSE `on_init` selector.** The selector that `on_init` returns is used, as in Dream 2.4.
 
 ## Acknowledgements
 

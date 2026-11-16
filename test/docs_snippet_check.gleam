@@ -38,10 +38,30 @@
 //// checked like the fences of any other document, and its other lines must
 //// not look like Gleam code.
 ////
+//// A ```` ```diff ```` block shows how code changed between two releases,
+//// for example in an upgrade guide. Old code does not compile on the new
+//// version, so it cannot be a tested snippet. It is an excerpt of the real
+//// git diff instead. Its heading ends with the "tested diff" badge, which
+//// links to GitHub's compare view of one file, for example
+//// `https://github.com/TrustBound/dream/compare/2.4.1...3.0.0#diff-<digest>`,
+//// where `<digest>` is the SHA-256 hex digest of the file's path (GitHub's
+//// own anchor for the file). The block starts with the `--- a/<path>` and
+//// `+++ b/<path>` lines, then holds lines of the diff, with or without
+//// `@@` hunk headers. The check runs `git diff <old tag> -- <path>` against
+//// the working tree, and each run of lines must be in that diff, in order
+//// and contiguous within one hunk. The new tag is the version in
+//// `gleam.toml`, because that tag does not exist before the release.
+////
+//// Release notes and changelog entries for version 3.0.0 and later are
+//// checked. Older ones show code that was right for their own version, so
+//// they are not (see `checked_from_version`).
+////
 //// The module lives in `test/` so that it never ships in the Hex package.
-//// The logic is in pure functions (`check_markdown`, `check_gleam_source`,
-//// `sort_problems`, `describe_problem`). The `main` function only lists
-//// and reads files and prints the result.
+//// The logic is in pure functions (`check_markdown`, `check_changelog`,
+//// `check_gleam_source`, `sort_problems`, `describe_problem`). They get
+//// files and git through a `CheckContext`, so the tests can give them fake
+//// files and a fake git history. The `main` function only lists and reads
+//// files, gives the real git to the context, and prints the result.
 
 import gleam/int
 import gleam/io
@@ -63,7 +83,25 @@ pub type DocumentKind {
   /// A Gleam source file (`.gleam`). Each fenced code block in its `///`
   /// and `////` doc comments is checked.
   GleamSource
+  /// A release notes file, `release-<version>.md`. It is checked like a
+  /// Markdown document when its version is `checked_from_version` or later,
+  /// and skipped when it is older or has no version in its name.
+  ReleaseNotes
+  /// The changelog. Its `## [<version>]` sections for `checked_from_version`
+  /// and later, its `## [Unreleased]` section and the text before the first
+  /// section are checked. The sections of older versions are skipped.
+  Changelog
 }
+
+/// A release version, `major.minor.patch`.
+pub type Version {
+  Version(major: Int, minor: Int, patch: Int)
+}
+
+/// The first version whose release notes and changelog section are
+/// checked. Older notes show the code of their own version, which does not
+/// compile now, and nobody rewrites them.
+const checked_from_version = Version(3, 0, 0)
 
 /// A file, or a directory that is walked for files of one kind.
 pub type CheckedRoot {
@@ -73,19 +111,21 @@ pub type CheckedRoot {
 /// The places that the check reads, relative to the repository root. This
 /// is the one list to change to widen or narrow the check.
 ///
+/// `releases/` and `CHANGELOG.md` are checked only from
+/// `checked_from_version` on (see `ReleaseNotes` and `Changelog`).
+///
 /// These are not checked, on purpose:
 ///
-/// - `releases/` and `CHANGELOG.md`: release notes show the code of older
-///   versions, such as the "before" code in the 3.0.0 migration guide.
 /// - `modules/`: each module gets the rule in its own repository.
 /// - `.cursor/`: it holds prompts for coding agents, not docs.
-/// - `research/`: it holds old notes.
 /// - `build/` and dependency folders: see `skipped_directory_names`.
 const checked_roots = [
   CheckedRoot("README.md", MarkdownDocument),
   CheckedRoot("SECURITY.md", MarkdownDocument),
+  CheckedRoot("CHANGELOG.md", Changelog),
   CheckedRoot("docs", MarkdownDocument),
   CheckedRoot("examples", MarkdownDocument),
+  CheckedRoot("releases", ReleaseNotes),
   CheckedRoot("src", GleamSource),
 ]
 
@@ -112,6 +152,18 @@ const badge_start = " <a href=\""
 /// heading.
 const badge_end = "\"><img align=\"right\" alt=\"Tested snippet\" src=\"https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square\"></a>"
 
+/// The start of every diff badge link: GitHub's compare view of the dream
+/// repository.
+const repository_compare_prefix = "https://github.com/TrustBound/dream/compare/"
+
+/// The exact text after the link address of a diff badge, to the end of the
+/// heading.
+const diff_badge_end = "\"><img align=\"right\" alt=\"Tested diff\" src=\"https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square\"></a>"
+
+/// The start of the anchor that names one file in a compare view. The
+/// SHA-256 hex digest of the file's path follows it.
+const diff_anchor_prefix = "diff-"
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -124,13 +176,29 @@ pub type Line {
 /// What the checks need from the outside.
 ///
 /// `version` is the version in `gleam.toml`. `read_source` reads a file by
-/// its path relative to the repository root. `main` gives it
-/// `simplifile.read`; the tests give it a lookup in a list.
+/// its path relative to the repository root. `tag_exists` tells whether a
+/// git tag is in the local clone. `diff_from_tag` returns the text of the
+/// git diff of one path (the second argument) from a tag (the first
+/// argument) to the working tree. `main` gives them `simplifile.read`,
+/// `git_tag_exists` and `git_diff_from_tag`. The tests give them lookups in
+/// lists, so they do not depend on the files or the history of this
+/// repository.
 pub type CheckContext {
   CheckContext(
     version: String,
     read_source: fn(String) -> Result(String, simplifile.FileError),
+    tag_exists: fn(String) -> Result(Bool, GitError),
+    diff_from_tag: fn(String, String) -> Result(String, GitError),
   )
+}
+
+/// Why git could not answer.
+pub type GitError {
+  /// The `git` program is not on the `PATH`.
+  GitNotFound
+  /// git stopped with an exit status that is not 0. `output` is what it
+  /// wrote to standard output.
+  GitFailed(status: Int, output: String)
 }
 
 /// Why a code block fails the check.
@@ -165,6 +233,35 @@ pub type Reason {
   HiddenGleamCode(language: String)
   /// A fence has no closing fence.
   UnclosedFence
+  /// A diff block has no heading with the diff badge directly above it.
+  MissingDiffBadgeHeading
+  /// The heading has a diff badge, but not in the exact format.
+  MalformedDiffBadge
+  /// The diff badge does not link to a compare view of this repository, as
+  /// `<old tag>...<new tag>#diff-<digest>`, or a tag has characters that a
+  /// tag name in this repository does not have.
+  NotCompareLink(url: String)
+  /// The new tag in the compare link is not the version in `gleam.toml`.
+  WrongNewTag(found: String, expected: String)
+  /// The diff block does not start with `--- a/<path>` and `+++ b/<path>`
+  /// for one path, or the path has characters that are not allowed.
+  MissingDiffFileHeader
+  /// The diff block has no lines after its file header.
+  EmptyDiffBlock
+  /// The anchor in the compare link is not the digest of the path in the
+  /// block. `expected` is the right anchor, with its `#`.
+  WrongDiffAnchor(path: String, expected: String)
+  /// The old tag in the compare link is not in the local clone.
+  MissingOldTag(tag: String)
+  /// git could not be run, or it failed.
+  GitUnavailable(error: GitError)
+  /// The file did not change between the old tag and now.
+  NoDiffForPath(path: String, old_tag: String)
+  /// A hunk header in the block is not a hunk header of the real diff, or
+  /// it is out of order.
+  HunkHeaderNotFound(header: String)
+  /// A line of the block is not in the real diff at that place.
+  DiffLineNotFound(path: String, old_tag: String)
 }
 
 /// One problem: the file, the 1-based line, and why.
@@ -174,9 +271,35 @@ pub type Problem {
 
 /// The result of checking one or more documents.
 ///
-/// `blocks_checked` counts the Gleam code blocks that were checked.
+/// `blocks_checked` counts the Gleam code blocks that were checked, and
+/// `diff_blocks_checked` the diff blocks.
 pub type Report {
-  Report(blocks_checked: Int, problems: List(Problem))
+  Report(blocks_checked: Int, diff_blocks_checked: Int, problems: List(Problem))
+}
+
+/// A link to GitHub's compare view of one file, read from a diff badge.
+///
+/// `anchor_digest` is the part of the anchor after `#diff-`.
+pub type CompareLink {
+  CompareLink(old_tag: String, new_tag: String, anchor_digest: String)
+}
+
+/// One hunk of a real git diff: its `@@` header line and the lines after
+/// it, each with its `-`, `+` or space prefix.
+pub type DiffHunk {
+  DiffHunk(header: String, lines: List(String))
+}
+
+/// A run of lines in a diff block: an optional `@@` header line and the
+/// lines after it, up to the next header.
+type DiffSegment {
+  DiffSegment(header: Option(Line), lines: List(Line))
+}
+
+/// The kind of badge that a heading must end with.
+type BadgeKind {
+  SnippetBadge
+  DiffBadge
 }
 
 /// A link to a tested snippet, read from a badge.
@@ -252,7 +375,12 @@ pub fn main() -> Nil {
 fn print_report(report: Report, file_count: Int) -> Nil {
   let problems = sort_problems(report.problems)
   list.each(problems, fn(problem) { io.println(describe_problem(problem)) })
-  io.println(summary(report.blocks_checked, file_count, list.length(problems)))
+  io.println(summary(
+    report.blocks_checked,
+    report.diff_blocks_checked,
+    file_count,
+    list.length(problems),
+  ))
   case problems {
     [] -> Nil
     _ -> halt(1)
@@ -271,7 +399,13 @@ fn run_check() -> Result(#(Report, Int), CheckError) {
   use gleam_toml <- result.try(read_document(gleam_toml_path))
   use version <- result.try(parse_version(gleam_toml))
   use files <- result.try(list_checked_files())
-  let context = CheckContext(version:, read_source: simplifile.read)
+  let context =
+    CheckContext(
+      version:,
+      read_source: simplifile.read,
+      tag_exists: git_tag_exists,
+      diff_from_tag: git_diff_from_tag,
+    )
   use reports <- result.try(
     list.try_map(files, fn(file) { check_file(file, context) }),
   )
@@ -290,7 +424,8 @@ fn check_file(
   let #(path, kind) = file
   use text <- result.map(read_document(path))
   case kind {
-    MarkdownDocument -> check_markdown(path, text, context)
+    MarkdownDocument | ReleaseNotes -> check_markdown(path, text, context)
+    Changelog -> check_changelog(path, text, context)
     GleamSource -> check_gleam_source(path, text, context)
   }
 }
@@ -341,7 +476,7 @@ fn keep_if_kind(
   path: String,
   kind: DocumentKind,
 ) -> List(#(String, DocumentKind)) {
-  case string.ends_with(path, file_extension(kind)) {
+  case string.ends_with(path, file_extension(kind)) && is_in_scope(path, kind) {
     True -> [#(path, kind)]
     False -> []
   }
@@ -349,8 +484,118 @@ fn keep_if_kind(
 
 fn file_extension(kind: DocumentKind) -> String {
   case kind {
-    MarkdownDocument -> ".md"
+    MarkdownDocument | ReleaseNotes | Changelog -> ".md"
     GleamSource -> ".gleam"
+  }
+}
+
+fn is_in_scope(path: String, kind: DocumentKind) -> Bool {
+  case kind {
+    ReleaseNotes -> is_checked_release_notes(path)
+    MarkdownDocument | GleamSource | Changelog -> True
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Release notes and the changelog
+// ---------------------------------------------------------------------------
+
+/// Tells whether a release notes file is checked: its name is
+/// `release-<version>.md` and the version is `checked_from_version` or
+/// later. Versions are compared as numbers, so `10.0.0` is after `3.0.0`.
+pub fn is_checked_release_notes(path: String) -> Bool {
+  case release_notes_version(path) {
+    Ok(version) -> is_checked_version(version)
+    Error(Nil) -> False
+  }
+}
+
+/// Reads the version from the name of a release notes file, for example
+/// `Version(3, 0, 0)` from `releases/release-3.0.0.md`.
+pub fn release_notes_version(path: String) -> Result(Version, Nil) {
+  let file_name = path |> string.split("/") |> list.last |> result.unwrap(path)
+  use rest <- result.try(remove_prefix(file_name, "release-"))
+  use version_text <- result.try(remove_suffix(rest, ".md"))
+  parse_release_version(version_text)
+}
+
+/// Reads `major.minor.patch`. A pre-release part after a `-`, such as
+/// `-rc.1`, is ignored, so a pre-release counts as its release.
+pub fn parse_release_version(text: String) -> Result(Version, Nil) {
+  let core = case string.split_once(text, "-") {
+    Ok(#(core, _pre_release)) -> core
+    Error(Nil) -> text
+  }
+  case core |> string.split(".") |> list.try_map(parse_version_number) {
+    Ok([major, minor, patch]) -> Ok(Version(major:, minor:, patch:))
+    _ -> Error(Nil)
+  }
+}
+
+fn parse_version_number(text: String) -> Result(Int, Nil) {
+  use number <- result.try(int.parse(text))
+  case number >= 0 && int.to_string(number) == text {
+    True -> Ok(number)
+    False -> Error(Nil)
+  }
+}
+
+/// Compares two versions by major, then minor, then patch number.
+pub fn compare_versions(first: Version, second: Version) -> Order {
+  int.compare(first.major, second.major)
+  |> order.break_tie(int.compare(first.minor, second.minor))
+  |> order.break_tie(int.compare(first.patch, second.patch))
+}
+
+fn is_checked_version(version: Version) -> Bool {
+  compare_versions(version, checked_from_version) != order.Lt
+}
+
+/// Checks the changelog. Its sections start at `## [<name>]` lines. The
+/// sections of versions before `checked_from_version` are left out, and the
+/// rest of the file is checked like a Markdown document. Each line keeps its
+/// line number in the file.
+pub fn check_changelog(
+  file: String,
+  text: String,
+  context: CheckContext,
+) -> Report {
+  let #(_last_checked, marked_lines) =
+    list.map_fold(numbered_lines(text, 1), True, fn(checked, line) {
+      let checked = is_checked_from_line(line.text, checked)
+      #(checked, #(checked, line))
+    })
+  let lines =
+    marked_lines
+    |> list.filter(fn(marked) { marked.0 })
+    |> list.map(fn(marked) { marked.1 })
+  scan(lines, [], TopLevel, file, context, empty_report())
+}
+
+/// Whether a line is in a checked section: a section heading decides it
+/// for the lines that follow, and any other line keeps the decision of the
+/// line before it.
+fn is_checked_from_line(text: String, checked_before: Bool) -> Bool {
+  case changelog_section_name(text) {
+    Ok(name) -> is_checked_changelog_section(name)
+    Error(Nil) -> checked_before
+  }
+}
+
+/// Reads the name of a changelog section heading, for example `3.0.0` from
+/// `## [3.0.0] - 2026-11-20`.
+pub fn changelog_section_name(text: String) -> Result(String, Nil) {
+  use rest <- result.try(remove_prefix(text, "## ["))
+  use #(name, _after) <- result.map(string.split_once(rest, "]"))
+  name
+}
+
+/// Tells whether a changelog section is checked: `Unreleased`, a version
+/// from `checked_from_version` on, or a name that is not a version.
+pub fn is_checked_changelog_section(name: String) -> Bool {
+  case parse_release_version(name) {
+    Ok(version) -> is_checked_version(version)
+    Error(Nil) -> True
   }
 }
 
@@ -419,10 +664,17 @@ fn compare_problems(first: Problem, second: Problem) -> Order {
 }
 
 /// The last line of the output, for example
-/// `412 blocks checked in 230 files, 0 problems`.
-pub fn summary(blocks: Int, files: Int, problems: Int) -> String {
+/// `412 blocks and 5 diff blocks checked in 230 files, 0 problems`.
+pub fn summary(
+  blocks: Int,
+  diff_blocks: Int,
+  files: Int,
+  problems: Int,
+) -> String {
   int.to_string(blocks)
-  <> " blocks checked in "
+  <> " blocks and "
+  <> int.to_string(diff_blocks)
+  <> " diff blocks checked in "
   <> int.to_string(files)
   <> " files, "
   <> int.to_string(problems)
@@ -486,6 +738,54 @@ pub fn describe_reason(reason: Reason) -> String {
       <> describe_fence_language(language)
       <> "; put Gleam code in a gleam block with the tested snippet badge"
     UnclosedFence -> "this code fence has no closing fence"
+    MissingDiffBadgeHeading ->
+      "this diff block has no heading with the tested diff badge directly above it (one blank line between is allowed)"
+    MalformedDiffBadge ->
+      "the tested diff badge is not in the exact format; copy it from docs/contributing/contributing.md"
+    NotCompareLink(url:) ->
+      "the diff badge link "
+      <> url
+      <> " is not https://github.com/TrustBound/dream/compare/<old tag>...<new tag>#diff-<digest>"
+    WrongNewTag(found:, expected:) ->
+      "the compare link ends at the tag "
+      <> found
+      <> ", but the version in gleam.toml is "
+      <> expected
+    MissingDiffFileHeader ->
+      "the diff block does not start with \"--- a/<path>\" and \"+++ b/<path>\" for one path of letters, digits and . _ - /"
+    EmptyDiffBlock -> "the diff block has no diff lines after its file header"
+    WrongDiffAnchor(path:, expected:) ->
+      "the compare link anchor is not the one for "
+      <> path
+      <> "; use "
+      <> expected
+    MissingOldTag(tag:) ->
+      "the tag "
+      <> tag
+      <> " is not in this clone; fetch the tags with \"git fetch --tags\" (a shallow clone has none)"
+    GitUnavailable(error:) ->
+      "cannot read the git diff: " <> describe_git_error(error)
+    NoDiffForPath(path:, old_tag:) ->
+      path <> " has no changes since the tag " <> old_tag
+    HunkHeaderNotFound(header:) ->
+      "the hunk header "
+      <> header
+      <> " is not a hunk header of the real diff, or it is out of order"
+    DiffLineNotFound(path:, old_tag:) ->
+      "this line is not in \"git diff "
+      <> old_tag
+      <> " -- "
+      <> path
+      <> "\" at this place; a diff block shows lines of the real diff, in order and contiguous within a hunk"
+  }
+}
+
+/// Describes why git could not answer, in a few words.
+pub fn describe_git_error(error: GitError) -> String {
+  case error {
+    GitNotFound -> "git is not on the PATH"
+    GitFailed(status:, output: _) ->
+      "git stopped with exit status " <> int.to_string(status)
   }
 }
 
@@ -497,14 +797,19 @@ fn describe_fence_language(language: String) -> String {
 }
 
 fn merge_reports(reports: List(Report)) -> Report {
-  list.fold(reports, Report(blocks_checked: 0, problems: []), add_report)
+  list.fold(reports, empty_report(), add_report)
 }
 
 fn add_report(total: Report, report: Report) -> Report {
   Report(
     blocks_checked: total.blocks_checked + report.blocks_checked,
+    diff_blocks_checked: total.diff_blocks_checked + report.diff_blocks_checked,
     problems: list.append(total.problems, report.problems),
   )
+}
+
+fn problems_report(problems: List(Problem)) -> Report {
+  Report(blocks_checked: 0, diff_blocks_checked: 0, problems:)
 }
 
 // ---------------------------------------------------------------------------
@@ -545,7 +850,7 @@ pub fn check_gleam_source(
 }
 
 fn empty_report() -> Report {
-  Report(blocks_checked: 0, problems: [])
+  problems_report([])
 }
 
 fn numbered_lines(text: String, first_number: Int) -> List(Line) {
@@ -655,7 +960,7 @@ fn scan_line(
 fn check_prose_line(line: Line, place: ScanPlace, file: String) -> Report {
   case place, looks_like_gleam(line.text) {
     InsideExample, True ->
-      Report(blocks_checked: 0, problems: [
+      problems_report([
         Problem(file:, line: line.number, reason: HiddenGleamCode("markdown")),
       ])
     _, _ -> empty_report()
@@ -775,14 +1080,20 @@ fn check_block(
     "gleam" ->
       Report(
         blocks_checked: 1,
+        diff_blocks_checked: 0,
         problems: check_gleam_block(block, above, after, file, context),
+      )
+    "diff" ->
+      Report(
+        blocks_checked: 0,
+        diff_blocks_checked: 1,
+        problems: check_diff_block(block, above, file, context),
       )
     "markdown" | "md" ->
       scan(block.content, [], InsideExample, file, context, empty_report())
-    language ->
-      Report(blocks_checked: 0, problems: hidden_gleam(block, language, file))
+    language -> problems_report(hidden_gleam(block, language, file))
   }
-  add_report(Report(blocks_checked: 0, problems: unclosed), report)
+  add_report(problems_report(unclosed), report)
 }
 
 fn hidden_gleam(
@@ -884,6 +1195,20 @@ fn heading_reasons(
 /// The line is a Markdown heading (`#` to `######`, a space and a title),
 /// then `badge_start`, the address, and exactly `badge_end`.
 pub fn parse_badge_heading(text: String) -> Result(String, Reason) {
+  parse_heading_with_badge(text, SnippetBadge)
+}
+
+/// Reads a heading line that ends with the diff badge, and returns the link
+/// address of the badge. The rules are those of `parse_badge_heading`, with
+/// `diff_badge_end` in place of `badge_end`.
+pub fn parse_diff_badge_heading(text: String) -> Result(String, Reason) {
+  parse_heading_with_badge(text, DiffBadge)
+}
+
+fn parse_heading_with_badge(
+  text: String,
+  kind: BadgeKind,
+) -> Result(String, Reason) {
   let trimmed = string.trim(text)
   let hashes = count_leading(trimmed, "#", 0)
   let is_heading =
@@ -891,20 +1216,52 @@ pub fn parse_badge_heading(text: String) -> Result(String, Reason) {
     && hashes <= 6
     && string.starts_with(string.drop_start(trimmed, hashes), " ")
   case is_heading, string.split(trimmed, badge_start) {
-    False, _ -> Error(MissingBadgeHeading)
-    True, [_no_badge] -> Error(badge_absent_reason(trimmed))
-    True, parts -> badge_address(parts, hashes)
+    False, _ -> Error(missing_badge_reason(kind))
+    True, [_no_badge] -> Error(badge_absent_reason(trimmed, kind))
+    True, parts -> badge_address(parts, hashes, kind)
   }
 }
 
-fn badge_absent_reason(heading: String) -> Reason {
-  case string.contains(heading, "Tested snippet") {
-    True -> MalformedBadge
-    False -> MissingBadgeHeading
+fn badge_end_for(kind: BadgeKind) -> String {
+  case kind {
+    SnippetBadge -> badge_end
+    DiffBadge -> diff_badge_end
   }
 }
 
-fn badge_address(parts: List(String), hashes: Int) -> Result(String, Reason) {
+fn badge_alt_for(kind: BadgeKind) -> String {
+  case kind {
+    SnippetBadge -> "Tested snippet"
+    DiffBadge -> "Tested diff"
+  }
+}
+
+fn missing_badge_reason(kind: BadgeKind) -> Reason {
+  case kind {
+    SnippetBadge -> MissingBadgeHeading
+    DiffBadge -> MissingDiffBadgeHeading
+  }
+}
+
+fn malformed_badge_reason(kind: BadgeKind) -> Reason {
+  case kind {
+    SnippetBadge -> MalformedBadge
+    DiffBadge -> MalformedDiffBadge
+  }
+}
+
+fn badge_absent_reason(heading: String, kind: BadgeKind) -> Reason {
+  case string.contains(heading, badge_alt_for(kind)) {
+    True -> malformed_badge_reason(kind)
+    False -> missing_badge_reason(kind)
+  }
+}
+
+fn badge_address(
+  parts: List(String),
+  hashes: Int,
+  kind: BadgeKind,
+) -> Result(String, Reason) {
   let badge = list.last(parts) |> result.unwrap("")
   let title =
     parts
@@ -913,19 +1270,19 @@ fn badge_address(parts: List(String), hashes: Int) -> Result(String, Reason) {
     |> string.drop_start(hashes)
     |> string.trim
   use address <- result.try(
-    remove_suffix(badge, badge_end)
-    |> result.replace_error(badge_mismatch_reason(badge)),
+    remove_suffix(badge, badge_end_for(kind))
+    |> result.replace_error(badge_mismatch_reason(badge, kind)),
   )
   case title == "" || address == "" || string.contains(address, "\"") {
-    True -> Error(MalformedBadge)
+    True -> Error(malformed_badge_reason(kind))
     False -> Ok(address)
   }
 }
 
-fn badge_mismatch_reason(badge: String) -> Reason {
+fn badge_mismatch_reason(badge: String, kind: BadgeKind) -> Reason {
   case string.contains(badge, "<img") {
-    True -> MalformedBadge
-    False -> MissingBadgeHeading
+    True -> malformed_badge_reason(kind)
+    False -> missing_badge_reason(kind)
   }
 }
 
@@ -1140,6 +1497,476 @@ fn document_line(block: FencedBlock, index: Int) -> Int {
     [] -> block.closing_line
   }
 }
+
+// ---------------------------------------------------------------------------
+// Diff blocks
+// ---------------------------------------------------------------------------
+
+/// Checks a diff block: its heading and diff badge, the compare link, and
+/// that its lines are in the real git diff of the file it names.
+fn check_diff_block(
+  block: FencedBlock,
+  above: List(Line),
+  file: String,
+  context: CheckContext,
+) -> List(Problem) {
+  case first_line_skipping_one_blank(above) {
+    None -> [
+      Problem(file:, line: block.opening_line, reason: MissingDiffBadgeHeading),
+    ]
+    Some(heading) -> diff_heading_problems(heading, block, file, context)
+  }
+}
+
+fn diff_heading_problems(
+  heading: Line,
+  block: FencedBlock,
+  file: String,
+  context: CheckContext,
+) -> List(Problem) {
+  let link =
+    parse_diff_badge_heading(heading.text)
+    |> result.try(parse_compare_link)
+  case link {
+    Ok(link) ->
+      check_compare_link(link, block, context)
+      |> list.map(fn(found) { Problem(file:, line: found.0, reason: found.1) })
+    Error(reason) -> [Problem(file:, line: block.opening_line, reason:)]
+  }
+}
+
+/// Reads a diff badge link address into a compare link. The address must
+/// be `https://github.com/TrustBound/dream/compare/<old>...<new>#diff-<hex>`
+/// and both tags must be safe tag names (see `is_safe_tag`).
+pub fn parse_compare_link(address: String) -> Result(CompareLink, Reason) {
+  let not_compare_link = NotCompareLink(address)
+  use after_prefix <- result.try(
+    remove_prefix(address, repository_compare_prefix)
+    |> result.replace_error(not_compare_link),
+  )
+  use #(range, anchor) <- result.try(
+    string.split_once(after_prefix, "#")
+    |> result.replace_error(not_compare_link),
+  )
+  use #(old_tag, new_tag) <- result.try(
+    string.split_once(range, "...")
+    |> result.replace_error(not_compare_link),
+  )
+  use anchor_digest <- result.try(
+    remove_prefix(anchor, diff_anchor_prefix)
+    |> result.replace_error(not_compare_link),
+  )
+  case is_safe_tag(old_tag) && is_safe_tag(new_tag) && anchor_digest != "" {
+    True -> Ok(CompareLink(old_tag:, new_tag:, anchor_digest:))
+    False -> Error(not_compare_link)
+  }
+}
+
+/// Tells whether a text is a safe tag name to give to git: letters, digits,
+/// `.`, `_` and `-`, not starting with `-` and with no `..`.
+pub fn is_safe_tag(tag: String) -> Bool {
+  tag != ""
+  && is_made_of(tag, tag_characters)
+  && !string.starts_with(tag, "-")
+  && !string.contains(tag, "..")
+}
+
+/// Tells whether a text is a safe repository path to give to git: a path
+/// inside the repository (see `is_repository_path`) made of letters,
+/// digits, `.`, `_`, `-` and `/`, not starting with `-`.
+pub fn is_safe_path(path: String) -> Bool {
+  is_repository_path(path)
+  && is_made_of(path, path_characters)
+  && !string.starts_with(path, "-")
+}
+
+const tag_characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+
+const path_characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-/"
+
+fn is_made_of(text: String, characters: String) -> Bool {
+  text
+  |> string.to_graphemes
+  |> list.all(fn(character) { string.contains(characters, character) })
+}
+
+/// Checks a compare link against its block. The new tag is checked on its
+/// own. The file header, the anchor, the old tag, the diff and the lines
+/// are checked in order, each only when the one before it passed. Each
+/// problem comes with the line of the document that it is about.
+fn check_compare_link(
+  link: CompareLink,
+  block: FencedBlock,
+  context: CheckContext,
+) -> List(#(Int, Reason)) {
+  let tag_problems = case link.new_tag == context.version {
+    True -> []
+    False -> [
+      #(
+        block.opening_line,
+        WrongNewTag(found: link.new_tag, expected: context.version),
+      ),
+    ]
+  }
+  let content_problems = case check_diff_content(link, block, context) {
+    Ok(Nil) -> []
+    Error(problem) -> [problem]
+  }
+  list.append(tag_problems, content_problems)
+}
+
+fn check_diff_content(
+  link: CompareLink,
+  block: FencedBlock,
+  context: CheckContext,
+) -> Result(Nil, #(Int, Reason)) {
+  let at_block = fn(reason) { #(block.opening_line, reason) }
+  use #(path, body) <- result.try(
+    parse_diff_file_header(block.content) |> result.map_error(at_block),
+  )
+  use Nil <- result.try(
+    check_diff_anchor(link, path) |> result.map_error(at_block),
+  )
+  use Nil <- result.try(
+    require_old_tag(link.old_tag, context) |> result.map_error(at_block),
+  )
+  use diff_text <- result.try(
+    context.diff_from_tag(link.old_tag, path)
+    |> result.map_error(fn(error) { at_block(GitUnavailable(error)) }),
+  )
+  case parse_hunks(diff_text) {
+    [] -> Error(at_block(NoDiffForPath(path:, old_tag: link.old_tag)))
+    hunks -> {
+      let line_not_found = DiffLineNotFound(path:, old_tag: link.old_tag)
+      match_segments(diff_segments(body), hunks, line_not_found)
+    }
+  }
+}
+
+/// Reads the `--- a/<path>` and `+++ b/<path>` lines at the start of a diff
+/// block, and returns the path and the lines after them.
+fn parse_diff_file_header(
+  content: List(Line),
+) -> Result(#(String, List(Line)), Reason) {
+  case content {
+    [old_file, new_file, ..body] ->
+      diff_file_path(old_file.text, new_file.text)
+      |> result.try(fn(path) { require_diff_body(path, body) })
+    _ -> Error(MissingDiffFileHeader)
+  }
+}
+
+fn diff_file_path(
+  old_file: String,
+  new_file: String,
+) -> Result(String, Reason) {
+  let old_path = remove_prefix(old_file, "--- a/")
+  let new_path = remove_prefix(new_file, "+++ b/")
+  case old_path, new_path {
+    Ok(old_path), Ok(new_path) if old_path == new_path ->
+      safe_path_or_error(old_path)
+    _, _ -> Error(MissingDiffFileHeader)
+  }
+}
+
+fn safe_path_or_error(path: String) -> Result(String, Reason) {
+  case is_safe_path(path) {
+    True -> Ok(path)
+    False -> Error(MissingDiffFileHeader)
+  }
+}
+
+fn require_diff_body(
+  path: String,
+  body: List(Line),
+) -> Result(#(String, List(Line)), Reason) {
+  case body {
+    [] -> Error(EmptyDiffBlock)
+    _ -> Ok(#(path, body))
+  }
+}
+
+/// The SHA-256 hex digest of a repository path. GitHub's compare view
+/// gives each file the anchor `#diff-` followed by this digest.
+pub fn path_digest(path: String) -> String {
+  sha256_hex(path)
+}
+
+@external(erlang, "docs_snippet_check_ffi", "sha256_hex")
+fn sha256_hex(text: String) -> String
+
+fn check_diff_anchor(link: CompareLink, path: String) -> Result(Nil, Reason) {
+  let digest = path_digest(path)
+  case link.anchor_digest == digest {
+    True -> Ok(Nil)
+    False ->
+      Error(WrongDiffAnchor(
+        path:,
+        expected: "#" <> diff_anchor_prefix <> digest,
+      ))
+  }
+}
+
+fn require_old_tag(tag: String, context: CheckContext) -> Result(Nil, Reason) {
+  case context.tag_exists(tag) {
+    Ok(True) -> Ok(Nil)
+    Ok(False) -> Error(MissingOldTag(tag))
+    Error(error) -> Error(GitUnavailable(error))
+  }
+}
+
+/// Splits the text of a git diff into its hunks. The lines before the first
+/// `@@` header (`diff --git`, `index`, `---` and `+++`) are left out.
+pub fn parse_hunks(diff_text: String) -> List(DiffHunk) {
+  source_lines(diff_text)
+  |> list.fold([], add_to_hunks)
+  |> list.reverse
+  |> list.map(fn(hunk) { DiffHunk(..hunk, lines: list.reverse(hunk.lines)) })
+}
+
+/// Adds one line of a diff to the hunks, which are held last first, each
+/// with its lines last first.
+fn add_to_hunks(hunks: List(DiffHunk), text: String) -> List(DiffHunk) {
+  case is_hunk_header(text), hunks {
+    True, _ -> [DiffHunk(header: text, lines: []), ..hunks]
+    False, [] -> []
+    False, [current, ..rest] -> [
+      DiffHunk(..current, lines: [text, ..current.lines]),
+      ..rest
+    ]
+  }
+}
+
+fn is_hunk_header(text: String) -> Bool {
+  string.starts_with(text, "@@")
+}
+
+/// Splits the lines of a diff block, after its file header, at each `@@`
+/// header. Only the first segment can have no header, and it is left out
+/// when it is empty.
+fn diff_segments(body: List(Line)) -> List(DiffSegment) {
+  body
+  |> list.fold([], add_to_segments)
+  |> list.reverse
+  |> list.map(fn(segment) {
+    DiffSegment(..segment, lines: list.reverse(segment.lines))
+  })
+}
+
+fn add_to_segments(
+  segments: List(DiffSegment),
+  line: Line,
+) -> List(DiffSegment) {
+  case is_hunk_header(line.text), segments {
+    True, _ -> [DiffSegment(header: Some(line), lines: []), ..segments]
+    False, [] -> [DiffSegment(header: None, lines: [line])]
+    False, [current, ..rest] -> [
+      DiffSegment(..current, lines: [line, ..current.lines]),
+      ..rest
+    ]
+  }
+}
+
+/// Finds each segment of a block in the hunks of the real diff, in order.
+/// A segment with a header must be in the first later hunk with the same
+/// header. A segment with no header can be in any hunk. Its lines must be
+/// contiguous within that one hunk. The next segment is looked for in the
+/// hunks after it.
+fn match_segments(
+  segments: List(DiffSegment),
+  hunks: List(DiffHunk),
+  line_not_found: Reason,
+) -> Result(Nil, #(Int, Reason)) {
+  case segments {
+    [] -> Ok(Nil)
+    [segment, ..rest] -> {
+      use hunks_after <- result.try(match_segment(
+        segment,
+        hunks,
+        line_not_found,
+      ))
+      match_segments(rest, hunks_after, line_not_found)
+    }
+  }
+}
+
+fn match_segment(
+  segment: DiffSegment,
+  hunks: List(DiffHunk),
+  line_not_found: Reason,
+) -> Result(List(DiffHunk), #(Int, Reason)) {
+  let texts = list.map(segment.lines, fn(line) { line.text })
+  case segment.header {
+    None ->
+      find_lines(texts, hunks, 0)
+      |> result.map_error(fn(index) {
+        #(line_number_at(segment, index), line_not_found)
+      })
+    Some(header) ->
+      match_headed_segment(header, texts, hunks)
+      |> result.map_error(fn(missing) {
+        headed_segment_problem(segment, header, missing, line_not_found)
+      })
+  }
+}
+
+fn headed_segment_problem(
+  segment: DiffSegment,
+  header: Line,
+  missing: Option(Int),
+  line_not_found: Reason,
+) -> #(Int, Reason) {
+  case missing {
+    Some(index) -> #(line_number_at(segment, index), line_not_found)
+    None -> #(header.number, HunkHeaderNotFound(header.text))
+  }
+}
+
+/// Finds the first hunk with the header, and the lines in it. The error is
+/// `None` when no hunk has the header, or the index of the first line that
+/// is not in the hunk.
+fn match_headed_segment(
+  header: Line,
+  texts: List(String),
+  hunks: List(DiffHunk),
+) -> Result(List(DiffHunk), Option(Int)) {
+  let from_header =
+    list.drop_while(hunks, fn(hunk) {
+      !header_matches(header.text, hunk.header)
+    })
+  case from_header {
+    [] -> Error(None)
+    [hunk, ..after] ->
+      find_lines(texts, [hunk], 0)
+      |> result.replace(after)
+      |> result.map_error(Some)
+  }
+}
+
+/// A block header matches a real one when it is the same line, or the
+/// same `@@ -a,b +c,d @@` part without the function name that git adds.
+fn header_matches(block_header: String, real_header: String) -> Bool {
+  block_header == real_header || block_header == header_ranges(real_header)
+}
+
+fn header_ranges(header: String) -> String {
+  case string.split_once(string.drop_start(header, 2), "@@") {
+    Ok(#(ranges, _function_name)) -> "@@" <> ranges <> "@@"
+    Error(Nil) -> header
+  }
+}
+
+/// Finds the lines as a contiguous run in one of the hunks, and returns
+/// the hunks after that one. When no hunk holds all of them, the error is
+/// the index of the first line after the longest run that was found.
+fn find_lines(
+  texts: List(String),
+  hunks: List(DiffHunk),
+  best: Int,
+) -> Result(List(DiffHunk), Int) {
+  case hunks {
+    [] -> Error(best)
+    [hunk, ..rest] -> {
+      let matched = longest_run(texts, hunk.lines, 0)
+      case matched == list.length(texts) {
+        True -> Ok(rest)
+        False -> find_lines(texts, rest, int.max(best, matched))
+      }
+    }
+  }
+}
+
+/// The largest number of leading `needle` lines found in a row anywhere in
+/// `haystack`.
+fn longest_run(needle: List(String), haystack: List(String), best: Int) -> Int {
+  case haystack {
+    [] -> best
+    [_, ..rest] ->
+      longest_run(
+        needle,
+        rest,
+        int.max(best, common_prefix_length(needle, haystack, 0)),
+      )
+  }
+}
+
+fn common_prefix_length(
+  first: List(String),
+  second: List(String),
+  count: Int,
+) -> Int {
+  case first, second {
+    [first_line, ..first_rest], [second_line, ..second_rest]
+      if first_line == second_line
+    -> common_prefix_length(first_rest, second_rest, count + 1)
+    _, _ -> count
+  }
+}
+
+fn line_number_at(segment: DiffSegment, index: Int) -> Int {
+  case list.drop(segment.lines, index), segment.header {
+    [line, ..], _ -> line.number
+    [], Some(header) -> header.number
+    [], None -> 0
+  }
+}
+
+// ---------------------------------------------------------------------------
+// git
+// ---------------------------------------------------------------------------
+
+/// Tells whether a tag is in the local clone, with
+/// `git rev-parse --verify --quiet refs/tags/<tag>^{commit}`. git exits with
+/// status 1 and no output when the tag is missing. Any other failure is an
+/// error. The tag must pass `is_safe_tag`.
+pub fn git_tag_exists(tag: String) -> Result(Bool, GitError) {
+  case
+    run_git([
+      "rev-parse",
+      "--verify",
+      "--quiet",
+      "refs/tags/" <> tag <> "^{commit}",
+    ])
+  {
+    Ok(_commit) -> Ok(True)
+    Error(GitFailed(status: 1, output: "")) -> Ok(False)
+    Error(error) -> Error(error)
+  }
+}
+
+/// Returns the text of `git diff` for one path, from a tag to the working
+/// tree. The options fix the output format, so that a user's git settings
+/// (colours, prefixes, external diff tools, the diff algorithm, the number
+/// of context lines) cannot change it. The tag must pass `is_safe_tag` and
+/// the path `is_safe_path`. The path comes after `--`, so git never reads
+/// it as an option.
+pub fn git_diff_from_tag(
+  tag: String,
+  path: String,
+) -> Result(String, GitError) {
+  run_git([
+    "-c",
+    "core.quotepath=off",
+    "diff",
+    "--no-color",
+    "--no-ext-diff",
+    "--no-textconv",
+    "--no-renames",
+    "--src-prefix=a/",
+    "--dst-prefix=b/",
+    "--unified=3",
+    "--diff-algorithm=myers",
+    "--indent-heuristic",
+    "refs/tags/" <> tag,
+    "--",
+    path,
+  ])
+}
+
+/// Runs git with the arguments, with no shell between, and returns its
+/// standard output. See `docs_snippet_check_ffi.erl`.
+@external(erlang, "docs_snippet_check_ffi", "run_git")
+fn run_git(arguments: List(String)) -> Result(String, GitError)
 
 // ---------------------------------------------------------------------------
 // Gleam code outside gleam fences

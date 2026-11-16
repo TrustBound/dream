@@ -144,13 +144,27 @@ Examples in doc comments (`///`) are code blocks too. HexDocs shows them to ever
 
 When you find a code block that doesn't follow this, change it in the same pull request.
 
+Release notes and changelog entries follow this rule from version 3.0.0 on. The check reads `releases/release-<version>.md` when the version in the file name is 3.0.0 or later, and the `## [Unreleased]` section and the `## [<version>]` sections for 3.0.0 or later in `CHANGELOG.md`. It skips older notes and older changelog sections. They show code that was right for their own version.
+
+An upgrade guide shows how code changed. The old code does not compile on the new version, so it cannot be a tested snippet. Show each change as a `diff` block instead. The block is an excerpt of the real git diff of one file in this repository, between the last release tag and the new version:
+
+1. Find a file in the repository that made the change, for example with `git diff 2.4.1 -- examples/ src/ test/snippets/`.
+2. Copy the `--- a/<path>` and `+++ b/<path>` lines, then the diff lines that show the change. Keep the `-`, `+` and space at the start of each line. You can keep or leave out the `@@` hunk headers. Lines with no hunk header between them must come from one hunk, in order, with no line left out.
+3. Give the block a heading, and put a "tested diff" badge at the right of the heading. The badge links to the file in GitHub's compare view. The link names the old tag, the new tag (the `version` in `gleam.toml`), and the anchor `#diff-` followed by the SHA-256 hex digest of the file's path. Get the digest with `printf '%s' <path> | shasum -a 256`.
+
+```markdown
+#### Read a stream from `request.body` <a href="https://github.com/TrustBound/dream/compare/2.4.1...3.0.0#diff-96161bd1d29b10b5817d71e3db6be67d9a8494e6ea36bc113379cb3b2743ce32"><img align="right" alt="Tested diff" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square"></a>
+```
+
+Don't write a "before" by hand. When no file in the repository made the change, show the new code as a tested snippet, and name the old form in inline code in the text next to it.
+
 Run the check by hand from the repository root:
 
 ```bash
 make check-snippets
 ```
 
-It runs `gleam run -m docs_snippet_check`. The check reads `README.md`, `SECURITY.md`, each `.md` file in `docs/` and `examples/`, and the doc comments in `src/`. It does not use the network. It fails when:
+It runs `gleam run -m docs_snippet_check`. The check reads `README.md`, `SECURITY.md`, each `.md` file in `docs/` and `examples/`, and the doc comments in `src/`. It also reads the release notes and changelog sections from 3.0.0 on. It does not use the network. For a `diff` block it runs `git diff <old tag> -- <path>`, so it needs the release tags in your clone. It fails when:
 
 - a Gleam code block has no heading with the badge directly above it (one blank line between is allowed)
 - the badge is not in the exact format shown above
@@ -161,6 +175,10 @@ It runs `gleam run -m docs_snippet_check`. The check reads `README.md`, `SECURIT
 - the code block is not the same as the linked file or line range
 - the code block uses the old `🧪 Tested source` line
 - a code fence with another language, or with no language, holds Gleam code
+- a `diff` block has no heading with the tested diff badge, or the badge is not in the exact format
+- the diff badge link is not a compare link in this repository, its new tag is not the `version` in `gleam.toml`, or its anchor is not the digest of the path in the block
+- the old tag is not in your clone (run `git fetch --tags`, because a shallow clone has no tags)
+- the file has no diff between the old tag and the working tree, or a line of the block is not in that diff in that place
 
 It prints each problem as `file:line: reason`, then a summary line. `make check`, the pre-commit hook, CI and the publish workflows also run it.
 

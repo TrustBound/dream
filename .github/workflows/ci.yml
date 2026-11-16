@@ -16,8 +16,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # The docs check compares each diff block in the release notes with
+      # git diff from a release tag, so it needs the tags. fetch-depth: 0
+      # fetches the full history with every tag.
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # Keep downloaded packages and path dependency fingerprints between runs,
       # so gleam does not ask the Hex API to resolve versions on every run.
