@@ -54,7 +54,15 @@ pub fn load_settings() -> Result(Settings, String) {
 
 ## Usage
 
-### Loading `.env` Files <a href="https://github.com/TrustBound/dream/blob/dream_config-1.0.2/modules/config/test/snippets/readme_load_env_files.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Loading `.env` Files
+
+`load_dotenv()` reads `.env` in the current directory. A missing `.env` file is not an error, so the same code runs where the variables are set directly. `load_dotenv_from(path)` reads the file at `path`, and a missing file is an error.
+
+Both return `Error(String)` with the path and the reason when the file cannot be read (for example no permission, a directory, or not UTF-8), or when a line is not valid. The message gives the line number, for example `Cannot load .env file at .env: line 2: expected NAME=VALUE`. On an error, no variable from the file is set.
+
+The format is `NAME=VALUE`, one variable on each line. Lines that start with `#` are comments, and values can be in double quotes, single quotes or backticks. Names are changed to upper case.
+
+#### Load two files <a href="https://github.com/TrustBound/dream/blob/dream_config-1.0.2/modules/config/test/snippets/readme_load_env_files.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_config/loader as config
@@ -114,12 +122,12 @@ pub fn read_optional_values() -> #(option.Option(String), Int) {
 
 ### Boolean Values
 
-The `get_bool()` function treats these as `True` (case-insensitive):
+The `get_bool()` function treats these as `True`, in any mix of upper and lower case (for example `TRUE`, `tRUE` or `Yes`):
 - `"true"`
 - `"1"`
 - `"yes"`
 
-Everything else (including unset) is `False`:
+Everything else (including unset, and values with spaces around them) is `False`:
 
 #### Pick a log level from DEBUG <a href="https://github.com/TrustBound/dream/blob/dream_config-1.0.2/modules/config/test/snippets/readme_boolean_values.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -139,8 +147,8 @@ pub fn log_level() -> String {
 
 ### Loading `.env` Files
 
-- `load_dotenv() -> Result(Nil, String)` - Load from default location
-- `load_dotenv_from(path: String) -> Result(Nil, String)` - Load from specific path
+- `load_dotenv() -> Result(Nil, String)` - Load from default location (a missing file is `Ok(Nil)`)
+- `load_dotenv_from(path: String) -> Result(Nil, String)` - Load from specific path (a missing file is an error)
 
 ### Getting Values
 

@@ -166,3 +166,51 @@ pub fn log_level_is_info_when_debug_is_not_set_test() {
   // Assert
   result |> should.equal("info")
 }
+
+pub fn load_env_files_fails_when_the_file_does_not_exist_test() {
+  // Act
+  let result =
+    readme_load_env_files.load_env_files("test/fixtures/does_not_exist.env")
+
+  // Assert
+  result
+  |> should.equal(Error(
+    "Cannot load .env file at test/fixtures/does_not_exist.env: the file does not exist",
+  ))
+}
+
+pub fn load_env_files_fails_when_a_line_is_not_valid_test() {
+  // Act
+  let result =
+    readme_load_env_files.load_env_files("test/fixtures/missing_equals.env")
+
+  // Assert
+  result
+  |> should.equal(Error(
+    "Cannot load .env file at test/fixtures/missing_equals.env: line 2: expected NAME=VALUE",
+  ))
+}
+
+pub fn log_level_is_debug_when_debug_is_mixed_case_true_test() {
+  // Arrange
+  envoy.set("DEBUG", "tRUE")
+
+  // Act
+  let result = readme_boolean_values.log_level()
+  envoy.unset("DEBUG")
+
+  // Assert
+  result |> should.equal("debug")
+}
+
+pub fn log_level_is_info_when_debug_is_false_test() {
+  // Arrange
+  envoy.set("DEBUG", "false")
+
+  // Act
+  let result = readme_boolean_values.log_level()
+  envoy.unset("DEBUG")
+
+  // Assert
+  result |> should.equal("info")
+}
