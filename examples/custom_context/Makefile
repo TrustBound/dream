@@ -17,7 +17,7 @@ test-integration:
 	fi
 	@echo "Building Gleam application..."
 	@rm -rf build/dev build/prod
-	@gleam build > /dev/null 2>&1
+	@output=$$(gleam build 2>&1) || { echo "$$output"; exit 1; }
 	@echo "Starting server in background..."
 	@../../integration/run-scenarios.sh custom_context 3001 main http1
 	@../../integration/run-scenarios.sh custom_context 3001 tls_main http2

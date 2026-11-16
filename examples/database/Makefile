@@ -53,7 +53,7 @@ test-integration:
 	fi
 	echo "Building Gleam application..."; \
 	rm -rf build/dev build/prod; \
-	gleam build > /dev/null 2>&1; \
+	output=$$(gleam build 2>&1) || { echo "$$output"; exit 1; }; \
 	echo "Starting server in background..."; \
 	../../integration/run-scenarios.sh database 3002 main http1; \
 	FIRST_EXIT=$$?; \

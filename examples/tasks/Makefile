@@ -26,7 +26,7 @@ test-integration:
 	@make matcha > /dev/null 2>&1
 	@echo "Building Gleam application..."
 	@rm -rf build/dev build/prod
-	@make build > /dev/null 2>&1
+	@output=$$(make build 2>&1) || { echo "$$output"; exit 1; }
 	@echo "Starting server in background..."
 	@export DATABASE_URL="$(DATABASE_URL)"; \
 	../../integration/run-scenarios.sh tasks 3000 main http1; \
@@ -130,7 +130,7 @@ e2e-test:
 	@make matcha > /dev/null 2>&1
 	@echo "Building Gleam application..."
 	@rm -rf build/dev build/prod
-	@make build > /dev/null 2>&1
+	@output=$$(make build 2>&1) || { echo "$$output"; exit 1; }
 	@echo "Starting server in background..."
 	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m main > /tmp/tasks_e2e.log 2>&1 &
 	@SERVER_PID=$$!; \

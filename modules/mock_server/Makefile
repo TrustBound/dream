@@ -32,7 +32,7 @@ test-integration:
 	fi
 	@echo "Building Gleam application..."
 	@rm -rf build/dev build/prod
-	@gleam build > /dev/null 2>&1
+	@output=$$(gleam build 2>&1) || { echo "$$output"; exit 1; }
 	@echo "Starting server in background..."
 	@../../integration/run-scenarios.sh mock_server 3004 standalone http1
 	@../../integration/run-scenarios.sh mock_server 3004 tls_standalone http2
