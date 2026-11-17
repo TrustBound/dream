@@ -26,7 +26,7 @@ A standalone module for loading configuration from environment variables and `.e
 gleam add dream_config
 ```
 
-## Quick Start <a href="https://github.com/TrustBound/dream/blob/dream_config-1.0.2/modules/config/test/snippets/readme_quick_start.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Quick Start <a href="https://github.com/TrustBound/dream/blob/dream_config-1.1.0/modules/config/test/snippets/readme_quick_start.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_config/loader as config
@@ -62,7 +62,7 @@ Both return `Error(String)` with the path and the reason when the file cannot be
 
 The format is `NAME=VALUE`, one variable on each line. Lines that start with `#` are comments, and values can be in double quotes, single quotes or backticks. Names are changed to upper case.
 
-#### Load two files <a href="https://github.com/TrustBound/dream/blob/dream_config-1.0.2/modules/config/test/snippets/readme_load_env_files.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Load two files <a href="https://github.com/TrustBound/dream/blob/dream_config-1.1.0/modules/config/test/snippets/readme_load_env_files.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_config/loader as config
@@ -81,7 +81,7 @@ pub fn load_env_files(env_file_path: String) -> Result(Nil, String) {
 
 Use `get_required*` functions for values your application cannot run without:
 
-#### Load required settings <a href="https://github.com/TrustBound/dream/blob/dream_config-1.0.2/modules/config/test/snippets/readme_required_values.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Load required settings <a href="https://github.com/TrustBound/dream/blob/dream_config-1.1.0/modules/config/test/snippets/readme_required_values.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_config/loader as config
@@ -103,7 +103,7 @@ pub fn load_config() -> Result(AppConfig, String) {
 
 Use `get*` functions for values with sensible defaults:
 
-#### Read optional settings <a href="https://github.com/TrustBound/dream/blob/dream_config-1.0.2/modules/config/test/snippets/readme_optional_values.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Read optional settings <a href="https://github.com/TrustBound/dream/blob/dream_config-1.1.0/modules/config/test/snippets/readme_optional_values.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_config/loader as config
@@ -129,7 +129,7 @@ The `get_bool()` function treats these as `True`, in any mix of upper and lower 
 
 Everything else (including unset, and values with spaces around them) is `False`:
 
-#### Pick a log level from DEBUG <a href="https://github.com/TrustBound/dream/blob/dream_config-1.0.2/modules/config/test/snippets/readme_boolean_values.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Pick a log level from DEBUG <a href="https://github.com/TrustBound/dream/blob/dream_config-1.1.0/modules/config/test/snippets/readme_boolean_values.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_config/loader as config

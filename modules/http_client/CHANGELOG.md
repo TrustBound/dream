@@ -123,6 +123,10 @@ version.
   builder/getter round-trips, default values, edge cases, builder chaining,
   transport application, and concurrent streaming scenarios.
 
+### Testing
+
+- 288 tests, 0 failed, in about 100 seconds (with the mock server). Apple M1 Max, 10 cores, 64 GB, macOS 26.5.1, OTP 29, Gleam 1.17.0.
+
 ## 5.1.3 - 2026-03-17
 
 ### Fixed

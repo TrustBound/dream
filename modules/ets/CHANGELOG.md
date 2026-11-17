@@ -5,7 +5,7 @@ All notable changes to `dream_ets` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 3.0.0 - Unreleased
 
 ### Fixed
 
@@ -45,6 +45,10 @@ the same way. Code that matched on `EtsFfiError` must handle
 - The `member()` and `insert_new()` doc comment examples are now tested
   snippets, and the README's error-handling example has a test for its
   `TableNotFound` branch.
+
+### Testing
+
+- 104 tests, 0 failed, in about 0.3 seconds. Apple M1 Max, 10 cores, 64 GB, macOS 26.5.1, OTP 29, Gleam 1.17.0.
 
 ## 2.0.0 - 2025-12-08
 

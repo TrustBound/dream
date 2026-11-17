@@ -25,7 +25,7 @@ A standalone module providing convenience functions for encoding optional values
 gleam add dream_json
 ```
 
-## Quick Start <a href="https://github.com/TrustBound/dream/blob/dream_json-1.0.2/modules/json/test/snippets/quick_start.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Quick Start <a href="https://github.com/TrustBound/dream/blob/dream_json-1.0.3/modules/json/test/snippets/quick_start.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_json/json_encoders as encoders
@@ -51,7 +51,7 @@ pub fn user_json(created_at: Timestamp) -> String {
 
 All `optional_*` functions convert `Option` types to JSON, encoding `Some(value)` as the JSON value and `None` as `null`:
 
-#### Encode optional fields <a href="https://github.com/TrustBound/dream/blob/dream_json-1.0.2/modules/json/test/snippets/optional_values.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Encode optional fields <a href="https://github.com/TrustBound/dream/blob/dream_json-1.0.3/modules/json/test/snippets/optional_values.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_json/json_encoders as encoders
@@ -80,7 +80,7 @@ pub fn profile_json() -> String {
 
 Encode timestamps as ISO 8601 strings:
 
-#### Encode a timestamp <a href="https://github.com/TrustBound/dream/blob/dream_json-1.0.2/modules/json/test/snippets/timestamps.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Encode a timestamp <a href="https://github.com/TrustBound/dream/blob/dream_json-1.0.3/modules/json/test/snippets/timestamps.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_json/json_encoders as encoders

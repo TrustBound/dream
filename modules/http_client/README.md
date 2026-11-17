@@ -69,7 +69,7 @@ gleam add dream_http_client
 
 Make a simple HTTP request:
 
-### Simple GET request <a href="https://github.com/TrustBound/dream/blob/dream_http_client-5.1.3/modules/http_client/test/snippets/blocking_request.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Simple GET request <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/blocking_request.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/client.{
@@ -98,7 +98,7 @@ dream_http_client provides three execution modes. Choose based on your use case:
 
 **Best for:** JSON APIs, small responses
 
-#### Send and handle errors <a href="https://github.com/TrustBound/dream/blob/dream_http_client-5.1.3/modules/http_client/test/snippets/blocking_send.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Send and handle errors <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/blocking_send.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/client.{
@@ -128,7 +128,7 @@ pub fn fetch_text() -> Result(String, String) {
 
 **Best for:** AI/LLM streaming, file downloads, sequential processing
 
-#### Count the bytes of a stream <a href="https://github.com/TrustBound/dream/blob/dream_http_client-5.1.3/modules/http_client/test/snippets/stream_yielder_basic.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Count the bytes of a stream <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/stream_yielder_basic.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/client.{
@@ -164,7 +164,7 @@ fn add_chunk_size(
 
 **Best for:** Background tasks, concurrent operations, cancellable streams
 
-#### Stream with callbacks <a href="https://github.com/TrustBound/dream/blob/dream_http_client-5.1.3/modules/http_client/test/snippets/stream_messages_basic.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Stream with callbacks <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/stream_messages_basic.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/client.{
@@ -239,7 +239,7 @@ fn print_stream_error(failure: StreamFailure) -> Nil {
 
 Configure connection behavior on individual requests:
 
-#### Connect timeout and redirects <a href="https://github.com/TrustBound/dream/blob/dream_http_client-5.1.3/modules/http_client/test/snippets/per_request_settings.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Connect timeout and redirects <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/per_request_settings.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/client.{type HttpResponse, type SendError}
@@ -272,7 +272,7 @@ pub fn fetch_without_redirect() -> Result(HttpResponse, SendError) {
 
 Configure the gun connection pool (global, affects all requests):
 
-#### High-concurrency pool <a href="https://github.com/TrustBound/dream/blob/dream_http_client-5.1.3/modules/http_client/test/snippets/transport_config_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### High-concurrency pool <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/transport_config_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/client
@@ -324,7 +324,7 @@ Streaming recordings capture each chunk along with timing information.
 The same fixture format is shared between `stream_yielder()` and `start_stream()`,
 so recordings made with one can be played back by either.
 
-### Quick Example <a href="https://github.com/TrustBound/dream/blob/dream_http_client-5.1.3/modules/http_client/test/snippets/recording_basic.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Quick Example <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/recording_basic.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/client.{
@@ -407,7 +407,7 @@ pub fn play_back_text(
 
 **Testing:**
 
-#### Play back fixtures in tests <a href="https://github.com/TrustBound/dream/blob/dream_http_client-5.1.3/modules/http_client/test/snippets/recording_playback.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Play back fixtures in tests <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/recording_playback.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/client.{
@@ -444,7 +444,7 @@ Record API responses once, then work offline using recorded responses.
 **Debugging Production:**
 Record problematic request/response pairs for investigation.
 
-### Request Matching <a href="https://github.com/TrustBound/dream/blob/dream_http_client-5.1.3/modules/http_client/test/snippets/matching_config.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Request Matching <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/matching_config.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/matching
@@ -478,7 +478,7 @@ pub fn start_playback(
 If your requests contain secrets (like `Authorization` headers) or volatile fields (timestamps, request IDs),
 you can attach a transformer to **normalize** requests _before_ the key is computed and before anything is persisted.
 
-#### Scrub the request <a href="https://github.com/TrustBound/dream/blob/dream_http_client-5.1.3/modules/http_client/test/snippets/recording_transformer.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Scrub the request <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/recording_transformer.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/matching
@@ -539,7 +539,7 @@ pub fn start_scrubbing_recorder(
 If you need to scrub **responses** (cookies, tokens, PII) before fixtures are written to disk, use a response transformer.
 This runs **only in record mode**.
 
-#### Scrub the response <a href="https://github.com/TrustBound/dream/blob/dream_http_client-5.1.3/modules/http_client/test/snippets/recording_response_transformer.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Scrub the response <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/recording_response_transformer.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/recorder.{
@@ -589,7 +589,7 @@ pub fn start_scrubbing_recorder(
 Playback **errors** if more than one recording matches the same request key. This is intentional: it forces you to
 refine your key function (or add a transformer) so each request maps to exactly one recording.
 
-#### Playback with a method and URL key <a href="https://github.com/TrustBound/dream/blob/dream_http_client-5.1.3/modules/http_client/test/snippets/recording_ambiguous_match.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Playback with a method and URL key <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/recording_ambiguous_match.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/matching
@@ -636,7 +636,7 @@ mocks/api/POST_localhost__text_c7d8e9_4f22bc.json
 
 ## API Reference
 
-### Builder Pattern <a href="https://github.com/TrustBound/dream/blob/dream_http_client-5.1.3/modules/http_client/test/snippets/request_builder.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Builder Pattern <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/request_builder.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/client.{
@@ -702,7 +702,7 @@ pub fn send_post() -> Result(HttpResponse, SendError) {
 
 All modes use `Result` types for explicit error handling:
 
-#### Handle each kind of error <a href="https://github.com/TrustBound/dream/blob/dream_http_client-5.1.3/modules/http_client/test/snippets/timeout_config.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Handle each kind of error <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/timeout_config.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/client.{

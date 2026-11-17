@@ -61,12 +61,15 @@ for project in $projects; do
   fi
 
   echo "📦 Resolving $project..."
-  # A project that already locks dream or dream_http_server must unlock them,
-  # or an old locked version conflicts with a new version Dream needs.
-  if grep -q 'name = "dream", ' "$project/manifest.toml" 2>/dev/null; then
-    command="gleam update dream dream_http_server"
-  elif grep -q 'name = "dream_http_server"' "$project/manifest.toml" 2>/dev/null; then
-    command="gleam update dream_http_server"
+  # A project must unlock the local packages it uses (dream and its modules)
+  # and dream_http_server, or an old locked version conflicts with a new
+  # version in a gleam.toml.
+  unlock=$(grep -o 'name = "[a-z_]*", version = "[^"]*", build_tools = \["gleam"\], requirements = \[[^]]*\], source = "local"' "$project/manifest.toml" 2>/dev/null | sed 's/name = "\([a-z_]*\)".*/\1/' | tr '\n' ' ')
+  if grep -q 'name = "dream_http_server"' "$project/manifest.toml" 2>/dev/null; then
+    unlock="$unlock dream_http_server"
+  fi
+  if [ -n "$(echo $unlock)" ]; then
+    command="gleam update $unlock"
   else
     command="gleam deps download"
   fi

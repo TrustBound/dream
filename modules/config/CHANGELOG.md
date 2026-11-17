@@ -5,7 +5,7 @@ All notable changes to `dream_config` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 1.1.0 - Unreleased
 
 ### Fixed
 - `load_dotenv()` and `load_dotenv_from(path)` always returned `Ok(Nil)`,
@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `1`.
 
 ### Changed
+- `dream_config` no longer depends on `dot_env`. It reads `.env` files with
+  its own reader.
 - Each code example in the `dream_config/loader` doc comments is now a
   tested snippet, and the examples are valid Gleam.
 
@@ -48,6 +50,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is now an error.
 - `get_bool` now returns `True` for values such as `tRUE` or `Yes` that it
   returned `False` for before.
+
+### Testing
+
+- 61 tests, 0 failed, in about 0.4 seconds. Apple M1 Max, 10 cores, 64 GB, macOS 26.5.1, OTP 29, Gleam 1.17.0.
 
 ## 1.0.2 - 2025-11-21
 
