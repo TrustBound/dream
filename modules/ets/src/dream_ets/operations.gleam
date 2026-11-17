@@ -226,7 +226,7 @@ pub fn delete(table: table.Table(k, v), key: k) -> Result(Nil, table.EtsError) {
 ///
 /// ## Example
 ///
-/// ### Check whether a user exists <a href="https://github.com/TrustBound/dream/blob/dream_ets-2.0.0/modules/ets/test/snippets/doc_member.gleam#L11-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Check whether a user exists <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/doc_member.gleam#L11-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn describe_user(
@@ -519,7 +519,7 @@ pub fn to_list(
 ///
 /// ## Why Not Use `member()` + `set()`?
 ///
-/// ### Member and set, compared with insert_new <a href="https://github.com/TrustBound/dream/blob/dream_ets-2.0.0/modules/ets/test/snippets/doc_insert_new_race.gleam#L10-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Member and set, compared with insert_new <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/doc_insert_new_race.gleam#L10-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// // Race condition: another process can insert the key between the two calls
