@@ -138,7 +138,7 @@ pub fn validate_file_type(content_type: String) -> Result(Nil, String) {
 }
 ```
 
-## Secure Filenames <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/file_uploads_guide_upload.gleam#L120-L157"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+## Secure Filenames <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/file_uploads_guide_upload.gleam#L120-L158"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Make a random file name that keeps the original extension.
@@ -174,7 +174,8 @@ fn replace_unsafe_character(character: String) -> String {
   }
 }
 
-const safe_characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+const safe_characters =
+  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
 
 /// Random bytes from Erlang's crypto module.
 @external(erlang, "crypto", "strong_rand_bytes")

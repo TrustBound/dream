@@ -47,7 +47,7 @@ echo ""
 
 # Step 2: Resolve each project, one at a time.
 projects="."
-for dir in modules/*/ examples/*/; do
+for dir in modules/*/ examples/*/ integration/bridge/; do
   if [ -f "$dir/gleam.toml" ]; then
     projects="$projects ${dir%/}"
   fi

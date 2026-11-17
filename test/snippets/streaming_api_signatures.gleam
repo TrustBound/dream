@@ -14,9 +14,11 @@ import gleam/option.{type Option}
 import gleam/yielder.{type Yielder}
 import mist.{type Builder, type Connection, type ResponseData}
 
-pub const stream_response: fn(Int, Yielder(BitArray), String) -> Response = response.stream_response
+pub const stream_response: fn(Int, Yielder(BitArray), String) -> Response =
+  response.stream_response
 
-pub const sse_response: fn(Int, Yielder(BitArray), String) -> Response = response.sse_response
+pub const sse_response: fn(Int, Yielder(BitArray), String) -> Response =
+  response.sse_response
 
 pub const upgrade_to_sse: fn(
   Request,
@@ -25,7 +27,8 @@ pub const upgrade_to_sse: fn(
   fn(state, message, SSEConnection, deps) -> Action(state, message),
 ) -> Response = sse.upgrade_to_sse
 
-pub const send_event: fn(SSEConnection, Event) -> Result(Nil, Nil) = sse.send_event
+pub const send_event: fn(SSEConnection, Event) -> Result(Nil, Nil) =
+  sse.send_event
 
 pub const event: fn(String) -> Event = sse.event
 
@@ -35,7 +38,8 @@ pub const event_id: fn(Event, String) -> Event = sse.event_id
 
 pub const event_retry: fn(Event, Int) -> Event = sse.event_retry
 
-pub const continue_connection: fn(state) -> Action(state, message) = sse.continue_connection
+pub const continue_connection: fn(state) -> Action(state, message) =
+  sse.continue_connection
 
 pub const continue_connection_with_selector: fn(state, Selector(message)) ->
   Action(state, message) = sse.continue_connection_with_selector
@@ -67,4 +71,5 @@ pub const route: fn(
 pub const max_body_size: fn(
   Dream(Builder(Connection, ResponseData), context, services, router_state),
   Int,
-) -> Dream(Builder(Connection, ResponseData), context, services, router_state) = server.max_body_size
+) -> Dream(Builder(Connection, ResponseData), context, services, router_state) =
+  server.max_body_size

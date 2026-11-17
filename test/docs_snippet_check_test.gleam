@@ -28,7 +28,8 @@ import simplifile
 const snippet_path = "test/snippets/example.gleam"
 
 /// A snippet file with a module comment. Line 8 is indented.
-const snippet_source = "//// An example snippet.
+const snippet_source =
+  "//// An example snippet.
 
 import gleam/io
 
@@ -39,16 +40,19 @@ pub fn main() {
 }
 "
 
-const badge_end = "\"><img align=\"right\" alt=\"Tested snippet\" src=\"https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square\"></a>"
+const badge_end =
+  "\"><img align=\"right\" alt=\"Tested snippet\" src=\"https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square\"></a>"
 
-const diff_badge_end = "\"><img align=\"right\" alt=\"Tested diff\" src=\"https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square\"></a>"
+const diff_badge_end =
+  "\"><img align=\"right\" alt=\"Tested diff\" src=\"https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square\"></a>"
 
 /// The only file with a diff in the fake history: it changed between the
 /// tag 2.4.1 and the working tree.
 const diff_path = "src/app.gleam"
 
 /// The fake output of `git diff 2.4.1 -- src/app.gleam`.
-const fake_diff = "diff --git a/src/app.gleam b/src/app.gleam
+const fake_diff =
+  "diff --git a/src/app.gleam b/src/app.gleam
 index 1111111..2222222 100644
 --- a/src/app.gleam
 +++ b/src/app.gleam
@@ -1169,7 +1173,8 @@ fn scope_tests() -> UnitTest {
 /// A snippet in a module. Lines 3 to 5 are `main_function()`.
 const module_snippet_path = "modules/ets/test/snippets/basic_usage.gleam"
 
-const module_snippet_source = "import gleam/io
+const module_snippet_source =
+  "import gleam/io
 
 pub fn main() {
   io.println(\"hi\")

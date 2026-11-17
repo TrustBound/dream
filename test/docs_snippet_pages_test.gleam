@@ -10,7 +10,8 @@ import dream_test/assertions/should.{
 import dream_test/unit.{type UnitTest, describe, it}
 import gleam/option.{Some}
 
-const snippet_href = "https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_action_builders.gleam"
+const snippet_href =
+  "https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_action_builders.gleam"
 
 fn badge(href: String) -> String {
   "<p><a href=\"" <> href <> "\"><img src=\"badge.svg\"/></a></p>"

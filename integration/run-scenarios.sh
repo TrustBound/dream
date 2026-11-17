@@ -18,10 +18,11 @@ PROTOCOL=$4
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 LOG=/tmp/${NAME}_${PROTOCOL}_test.log
 
-(cd "$ROOT/integration/bridge" && gleam build > /dev/null 2>&1) || {
+if ! output=$(cd "$ROOT/integration/bridge" && gleam build 2>&1); then
+  echo "$output"
   echo "Failed to build integration/bridge"
   exit 1
-}
+fi
 
 SCHEME=http
 CA_FILE=""

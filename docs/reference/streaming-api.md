@@ -96,10 +96,11 @@ pub fn create_csv_export_response(rows: Yielder(BitArray)) -> Response {
 
 ## Response Builders
 
-### stream_response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### stream_response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L17-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub const stream_response: fn(Int, Yielder(BitArray), String) -> Response = response.stream_response
+pub const stream_response: fn(Int, Yielder(BitArray), String) -> Response =
+  response.stream_response
 ```
 
 Create a streaming response. The arguments are the status, the stream and
@@ -134,17 +135,18 @@ fn int_to_byte(number: Int) -> BitArray {
 > after a few events. Use `upgrade_to_sse` from `dream/servers/mist/sse`
 > instead. See the [SSE guide](../guides/sse.md).
 
-#### sse_response signature <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### sse_response signature <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L20-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub const sse_response: fn(Int, Yielder(BitArray), String) -> Response = response.sse_response
+pub const sse_response: fn(Int, Yielder(BitArray), String) -> Response =
+  response.sse_response
 ```
 
 ### Server-Sent Events (SSE)
 
 For full SSE documentation, see the [SSE guide](../guides/sse.md).
 
-#### upgrade_to_sse <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L21-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### upgrade_to_sse <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L23-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub const upgrade_to_sse: fn(
@@ -205,15 +207,16 @@ fn send_tick(
 one event and keeps the connection open. If an event cannot be sent because
 the client has gone, the actor stops.
 
-#### send_event <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### send_event <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L30-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub const send_event: fn(SSEConnection, Event) -> Result(Nil, Nil) = sse.send_event
+pub const send_event: fn(SSEConnection, Event) -> Result(Nil, Nil) =
+  sse.send_event
 ```
 
 Send an SSE event to the client.
 
-#### event / event_name / event_id / event_retry <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L30-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### event / event_name / event_id / event_retry <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L33-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub const event: fn(String) -> Event = sse.event
@@ -239,10 +242,11 @@ pub fn create_tick_event(count: Int) -> sse.Event {
 }
 ```
 
-#### continue_connection / stop_connection <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L38-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### continue_connection / stop_connection <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L41-L47"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub const continue_connection: fn(state) -> Action(state, message) = sse.continue_connection
+pub const continue_connection: fn(state) -> Action(state, message) =
+  sse.continue_connection
 
 pub const continue_connection_with_selector: fn(state, Selector(message)) ->
   Action(state, message) = sse.continue_connection_with_selector
@@ -255,7 +259,7 @@ Control the SSE actor loop. `continue_connection` keeps the actor alive,
 
 ## Router Functions
 
-### stream_route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L45-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### stream_route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L49-L59"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub const stream_route: fn(
@@ -312,7 +316,7 @@ pub fn create_router() -> Router(context, services) {
 `upload` and `replace_file` are controllers, and `require_api_key` is a
 middleware function in the same module.
 
-### route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L57-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L61-L71"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   Router(context, services),
@@ -421,13 +425,14 @@ fn to_csv_row(name: String) -> BitArray {
 
 ## Server Configuration
 
-### max_body_size <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L67-L70"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### max_body_size <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_api_signatures.gleam#L71-L75"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub const max_body_size: fn(
   Dream(Builder(Connection, ResponseData), context, services, router_state),
   Int,
-) -> Dream(Builder(Connection, ResponseData), context, services, router_state) = server.max_body_size
+) -> Dream(Builder(Connection, ResponseData), context, services, router_state) =
+  server.max_body_size
 ```
 
 Set maximum buffered body size in bytes. Import it from

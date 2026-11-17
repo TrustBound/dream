@@ -1398,7 +1398,8 @@ fn quick_sse_tests() -> UnitTest {
 
 const users_csv = "id,name,email\n1,Ada,ada@example.com\n2,Bo,bo@example.com\n"
 
-const progress_events = "data: {\"progress\": 0}\n\n"
+const progress_events =
+  "data: {\"progress\": 0}\n\n"
   <> "data: {\"progress\": 25}\n\n"
   <> "data: {\"progress\": 50}\n\n"
   <> "data: {\"progress\": 75}\n\n"

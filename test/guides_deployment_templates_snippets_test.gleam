@@ -424,18 +424,16 @@ fn request_until_closed(
 // Multiple formats
 // ---------------------------------------------------------------------------
 
-const write_docs = Task(
-  id: 1,
-  title: "Write docs",
-  completed: True,
-  tags: [Tag(name: "docs")],
-)
+const write_docs =
+  Task(id: 1, title: "Write docs", completed: True, tags: [Tag(name: "docs")])
 
 const fix_bug = Task(id: 2, title: "Fix bug", completed: False, tags: [])
 
-const write_docs_card = "<article id=\"task-1\"><label><input type=\"checkbox\" id=\"checkbox-1\" name=\"completed\" checked hx-post=\"/tasks/1/toggle\"></label><input id=\"title-1\" name=\"title\" value=\"Write docs\" readonly><mark>docs</mark></article>"
+const write_docs_card =
+  "<article id=\"task-1\"><label><input type=\"checkbox\" id=\"checkbox-1\" name=\"completed\" checked hx-post=\"/tasks/1/toggle\"></label><input id=\"title-1\" name=\"title\" value=\"Write docs\" readonly><mark>docs</mark></article>"
 
-const fix_bug_card = "<article id=\"task-2\"><label><input type=\"checkbox\" id=\"checkbox-2\" name=\"completed\"  hx-post=\"/tasks/2/toggle\"></label><input id=\"title-2\" name=\"title\" value=\"Fix bug\" readonly></article>"
+const fix_bug_card =
+  "<article id=\"task-2\"><label><input type=\"checkbox\" id=\"checkbox-2\" name=\"completed\"  hx-post=\"/tasks/2/toggle\"></label><input id=\"title-2\" name=\"title\" value=\"Fix bug\" readonly></article>"
 
 fn route_task_request(request: Request) -> Response {
   let task_router =
@@ -745,7 +743,8 @@ fn operations_tests() -> UnitTest {
 // Templates
 // ---------------------------------------------------------------------------
 
-const task_form_html = "<form hx-post=\"/tasks\"><input id=\"new-title\" name=\"title\" value=\"\" required><button id=\"submit-btn\" type=\"submit\" >Save Task</button></form>"
+const task_form_html =
+  "<form hx-post=\"/tasks\"><input id=\"new-title\" name=\"title\" value=\"\" required><button id=\"submit-btn\" type=\"submit\" >Save Task</button></form>"
 
 fn templates_tests() -> UnitTest {
   describe("templates guide", [

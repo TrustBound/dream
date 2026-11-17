@@ -176,7 +176,8 @@ const badge_start = " <a href=\""
 
 /// The exact text after the link address of a badge, to the end of the
 /// heading.
-const badge_end = "\"><img align=\"right\" alt=\"Tested snippet\" src=\"https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square\"></a>"
+const badge_end =
+  "\"><img align=\"right\" alt=\"Tested snippet\" src=\"https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square\"></a>"
 
 /// The start of every diff badge link: GitHub's compare view of the dream
 /// repository.
@@ -184,7 +185,8 @@ const repository_compare_prefix = "https://github.com/TrustBound/dream/compare/"
 
 /// The exact text after the link address of a diff badge, to the end of the
 /// heading.
-const diff_badge_end = "\"><img align=\"right\" alt=\"Tested diff\" src=\"https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square\"></a>"
+const diff_badge_end =
+  "\"><img align=\"right\" alt=\"Tested diff\" src=\"https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square\"></a>"
 
 /// The start of the anchor that names one file in a compare view. The
 /// SHA-256 hex digest of the file's path follows it.
@@ -831,7 +833,8 @@ pub fn describe_problem(problem: Problem) -> String {
 
 /// The end of the message of a wrong tag: where the expected tag comes
 /// from.
-const tag_rule = " (the docs of dream use the version in gleam.toml; a module README uses <name>-<version> from the gleam.toml of its module)"
+const tag_rule =
+  " (the docs of dream use the version in gleam.toml; a module README uses <name>-<version> from the gleam.toml of its module)"
 
 /// Describes why a code block fails the check.
 pub fn describe_reason(reason: Reason) -> String {
@@ -1725,9 +1728,11 @@ pub fn is_safe_path(path: String) -> Bool {
   && !string.starts_with(path, "-")
 }
 
-const tag_characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+const tag_characters =
+  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
 
-const path_characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-/"
+const path_characters =
+  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-/"
 
 fn is_made_of(text: String, characters: String) -> Bool {
   text

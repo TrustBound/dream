@@ -150,7 +150,8 @@ fn replace_unsafe_character(character: String) -> String {
   }
 }
 
-const safe_characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+const safe_characters =
+  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
 
 /// Random bytes from Erlang's crypto module.
 @external(erlang, "crypto", "strong_rand_bytes")

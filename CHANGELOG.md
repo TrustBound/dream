@@ -86,6 +86,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Testing
 
+- CI and the publish workflows use Gleam 1.19.2. Dream, its modules and the
+  examples build and pass their tests on Gleam 1.19.2.
 - 952 tests run, 0 failed, in about 7 seconds (MacBook, OTP 28, Gleam
   1.17.0). The snippet check finds 509 code blocks with no problems. The integration tests run every scenario of the mock server and
   ten examples over HTTP/1.1 and over HTTP/2 with TLS.
