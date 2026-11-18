@@ -1,73 +1,70 @@
-//// Recording and Playback
+//// README: Recording & Playback, Quick Example
 ////
-//// Example snippet showing how to record and playback HTTP requests.
-////
-//// Note: Tests use localhost:9876 (mock server) instead of external APIs
+//// Records a real request, then plays it back with no network call.
 
 import dream_http_client/client.{
-  HttpResponse, host, path, port, recorder as with_recorder, scheme, send,
+  type HttpResponse, type SendError, host, path, port, recorder as with_recorder,
+  scheme, send,
 }
 import dream_http_client/recorder.{directory, mode, start}
 import gleam/http
 import gleam/result
-import simplifile
 
-pub fn record_and_playback() -> Result(Bool, String) {
-  let recordings_directory_path = "build/test_recordings_snippet"
+pub type RecordingError {
+  RecorderFailed(reason: String)
+  RequestFailed(error: SendError)
+}
 
-  // Clean up from previous runs
-  let _ = simplifile.delete(recordings_directory_path)
-
-  // 1. Record a real request
-  use rec <- result.try(
+// Record real requests
+pub fn record_text(
+  recordings_directory: String,
+) -> Result(HttpResponse, RecordingError) {
+  use record_recorder <- result.try(
     recorder.new()
-    |> directory(recordings_directory_path)
+    |> directory(recordings_directory)
     |> mode("record")
-    |> start(),
+    |> start()
+    |> result.map_error(RecorderFailed),
   )
 
-  let request_result =
+  let response =
     client.new()
     |> scheme(http.Http)
     |> host("localhost")
     |> port(9876)
     |> path("/text")
-    |> with_recorder(rec)
+    |> with_recorder(record_recorder)
     |> send()
+    |> result.map_error(RequestFailed)
 
-  // Recording is saved immediately, stop is optional
-  let _ = recorder.stop(rec)
-
-  use HttpResponse(body: original_body, ..) <- result.try(
-    request_result |> result.map_error(fn(_) { "Request failed" }),
+  // The recorder writes each recording in its own process. Stop returns
+  // when every recording is on disk.
+  use Nil <- result.try(
+    recorder.stop(record_recorder)
+    |> result.map_error(RecorderFailed),
   )
+  response
+}
 
-  // 2. Playback from recording (no network call)
-  use playback_rec <- result.try(
+// Playback later (no network)
+pub fn play_back_text(
+  recordings_directory: String,
+) -> Result(HttpResponse, RecordingError) {
+  use playback_recorder <- result.try(
     recorder.new()
-    |> directory(recordings_directory_path)
+    |> directory(recordings_directory)
     |> mode("playback")
-    |> start(),
+    |> start()
+    |> result.map_error(RecorderFailed),
   )
 
-  let playback_result =
-    client.new()
-    |> scheme(http.Http)
-    |> host("localhost")
-    |> port(9876)
-    |> path("/text")
-    |> with_recorder(playback_rec)
-    |> send()
-
-  let _ = recorder.stop(playback_rec)
-
-  use HttpResponse(body: playback_body, ..) <- result.try(
-    playback_result |> result.map_error(fn(_) { "Playback failed" }),
-  )
-
-  // Cleanup
-  let _ = simplifile.delete(recordings_directory_path)
-
-  // Verify bodies match
-  Ok(original_body == playback_body)
+  // Returns the recorded response
+  client.new()
+  |> scheme(http.Http)
+  |> host("localhost")
+  |> port(9876)
+  |> path("/text")
+  |> with_recorder(playback_recorder)
+  |> send()
+  |> result.map_error(RequestFailed)
 }

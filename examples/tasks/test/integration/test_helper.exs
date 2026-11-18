@@ -1,3 +1,7 @@
+# Requests go through dream_http_client (see integration/elixir/dream_http.exs)
+Code.require_file("../../../../integration/elixir/dream_http.exs", __DIR__)
+DreamHttp.setup()
+
 # Load test environment variables
 env_test_path = Path.join([__DIR__, "..", "..", ".env.test"])
 

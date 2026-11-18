@@ -19,23 +19,40 @@ You're not locked into Dream's choices. Use the router with your own server. Use
 
 If something happens, it should be visible in your code.
 
-**Bad (implicit):**
+#### Bad: a start helper hides the configuration <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_implicit.gleam#L15-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn main() {
-  Framework.start()  // What does this do? Who knows!
+  start()
+}
+
+pub fn start() -> Nil {
+  configure_server()
+  |> server.listen(8080)
+}
+
+pub fn configure_server() {
+  server.new()
+  |> server.services(Services(database_url: "postgres://localhost/app"))
+  |> server.router(
+    router()
+    |> route(method: Get, path: "/", controller: show_home, middleware: []),
+  )
+  |> server.bind("0.0.0.0")
 }
 ```
 
-**Good (explicit):**
+`main` only calls `start()`. To find the port, the bind address, the services and the routes, you must read `start` and then `configure_server`.
+
+#### Good: main shows the configuration <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_explicit.gleam#L14-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn main() {
-  dream.new()
-  |> services(initialize_services())
-  |> router(create_router())
-  |> bind("localhost")
-  |> listen(3000)
+  server.new()
+  |> server.services(initialize_services())
+  |> server.router(create_router())
+  |> server.bind("localhost")
+  |> server.listen(3000)
 }
 ```
 
@@ -45,25 +62,35 @@ Everything your app does is right there. No hidden configuration.
 
 Closures hide dependencies. Explicit parameters make them visible.
 
-**Bad (closure):**
+#### Bad: the controller captures the database <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_closures.gleam#L22-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn make_controller(db: Database) -> fn(Request) -> Response {
-  fn(request) {
-    // db is captured - not obvious from signature
-    query_database(db, request.params)
+pub fn create_controller(
+  database: Database,
+) -> fn(Request, EmptyContext, EmptyServices) -> Response {
+  fn(request, _context, _services) {
+    // database is captured: the controller's type does not show it
+    show_user_name(database, request)
   }
 }
 ```
 
-**Good (explicit):**
+The returned controller uses `database`, but its type, `fn(Request, EmptyContext, EmptyServices) -> Response`, does not show it.
+
+#### Good: the database comes from Services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_closures.gleam#L31-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn controller(request: Request, context: Context, services: Services) -> Response {
-  let db = services.database  // Dependency explicit
-  query_database(db, request.params)
+pub fn controller(
+  request: Request,
+  _context: EmptyContext,
+  services: Services,
+) -> Response {
+  let database = services.database
+  show_user_name(database, request)
 }
 ```
+
+The signature shows that the controller reads `services`, and a test can pass in any database.
 
 Future you will thank present you.
 
@@ -117,13 +144,18 @@ We chose developer velocity over perfect explicitness. But we keep Services smal
 
 Middleware chains explicitly per route:
 
+#### Middleware listed on the route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_middleware.gleam#L72-L80"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-route(
-  method: Get,
-  path: "/admin",
-  controller: admin_controller,
-  middleware: [auth, admin_check],
-)
+pub fn create_router() -> Router(Context, Services) {
+  router()
+  |> route(
+    method: Get,
+    path: "/admin",
+    controller: show_admin_page,
+    middleware: [require_user, require_admin],
+  )
+}
 ```
 
 No global middleware. No hidden processing.
@@ -147,8 +179,23 @@ Exceptions are for exceptional circumstances (out of memory, etc.). Business log
 
 Server, router, HTTP client—all use the builder pattern:
 
+#### Configure the server step by step <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_builder.gleam#L15-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-thing.new() |> configure(...) |> configure(...) |> finalize()
+pub fn configure_server() {
+  server.new()
+  |> server.router(
+    router()
+    |> route(method: Get, path: "/", controller: show_home, middleware: []),
+  )
+  |> server.bind("localhost")
+  |> server.max_body_size(1_000_000)
+}
+
+pub fn main() {
+  configure_server()
+  |> server.listen(3000)
+}
 ```
 
 **Why?**

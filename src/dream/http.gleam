@@ -5,22 +5,28 @@
 ////
 //// Instead of importing from multiple modules:
 ////
+//// ### Import each module <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_separate_imports.gleam#L1-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
+//// import dream/http/params.{require_int}
 //// import dream/http/request.{type Request}
 //// import dream/http/response.{json_response}
 //// import dream/http/status
-//// import dream/http/params.{require_int}
 //// ```
 ////
 //// You can just import one:
 ////
+//// ### Import dream/http <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_single_import.gleam#L1-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
 //// import dream/http
+//// import gleam/json
 ////
-//// pub fn show(request: http.Request, context, services) -> http.Response {
-////   use id <- result.try(http.require_int(request, "id"))
-////   let user = get_user(services.db, id)
-////   http.json_response(http.ok, user_to_json(user))
+//// pub fn show(request: http.Request, _context, _services) -> http.Response {
+////   case http.require_int(request, "id") {
+////     Ok(id) -> http.json_response(http.ok, user_to_json(id))
+////     Error(_) -> http.json_response(http.bad_request, error_json())
+////   }
 //// }
 //// ```
 ////
@@ -29,15 +35,15 @@
 //// This module re-exports:
 ////
 //// **Types:**
-//// - `Request`, `Response`, `Method`, `Protocol`, `Version`
+//// - `Request`, `RequestBody`, `Response`, `Method`, `Protocol`, `Version`
 //// - `Header`, `Cookie`, `SameSite`, `PathParam`
 //// - `ResponseBody`, `Error`
 ////
 //// **Functions:**
 //// - Response builders: `text_response`, `json_response`, `html_response`, etc.
 //// - Status codes: `ok`, `created`, `bad_request`, `not_found`, etc.
-//// - Parameter validation: `require_int`, `require_string`, `require_form`, etc.
-//// - Header utilities: `get_header`, `set_header`, `add_header`, etc.
+//// - Parameter validation: `require_int`, `require_string`, `require_form`, `require_json`, etc.
+//// - Header utilities: `get_header`, `header_name` and `header_value`. Import `dream/http/header` for `set_header`, `add_header` and `remove_header`.
 //// - Cookie utilities: `get_cookie`, `simple_cookie`, `secure_cookie`, etc.
 //// - Request utilities: `get_param`, `get_query_param`, `has_content_type`, etc.
 ////
@@ -46,9 +52,14 @@
 //// Use `dream/http` in controllers for convenience. For more specific imports
 //// or when you only need one or two functions, import the specific submodule:
 ////
+//// ### Import one submodule <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_submodule_imports.gleam#L1-L5"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
-//// import dream/http/status  // Just status codes
-//// import dream/http/error.{type Error}  // Just error type
+//// // Just status codes
+//// import dream/http/status
+////
+//// // Just error type
+//// import dream/http/error.{type Error}
 //// ```
 
 // Re-export request types and functions
@@ -66,6 +77,9 @@ pub type Version =
 
 pub type PathParam =
   request.PathParam
+
+pub type RequestBody =
+  request.RequestBody
 
 // Request functions
 pub const method_to_string = request.method_to_string
@@ -191,6 +205,8 @@ pub const require_int = params.require_int
 pub const require_string = params.require_string
 
 pub const require_form = params.require_form
+
+pub const require_json = params.require_json
 
 pub const require_field = params.require_field
 

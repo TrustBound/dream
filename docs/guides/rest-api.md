@@ -6,42 +6,54 @@ Production-ready patterns for building REST APIs with Dream.
 
 ### Offset-based Pagination
 
-```gleam
-import dream/http/error.{type Error, InternalServerError}
-import gleam/list.{List, map}
-import pog.{Connection, Returned}
-import sql
-import types/product.{Product}
+A database model wraps a Squirrel query and returns domain types. This model from the database example lists all users:
 
-// models/product.gleam
-pub fn list_paginated(
-  db: Connection,
-  offset: Int,
-  limit: Int,
-) -> Result(List(Product), Error) {
-  case sql.list_products_paginated(db, offset, limit) {
-    Ok(returned) -> Ok(map(returned.rows, row_to_product))
+#### Users model <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L15-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+/// List all users
+pub fn list(db: pog.Connection) -> Result(List(User), Error) {
+  case sql.list_users(db) {
+    Ok(returned) -> Ok(extract_all_users(returned))
     Error(_) -> Error(InternalServerError("Database error"))
   }
 }
 ```
 
+For offset pagination, add `offset` and `limit` parameters to the function, and pass them to an SQL query with `OFFSET $1 LIMIT $2`.
+
+#### Products controller with offset and limit <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_pagination.gleam#L6-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import dream/http.{type Request, type Response, json_response, ok, internal_server_error, get_query_param}
-import dream/context.{AppContext}
+import dream/context.{type AppContext}
+import dream/http.{
+  type Request, type Response, get_query_param, internal_server_error,
+  json_response, ok,
+}
+import dream/http/error.{type Error}
 import gleam/int
-import gleam/option.{Option, None, Some, unwrap}
-import models/product.{list_paginated}
-import services.{Services}
-import views/product_view.{to_json_with_pagination}
+import gleam/json
+import gleam/list
+import gleam/option.{type Option, None, Some, unwrap}
 
 // controllers/products_controller.gleam
-pub fn index(request: Request, context: AppContext, services: Services) -> Response {
-  let offset = get_query_param(request, "offset") |> parse_optional_int |> unwrap(0)
-  let limit = get_query_param(request, "limit") |> parse_optional_int |> unwrap(20)
-  
-  case list_paginated(services.db, offset, limit) {
-    Ok(products) -> json_response(ok, to_json_with_pagination(products, offset, limit))
+pub fn index(
+  request: Request,
+  _context: AppContext,
+  services: Services,
+) -> Response {
+  let offset =
+    get_query_param(request.query, "offset")
+    |> parse_optional_int
+    |> unwrap(0)
+  let limit =
+    get_query_param(request.query, "limit")
+    |> parse_optional_int
+    |> unwrap(20)
+
+  case list_paginated(services.products, offset, limit) {
+    Ok(products) ->
+      json_response(ok, to_json_with_pagination(products, offset, limit))
     Error(_) -> internal_error_response()
   }
 }
@@ -52,46 +64,99 @@ fn internal_error_response() -> Response {
 
 fn parse_optional_int(value: Option(String)) -> Option(Int) {
   case value {
-    Some(str) -> parse_int_string(str)
+    Some(text) -> parse_int_string(text)
     None -> None
   }
 }
 
-fn parse_int_string(str: String) -> Option(Int) {
-  case int.parse(str) {
-    Ok(num) -> Some(num)
+fn parse_int_string(text: String) -> Option(Int) {
+  case int.parse(text) {
+    Ok(number) -> Some(number)
     Error(_) -> None
   }
 }
 ```
 
+The controller reads `offset` and `limit` from the query string, for
+example `GET /products?offset=20&limit=20`. To keep the tested snippet
+self-contained, its `list_paginated` reads from a list in `Services`; a real
+app calls a database model like the one above.
+
 ### Cursor-based Pagination
 
-```gleam
-import dream/http/error.{type Error}
-import gleam/list.{List}
-import gleam/option.{Option, None, Some}
-import pog.{Connection}
-import types/product.{Product}
+A cursor marks the last row the client saw. The client sends it back to get the next page. This model encodes the last id on the page as an opaque base64 string:
 
+#### Products model with a cursor <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_cursor_pagination.gleam#L14-L69"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub type Product {
+  Product(id: Int, name: String)
+}
+
+pub type Page {
+  Page(items: List(Product), next_cursor: Option(String))
+}
+
+// models/product.gleam
 pub fn list_after(
-  db: Connection,
-  after_id: Option(Int),
+  products: List(Product),
+  cursor: Option(String),
   limit: Int,
-) -> Result(List(Product), Error) {
-  case after_id {
-    None -> sql.list_products(db, limit)
-    Some(id) -> sql.list_products_after(db, id, limit)
+) -> Result(Page, Error) {
+  case decode_cursor(cursor) {
+    Ok(after_id) -> Ok(page_after(products, after_id, limit))
+    Error(_) -> Error(BadRequest("Invalid cursor"))
   }
+}
+
+fn page_after(products: List(Product), after_id: Int, limit: Int) -> Page {
+  // Read one row more than the page holds, to know if a next page exists
+  let rows =
+    products
+    |> list.drop_while(is_at_or_before(_, after_id))
+    |> list.take(limit + 1)
+  let items = list.take(rows, limit)
+  case list.length(rows) > limit, list.last(items) {
+    True, Ok(last) -> Page(items, Some(encode_cursor(last.id)))
+    _, _ -> Page(items, None)
+  }
+}
+
+fn is_at_or_before(product: Product, after_id: Int) -> Bool {
+  product.id <= after_id
+}
+
+fn encode_cursor(id: Int) -> String {
+  int.to_string(id)
+  |> bit_array.from_string
+  |> bit_array.base64_url_encode(False)
+}
+
+fn decode_cursor(cursor: Option(String)) -> Result(Int, Nil) {
+  case cursor {
+    // No cursor: start before the first id
+    None -> Ok(0)
+    Some(text) -> parse_cursor(text)
+  }
+}
+
+fn parse_cursor(text: String) -> Result(Int, Nil) {
+  use bits <- result.try(bit_array.base64_url_decode(text))
+  use digits <- result.try(bit_array.to_string(bits))
+  int.parse(digits)
 }
 ```
 
+The model reads one row more than `limit`. If that extra row exists, the page gets a `next_cursor`. The last page has no `next_cursor`. A cursor that does not decode to an id gives a `BadRequest` error.
+
+To keep the tested snippet self-contained, `list_after` reads from a list. A real app runs the same logic in SQL: `WHERE id > $1 ORDER BY id LIMIT $2`, with `$2` set to `limit + 1`.
+
 ## Validation
 
-### Input Validation
+### Input Validation <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_validation.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import gleam/dynamic/decode.{Decoder, field, string, int, success, failure}
+import gleam/dynamic/decode.{type Decoder, field, int, string, success}
 import gleam/string.{is_empty}
 
 pub type ProductData {
@@ -102,101 +167,158 @@ pub fn decoder() -> Decoder(ProductData) {
   use name <- field("name", string)
   use price <- field("price", int)
   use description <- field("description", string)
-  
-  // Validate after decoding
-  case validate_product_data(name, price, description) {
-    Ok(data) -> success(data)
-    Error(msg) -> failure(msg, "ProductData")
-  }
+  success(ProductData(name, price, description))
 }
 
-fn validate_product_data(
-  name: String,
-  price: Int,
-  description: String,
-) -> Result(ProductData, String) {
-  case is_empty(name) {
+// Validate after decoding
+pub fn validate_product_data(data: ProductData) -> Result(ProductData, String) {
+  case is_empty(data.name) {
     True -> Error("Name cannot be empty")
-    False -> check_price(price, name, description)
+    False -> check_price(data)
   }
 }
 
-fn check_price(price: Int, name: String, description: String) -> Result(ProductData, String) {
-  case price < 0 {
+fn check_price(data: ProductData) -> Result(ProductData, String) {
+  case data.price < 0 {
     True -> Error("Price cannot be negative")
-    False -> Ok(ProductData(name, price, description))
+    False -> Ok(data)
   }
 }
 ```
+
+The decoder only reads the JSON. `validate_product_data` then checks the
+decoded value and returns a readable message, for example
+`Error("Price cannot be negative")`. Keeping the two steps apart keeps
+decode errors (bad JSON, a missing field) separate from business rules.
 
 ## Error Handling
 
-### Domain Errors
+### Domain Errors <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_domain_errors.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// Note: Use dream.Error instead of custom error types
-// This keeps error handling consistent across the application
-// import dream/http/error.{type Error, NotFound, UnprocessableContent, InternalServerError}
+import dream/http/error.{type Error, NotFound}
+
+pub type Product {
+  Product(id: Int, name: String)
+}
+
+// Use Dream's Error type instead of custom error types.
+// This keeps error handling consistent across the application.
+pub fn find_product(
+  products: List(Product),
+  id: Int,
+) -> Result(Product, Error) {
+  case products {
+    [] -> Error(NotFound("Product not found"))
+    [product, ..] if product.id == id -> Ok(product)
+    [_product, ..rest] -> find_product(rest, id)
+  }
+}
 ```
 
-### Map to HTTP Status
+### Map to HTTP Status <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_create.gleam#L6-L59"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{type Request, type Response, json_response, created, bad_request, unprocessable_content, not_found, internal_server_error, validate_json}
-import dream/context.{AppContext}
-import gleam/int.{to_string}
-import dream/http/error.{type Error, UnprocessableContent, NotFound, InternalServerError}
+import dream/context.{type AppContext}
+import dream/http.{type Request, type Response, created, json_response}
+import dream/http/error.{type Error, UnprocessableContent}
+import dream/http/params
+import gleam/json
 import gleam/result
-import models/product.{decoder, create}
-import services.{Services}
-import utilities/response_helpers
-import views/product_view.{to_json}
+import snippets/rest_api_guide_validation.{
+  type ProductData, decoder, validate_product_data,
+}
 
-pub fn create(request: Request, context: AppContext, services: Services) -> Response {
+pub fn create(
+  request: Request,
+  _context: AppContext,
+  services: Services,
+) -> Response {
   let result = {
-    use data <- result.try(validate_json(request.body, decoder()))
-    create_product(services, data)
+    use data <- result.try(params.require_json(request, decoder()))
+    use valid_data <- result.try(
+      validate_product_data(data)
+      |> result.map_error(UnprocessableContent),
+    )
+    create_product(services, valid_data)
   }
-  
+
   case result {
     Ok(product) -> json_response(created, to_json(product))
-    Error(err) -> response_helpers.handle_error(err)
+    Error(create_error) -> error_to_response(create_error)
   }
 }
 
-fn create_product(services: Services, data: ProductData) -> Result(Product, Error) {
-  let db = services.database.connection
-  create(db, data)
+fn create_product(
+  services: Services,
+  data: ProductData,
+) -> Result(Product, Error) {
+  // A real app saves the product to its database here
+  Ok(Product(
+    id: services.next_product_id,
+    name: data.name,
+    price: data.price,
+    description: data.description,
+  ))
+}
+
+fn error_to_response(create_error: Error) -> Response {
+  json_response(
+    error.to_status_code(create_error),
+    error_json(error.message(create_error)),
+  )
 }
 
 fn error_json(message: String) -> String {
-  "{\"error\": \"" <> message <> "\"}"
+  json.object([#("error", json.string(message))])
+  |> json.to_string
 }
 ```
 
+`require_json` reads and decodes the body. When the body is not text, is
+not JSON, or has a field of the wrong type, it returns `BadRequest`, so the
+client gets a 400 response with the reason. The controller then runs
+`validate_product_data` and maps its message to `UnprocessableContent`, so a
+negative price gives a 422 response with
+`{"error":"Price cannot be negative"}`. `error_to_response` then uses
+`error.to_status_code` and `error.message` to build the JSON response, so
+each `Error` variant gets its own status code.
+
 ## API Versioning
 
-### URL-based Versioning
+### URL-based Versioning <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_url_versioning.gleam#L15-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // router.gleam
-router()
-|> route(Get, "/v1/products", v1.products_controller.index, [])
-|> route(Get, "/v2/products", v2.products_controller.index, [])
+pub fn create_router() -> Router(AppContext, Services) {
+  router()
+  |> route(Get, "/v1/products", list_products_v1, [])
+  |> route(Get, "/v2/products", list_products_v2, [])
+}
 ```
 
-### Header-based Versioning
+### Header-based Versioning <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_header_versioning.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{type Request, type Response, json_response, ok, bad_request, get_header}
-import dream/context.{AppContext}
+import dream/context.{type AppContext}
+import dream/http.{
+  type Request, type Response, bad_request, get_header, json_response, ok,
+}
 import gleam/option.{unwrap}
-import services.{Services}
 
-pub fn index(request: Request, context: AppContext, services: Services) -> Response {
-  let version = get_header(request.headers, "API-Version")
+pub type Services {
+  Services
+}
+
+pub fn index(
+  request: Request,
+  _context: AppContext,
+  services: Services,
+) -> Response {
+  let version =
+    get_header(request.headers, "API-Version")
     |> unwrap("1")
-  
+
   case version {
     "1" -> v1_index(services)
     "2" -> v2_index(services)
@@ -205,103 +327,126 @@ pub fn index(request: Request, context: AppContext, services: Services) -> Respo
 }
 
 // Implement version-specific controllers
-fn v1_index(services: Services) -> Response {
+fn v1_index(_services: Services) -> Response {
   json_response(ok, "{\"version\": \"1\"}")
 }
 
-fn v2_index(services: Services) -> Response {
+fn v2_index(_services: Services) -> Response {
   json_response(ok, "{\"version\": \"2\"}")
 }
 ```
 
 ## Rate Limiting
 
-```gleam
-import dream/http.{type Request, type Response, json_response, too_many_requests}
-import dream/context.{AppContext}
-import dream_ets
-import services.{Services}
+### Rate limit middleware <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/rate_limiter/src/middleware/rate_limit_middleware.gleam#L6-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
+```gleam
+import dream/context.{type EmptyContext}
+import dream/http/header.{add_header, get_header}
+import dream/http/request.{type Request}
+import dream/http/response.{type Response, Response, text_response}
+import dream/http/status
+import gleam/int
+import gleam/option
+import gleam/string
+import services.{type Services}
+import services/rate_limiter_service
+
+/// Rate limiting middleware
+/// Checks request rate for the client IP and enforces limits
 pub fn rate_limit_middleware(
   request: Request,
-  context: AppContext,
+  context: EmptyContext,
   services: Services,
-  next: fn(Request, AppContext, Services) -> Response,
+  next: fn(Request, EmptyContext, Services) -> Response,
 ) -> Response {
-  let ip = get_client_ip(request)  // Helper: extract IP from request.remote_address
-  let key = "rate_limit:" <> ip
-  
-  case dream_ets.get(services.cache, key) {
-    Ok(count) if count >= 100 ->
-      json_response(too_many_requests, "{\"error\": \"Rate limit exceeded\"}")
-    Ok(count) -> {
-      let _ = dream_ets.set(services.cache, key, count + 1)
-      next(request, context, services)
-    }
-    Error(_) -> {
-      let _ = dream_ets.set(services.cache, key, 1)
-      next(request, context, services)
-    }
-  }
-}
+  let ip = get_client_ip(request)
 
-fn error_json(message: String) -> String {
-  "{\"error\": \"" <> message <> "\"}"
+  case rate_limiter_service.check_and_increment(services.rate_limiter, ip) {
+    Ok(status) ->
+      handle_rate_limit_result(status, request, context, services, next)
+    Error(_) -> handle_service_error(request, context, services, next)
+  }
 }
 ```
 
-## Filtering and Sorting
+The middleware calls `rate_limiter_service.check_and_increment`, which keeps a count for each client IP in a `dream_ets` table. The rate limiter example allows 10 requests in each 60-second window. A request over the limit gets a 429 response with `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `Retry-After` headers.
+
+## Filtering and Sorting <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_filtering.gleam#L6-L64"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{type Request, type Response, json_response, ok}
-import dream/context.{AppContext}
+import dream/context.{type AppContext}
+import dream/http.{
+  type Request, type Response, get_query_param, internal_server_error,
+  json_response, ok,
+}
+import dream/http/error.{type Error}
 import gleam/int
-import gleam/list.{List}
-import gleam/option.{Option, None, Some}
-import models/product.{list_filtered, ProductFilters}
-import services.{Services}
-import views/product_view.{list_to_json}
+import gleam/json
+import gleam/list
+import gleam/option.{type Option, None, Some}
+import gleam/order.{type Order}
+import gleam/string
 
-pub fn index(request: Request, context: AppContext, services: Services) -> Response {
-  let filters = parse_filters(request.query)  // Helper: parse query string into filters
-  let sort = parse_sort(request.query)  // Helper: parse sort parameters
-  
-  case list_filtered(services.db, filters, sort) {
+pub fn index(
+  request: Request,
+  _context: AppContext,
+  services: Services,
+) -> Response {
+  let filters = parse_filters(request.query)
+  let sort = parse_sort(request.query)
+
+  case list_filtered(services.products, filters, sort) {
     Ok(products) -> json_response(ok, list_to_json(products))
     Error(_) -> internal_error_response()
   }
 }
 
-fn parse_filters(query: List(#(String, String))) -> ProductFilters {
+fn parse_filters(query: String) -> ProductFilters {
   ProductFilters(
-    category: get_query_value(query, "category"),
-    min_price: parse_optional_int(get_query_value(query, "min_price")),
-    max_price: parse_optional_int(get_query_value(query, "max_price")),
+    category: get_query_param(query, "category"),
+    min_price: parse_optional_int(get_query_param(query, "min_price")),
+    max_price: parse_optional_int(get_query_param(query, "max_price")),
   )
+}
+
+fn parse_sort(query: String) -> ProductSort {
+  case get_query_param(query, "sort") {
+    Some("price") -> SortByPrice
+    _ -> SortByName
+  }
 }
 
 fn parse_optional_int(value: Option(String)) -> Option(Int) {
   case value {
-    Some(str) -> parse_int_string(str)
+    Some(text) -> parse_int_string(text)
     None -> None
   }
 }
 
-fn parse_int_string(str: String) -> Option(Int) {
-  case int.parse(str) {
-    Ok(num) -> Some(num)
+fn parse_int_string(text: String) -> Option(Int) {
+  case int.parse(text) {
+    Ok(number) -> Some(number)
     Error(_) -> None
   }
 }
+
+fn internal_error_response() -> Response {
+  json_response(internal_server_error, "{\"error\": \"Internal server error\"}")
+}
 ```
 
-## CORS
+## CORS <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_cors.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{type Request, type Response}
+import dream/context.{type AppContext}
 import dream/http/header.{Header}
-import dream/context.{AppContext}
-import services.{Services}
+import dream/http/request.{type Request}
+import dream/http/response.{type Response, Response}
+
+pub type Services {
+  Services
+}
 
 pub fn cors_middleware(
   request: Request,
@@ -310,50 +455,53 @@ pub fn cors_middleware(
   next: fn(Request, AppContext, Services) -> Response,
 ) -> Response {
   let response = next(request, context, services)
-  
+
   add_cors_headers(response)
 }
 
 fn add_cors_headers(response: Response) -> Response {
-  Response(
-    ..response,
-    headers: [
-      Header("Access-Control-Allow-Origin", "*"),
-      Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS"),
-      Header("Access-Control-Allow-Headers", "Content-Type, Authorization"),
-      ..response.headers
-    ]
-  )
+  Response(..response, headers: [
+    Header("Access-Control-Allow-Origin", "*"),
+    Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS"),
+    Header("Access-Control-Allow-Headers", "Content-Type, Authorization"),
+    ..response.headers
+  ])
 }
 ```
 
-## Health Check Endpoint
+## Health Check Endpoint <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/controllers/health_controller.gleam#L6-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{type Request, type Response, json_response, ok, service_unavailable}
-import dream/context.{AppContext}
-import pog.{Connection, query}
-import services.{Services}
+import context.{type DatabaseContext}
+import dream/http.{type Request, type Response}
 import dream/http/error.{type Error, InternalServerError}
+import dream/http/response.{json_response}
+import dream/http/status
+import pog
+import services.{type Services}
 
-pub fn health_check(
+/// Report whether the app and its database are healthy
+pub fn show(
   _request: Request,
-  _context: AppContext,
+  _context: DatabaseContext,
   services: Services,
 ) -> Response {
-  case check_database(services.db) {
-    Ok(_) -> json_response(ok, "{\"status\": \"healthy\"}")
-    Error(_) -> json_response(service_unavailable, "{\"status\": \"unhealthy\"}")
+  case check_database(services.database.connection) {
+    Ok(_) -> json_response(status.ok, "{\"status\": \"healthy\"}")
+    Error(_) ->
+      json_response(status.service_unavailable, "{\"status\": \"unhealthy\"}")
   }
 }
 
-fn check_database(db: Connection) -> Result(Nil, Error) {
-  case query("SELECT 1", db, []) {
+fn check_database(db: pog.Connection) -> Result(Nil, Error) {
+  case pog.query("SELECT 1") |> pog.execute(db) {
     Ok(_) -> Ok(Nil)
     Error(_) -> Error(InternalServerError("Database connection failed"))
   }
 }
 ```
+
+The database example routes `GET /health` to this controller. It returns 503 when the database does not answer `SELECT 1`.
 
 ## See Also
 

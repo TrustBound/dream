@@ -13,7 +13,7 @@ on:
 
 env:
   OTP_VERSION: "28"
-  GLEAM_VERSION: "1.14.0"
+  GLEAM_VERSION: "1.19.2"
   REBAR3_VERSION: "3"
 
 jobs:
@@ -146,9 +146,17 @@ jobs:
         if: steps.version_check.outputs.should_publish == 'true'
         run: gleam build
 
+      # Root tests plus the module tests. The HTTP client module is the only
+      # place that drives a real HTTP/2 client against dream's HTTP server.
       - name: Run tests
         if: steps.version_check.outputs.should_publish == 'true'
-        run: gleam test
+        run: make test-unit
+
+      # A release must not ship a doc code block that does not match its
+      # tested snippet. See docs/contributing/contributing.md.
+      - name: Check docs code blocks against tested snippets
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: make check-snippets
 
       - name: Publish Dream to Hex
         id: publish_hex
@@ -209,6 +217,8 @@ jobs:
     needs: [detect-changes, publish-dream]
     runs-on: ubuntu-latest
     if: needs.detect-changes.outputs.modules != '[]'
+    permissions:
+      contents: write  # Allow creating and pushing the module release tag
     strategy:
       matrix:
         # Modules with no internal Dream dependencies
@@ -219,6 +229,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check if module version exists on Hex
         id: version_check
@@ -249,6 +260,18 @@ jobs:
           version: ${{ steps.version_check.outputs.version }}
           hex_api_key: ${{ secrets.HEX_API_KEY }}
 
+      # The badges in the module README link at the tag <package name>-<version>.
+      # This step runs only when this run published the module, so the tag
+      # is on the commit that was published. A version that was on Hex
+      # already gets no tag here: a tag on a newer commit would point at code
+      # that is not the published code. It does nothing when the tag exists.
+      - name: Create and push module release tag
+        if: steps.version_check.outputs.should_publish == 'true'
+        uses: ./.github/actions/tag-module-release
+        with:
+          package_name: ${{ steps.version_check.outputs.package_name }}
+          version: ${{ steps.version_check.outputs.version }}
+
   # Phase 2: Publish dependent modules (depend on Phase 1 modules or core Dream)
   # These modules must wait for Phase 1 to complete before publishing
   publish-dependent-modules:
@@ -256,6 +279,8 @@ jobs:
     needs: [detect-changes, publish-dream, publish-independent-modules]
     runs-on: ubuntu-latest
     if: needs.detect-changes.outputs.modules != '[]'
+    permissions:
+      contents: write  # Allow creating and pushing the module release tag
     strategy:
       matrix:
         # Modules that depend on Phase 1 modules (e.g., http_client) or core Dream
@@ -266,6 +291,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check if module version exists on Hex
         id: version_check
@@ -295,3 +321,15 @@ jobs:
           module_name: ${{ matrix.module }}
           version: ${{ steps.version_check.outputs.version }}
           hex_api_key: ${{ secrets.HEX_API_KEY }}
+
+      # The badges in the module README link at the tag <package name>-<version>.
+      # This step runs only when this run published the module, so the tag
+      # is on the commit that was published. A version that was on Hex
+      # already gets no tag here: a tag on a newer commit would point at code
+      # that is not the published code. It does nothing when the tag exists.
+      - name: Create and push module release tag
+        if: steps.version_check.outputs.should_publish == 'true'
+        uses: ./.github/actions/tag-module-release
+        with:
+          package_name: ${{ steps.version_check.outputs.package_name }}
+          version: ${{ steps.version_check.outputs.version }}

@@ -159,8 +159,7 @@ fn middleware_streaming_tests() -> UnitTest {
       ) {
         case body_as_string(inner_request) {
           Ok(body) -> {
-            let new_request =
-              Request(..inner_request, body: body, stream: option.None)
+            let new_request = Request(..inner_request, body: request.Text(body))
             next(new_request, app_context, services)
           }
           Error(_stream_error) ->
@@ -168,7 +167,10 @@ fn middleware_streaming_tests() -> UnitTest {
         }
       }
       let controller = fn(inner_request: Request, _ctx, _svc) -> Response {
-        Response(200, Text(inner_request.body), [], [], option.None)
+        case inner_request.body {
+          request.Text(text) -> Response(200, Text(text), [], [], option.None)
+          _ -> Response(400, Text("Expected a Text body"), [], [], option.None)
+        }
       }
       let chain =
         build_controller_chain([Middleware(consuming_middleware)], controller)
@@ -195,8 +197,7 @@ fn middleware_streaming_tests() -> UnitTest {
       ) {
         case body_as_string(inner_request) {
           Ok(body) -> {
-            let new_request =
-              Request(..inner_request, body: body, stream: option.None)
+            let new_request = Request(..inner_request, body: request.Text(body))
             next(new_request, app_context, services)
           }
           Error(_stream_error) ->
@@ -204,7 +205,10 @@ fn middleware_streaming_tests() -> UnitTest {
         }
       }
       let controller = fn(inner_request: Request, _ctx, _svc) -> Response {
-        Response(200, Text(inner_request.body), [], [], option.None)
+        case inner_request.body {
+          request.Text(text) -> Response(200, Text(text), [], [], option.None)
+          _ -> Response(400, Text("Expected a Text body"), [], [], option.None)
+        }
       }
       let chain =
         build_controller_chain([Middleware(consuming_middleware)], controller)

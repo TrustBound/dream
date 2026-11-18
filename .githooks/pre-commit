@@ -8,6 +8,15 @@
 
 set -e
 
+# Git exports GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE and GIT_PREFIX to hooks
+# (see githooks(5)), and nested git commands inherit them. The example builds
+# below resolve git dependencies, and gleam runs `git init`, `remote add`,
+# `fetch` and `checkout` inside build/packages/<dep>. With GIT_DIR set, those
+# commands act on THIS repository instead: they replace its origin remote with
+# the dependency repository and check out the dependency branch in the
+# worktree. Drop the variables so nested git commands only see their cwd.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -101,6 +110,16 @@ for example_dir in examples/*/; do
     build_component "example: $example_name" "$example_dir"
   fi
 done
+echo ""
+
+# Step 5: Check docs code blocks against tested snippets
+echo "🧪 Checking docs code blocks against tested snippets..."
+if ! gleam run -m docs_snippet_check; then
+  echo ""
+  echo -e "${RED}❌ A docs code block does not match its tested snippet. See docs/contributing/contributing.md.${NC}"
+  exit 1
+fi
+echo -e "${GREEN}✅ All docs code blocks match their tested snippets${NC}"
 echo ""
 
 echo -e "${GREEN}🎉 All pre-commit checks passed!${NC}"

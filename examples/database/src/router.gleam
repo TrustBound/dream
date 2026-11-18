@@ -1,4 +1,5 @@
 import context.{type DatabaseContext}
+import controllers/health_controller
 import controllers/posts_controller
 import controllers/users_controller
 import dream/http/request.{Delete, Get, Post, Put}
@@ -7,6 +8,12 @@ import services.{type Services}
 
 pub fn create_router() -> Router(DatabaseContext, Services) {
   router()
+  |> route(
+    method: Get,
+    path: "/health",
+    controller: health_controller.show,
+    middleware: [],
+  )
   |> route(
     method: Get,
     path: "/users",

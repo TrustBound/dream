@@ -1,76 +1,30 @@
-//// Recording Playback for Testing
+//// README: Use Cases, Testing
 ////
-//// Example showing how to use playback mode for testing without external dependencies.
+//// Plays back the fixtures in test/fixtures/api, so tests need no network.
 
 import dream_http_client/client.{
   type HttpResponse, type SendError, host, path, port, recorder as with_recorder,
   scheme, send,
 }
-import dream_http_client/recorder.{directory, mode, start}
-import dream_http_client/recording
+import dream_http_client/recorder.{type Recorder, directory, mode, start}
 import gleam/http
-import gleam/option
-import gleam/result
-import simplifile
 
-pub fn test_with_playback() -> Result(HttpResponse, SendError) {
-  // First record a request to create the fixture
-  let recordings_directory_path = "build/test_playback_snippet"
+pub fn start_api_playback() -> Result(Recorder, String) {
+  recorder.new()
+  |> directory("test/fixtures/api")
+  |> mode("playback")
+  |> start()
+}
 
-  // Clean up from previous runs
-  let _ = simplifile.delete(recordings_directory_path)
-
-  // Create a test recording manually
-  let test_request =
-    recording.RecordedRequest(
-      method: http.Get,
-      scheme: http.Http,
-      host: "localhost",
-      port: option.Some(9876),
-      path: "/text",
-      query: option.None,
-      headers: [],
-      body: "",
-    )
-
-  let test_response =
-    recording.BlockingResponse(status: 200, headers: [], body: "Test data")
-
-  let test_recording =
-    recording.Recording(request: test_request, response: test_response)
-
-  // Save it
-  use rec <- result.try(
-    recorder.new()
-    |> directory(recordings_directory_path)
-    |> mode("record")
-    |> start()
-    |> result.map_error(fn(e) { client.RequestError(message: e) }),
-  )
-
-  recorder.add_recording(rec, test_recording)
-  let _ = recorder.stop(rec)
-
-  // Now use playback mode
-  use playback_rec <- result.try(
-    recorder.new()
-    |> directory(recordings_directory_path)
-    |> mode("playback")
-    |> start()
-    |> result.map_error(fn(e) { client.RequestError(message: e) }),
-  )
-
-  // Make request - returns recorded response without network call
-  let result =
-    client.new()
-    |> scheme(http.Http)
-    |> host("localhost")
-    |> port(9876)
-    |> path("/text")
-    |> with_recorder(playback_rec)
-    |> send()
-
-  let _ = recorder.stop(playback_rec)
-  let _ = simplifile.delete(recordings_directory_path)
-  result
+// Tests run without external dependencies
+pub fn fetch_recorded_text(
+  playback_recorder: Recorder,
+) -> Result(HttpResponse, SendError) {
+  client.new()
+  |> scheme(http.Http)
+  |> host("localhost")
+  |> port(9876)
+  |> path("/text")
+  |> with_recorder(playback_recorder)
+  |> send()
 }

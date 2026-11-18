@@ -5,30 +5,42 @@
 ////
 //// ## Quick Setup
 ////
+//// ### Serve assets <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_static.gleam#L3-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
 //// import dream/controllers/static.{default_config, serve}
-//// import dream/http/request.{type Request, Get, get_string_param}
+//// import dream/http/request.{type Request, Get, get_param}
 //// import dream/http/response.{type Response, json_response}
 //// import dream/http/status.{bad_request}
-//// import dream/router.{route}
+//// import dream/router.{route, router}
+//// import gleam/json
 ////
 //// pub fn serve_assets(request: Request, context, services) -> Response {
-////   case get_string_param(request, "path") {
-////     Ok(path) -> 
+////   case get_param(request, "path") {
+////     // param.raw keeps the file extension
+////     Ok(param) ->
 ////       serve(
 ////         request: request,
 ////         context: context,
 ////         services: services,
 ////         root: "./public",
-////         filepath: path,
+////         filepath: param.raw,
 ////         config: default_config(),
 ////       )
-////     Error(msg) -> json_response(bad_request, error_json(msg))
+////     Error(message) -> json_response(bad_request, error_json(message))
 ////   }
 //// }
 ////
 //// // In your router:
-//// route(method: Get, path: "/assets/**path", controller: serve_assets, middleware: [])
+//// pub fn asset_router() {
+////   router()
+////   |> route(
+////     method: Get,
+////     path: "/assets/**path",
+////     controller: serve_assets,
+////     middleware: [],
+////   )
+//// }
 //// ```
 ////
 //// ## Security
@@ -118,24 +130,29 @@ pub fn without_index(
 /// - Returns 404 for files outside root
 ///
 /// Usage:
+///
+/// ### Serve public files <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_static_serve.gleam#L3-L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
 /// import dream/controllers/static.{default_config, serve}
-/// import dream/http/request.{type Request, get_string_param}
+/// import dream/http/request.{type Request, get_param}
 /// import dream/http/response.{type Response, json_response}
 /// import dream/http/status.{bad_request}
-/// 
+/// import gleam/json
+///
 /// pub fn serve_public(request: Request, context, services) -> Response {
-///   case get_string_param(request, "filepath") {
-///     Ok(filepath) -> 
+///   case get_param(request, "filepath") {
+///     // param.raw keeps the file extension
+///     Ok(param) ->
 ///       serve(
 ///         request: request,
 ///         context: context,
 ///         services: services,
 ///         root: "./public",
-///         filepath: filepath,
+///         filepath: param.raw,
 ///         config: default_config(),
 ///       )
-///     Error(msg) -> json_response(bad_request, error_json(msg))
+///     Error(message) -> json_response(bad_request, error_json(message))
 ///   }
 /// }
 /// ```
@@ -347,7 +364,7 @@ fn is_safe_path(filepath: String) -> Bool {
 fn mime_type(filepath: String) -> String {
   // Extract extension from filepath
   case string.split(filepath, ".") |> list.last {
-    Ok(ext) -> marceau.extension_to_mime_type(ext)
+    Ok(extension) -> marceau.extension_to_mime_type(extension)
     Error(_) -> "application/octet-stream"
   }
 }

@@ -5,19 +5,28 @@
 ////
 //// ## Quick Start
 ////
+//// ### Create and read cookies <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_cookie_module.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
-//// import dream/http/cookie
+//// import dream/http/cookie.{type Cookie}
+//// import dream/http/request.{type Request}
+//// import gleam/option.{None, Some}
 ////
-//// // Simple cookie
-//// cookie.simple_cookie("session_id", "abc123")
+//// pub fn new_cookies() -> List(Cookie) {
+////   [
+////     // Simple cookie
+////     cookie.simple_cookie("theme", "dark"),
+////     // Secure cookie (recommended for sensitive data)
+////     cookie.secure_cookie("session_id", "abc123"),
+////   ]
+//// }
 ////
-//// // Secure cookie (recommended for sensitive data)
-//// cookie.secure_cookie("auth_token", "xyz789")
-////
-//// // Get cookie from request
-//// case cookie.get_cookie_value(request.cookies, "session_id") {
-////   Some(id) -> // Use the session ID
-////   None -> // No session cookie
+//// pub fn session_status(request: Request) -> String {
+////   // Get cookie from request
+////   case cookie.get_cookie_value(request.cookies, "session_id") {
+////     Some(id) -> "Session " <> id
+////     None -> "No session cookie"
+////   }
 //// }
 //// ```
 ////
@@ -42,16 +51,18 @@ import gleam/string
 ///
 /// ## Example
 ///
+/// ### Set SameSite <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_cookie_same_site.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// import dream/http/cookie.{Cookie, Strict}
+/// import dream/http/cookie.{type Cookie, Cookie, Lax}
 /// import gleam/option
 ///
-/// Cookie(
-///   name: "session",
-///   value: "abc123",
-///   same_site: option.Some(Strict),
-///   // ... other fields
-/// )
+/// pub fn session_cookie() -> Cookie {
+///   Cookie(
+///     ..cookie.secure_cookie("session", "abc123"),
+///     same_site: option.Some(Lax),
+///   )
+/// }
 /// ```
 pub type SameSite {
   Strict
@@ -79,25 +90,32 @@ pub type SameSite {
 ///
 /// ## Example
 ///
+/// ### Build or construct a cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_cookie_type.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// import dream/http/cookie.{Cookie, Strict}
+/// import dream/http/cookie.{type Cookie, Cookie, Strict}
 /// import gleam/option
 ///
-/// // Using builder (recommended)
-/// cookie.secure_cookie("auth_token", "xyz789")
+/// pub fn builder_cookie() -> Cookie {
+///   // Using builder (recommended)
+///   cookie.secure_cookie("auth_token", "xyz789")
+/// }
 ///
-/// // Constructing manually
-/// Cookie(
-///   name: "auth_token",
-///   value: "xyz789",
-///   expires: option.None,
-///   max_age: option.Some(3600),  // 1 hour
-///   domain: option.None,
-///   path: option.Some("/"),
-///   secure: True,
-///   http_only: True,
-///   same_site: option.Some(Strict),
-/// )
+/// pub fn manual_cookie() -> Cookie {
+///   // Constructing manually
+///   Cookie(
+///     name: "auth_token",
+///     value: "xyz789",
+///     expires: option.None,
+///     // 1 hour
+///     max_age: option.Some(3600),
+///     domain: option.None,
+///     path: option.Some("/"),
+///     secure: True,
+///     http_only: True,
+///     same_site: option.Some(Strict),
+///   )
+/// }
 /// ```
 pub type Cookie {
   Cookie(
@@ -121,11 +139,16 @@ pub type Cookie {
 ///
 /// ## Example
 ///
+/// ### Get the name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_cookie_name.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
 /// import dream/http/cookie
 ///
-/// let c = cookie.simple_cookie("session_id", "abc123")
-/// cookie.cookie_name(c)  // "session_id"
+/// pub fn session_cookie_name() -> String {
+///   let session_cookie = cookie.simple_cookie("session_id", "abc123")
+///   // Returns "session_id"
+///   cookie.cookie_name(session_cookie)
+/// }
 /// ```
 pub fn cookie_name(cookie: Cookie) -> String {
   let Cookie(name, _, _, _, _, _, _, _, _) = cookie
@@ -138,11 +161,16 @@ pub fn cookie_name(cookie: Cookie) -> String {
 ///
 /// ## Example
 ///
+/// ### Get the value <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_cookie_value.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
 /// import dream/http/cookie
 ///
-/// let c = cookie.simple_cookie("session_id", "abc123")
-/// cookie.cookie_value(c)  // "abc123"
+/// pub fn session_cookie_value() -> String {
+///   let session_cookie = cookie.simple_cookie("session_id", "abc123")
+///   // Returns "abc123"
+///   cookie.cookie_value(session_cookie)
+/// }
 /// ```
 pub fn cookie_value(cookie: Cookie) -> String {
   let Cookie(_, value, _, _, _, _, _, _, _) = cookie
@@ -162,14 +190,19 @@ pub fn cookie_value(cookie: Cookie) -> String {
 ///
 /// ## Example
 ///
+/// ### Preference cookies <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_simple_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// import dream/http/cookie
+/// import dream/http/cookie.{type Cookie}
 ///
-/// // User preference cookie
-/// cookie.simple_cookie("theme", "dark")
-///
-/// // Language preference
-/// cookie.simple_cookie("lang", "en")
+/// pub fn preference_cookies() -> List(Cookie) {
+///   [
+///     // User preference cookie
+///     cookie.simple_cookie("theme", "dark"),
+///     // Language preference
+///     cookie.simple_cookie("lang", "en"),
+///   ]
+/// }
 /// ```
 pub fn simple_cookie(name: String, value: String) -> Cookie {
   Cookie(
@@ -197,17 +230,25 @@ pub fn simple_cookie(name: String, value: String) -> Cookie {
 ///
 /// ## Example
 ///
+/// ### Cookies for sensitive data <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_secure_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// import dream/http/cookie
+/// import dream/http/cookie.{type Cookie}
 ///
-/// // Session cookie
-/// cookie.secure_cookie("session_id", generate_session_id())
-///
-/// // Authentication token
-/// cookie.secure_cookie("auth_token", jwt_token)
-///
-/// // CSRF token
-/// cookie.secure_cookie("csrf_token", generate_csrf_token())
+/// pub fn login_cookies(
+///   session_id: String,
+///   jwt_token: String,
+///   csrf_token: String,
+/// ) -> List(Cookie) {
+///   [
+///     // Session cookie
+///     cookie.secure_cookie("session_id", session_id),
+///     // Authentication token
+///     cookie.secure_cookie("auth_token", jwt_token),
+///     // CSRF token
+///     cookie.secure_cookie("csrf_token", csrf_token),
+///   ]
+/// }
 /// ```
 ///
 /// ## Security Note
@@ -237,23 +278,36 @@ pub fn secure_cookie(name: String, value: String) -> Cookie {
 ///
 /// ## Example
 ///
+/// ### Find a cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_get_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// import dream/http/cookie
+/// import dream/http/cookie.{type Cookie}
+/// import gleam/option.{type Option, None, Some}
 ///
-/// let cookies = [
-///   cookie.simple_cookie("theme", "dark"),
-///   cookie.secure_cookie("session_id", "abc123"),
-/// ]
-///
-/// case cookie.get_cookie(cookies, "session_id") {
-///   Some(c) -> cookie.cookie_value(c)  // "abc123"
-///   None -> "no session"
+/// pub fn example_cookies() -> List(Cookie) {
+///   [
+///     cookie.simple_cookie("theme", "dark"),
+///     cookie.secure_cookie("session_id", "abc123"),
+///   ]
 /// }
 ///
-/// // Case-insensitive
-/// cookie.get_cookie(cookies, "THEME")  // Some(Cookie("theme", "dark", ...))
+/// pub fn session_value(cookies: List(Cookie)) -> String {
+///   case cookie.get_cookie(cookies, "session_id") {
+///     // "abc123"
+///     Some(session_cookie) -> cookie.cookie_value(session_cookie)
+///     None -> "no session"
+///   }
+/// }
+///
+/// pub fn theme_cookie(cookies: List(Cookie)) -> Option(Cookie) {
+///   // Case-insensitive: Some(Cookie("theme", "dark", ...))
+///   cookie.get_cookie(cookies, "THEME")
+/// }
 /// ```
-pub fn get_cookie(cookies: List(Cookie), name: String) -> option.Option(Cookie) {
+pub fn get_cookie(
+  cookies: List(Cookie),
+  name: String,
+) -> option.Option(Cookie) {
   let normalized_name = string.lowercase(name)
   find_cookie(cookies, normalized_name)
 }
@@ -282,16 +336,24 @@ fn find_cookie(
 ///
 /// ## Example
 ///
+/// ### Find a cookie value <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_get_cookie_value.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
 /// import dream/http/cookie
+/// import gleam/option.{type Option}
 ///
-/// let cookies = [
-///   cookie.simple_cookie("theme", "dark"),
-///   cookie.secure_cookie("session_id", "abc123"),
-/// ]
+/// pub fn lookups() -> #(Option(String), Option(String)) {
+///   let cookies = [
+///     cookie.simple_cookie("theme", "dark"),
+///     cookie.secure_cookie("session_id", "abc123"),
+///   ]
 ///
-/// cookie.get_cookie_value(cookies, "theme")  // Some("dark")
-/// cookie.get_cookie_value(cookies, "missing")  // None
+///   // Some("dark")
+///   let theme = cookie.get_cookie_value(cookies, "theme")
+///   // None
+///   let missing = cookie.get_cookie_value(cookies, "missing")
+///   #(theme, missing)
+/// }
 /// ```
 pub fn get_cookie_value(
   cookies: List(Cookie),
@@ -311,27 +373,28 @@ pub fn get_cookie_value(
 ///
 /// ## Example
 ///
+/// ### Replace and add cookies <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_set_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// import dream/http/cookie
+/// import dream/http/cookie.{type Cookie}
 ///
-/// let cookies = [cookie.simple_cookie("theme", "light")]
+/// pub fn updated_cookies() -> List(Cookie) {
+///   let cookies = [cookie.simple_cookie("theme", "light")]
 ///
-/// // Replace existing cookie
-/// let updated = cookie.set_cookie(
-///   cookies,
-///   cookie.simple_cookie("theme", "dark")
-/// )
-/// // Result: [Cookie("theme", "dark", ...)]
+///   // Replace existing cookie
+///   let updated =
+///     cookie.set_cookie(cookies, cookie.simple_cookie("theme", "dark"))
+///   // Result: [Cookie("theme", "dark", ...)]
 ///
-/// // Add new cookie
-/// let with_session = cookie.set_cookie(
-///   updated,
-///   cookie.secure_cookie("session_id", "abc123")
-/// )
-/// // Result: [
-/// //   Cookie("session_id", "abc123", ...),
-/// //   Cookie("theme", "dark", ...)
-/// // ]
+///   // Add new cookie
+///   let with_session =
+///     cookie.set_cookie(updated, cookie.secure_cookie("session_id", "abc123"))
+///   // Result: [
+///   //   Cookie("session_id", "abc123", ...),
+///   //   Cookie("theme", "dark", ...)
+///   // ]
+///   with_session
+/// }
 /// ```
 pub fn set_cookie(cookies: List(Cookie), cookie: Cookie) -> List(Cookie) {
   let normalized_name = string.lowercase(cookie_name(cookie))
@@ -349,16 +412,20 @@ fn filter_matching_cookies(
 fn filter_cookies_recursive(
   cookies: List(Cookie),
   normalized_name: String,
-  acc: List(Cookie),
+  kept_cookies: List(Cookie),
 ) -> List(Cookie) {
   case cookies {
-    [] -> list.reverse(acc)
+    [] -> list.reverse(kept_cookies)
     [cookie, ..rest] -> {
       let cookie_normalized = string.lowercase(cookie_name(cookie))
       let should_keep = cookie_normalized != normalized_name
       case should_keep {
-        True -> filter_cookies_recursive(rest, normalized_name, [cookie, ..acc])
-        False -> filter_cookies_recursive(rest, normalized_name, acc)
+        True ->
+          filter_cookies_recursive(rest, normalized_name, [
+            cookie,
+            ..kept_cookies
+          ])
+        False -> filter_cookies_recursive(rest, normalized_name, kept_cookies)
       }
     }
   }
@@ -374,25 +441,31 @@ fn filter_cookies_recursive(
 ///
 /// ## Example
 ///
+/// ### Remove or expire a cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_remove_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// import dream/http/cookie
+/// import dream/http/cookie.{type Cookie, Cookie}
+/// import gleam/option
 ///
-/// let cookies = [
-///   cookie.simple_cookie("theme", "dark"),
-///   cookie.secure_cookie("session_id", "abc123"),
-/// ]
+/// pub fn without_theme() -> List(Cookie) {
+///   let cookies = [
+///     cookie.simple_cookie("theme", "dark"),
+///     cookie.secure_cookie("session_id", "abc123"),
+///   ]
 ///
-/// // Remove theme cookie from list
-/// let filtered = cookie.remove_cookie(cookies, "theme")
-/// // Result: [Cookie("session_id", "abc123", ...)]
+///   // Remove theme cookie from list
+///   cookie.remove_cookie(cookies, "theme")
+///   // Result: [Cookie("session_id", "abc123", ...)]
+/// }
 ///
-/// // To delete in browser, set expired cookie:
-/// let expired = Cookie(
-///   name: "session_id",
-///   value: "",
-///   max_age: option.Some(0),  // Expire immediately
-///   // ... other fields
-/// )
+/// pub fn expired_session() -> Cookie {
+///   // To delete in browser, set expired cookie:
+///   Cookie(
+///     ..cookie.secure_cookie("session_id", ""),
+///     // Expire immediately
+///     max_age: option.Some(0),
+///   )
+/// }
 /// ```
 pub fn remove_cookie(cookies: List(Cookie), name: String) -> List(Cookie) {
   let normalized_name = string.lowercase(name)

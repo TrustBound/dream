@@ -21,7 +21,7 @@ pub fn put(key: Atom, value: Dynamic) -> Dynamic
 pub fn get(key: Atom) -> Dynamic
 
 @external(erlang, "gleam_stdlib", "identity")
-pub fn to_dynamic(a: a) -> Dynamic
+pub fn to_dynamic(value: a) -> Dynamic
 
 @external(erlang, "gleam_stdlib", "identity")
-pub fn unsafe_coerce(a: a) -> b
+pub fn unsafe_coerce(value: a) -> b

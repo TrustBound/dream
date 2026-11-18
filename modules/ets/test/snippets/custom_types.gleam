@@ -11,6 +11,7 @@ import gleam/dynamic/decode
 import gleam/json
 import gleam/option
 import gleam/result
+import gleam/string
 
 pub type User {
   User(name: String, email: String)
@@ -27,10 +28,11 @@ fn encode_user(user: User) -> dynamic.Dynamic {
 
 fn decode_user() -> decode.Decoder(User) {
   decode.string
-  |> decode.then(fn(json_str) {
-    case json.parse(json_str, user_from_json()) {
+  |> decode.then(fn(json_text) {
+    case json.parse(json_text, user_from_json()) {
       Ok(user) -> decode.success(user)
-      Error(_) -> decode.failure(User("", ""), "User")
+      Error(error) ->
+        decode.failure(User("", ""), "User JSON: " <> string.inspect(error))
     }
   })
 }
@@ -55,7 +57,8 @@ pub fn store_custom_type() -> Result(String, table.EtsError) {
   use retrieved <- result.try(operations.get(users, "alice"))
 
   case retrieved {
-    option.Some(u) -> Ok(u.name <> " <" <> u.email <> ">")
+    option.Some(stored_user) ->
+      Ok(stored_user.name <> " <" <> stored_user.email <> ">")
     option.None -> Error(table.OperationFailed("User not found"))
   }
 }

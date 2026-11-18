@@ -5,19 +5,24 @@
 ////
 //// ## Quick Example
 ////
-//// ```gleam
-//// import dream/http/request.{type Request}
+//// ### Show a user <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request_module.gleam#L1-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
-//// pub fn show_user(request: Request, context, services) {
+//// ```gleam
+//// import dream/http/request.{type Request, get_int_param}
+//// import dream/http/response.{json_response, text_response}
+//// import dream/http/status
+//// import gleam/json
+//// import gleam/result
+////
+//// pub fn show_user(request: Request, _context, services: Services) {
 ////   let result = {
 ////     use id <- result.try(get_int_param(request, "id"))
-////     let db = services.database.connection
-////     user_operations.get_user(db, id)
+////     services.find_user(id)
 ////   }
-////   
+////
 ////   case result {
 ////     Ok(user) -> json_response(status.ok, user_to_json(user))
-////     Error(err) -> handle_error(err)
+////     Error(message) -> text_response(status.bad_request, message)
 ////   }
 //// }
 //// ```
@@ -40,15 +45,34 @@ import gleam/yielder.{type Yielder}
 ///
 /// ## Example
 ///
+/// ### Route by method <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request_methods.gleam#L2-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// import dream/http/request.{Get, Post, Put, Delete}
+/// import dream/http/request.{Delete, Get, Post, Put}
 /// import dream/router.{route, router}
 ///
-/// router()
-/// |> route(method: Get, path: "/users", controller: list_users, middleware: [])
-/// |> route(method: Post, path: "/users", controller: create_user, middleware: [])
-/// |> route(method: Put, path: "/users/:id", controller: update_user, middleware: [])
-/// |> route(method: Delete, path: "/users/:id", controller: delete_user, middleware: [])
+/// pub fn user_router() {
+///   router()
+///   |> route(method: Get, path: "/users", controller: list_users, middleware: [])
+///   |> route(
+///     method: Post,
+///     path: "/users",
+///     controller: create_user,
+///     middleware: [],
+///   )
+///   |> route(
+///     method: Put,
+///     path: "/users/:id",
+///     controller: update_user,
+///     middleware: [],
+///   )
+///   |> route(
+///     method: Delete,
+///     path: "/users/:id",
+///     controller: delete_user,
+///     middleware: [],
+///   )
+/// }
 /// ```
 pub type Method {
   Post
@@ -66,10 +90,14 @@ pub type Method {
 ///
 /// ## Example
 ///
+/// ### Check the protocol <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L13-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// case request.protocol {
-///   Http -> // Insecure connection
-///   Https -> // Secure connection
+/// pub fn describe_protocol(request: Request) -> String {
+///   case request.protocol {
+///     Http -> "Insecure connection"
+///     Https -> "Secure connection"
+///   }
 /// }
 /// ```
 pub type Protocol {
@@ -84,11 +112,15 @@ pub type Protocol {
 ///
 /// ## Example
 ///
+/// ### Check the HTTP version <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L20-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// case request.version {
-///   Http1 -> // HTTP/1.1
-///   Http2 -> // HTTP/2
-///   Http3 -> // HTTP/3 (QUIC)
+/// pub fn describe_version(request: Request) -> String {
+///   case request.version {
+///     Http1 -> "HTTP/1.1"
+///     Http2 -> "HTTP/2"
+///     Http3 -> "HTTP/3 (QUIC)"
+///   }
 /// }
 /// ```
 pub type Version {
@@ -113,8 +145,8 @@ pub type Version {
 /// - `host`: Host header value (e.g., "example.com")
 /// - `port`: Port number (e.g., 443)
 /// - `remote_address`: Client IP address
-/// - `body`: Request body as string (for buffered requests)
-/// - `stream`: Request body as stream (for streaming requests)
+/// - `body`: Request body as a `RequestBody`: `Text` or `Bytes` on a normal
+///   route, `Stream` on a route added with `stream_route`
 /// - `headers`: List of HTTP headers
 /// - `cookies`: List of cookies
 /// - `content_type`: Content-Type header value
@@ -122,21 +154,24 @@ pub type Version {
 ///
 /// ## Example
 ///
+/// ### Read request data <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L28-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// pub fn show_user(request: Request, context, services) {
+/// pub fn show_user(request: Request, _context, _services) -> Response {
 ///   // Access request data
-///   let method = request.method      // Get
-///   let path = request.path          // "/users/123"
-///   let headers = request.headers    // All headers
-///   let cookies = request.cookies    // All cookies
-///   
-///   // Get body safely
-///   let body = body_as_string(request)
-///   
-///   // Extract path parameter
-///   case get_int_param(request, "id") {
-///     Ok(id) -> show_user_by_id(services.db, id)
-///     Error(msg) -> error_response(msg)
+///   let method = method_to_string(request.method)
+///   let path = request.path
+///
+///   // Read the body as text and the path parameter as an Int
+///   case body_as_string(request), get_int_param(request, "id") {
+///     Ok(body), Ok(id) ->
+///       text_response(
+///         status.ok,
+///         method <> " " <> path <> " " <> int.to_string(id) <> " " <> body,
+///       )
+///     Error(Nil), _ ->
+///       text_response(status.bad_request, "Request body is not text")
+///     Ok(_body), Error(message) -> text_response(status.bad_request, message)
 ///   }
 /// }
 /// ```
@@ -153,8 +188,7 @@ pub type Request {
     host: option.Option(String),
     port: option.Option(Int),
     remote_address: option.Option(String),
-    body: String,
-    stream: option.Option(Yielder(BitArray)),
+    body: RequestBody,
     headers: List(Header),
     cookies: List(Cookie),
     content_type: option.Option(String),
@@ -162,27 +196,80 @@ pub type Request {
   )
 }
 
-/// Get the request body as a string
+/// Request body
 ///
-/// Helper that handles both buffered (String) and streaming (Yielder) bodies.
-/// If the body is streaming, it consumes the stream and converts it to a string.
+/// The body of a request, in the shape that the route gives it. A normal
+/// route reads the whole body before the controller runs. A body that is
+/// valid UTF-8 arrives as `Text`, and an empty body is `Text("")`. Any other
+/// body arrives as `Bytes` with the exact bytes the client sent, so a binary
+/// upload is never lost. A route added with `stream_route` does not read the
+/// body first: the body arrives as `Stream`, and the controller reads the
+/// chunks when it needs them.
+///
+/// The constructor names are the same as the names of `ResponseBody` in
+/// `dream/http/response`, so a request and a response read the same way. In
+/// a module that uses both, qualify one of them, for example `request.Text`.
 ///
 /// ## Example
 ///
+/// ### Measure the body <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request_body.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// case body_as_string(request) {
-///   Ok(body) -> // Use body string
-///   Error(_) -> // Handle UTF-8 error
+/// import dream/http/request.{type Request, Bytes, Stream, Text}
+/// import gleam/bit_array
+/// import gleam/string
+/// import gleam/yielder
+///
+/// pub fn body_size(request: Request) -> Int {
+///   case request.body {
+///     // A normal route, body is valid UTF-8
+///     Text(text) -> string.byte_size(text)
+///     // A normal route, body is not valid UTF-8
+///     Bytes(bytes) -> bit_array.byte_size(bytes)
+///     // A stream_route: add up the chunks as they arrive
+///     Stream(chunks) -> yielder.fold(chunks, 0, add_chunk_size)
+///   }
+/// }
+///
+/// fn add_chunk_size(total: Int, chunk: BitArray) -> Int {
+///   total + bit_array.byte_size(chunk)
+/// }
+/// ```
+pub type RequestBody {
+  Text(String)
+  Bytes(BitArray)
+  Stream(Yielder(BitArray))
+}
+
+/// Get the request body as a string
+///
+/// Gives the body as text for every body shape, so a controller that wants
+/// text does not need to match on `RequestBody`. `Text` gives its string.
+/// `Bytes` gives `Ok` only when the bytes are valid UTF-8. `Stream` reads
+/// every chunk, joins them, and then converts the result, so the stream is
+/// used up after this call. A body that is not valid UTF-8 gives
+/// `Error(Nil)`.
+///
+/// ## Example
+///
+/// ### Read the body <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L46-L51"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// pub fn show_body(request: Request, _context, _services) -> Response {
+///   case body_as_string(request) {
+///     Ok(body) -> text_response(status.ok, body)
+///     Error(_) -> text_response(status.bad_request, "Body is not valid UTF-8")
+///   }
 /// }
 /// ```
 pub fn body_as_string(request: Request) -> Result(String, Nil) {
-  case request.stream {
-    option.Some(stream) -> {
-      stream
+  case request.body {
+    Text(text) -> Ok(text)
+    Bytes(bytes) -> bit_array.to_string(bytes)
+    Stream(chunks) ->
+      chunks
       |> yielder.fold(<<>>, bit_array.append)
       |> bit_array.to_string
-    }
-    option.None -> Ok(request.body)
   }
 }
 
@@ -220,8 +307,8 @@ pub fn method_to_string(method: Method) -> String {
 }
 
 /// Parse a string to Method (case-insensitive)
-pub fn parse_method(str: String) -> option.Option(Method) {
-  case string.lowercase(str) {
+pub fn parse_method(method_name: String) -> option.Option(Method) {
+  case string.lowercase(method_name) {
     "get" -> option.Some(Get)
     "post" -> option.Some(Post)
     "put" -> option.Some(Put)
@@ -236,7 +323,7 @@ pub fn parse_method(str: String) -> option.Option(Method) {
 // Request utilities
 
 /// Get a query parameter value from the raw query string
-/// 
+///
 /// Properly decodes URL-encoded values (e.g., %20 → space, %26 → &)
 /// Returns None if the parameter is not found.
 pub fn get_query_param(query: String, name: String) -> option.Option(String) {
@@ -260,19 +347,18 @@ fn get_query_param_recursive(
 }
 
 fn parse_query_pair(param: String, name: String) -> option.Option(String) {
-  case string.split(param, "=") {
-    [key, value] -> {
-      // Decode both key and value
+  case string.split_once(param, "=") {
+    Ok(#(key, value)) -> {
+      // Split at the first "=" only, then decode both key and value
       let decoded_key = decode_url_component(key)
       let decoded_value = decode_url_component(value)
       match_query_key(decoded_key, name, decoded_value)
     }
-    [key] -> {
+    Error(Nil) -> {
       // Parameter with no value (empty string)
-      let decoded_key = decode_url_component(key)
+      let decoded_key = decode_url_component(param)
       match_query_key(decoded_key, name, "")
     }
-    _ -> option.None
   }
 }
 
@@ -288,7 +374,7 @@ fn match_query_key(
 }
 
 /// Decode a URL-encoded component (key or value)
-/// 
+///
 /// Handles percent-encoded sequences (e.g., %20, %26) and plus signs (+ → space)
 /// Falls back to original string if decoding fails
 fn decode_url_component(component: String) -> String {
@@ -346,7 +432,7 @@ fn extract_format(
   raw: String,
 ) -> #(String, option.Option(String)) {
   case parts {
-    [val, ext] -> #(val, option.Some(ext))
+    [base_value, extension] -> #(base_value, option.Some(extension))
     _ -> #(raw, option.None)
   }
 }
@@ -362,36 +448,46 @@ fn extract_format(
 ///
 /// ## Examples
 ///
+/// ### Read a path parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L53-L63"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
 /// // Route: /users/:id
 /// // Request: /users/123
-/// case get_param(request, "id") {
-///   Ok(param) -> {
-///     param.value  // "123"
-///     param.as_int // Ok(123)
+/// pub fn read_user_id(
+///   request: Request,
+/// ) -> Result(#(String, Result(Int, Nil)), String) {
+///   case get_param(request, "id") {
+///     // param.value is "123", param.as_int is Ok(123)
+///     Ok(param) -> Ok(#(param.value, param.as_int))
+///     Error(message) -> Error(message)
 ///   }
-///   Error(msg) -> // handle error
 /// }
 /// ```
+///
+/// ### Read a format extension <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L65-L75"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// // Route: /users/:id
 /// // Request: /users/123.json
-/// case get_param(request, "id") {
-///   Ok(param) -> {
-///     param.value  // "123"
-///     param.format // Some("json")
-///     param.as_int // Ok(123)
+/// pub fn read_user_id_with_format(
+///   request: Request,
+/// ) -> Result(#(String, Option(String), Result(Int, Nil)), String) {
+///   case get_param(request, "id") {
+///     // param.value is "123", param.format is Some("json"), param.as_int is Ok(123)
+///     Ok(param) -> Ok(#(param.value, param.format, param.as_int))
+///     Error(message) -> Error(message)
 ///   }
-///   Error(msg) -> // handle error
 /// }
 /// ```
 ///
+/// ### Read an integer parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L79-L84"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// // For simple integer extraction, use get_int_param:
-/// case get_int_param(request, "id") {
-///   Ok(id) -> show_user(id)
-///   Error(msg) -> json_response(status.bad_request, error_json(msg))
+/// pub fn show_user_by_id(request: Request, _context, _services) -> Response {
+///   case get_int_param(request, "id") {
+///     Ok(id) -> text_response(status.ok, "User " <> int.to_string(id))
+///     Error(message) -> json_response(status.bad_request, error_json(message))
+///   }
 /// }
 /// ```
 pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
@@ -408,12 +504,16 @@ pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
 ///
 /// ## Examples
 ///
+/// ### Show a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L77-L84"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
 /// // Route: /users/:id
 /// // Request: /users/123
-/// case get_int_param(request, "id") {
-///   Ok(id) -> show_user(id)
-///   Error(msg) -> json_response(status.bad_request, error_json(msg))
+/// pub fn show_user_by_id(request: Request, _context, _services) -> Response {
+///   case get_int_param(request, "id") {
+///     Ok(id) -> text_response(status.ok, "User " <> int.to_string(id))
+///     Error(message) -> json_response(status.bad_request, error_json(message))
+///   }
 /// }
 /// ```
 pub fn get_int_param(request: Request, name: String) -> Result(Int, String) {
@@ -436,12 +536,16 @@ fn param_to_int(param: PathParam, name: String) -> Result(Int, String) {
 ///
 /// ## Examples
 ///
+/// ### Show a user by name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L86-L93"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
 /// // Route: /users/:name
 /// // Request: /users/john
-/// case get_string_param(request, "name") {
-///   Ok(name) -> show_user_by_name(name)
-///   Error(msg) -> json_response(status.bad_request, error_json(msg))
+/// pub fn show_user_by_name(request: Request, _context, _services) -> Response {
+///   case get_string_param(request, "name") {
+///     Ok(name) -> text_response(status.ok, "User " <> name)
+///     Error(message) -> json_response(status.bad_request, error_json(message))
+///   }
 /// }
 /// ```
 pub fn get_string_param(

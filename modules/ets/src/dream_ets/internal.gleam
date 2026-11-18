@@ -8,7 +8,10 @@ import gleam/erlang/atom
 pub type EtsTableRef
 
 pub type EtsFfiError {
+  /// The key was not found
   NotFound
+  /// The table does not exist (for example, it was deleted)
+  TableNotFound
   AlreadyExists
   InvalidOperation(String)
   EmptyTable
@@ -70,19 +73,19 @@ fn ets_info_ffi_by_name(
 pub fn ets_match(
   table_id: Int,
   pattern: dynamic.Dynamic,
-) -> List(dynamic.Dynamic)
+) -> Result(List(dynamic.Dynamic), EtsFfiError)
 
 @external(erlang, "internal_ffi", "ets_match_object")
 pub fn ets_match_object(
   table_id: Int,
   pattern: dynamic.Dynamic,
-) -> List(dynamic.Dynamic)
+) -> Result(List(dynamic.Dynamic), EtsFfiError)
 
 @external(erlang, "internal_ffi", "ets_select")
 pub fn ets_select(
   table_id: Int,
   match_spec: dynamic.Dynamic,
-) -> List(dynamic.Dynamic)
+) -> Result(List(dynamic.Dynamic), EtsFfiError)
 
 @external(erlang, "internal_ffi", "ets_tab2file")
 pub fn ets_tab2file(table_id: Int, filename: String) -> Result(Nil, EtsFfiError)
@@ -91,7 +94,10 @@ pub fn ets_tab2file(table_id: Int, filename: String) -> Result(Nil, EtsFfiError)
 pub fn ets_file2tab(filename: String) -> Result(Int, EtsFfiError)
 
 @external(erlang, "internal_ffi", "ets_insert")
-pub fn ets_insert(table_id: Int, object: dynamic.Dynamic) -> Nil
+pub fn ets_insert(
+  table_id: Int,
+  object: dynamic.Dynamic,
+) -> Result(Nil, EtsFfiError)
 
 @external(erlang, "internal_ffi", "ets_lookup")
 pub fn ets_lookup(
@@ -100,16 +106,22 @@ pub fn ets_lookup(
 ) -> Result(dynamic.Dynamic, EtsFfiError)
 
 @external(erlang, "internal_ffi", "ets_delete_table")
-pub fn ets_delete_table(table_id: Int) -> Nil
+pub fn ets_delete_table(table_id: Int) -> Result(Nil, EtsFfiError)
 
 @external(erlang, "internal_ffi", "ets_delete_key")
-pub fn ets_delete_key(table_id: Int, key: dynamic.Dynamic) -> Nil
+pub fn ets_delete_key(
+  table_id: Int,
+  key: dynamic.Dynamic,
+) -> Result(Nil, EtsFfiError)
 
 @external(erlang, "internal_ffi", "ets_delete_object")
-pub fn ets_delete_object(table_id: Int, object: dynamic.Dynamic) -> Nil
+pub fn ets_delete_object(
+  table_id: Int,
+  object: dynamic.Dynamic,
+) -> Result(Nil, EtsFfiError)
 
 @external(erlang, "internal_ffi", "ets_delete_all_objects")
-pub fn ets_delete_all_objects(table_id: Int) -> Nil
+pub fn ets_delete_all_objects(table_id: Int) -> Result(Nil, EtsFfiError)
 
 @external(erlang, "internal_ffi", "ets_first")
 pub fn ets_first(table_id: Int) -> Result(dynamic.Dynamic, EtsFfiError)
@@ -121,10 +133,16 @@ pub fn ets_next(
 ) -> Result(dynamic.Dynamic, EtsFfiError)
 
 @external(erlang, "internal_ffi", "ets_member")
-pub fn ets_member(table_id: Int, key: dynamic.Dynamic) -> Bool
+pub fn ets_member(
+  table_id: Int,
+  key: dynamic.Dynamic,
+) -> Result(Bool, EtsFfiError)
 
 @external(erlang, "internal_ffi", "ets_insert_new")
-pub fn ets_insert_new(table_id: Int, object: dynamic.Dynamic) -> Bool
+pub fn ets_insert_new(
+  table_id: Int,
+  object: dynamic.Dynamic,
+) -> Result(Bool, EtsFfiError)
 
 @external(erlang, "internal_ffi", "ets_take")
 pub fn ets_take(
@@ -161,10 +179,12 @@ pub fn new_table(
   }
 }
 
-pub fn insert(table: EtsTableRef, object: dynamic.Dynamic) -> Nil {
+pub fn insert(
+  table: EtsTableRef,
+  object: dynamic.Dynamic,
+) -> Result(Nil, EtsFfiError) {
   let table_id = unwrap_table_ref(table)
   ets_insert(table_id, object)
-  Nil
 }
 
 pub fn lookup(
@@ -175,28 +195,30 @@ pub fn lookup(
   ets_lookup(table_id, key)
 }
 
-pub fn delete_table(table: EtsTableRef) -> Nil {
+pub fn delete_table(table: EtsTableRef) -> Result(Nil, EtsFfiError) {
   let table_id = unwrap_table_ref(table)
   ets_delete_table(table_id)
-  Nil
 }
 
-pub fn delete_key(table: EtsTableRef, key: dynamic.Dynamic) -> Nil {
+pub fn delete_key(
+  table: EtsTableRef,
+  key: dynamic.Dynamic,
+) -> Result(Nil, EtsFfiError) {
   let table_id = unwrap_table_ref(table)
   ets_delete_key(table_id, key)
-  Nil
 }
 
-pub fn delete_object(table: EtsTableRef, object: dynamic.Dynamic) -> Nil {
+pub fn delete_object(
+  table: EtsTableRef,
+  object: dynamic.Dynamic,
+) -> Result(Nil, EtsFfiError) {
   let table_id = unwrap_table_ref(table)
   ets_delete_object(table_id, object)
-  Nil
 }
 
-pub fn delete_all_objects(table: EtsTableRef) -> Nil {
+pub fn delete_all_objects(table: EtsTableRef) -> Result(Nil, EtsFfiError) {
   let table_id = unwrap_table_ref(table)
   ets_delete_all_objects(table_id)
-  Nil
 }
 
 pub fn first_key(table: EtsTableRef) -> Result(dynamic.Dynamic, EtsFfiError) {
@@ -212,12 +234,18 @@ pub fn next_key(
   ets_next(table_id, key)
 }
 
-pub fn member(table: EtsTableRef, key: dynamic.Dynamic) -> Bool {
+pub fn member(
+  table: EtsTableRef,
+  key: dynamic.Dynamic,
+) -> Result(Bool, EtsFfiError) {
   let table_id = unwrap_table_ref(table)
   ets_member(table_id, key)
 }
 
-pub fn insert_new(table: EtsTableRef, object: dynamic.Dynamic) -> Bool {
+pub fn insert_new(
+  table: EtsTableRef,
+  object: dynamic.Dynamic,
+) -> Result(Bool, EtsFfiError) {
   let table_id = unwrap_table_ref(table)
   ets_insert_new(table_id, object)
 }
@@ -251,7 +279,7 @@ pub fn table_info(
 pub fn match(
   table: EtsTableRef,
   pattern: dynamic.Dynamic,
-) -> List(dynamic.Dynamic) {
+) -> Result(List(dynamic.Dynamic), EtsFfiError) {
   let table_id = unwrap_table_ref(table)
   ets_match(table_id, pattern)
 }
@@ -259,7 +287,7 @@ pub fn match(
 pub fn match_object(
   table: EtsTableRef,
   pattern: dynamic.Dynamic,
-) -> List(dynamic.Dynamic) {
+) -> Result(List(dynamic.Dynamic), EtsFfiError) {
   let table_id = unwrap_table_ref(table)
   ets_match_object(table_id, pattern)
 }
@@ -267,7 +295,7 @@ pub fn match_object(
 pub fn select(
   table: EtsTableRef,
   match_spec: dynamic.Dynamic,
-) -> List(dynamic.Dynamic) {
+) -> Result(List(dynamic.Dynamic), EtsFfiError) {
   let table_id = unwrap_table_ref(table)
   ets_select(table_id, match_spec)
 }

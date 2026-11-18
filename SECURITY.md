@@ -73,17 +73,23 @@ Gleam's type system prevents many vulnerabilities:
 
 Dream's `require_*` functions validate types, not business rules:
 
+#### Check the business rules after Dream checks the type <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/security_validation.gleam#L17-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-// Dream validates this is an integer
-case require_int(request, "user_id") {
-  Ok(user_id) -> {
+pub fn show_user(request: Request, db: Database) -> Response {
+  // Dream validates this is an integer
+  case require_int(request, "user_id") {
     // YOU must validate business rules
-    case user_id > 0 {
-      True -> fetch_user(db, user_id)
-      False -> text_response(bad_request, "Invalid user ID")
-    }
+    Ok(user_id) -> show_valid_user(db, user_id)
+    Error(param_error) -> text_response(bad_request, error.message(param_error))
   }
-  Error(error) -> text_response(bad_request, error.message)
+}
+
+fn show_valid_user(db: Database, user_id: Int) -> Response {
+  case user_id > 0 {
+    True -> fetch_user(db, user_id)
+    False -> text_response(bad_request, "Invalid user ID")
+  }
 }
 ```
 

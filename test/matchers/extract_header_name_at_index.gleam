@@ -30,7 +30,10 @@ pub fn extract_header_name_at_index(
   }
 }
 
-fn get_header_at_index(headers: List(Header), index: Int) -> MatchResult(String) {
+fn get_header_at_index(
+  headers: List(Header),
+  index: Int,
+) -> MatchResult(String) {
   case get_at(headers, index) {
     Ok(Header(name, _value)) -> MatchOk(name)
     Error(Nil) -> index_out_of_bounds_failure(index, list.length(headers))

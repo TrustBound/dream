@@ -134,39 +134,46 @@ Based on visual analysis of Things 3, here are the key features and interaction 
 
 ## Data Model
 
-### Task
+These types are in `src/types/`. The priority menu sets a task's `priority` to 1 (Urgent), 2 (High), 3 (Normal) or 4 (Low).
+
+### Task <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/types/task.gleam#L5-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-type Task {
-  id: Int
-  title: String
-  description: Option(String)
-  completed: Bool
-  priority: Int  // 1-4
-  due_date: Option(String)
-  position: Int
-  project_id: Option(Int)
-  created_at: String
-  updated_at: String
+pub type Task {
+  Task(
+    id: Int,
+    title: String,
+    description: Option(String),
+    completed: Bool,
+    priority: Int,
+    due_date: Option(String),
+    position: Int,
+    project_id: Option(Int),
+    created_at: String,
+    updated_at: String,
+  )
 }
 ```
 
-### Project/List
+### Project/List <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/types/project.gleam#L5-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-type Project {
-  id: Int
-  name: String
-  description: Option(String)
-  color: Option(String)
-  created_at: String
+pub type Project {
+  Project(
+    id: Int,
+    name: String,
+    description: Option(String),
+    color: Option(String),
+    created_at: String,
+  )
 }
 ```
 
-### Tag
+### Tag <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/types/tag.gleam#L5-L7"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-type Tag {
-  id: Int
-  name: String
-  color: Option(String)
+pub type Tag {
+  Tag(id: Int, name: String, color: Option(String))
 }
 ```
 

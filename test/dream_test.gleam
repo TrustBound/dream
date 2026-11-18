@@ -1,6 +1,13 @@
 //// Main test entry point using dream_test framework.
 
 import benchmarks/router_benchmark
+import contributing_snippets_test
+import doc_core_snippets_test
+import doc_http_data_snippets_test
+import doc_http_snippets_test
+import doc_server_snippets_test
+import docs_snippet_check_test
+import docs_snippet_pages_test
 import dream/context_test
 import dream/dream_test as dream_module_test
 import dream/http/cookie_test
@@ -13,18 +20,35 @@ import dream/http/status_test
 import dream/http/validation_test
 import dream/router/parser_test
 import dream/router_test
+import dream/servers/mist/builder_order_test
+import dream/servers/mist/chunked_stream_test
+import dream/servers/mist/h2c_test
 import dream/servers/mist/handler_test
+import dream/servers/mist/request_body_test
 import dream/servers/mist/request_test as mist_request_test
 import dream/servers/mist/response_test as mist_response_test
 import dream/servers/mist/server_test
 import dream/servers/mist/sse_test
+import dream/servers/mist/tls_test
+import dream/services/broadcaster_test
 import dream/streaming_test
 import dream_test/reporter/bdd
 import dream_test/runner
 import dream_test/unit
+import fixtures/port_ffi_test
 import gleam/io
 import gleam/list
+import guides_deployment_templates_snippets_test
+import guides_sse_websockets_rest_snippets_test
+import learning_snippets_test
+import naming_snippets_test
+import reference_snippets_test
+import security_snippets_test
+import snippets/streaming_api_test
 import snippets_test
+import streaming_snippets_test
+import testing_controllers_uploads_snippets_test
+import websocket_chat_readme_snippets_test
 
 pub fn main() {
   let all_tests =
@@ -41,20 +65,74 @@ pub fn main() {
       unit.to_test_cases("dream/http/validation", validation_test.tests()),
       unit.to_test_cases("dream/router", router_test.tests()),
       unit.to_test_cases("dream/router/parser", parser_test.tests()),
+      unit.to_test_cases(
+        "dream/servers/mist/builder_order",
+        builder_order_test.tests(),
+      ),
+      unit.to_test_cases(
+        "dream/servers/mist/chunked_stream",
+        chunked_stream_test.tests(),
+      ),
+      unit.to_test_cases("dream/servers/mist/h2c", h2c_test.tests()),
       unit.to_test_cases("dream/servers/mist/handler", handler_test.tests()),
       unit.to_test_cases(
         "dream/servers/mist/request",
         mist_request_test.tests(),
       ),
       unit.to_test_cases(
+        "dream/servers/mist/request_body",
+        request_body_test.tests(),
+      ),
+      unit.to_test_cases(
         "dream/servers/mist/response",
         mist_response_test.tests(),
       ),
       unit.to_test_cases("dream/servers/mist/server", server_test.tests()),
+      unit.to_test_cases("dream/servers/mist/tls", tls_test.tests()),
+      unit.to_test_cases("fixtures/port_ffi", port_ffi_test.tests()),
       unit.to_test_cases("dream/servers/mist/sse", sse_test.tests()),
+      unit.to_test_cases("dream/services/broadcaster", broadcaster_test.tests()),
       unit.to_test_cases("dream/streaming", streaming_test.tests()),
       unit.to_test_cases("benchmarks/router", router_benchmark.tests()),
       unit.to_test_cases("snippets", snippets_test.tests()),
+      unit.to_test_cases("doc_http_snippets", doc_http_snippets_test.tests()),
+      unit.to_test_cases(
+        "doc http data snippets",
+        doc_http_data_snippets_test.tests(),
+      ),
+      unit.to_test_cases(
+        "doc_server_snippets",
+        doc_server_snippets_test.tests(),
+      ),
+      unit.to_test_cases("doc_core_snippets", doc_core_snippets_test.tests()),
+      unit.to_test_cases("snippets/naming", naming_snippets_test.tests()),
+      unit.to_test_cases("reference snippets", reference_snippets_test.tests()),
+      unit.to_test_cases("security snippets", security_snippets_test.tests()),
+      unit.to_test_cases("snippets/streaming_api", streaming_api_test.tests()),
+      unit.to_test_cases("streaming_snippets", streaming_snippets_test.tests()),
+      unit.to_test_cases(
+        "guide snippets",
+        guides_sse_websockets_rest_snippets_test.tests(),
+      ),
+      unit.to_test_cases(
+        "testing_controllers_uploads_snippets",
+        testing_controllers_uploads_snippets_test.tests(),
+      ),
+      unit.to_test_cases(
+        "guides_deployment_templates_snippets",
+        guides_deployment_templates_snippets_test.tests(),
+      ),
+      unit.to_test_cases("learning snippets", learning_snippets_test.tests()),
+      unit.to_test_cases(
+        "contributing_snippets",
+        contributing_snippets_test.tests(),
+      ),
+      unit.to_test_cases(
+        "websocket_chat_readme_snippets",
+        websocket_chat_readme_snippets_test.tests(),
+      ),
+      unit.to_test_cases("docs_snippet_check", docs_snippet_check_test.tests()),
+      unit.to_test_cases("docs_snippet_pages", docs_snippet_pages_test.tests()),
     ]
     |> list.flatten
 

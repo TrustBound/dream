@@ -102,7 +102,8 @@ import gleam/result
 /// ## Returns
 ///
 /// - `Ok(Nil)`: Successfully set the key-value pair
-/// - `Error(EtsError)`: An error occurred (encoding failure, etc.)
+/// - `Error(TableNotFound)`: The table does not exist (for example, it was
+///   deleted)
 ///
 /// ## Example
 ///
@@ -123,7 +124,7 @@ pub fn set(
   let table_ref = table.table_ref(table)
 
   internal.insert(table_ref, internal.to_dynamic(object))
-  Ok(Nil)
+  |> result.map_error(ffi_error_to_ets_error)
 }
 
 /// Lookup a value by key
@@ -142,7 +143,9 @@ pub fn set(
 ///
 /// - `Ok(Some(value))`: Key exists, returns the value
 /// - `Ok(None)`: Key doesn't exist
-/// - `Error(EtsError)`: An error occurred (decoding failure, etc.)
+/// - `Error(TableNotFound)`: The table does not exist (for example, it was
+///   deleted)
+/// - `Error(DecodeError(error))`: The stored value could not be decoded
 ///
 /// ## Example
 ///
@@ -185,7 +188,8 @@ pub fn get(
 /// ## Returns
 ///
 /// - `Ok(Nil)`: Successfully deleted (or key didn't exist)
-/// - `Error(EtsError)`: An error occurred
+/// - `Error(TableNotFound)`: The table does not exist (for example, it was
+///   deleted)
 ///
 /// ## Example
 ///
@@ -199,12 +203,12 @@ pub fn delete(table: table.Table(k, v), key: k) -> Result(Nil, table.EtsError) {
   let table_ref = table.table_ref(table)
 
   internal.delete_key(table_ref, encoded_key)
-  Ok(Nil)
+  |> result.map_error(ffi_error_to_ets_error)
 }
 
 /// Check if a key exists in the table
 ///
-/// Returns `True` if the key exists in the table, `False` otherwise.
+/// Returns `Ok(True)` if the key exists in the table, `Ok(False)` otherwise.
 /// This is more efficient than `get()` when you only need to check existence
 /// without retrieving the value.
 ///
@@ -215,17 +219,26 @@ pub fn delete(table: table.Table(k, v), key: k) -> Result(Nil, table.EtsError) {
 ///
 /// ## Returns
 ///
-/// - `True`: Key exists in the table
-/// - `False`: Key doesn't exist
+/// - `Ok(True)`: Key exists in the table
+/// - `Ok(False)`: Key doesn't exist
+/// - `Error(TableNotFound)`: The table does not exist (for example, it was
+///   deleted)
 ///
 /// ## Example
 ///
-/// ```gleam
-/// import dream_ets/operations
+/// ### Check whether a user exists <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/doc_member.gleam#L11-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
-/// // Check before inserting
-/// if !operations.member(table, "user:123") {
-///   let assert Ok(_) = operations.set(table, "user:123", "Alice")
+/// ```gleam
+/// pub fn describe_user(
+///   users: table.Table(String, String),
+///   user_id: String,
+/// ) -> String {
+///   case operations.member(users, user_id) {
+///     Ok(True) -> user_id <> " exists"
+///     Ok(False) -> user_id <> " does not exist"
+///     Error(table.TableNotFound) -> "The table was deleted"
+///     Error(other) -> "Check failed: " <> string.inspect(other)
+///   }
 /// }
 /// ```
 ///
@@ -234,27 +247,19 @@ pub fn delete(table: table.Table(k, v), key: k) -> Result(Nil, table.EtsError) {
 /// `member()` is faster than `get()` because it doesn't need to decode
 /// the value. Use it when you only care about existence.
 ///
-/// ```gleam
-/// // Slower - decodes value
-/// case operations.get(table, key) {
-///   Ok(option.Some(_)) -> True
-///   Ok(option.None) -> False
-///   Error(_) -> False
-/// }
-///
-/// // Faster - just checks existence
-/// operations.member(table, key)
-/// ```
-///
 /// ## See Also
 ///
 /// - `get()` - Retrieve the value if you need it
 /// - `insert_new()` - Insert only if key doesn't exist
-pub fn member(table: table.Table(k, v), key: k) -> Bool {
+pub fn member(
+  table: table.Table(k, v),
+  key: k,
+) -> Result(Bool, table.EtsError) {
   let encoded_key = table.encode_key(table, key)
   let table_ref = table.table_ref(table)
 
   internal.member(table_ref, encoded_key)
+  |> result.map_error(ffi_error_to_ets_error)
 }
 
 /// Delete the entire table
@@ -269,7 +274,8 @@ pub fn member(table: table.Table(k, v), key: k) -> Bool {
 /// ## Returns
 ///
 /// - `Ok(Nil)`: Successfully deleted
-/// - `Error(EtsError)`: An error occurred
+/// - `Error(TableNotFound)`: The table does not exist (for example, it was
+///   already deleted)
 ///
 /// ## Example
 ///
@@ -281,7 +287,7 @@ pub fn member(table: table.Table(k, v), key: k) -> Bool {
 pub fn delete_table(table: table.Table(k, v)) -> Result(Nil, table.EtsError) {
   let table_ref = table.table_ref(table)
   internal.delete_table(table_ref)
-  Ok(Nil)
+  |> result.map_error(ffi_error_to_ets_error)
 }
 
 /// Get the number of objects in the table
@@ -295,6 +301,8 @@ pub fn delete_table(table: table.Table(k, v)) -> Result(Nil, table.EtsError) {
 /// ## Returns
 ///
 /// - `Ok(Int)`: The number of entries in the table (>= 0)
+/// - `Error(TableNotFound)`: The table does not exist (for example, it was
+///   deleted)
 /// - `Error(DecodeError)`: A key failed to decode during iteration
 ///
 /// ## Example
@@ -468,7 +476,8 @@ pub fn to_list(
 ///
 /// - `Ok(True)`: Key was inserted successfully (didn't exist before)
 /// - `Ok(False)`: Key already existed, no change made
-/// - `Error(EtsError)`: An error occurred during encoding or insertion
+/// - `Error(TableNotFound)`: The table does not exist (for example, it was
+///   deleted)
 ///
 /// ## Example
 ///
@@ -510,14 +519,30 @@ pub fn to_list(
 ///
 /// ## Why Not Use `member()` + `set()`?
 ///
+/// ### Member and set, compared with insert_new <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/doc_insert_new_race.gleam#L10-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// // ❌ RACE CONDITION - Not safe for concurrent access
-/// if !operations.member(table, key) {
-///   operations.set(table, key, value)  // Another process might insert here!
+/// // Race condition: another process can insert the key between the two calls
+/// pub fn insert_if_missing_with_member(
+///   users: table.Table(String, String),
+///   key: String,
+///   value: String,
+/// ) -> Result(Bool, table.EtsError) {
+///   use exists <- result.try(operations.member(users, key))
+///   case exists {
+///     True -> Ok(False)
+///     False -> operations.set(users, key, value) |> result.replace(True)
+///   }
 /// }
 ///
-/// // ✅ ATOMIC - Safe for concurrent access
-/// operations.insert_new(table, key, value)
+/// // Atomic: safe for concurrent access
+/// pub fn insert_if_missing(
+///   users: table.Table(String, String),
+///   key: String,
+///   value: String,
+/// ) -> Result(Bool, table.EtsError) {
+///   operations.insert_new(users, key, value)
+/// }
 /// ```
 ///
 /// ## See Also
@@ -534,8 +559,8 @@ pub fn insert_new(
   let object = #(encoded_key, encoded_value)
   let table_ref = table.table_ref(table)
 
-  let inserted = internal.insert_new(table_ref, internal.to_dynamic(object))
-  Ok(inserted)
+  internal.insert_new(table_ref, internal.to_dynamic(object))
+  |> result.map_error(ffi_error_to_ets_error)
 }
 
 /// Lookup and delete a key-value pair atomically
@@ -674,10 +699,7 @@ pub fn update_element(
   case internal.update_element(table_ref, encoded_key, pos, value) {
     Ok(_) -> Ok(Nil)
     Error(internal.NotFound) -> Error(table.TableNotFound)
-    Error(internal.InvalidOperation(msg)) -> Error(table.OperationFailed(msg))
-    Error(internal.AlreadyExists) -> Error(table.TableAlreadyExists)
-    Error(internal.EmptyTable) -> Error(table.EmptyTable)
-    Error(internal.EndOfTable) -> Error(table.EndOfTable)
+    Error(error) -> Error(ffi_error_to_ets_error(error))
   }
 }
 
@@ -687,49 +709,58 @@ pub fn delete_all_objects(
 ) -> Result(Nil, table.EtsError) {
   let table_ref = table.table_ref(table)
   internal.delete_all_objects(table_ref)
-  Ok(Nil)
+  |> result.map_error(ffi_error_to_ets_error)
 }
 
 /// Pattern matching - advanced ETS feature
 ///
-/// Returns list of matches based on Erlang match pattern.
+/// Returns `Ok` with the list of matches based on Erlang match pattern, or
+/// `Error(TableNotFound)` if the table does not exist (for example, it was
+/// deleted).
 /// This is a low-level function - most users should use get/keys/values instead.
 ///
 /// See: https://erlang.org/doc/man/ets.html#match-2
 pub fn match(
   table: table.Table(k, v),
   pattern: dynamic.Dynamic,
-) -> List(dynamic.Dynamic) {
+) -> Result(List(dynamic.Dynamic), table.EtsError) {
   let table_ref = table.table_ref(table)
   internal.match(table_ref, pattern)
+  |> result.map_error(ffi_error_to_ets_error)
 }
 
 /// Match objects - advanced ETS feature
 ///
-/// Returns complete objects matching the pattern.
+/// Returns `Ok` with the complete objects matching the pattern, or
+/// `Error(TableNotFound)` if the table does not exist (for example, it was
+/// deleted).
 /// This is a low-level function - most users should use get/to_list instead.
 ///
 /// See: https://erlang.org/doc/man/ets.html#match_object-2
 pub fn match_object(
   table: table.Table(k, v),
   pattern: dynamic.Dynamic,
-) -> List(dynamic.Dynamic) {
+) -> Result(List(dynamic.Dynamic), table.EtsError) {
   let table_ref = table.table_ref(table)
   internal.match_object(table_ref, pattern)
+  |> result.map_error(ffi_error_to_ets_error)
 }
 
 /// Select with match specification - advanced ETS feature
 ///
-/// SQL-like queries with match specifications.
+/// SQL-like queries with match specifications. Returns `Ok` with the
+/// results, or `Error(TableNotFound)` if the table does not exist (for
+/// example, it was deleted).
 /// This is a low-level function for complex queries.
 ///
 /// See: https://erlang.org/doc/man/ets.html#select-2
 pub fn select(
   table: table.Table(k, v),
   match_spec: dynamic.Dynamic,
-) -> List(dynamic.Dynamic) {
+) -> Result(List(dynamic.Dynamic), table.EtsError) {
   let table_ref = table.table_ref(table)
   internal.select(table_ref, match_spec)
+  |> result.map_error(ffi_error_to_ets_error)
 }
 
 /// Save table to file
@@ -762,12 +793,20 @@ pub fn load_from_file(
 fn map_ffi_error_to_ets_error(
   err: internal.EtsFfiError,
 ) -> Result(a, table.EtsError) {
-  case err {
-    internal.NotFound -> Error(table.TableNotFound)
-    internal.AlreadyExists -> Error(table.TableAlreadyExists)
-    internal.InvalidOperation(msg) -> Error(table.OperationFailed(msg))
-    internal.EmptyTable -> Error(table.EmptyTable)
-    internal.EndOfTable -> Error(table.EndOfTable)
+  Error(ffi_error_to_ets_error(err))
+}
+
+/// Converts an FFI error to the public `EtsError`. `NotFound` (no such key)
+/// and `TableNotFound` both become `TableNotFound`; the functions that treat
+/// a missing key as `Ok(None)` match `NotFound` before they call this.
+fn ffi_error_to_ets_error(error: internal.EtsFfiError) -> table.EtsError {
+  case error {
+    internal.NotFound -> table.TableNotFound
+    internal.TableNotFound -> table.TableNotFound
+    internal.AlreadyExists -> table.TableAlreadyExists
+    internal.InvalidOperation(message) -> table.OperationFailed(message)
+    internal.EmptyTable -> table.EmptyTable
+    internal.EndOfTable -> table.EndOfTable
   }
 }
 
@@ -831,23 +870,14 @@ fn map_internal_error(
 ) -> Result(option.Option(v), table.EtsError) {
   case err {
     internal.NotFound -> Ok(option.None)
-    internal.AlreadyExists -> Error(table.TableAlreadyExists)
-    internal.InvalidOperation(msg) -> Error(table.OperationFailed(msg))
-    internal.EmptyTable -> Error(table.EmptyTable)
-    internal.EndOfTable -> Error(table.EndOfTable)
+    _ -> Error(ffi_error_to_ets_error(err))
   }
 }
 
 fn map_internal_error_to_ets(
   err: internal.EtsFfiError,
 ) -> Result(a, table.EtsError) {
-  case err {
-    internal.NotFound -> Error(table.TableNotFound)
-    internal.AlreadyExists -> Error(table.TableAlreadyExists)
-    internal.InvalidOperation(msg) -> Error(table.OperationFailed(msg))
-    internal.EmptyTable -> Error(table.EmptyTable)
-    internal.EndOfTable -> Error(table.EndOfTable)
-  }
+  Error(ffi_error_to_ets_error(err))
 }
 
 fn collect_all_keys(

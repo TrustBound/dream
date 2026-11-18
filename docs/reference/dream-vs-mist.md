@@ -6,36 +6,48 @@ Side-by-side comparison showing exactly what Dream adds over raw Mist.
 
 ### With Raw Mist
 
+#### Raw Mist: hello world <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_simple_mist.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import mist
-import gleam/http/request.{Request}
-import gleam/http/response.{Response}
 import gleam/bytes_tree
+import gleam/erlang/process
+import gleam/http.{Get}
+import gleam/http/request.{type Request}
+import gleam/http/response.{type Response}
+import gleam/io
+import mist.{type Connection, type ResponseData}
+
+pub fn handle_request(request: Request(Connection)) -> Response(ResponseData) {
+  case mist.read_body(request, max_body_limit: 1_000_000) {
+    Ok(request_with_body) -> route_request(request_with_body)
+    Error(_read_error) ->
+      response.new(400)
+      |> response.set_body(mist.Bytes(bytes_tree.new()))
+  }
+}
+
+fn route_request(request: Request(BitArray)) -> Response(ResponseData) {
+  case request.method, request.path {
+    Get, "/" ->
+      response.new(200)
+      |> response.set_body(mist.Bytes(bytes_tree.from_string("Hello, World!")))
+      |> response.set_header("content-type", "text/plain")
+    _, _ ->
+      response.new(404)
+      |> response.set_body(mist.Bytes(bytes_tree.from_string("Not Found")))
+  }
+}
 
 pub fn main() {
-  let handler = fn(req: Request(mist.Connection)) -> Response(mist.ResponseData) {
-    case mist.read_body(req, max_body_limit: 1_000_000) {
-      Ok(_req_with_body) -> {
-        case req.method, req.path {
-          http.Get, "/" -> {
-            response.new(200)
-            |> response.set_body(mist.Bytes(bytes_tree.from_string("Hello, World!")))
-            |> response.set_header("Content-Type", "text/plain")
-          }
-          _, _ -> {
-            response.new(404)
-            |> response.set_body(mist.Bytes(bytes_tree.from_string("Not Found")))
-          }
-        }
-      }
-      Error(_) -> response.new(400) |> response.set_body(mist.Bytes(bytes_tree.new()))
-    }
+  let started =
+    mist.new(handle_request)
+    |> mist.port(3000)
+    |> mist.start()
+
+  case started {
+    Ok(_server) -> process.sleep_forever()
+    Error(_start_error) -> io.println("The server did not start")
   }
-  
-  mist.new(handler)
-  |> mist.port(3000)
-  |> mist.start_http()
-  |> result.unwrap(Nil)
 }
 ```
 
@@ -47,21 +59,26 @@ pub fn main() {
 
 ### With Dream
 
+#### Dream: hello world <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_simple_dream.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import dream/http.{type Request, type Response, text_response, ok}
+import dream/http.{type Request, type Response, ok, text_response}
 import dream/http/request.{Get}
 import dream/router.{route, router}
 import dream/servers/mist/server
 
-fn index(_req: Request, _ctx, _svc) -> Response {
+fn show_home(_request: Request, _context, _services) -> Response {
   text_response(ok, "Hello, World!")
 }
 
+pub fn create_router() {
+  router()
+  |> route(method: Get, path: "/", controller: show_home, middleware: [])
+}
+
 pub fn main() {
-  let app_router = router() |> route(Get, "/", index, [])
-  
   server.new()
-  |> server.router(app_router)
+  |> server.router(create_router())
   |> server.listen(3000)
 }
 ```
@@ -78,37 +95,35 @@ pub fn main() {
 
 ### With Raw Mist
 
+#### Raw Mist: parse the path by hand <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_params_mist.gleam#L14-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-fn handler(req: Request(Connection)) -> Response(ResponseData) {
-  case req.method, req.path {
-    http.Get, path -> {
-      // Manual path parsing
-      case parse_user_path(path) {
-        Ok(id) -> show_user(id)
-        Error(_) -> not_found()
-      }
-    }
+pub fn handle_request(request: Request(Connection)) -> Response(ResponseData) {
+  case request.method, parse_user_path(request.path) {
+    Get, Ok(id) -> show_user(id)
     _, _ -> not_found()
   }
 }
 
 fn parse_user_path(path: String) -> Result(Int, Nil) {
   case string.split(path, "/") {
-    ["", "users", id_str] -> {
-      case int.parse(id_str) {
-        Ok(id) -> Ok(id)
-        Error(_) -> Error(Nil)
-      }
-    }
+    ["", "users", id_text] -> int.parse(id_text)
     _ -> Error(Nil)
   }
 }
 
 fn show_user(id: Int) -> Response(ResponseData) {
-  // How do we get database connection here?
-  // Global? Thread through? Process dictionary?
+  // How does this function reach the database? A global? The process
+  // dictionary? One more argument on every function in between?
   response.new(200)
-  |> response.set_body(mist.Bytes(bytes_tree.from_string("User " <> int.to_string(id))))
+  |> response.set_body(
+    mist.Bytes(bytes_tree.from_string("User " <> int.to_string(id))),
+  )
+}
+
+fn not_found() -> Response(ResponseData) {
+  response.new(404)
+  |> response.set_body(mist.Bytes(bytes_tree.from_string("Not Found")))
 }
 ```
 
@@ -119,34 +134,74 @@ fn show_user(id: Int) -> Response(ResponseData) {
 
 ### With Dream
 
-```gleam
-import dream/http.{type Request, type Response, require_int, json_response, text_response, ok, not_found}
-import dream/http/request.{Get}
-import dream/router.{Router, route, router}
-import dream/context.{AppContext}
-import models/user.{get}
-import services.{Services}
-import views/user_view.{to_json}
+#### Dream: read the id parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_params_dream.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-fn show_user(request: Request, context: AppContext, services: Services) -> Response {
-  let result = {
+```gleam
+import dream/context.{type EmptyContext}
+import dream/http.{
+  type Request, type Response, json_response, ok, require_int, text_response,
+}
+import dream/http/error.{type Error, NotFound}
+import dream/http/request.{Get}
+import dream/router.{route, router}
+import dream/servers/mist/server
+import gleam/json
+import gleam/list
+import gleam/result
+
+pub type User {
+  User(id: Int, name: String)
+}
+
+pub type Services {
+  Services(users: List(User))
+}
+
+pub fn show_user(
+  request: Request,
+  _context: EmptyContext,
+  services: Services,
+) -> Response {
+  let user_result = {
     use id <- result.try(require_int(request, "id"))
-    let db = services.database.connection
-    get(db, id)
+    find_user(services.users, id)
   }
-  
-  case result {
-    Ok(user) -> json_response(ok, to_json(user))
-    Error(err) -> response_helpers.handle_error(err)
+
+  case user_result {
+    Ok(user) -> json_response(ok, user_to_json(user))
+    Error(http_error) ->
+      text_response(error.to_status_code(http_error), error.message(http_error))
   }
 }
 
+fn find_user(users: List(User), id: Int) -> Result(User, Error) {
+  list.find(users, fn(user) { user.id == id })
+  |> result.replace_error(NotFound("User not found"))
+}
+
+fn user_to_json(user: User) -> String {
+  json.object([#("id", json.int(user.id)), #("name", json.string(user.name))])
+  |> json.to_string()
+}
+
+pub fn initialize_services() -> Services {
+  Services(users: [User(id: 1, name: "Ada")])
+}
+
+pub fn create_router() {
+  router()
+  |> route(
+    method: Get,
+    path: "/users/:id",
+    controller: show_user,
+    middleware: [],
+  )
+}
+
 pub fn main() {
-  let app_router = router() |> route(Get, "/users/:id", show_user, [])
-  
   server.new()
   |> server.services(initialize_services())
-  |> server.router(app_router)
+  |> server.router(create_router())
   |> server.listen(3000)
 }
 ```
@@ -162,30 +217,49 @@ pub fn main() {
 
 ### With Raw Mist
 
+#### Raw Mist: check the token in the handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_middleware_mist.gleam#L17-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-fn handler(req: Request(Connection)) -> Response(ResponseData) {
-  // Manually check auth on every route
-  case get_header(req.headers, "Authorization") {
-    None -> unauthorized()
-    Some(token) -> {
-      case verify_token(token) {
-        Error(_) -> unauthorized()
-        Ok(user) -> {
-          // How do we pass user to the route handler?
-          // Process dictionary? Global? Thread through?
-          handle_route(req, user)
-        }
-      }
-    }
+pub fn handle_request(request: Request(Connection)) -> Response(ResponseData) {
+  // Every request needs a token, so no route can be public
+  case authenticate(request) {
+    Ok(user) -> handle_route(request, user)
+    Error(Nil) -> send_text(401, "Unauthorized")
   }
 }
 
-fn handle_route(req: Request(Connection), user: User) -> Response(ResponseData) {
-  case req.method, req.path {
-    http.Get, "/" -> home_handler(user)
-    http.Post, "/posts" -> create_post_handler(req, user)
-    _, _ -> not_found()
+fn authenticate(request: Request(Connection)) -> Result(User, Nil) {
+  use token <- result.try(request.get_header(request, "authorization"))
+  verify_token(token)
+}
+
+fn verify_token(token: String) -> Result(User, Nil) {
+  case token {
+    "Bearer secret-token" -> Ok(User(name: "Ada"))
+    _ -> Error(Nil)
   }
+}
+
+fn handle_route(
+  request: Request(Connection),
+  user: User,
+) -> Response(ResponseData) {
+  case request.method, request.path {
+    Get, "/" -> show_home(user)
+    Post, "/posts" -> create_post(request, user)
+    _, _ -> send_text(404, "Not Found")
+  }
+}
+
+fn show_home(user: User) -> Response(ResponseData) {
+  send_text(200, "Welcome, " <> user.name)
+}
+
+fn create_post(
+  _request: Request(Connection),
+  user: User,
+) -> Response(ResponseData) {
+  send_text(201, "Post created by " <> user.name)
 }
 ```
 
@@ -196,35 +270,69 @@ fn handle_route(req: Request(Connection), user: User) -> Response(ResponseData) 
 
 ### With Dream
 
+#### Dream: auth middleware on one route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_middleware_dream.gleam#L29-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-fn auth_middleware(
+pub fn auth_middleware(
   request: Request,
   context: Context,
   services: Services,
   next: fn(Request, Context, Services) -> Response,
 ) -> Response {
-  case get_header(request.headers, "Authorization") {
-    None -> unauthorized()
-    Some(token) -> {
-      case verify_token(token) {
-        Error(_) -> unauthorized()
-        Ok(user) -> {
-          let enriched_context = Context(..context, user: Some(user))
-          next(request, enriched_context, services)
-        }
-      }
+  case authenticate(request, services) {
+    Ok(user) -> {
+      let enriched_context = Context(..context, user: Some(user))
+      next(request, enriched_context, services)
     }
+    Error(Nil) -> text_response(unauthorized, "Unauthorized")
   }
 }
 
+fn authenticate(request: Request, services: Services) -> Result(User, Nil) {
+  use token <- result.try(
+    get_header(request.headers, "Authorization") |> option.to_result(Nil),
+  )
+  list.key_find(services.users_by_token, token)
+}
+
+pub fn show_home(
+  _request: Request,
+  _context: Context,
+  _services: Services,
+) -> Response {
+  text_response(ok, "Welcome")
+}
+
+pub fn create_post(
+  _request: Request,
+  context: Context,
+  _services: Services,
+) -> Response {
+  case context.user {
+    Some(user) -> text_response(created, "Post created by " <> user.name)
+    None -> text_response(unauthorized, "Unauthorized")
+  }
+}
+
+pub fn create_router() -> Router(Context, Services) {
+  router()
+  // Public
+  |> route(method: Get, path: "/", controller: show_home, middleware: [])
+  // Protected
+  |> route(method: Post, path: "/posts", controller: create_post, middleware: [
+    auth_middleware,
+  ])
+}
+
+pub fn initialize_services() -> Services {
+  Services(users_by_token: [#("Bearer secret-token", User(name: "Ada"))])
+}
+
 pub fn main() {
-  let app_router =
-    router()
-    |> route(Get, "/", home, [])                      // Public
-    |> route(Post, "/posts", create_post, [auth_middleware])  // Protected
-  
   server.new()
-  |> server.router(app_router)
+  |> server.context(Context(request_id: "", user: None))
+  |> server.services(initialize_services())
+  |> server.router(create_router())
   |> server.listen(3000)
 }
 ```
@@ -241,24 +349,59 @@ pub fn main() {
 
 ### With Raw Mist
 
-```gleam
-// No type relationship between routes
-fn route1(req) -> Response { ... }
-fn route2(req, db) -> Response { ... }  // Different signature!
-fn route3(req) -> Response { ... }
+#### Raw Mist: handlers with different signatures <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_middleware_mist.gleam#L48-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-// Compiler can't verify all routes work together
+```gleam
+fn show_home(user: User) -> Response(ResponseData) {
+  send_text(200, "Welcome, " <> user.name)
+}
+
+fn create_post(
+  _request: Request(Connection),
+  user: User,
+) -> Response(ResponseData) {
+  send_text(201, "Post created by " <> user.name)
+}
 ```
+
+Each handler takes different arguments. Nothing ties them together, so the compiler cannot check that every route gets what it needs.
 
 ### With Dream
 
-```gleam
-Router(Context, Services)  // Router knows types
-Route(Context, Services)   // Each route matches
-fn(Request, Context, Services) -> Response  // Every controller has this signature
+#### Dream: one controller type for every route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_middleware_dream.gleam#L51-L78"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-// If you change Context or Services, compiler catches every place that needs updating
+```gleam
+pub fn show_home(
+  _request: Request,
+  _context: Context,
+  _services: Services,
+) -> Response {
+  text_response(ok, "Welcome")
+}
+
+pub fn create_post(
+  _request: Request,
+  context: Context,
+  _services: Services,
+) -> Response {
+  case context.user {
+    Some(user) -> text_response(created, "Post created by " <> user.name)
+    None -> text_response(unauthorized, "Unauthorized")
+  }
+}
+
+pub fn create_router() -> Router(Context, Services) {
+  router()
+  // Public
+  |> route(method: Get, path: "/", controller: show_home, middleware: [])
+  // Protected
+  |> route(method: Post, path: "/posts", controller: create_post, middleware: [
+    auth_middleware,
+  ])
+}
 ```
+
+The router has the type `Router(Context, Services)`, and every controller has the type `fn(Request, Context, Services) -> Response`. If you change `Context` or `Services`, the compiler finds every place that needs an update.
 
 **Dream provides:**
 - Type-checked application

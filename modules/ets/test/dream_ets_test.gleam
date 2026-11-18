@@ -10,6 +10,7 @@ import advanced_operations_test
 import concurrency_test
 import config_test
 import counter_test
+import deleted_table_test
 import encoders_test
 import error_handling_test
 import helpers_test
@@ -25,6 +26,7 @@ pub fn main() {
     to_test_cases("table_operations", table_operations_test.tests()),
     to_test_cases("type_safety", type_safety_test.tests()),
     to_test_cases("error_handling", error_handling_test.tests()),
+    to_test_cases("deleted_table", deleted_table_test.tests()),
     to_test_cases("concurrency", concurrency_test.tests()),
     to_test_cases("helpers", helpers_test.tests()),
     to_test_cases("encoders", encoders_test.tests()),

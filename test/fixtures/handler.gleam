@@ -130,13 +130,12 @@ pub fn echo_buffered_handler(
   _context: context.AppContext,
   _services: EmptyServices,
 ) -> Response {
-  Response(
-    status: 200,
-    body: Text(request.body),
-    headers: [],
-    cookies: [],
-    content_type: option.None,
-  )
+  case request.body {
+    request.Text(text) -> plain_response(200, Text(text))
+    request.Bytes(bytes) -> plain_response(200, response.Bytes(bytes))
+    request.Stream(_chunks) ->
+      plain_response(400, Text("Expected buffered body"))
+  }
 }
 
 /// A handler that reads and echoes a streaming body.
@@ -145,36 +144,28 @@ pub fn echo_stream_handler(
   _context: context.AppContext,
   _services: EmptyServices,
 ) -> Response {
-  case request.stream {
-    option.Some(stream) -> {
-      let body =
-        stream |> yielder.fold(<<>>, bit_array.append) |> bit_array.to_string
-      case body {
-        Ok(text) ->
-          Response(
-            status: 200,
-            body: Text(text),
-            headers: [],
-            cookies: [],
-            content_type: option.None,
-          )
-        Error(_utf8_error) ->
-          Response(
-            status: 500,
-            body: Text("Invalid UTF-8"),
-            headers: [],
-            cookies: [],
-            content_type: option.None,
-          )
-      }
-    }
-    option.None ->
-      Response(
-        status: 400,
-        body: Text("Expected stream"),
-        headers: [],
-        cookies: [],
-        content_type: option.None,
-      )
+  case request.body {
+    request.Stream(chunks) -> echo_chunks_as_text(chunks)
+    request.Text(_text) -> plain_response(400, Text("Expected stream"))
+    request.Bytes(_bytes) -> plain_response(400, Text("Expected stream"))
   }
+}
+
+fn echo_chunks_as_text(chunks: yielder.Yielder(BitArray)) -> Response {
+  let body =
+    chunks |> yielder.fold(<<>>, bit_array.append) |> bit_array.to_string
+  case body {
+    Ok(text) -> plain_response(200, Text(text))
+    Error(_utf8_error) -> plain_response(500, Text("Invalid UTF-8"))
+  }
+}
+
+fn plain_response(status: Int, body: response.ResponseBody) -> Response {
+  Response(
+    status: status,
+    body: body,
+    headers: [],
+    cookies: [],
+    content_type: option.None,
+  )
 }

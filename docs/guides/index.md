@@ -10,6 +10,7 @@ Production-ready solutions. Pick what you need:
 - [Streaming](streaming.md) - 🔥 File uploads, SSE, large responses, streaming middleware
   - [Quick Reference](streaming-quick-reference.md) - Copy-paste streaming patterns
 - [Operations](operations.md) - Complex business logic organization
+- [HTTP/2](http2.md) - HTTPS, HTTP/2 for browsers, proxies and h2c clients
 
 ## Security & Performance
 

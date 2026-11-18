@@ -7,9 +7,10 @@
 ////
 //// ```gleam
 //// import dream_postgres/client as postgres
+//// import gleam/erlang/process
 ////
-//// // Builder pattern
-//// let db = postgres.new()
+//// // Builder pattern: returns Result(Connection, actor.StartError)
+//// let db = postgres.new(process.new_name("db_pool"))
 ////   |> postgres.host("localhost")
 ////   |> postgres.port(5432)
 ////   |> postgres.database("myapp")
@@ -17,17 +18,17 @@
 ////   |> postgres.pool_size(15)
 ////   |> postgres.connect()
 ////
-//// // Or from URL
+//// // Or from URL: returns Result(Connection, FromUrlError)
 //// let db = postgres.from_url("postgresql://user:pass@localhost:5432/myapp")
 //// ```
 
 import gleam/erlang/process
-import gleam/int
 import gleam/list
 import gleam/option
 import gleam/otp/actor
 import gleam/result
 import gleam/string
+import gleam/uri
 import pog
 
 // Re-export Pog types
@@ -233,7 +234,7 @@ pub fn pool_size(config: Config, value: Int) -> Config {
 /// import gleam/erlang/process
 ///
 /// let pool_name = process.new_name("db_pool")
-/// let assert Ok(db) = postgres.new(pool_name)
+/// let result = postgres.new(pool_name)
 ///   |> postgres.host("localhost")
 ///   |> postgres.port(5432)
 ///   |> postgres.database("myapp")
@@ -254,25 +255,138 @@ fn extract_connection_from_started(
   connection
 }
 
-/// Connect from a PostgreSQL connection URL
+/// What is wrong with a PostgreSQL connection URL.
 ///
-/// Parses a PostgreSQL connection URL and creates a connection pool.
-/// This is a convenience function for quick setup, but the builder pattern
-/// is recommended for production code as it's more explicit and type-safe.
+/// No value of this type holds the password from the URL, so it is safe to
+/// log an error with `string.inspect`.
+pub type UrlError {
+  /// The text is not a URL, or its query string cannot be read. A port that
+  /// is not a number (for example `localhost:abc`) also gives this error.
+  MalformedUrl
+  /// The URL has no scheme. Start it with `postgresql://` or `postgres://`.
+  MissingScheme
+  /// The scheme is not `postgresql` or `postgres`.
+  UnsupportedScheme(scheme: String)
+  /// The URL has no host, for example `postgresql:///myapp`.
+  MissingHost
+  /// The port is not in the range 1 to 65535.
+  InvalidPort(port: Int)
+  /// The URL has no database name after the host.
+  MissingDatabase
+  /// The path has more than one segment, for example `/my/app`. Encode a
+  /// `/` in a database name as `%2F`.
+  InvalidDatabase(path: String)
+  /// The URL has a password but no user name, for example `:secret@host`.
+  MissingUser
+  /// The user name has a bad percent-encoding, for example `%zz`.
+  InvalidUserEncoding
+  /// The password has a bad percent-encoding, for example `%zz`.
+  InvalidPasswordEncoding
+  /// The database name has a bad percent-encoding, for example `%zz`.
+  InvalidDatabaseEncoding
+  /// The query string has a parameter that this package does not support.
+  /// Only `sslmode` and `application_name` are supported.
+  UnsupportedParameter(name: String)
+  /// The `sslmode` value has no exact equivalent in the pool settings.
+  /// Use `disable`, `require`, `verify-ca` or `verify-full`.
+  UnsupportedSslMode(mode: String)
+  /// The URL has a fragment (a `#` part). PostgreSQL URLs do not use one.
+  UnsupportedFragment
+}
+
+/// Why `from_url` did not give a connection.
 ///
-/// **Note**: This uses a simple URL parser. For production applications with
-/// complex connection requirements, use the builder pattern instead.
+/// No value of this type holds the password from the URL.
+pub type FromUrlError {
+  /// The URL is not a valid PostgreSQL connection URL.
+  InvalidUrl(error: UrlError)
+  /// The pool process did not start in time.
+  PoolStartTimedOut
+  /// The pool process returned an error message when it started.
+  PoolStartFailed(message: String)
+  /// The pool process stopped while it started. The exit reason is not kept,
+  /// because it can hold the pool settings, and the settings hold the
+  /// password.
+  PoolStartExited
+}
+
+/// Parse a PostgreSQL connection URL into a `Config`
+///
+/// This function is pure: it does not connect to the database. Use it to
+/// check a URL, or to change the config before you call `connect()`.
 ///
 /// ## URL Format
 ///
 /// ```
-/// postgresql://user:password@host:port/database
+/// postgresql://user:password@host:port/database?parameter=value
 /// ```
 ///
-/// Examples:
-/// - `postgresql://postgres:secret@localhost:5432/myapp`
-/// - `postgresql://user@localhost/myapp` (no password)
-/// - `postgresql://localhost/myapp` (defaults: user=postgres, port=5432)
+/// - The scheme is `postgresql` or `postgres`.
+/// - `user` and `password` are optional and percent-decoded, so a password
+///   can hold `@`, `:` or `/` when you encode them as `%40`, `%3A` and `%2F`.
+///   The password starts after the first `:`. Without a user, the config
+///   keeps the default user `postgres`.
+/// - `host` is required. An IPv6 host such as `[::1]` sets IPv6.
+/// - `port` is optional and defaults to 5432.
+/// - `database` is required and percent-decoded.
+/// - Query parameters: `sslmode` (`disable`, `require`, `verify-ca`,
+///   `verify-full`) sets the SSL mode, and `application_name` sets the
+///   PostgreSQL connection parameter with that name. Any other parameter is
+///   an error.
+///
+/// All other settings keep the values from `new(pool_name)`.
+///
+/// ## Parameters
+///
+/// - `pool_name`: A process name for the connection pool
+/// - `url`: The PostgreSQL connection URL
+///
+/// ## Returns
+///
+/// - `Ok(Config)`: The config that the URL describes
+/// - `Error(UrlError)`: What is wrong with the URL. The error never holds
+///   the password.
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_postgres/client as postgres
+/// import gleam/erlang/process
+///
+/// let pool_name = process.new_name("db_pool")
+/// let config =
+///   postgres.parse_config(pool_name, "postgresql://user:pass@localhost/myapp")
+/// ```
+pub fn parse_config(
+  pool_name: process.Name(pog.Message),
+  url: String,
+) -> Result(Config, UrlError) {
+  use parsed <- result.try(parse_uri(url))
+  use Nil <- result.try(check_scheme(parsed.scheme))
+  use Nil <- result.try(check_fragment(parsed.fragment))
+  use host_name <- result.try(require_host(parsed.host))
+  use port_number <- result.try(check_port(parsed.port))
+  use database_name <- result.try(parse_database(parsed.path))
+  let config =
+    new(pool_name)
+    |> set_host_and_ip_version(host_name)
+    |> port(port_number)
+    |> database(database_name)
+  use config <- result.try(apply_userinfo(config, parsed.userinfo))
+  apply_query(config, parsed.query)
+}
+
+/// Connect from a PostgreSQL connection URL
+///
+/// Parses the URL with `parse_config`, sets a pool size of 15 and starts the
+/// connection pool with `connect()`. Each call registers its pool under a new
+/// unique process name, so you can call it more than once.
+///
+/// The pool connects to the database in the background. When no database
+/// listens at the URL, this function still returns `Ok`, and each query on
+/// the connection returns `Error(pog.ConnectionUnavailable)`.
+///
+/// See `parse_config` for the URL format and the supported query parameters.
 ///
 /// ## Parameters
 ///
@@ -280,151 +394,203 @@ fn extract_connection_from_started(
 ///
 /// ## Returns
 ///
-/// A `Connection` (panics on parse failure - use builder pattern for error handling).
+/// - `Ok(Connection)`: The pool started
+/// - `Error(InvalidUrl(UrlError))`: The URL is not valid
+/// - `Error(PoolStartTimedOut)`, `Error(PoolStartFailed(message))` or
+///   `Error(PoolStartExited)`: The pool process did not start
+///
+/// No error holds the password.
 ///
 /// ## Example
 ///
 /// ```gleam
 /// import dream_postgres/client as postgres
 ///
-/// let db = postgres.from_url("postgresql://postgres:secret@localhost:5432/myapp")
+/// let result = postgres.from_url("postgresql://postgres:secret@localhost:5432/myapp")
 /// ```
-pub fn from_url(url: String) -> Connection {
-  let pool_name = process.new_name("postgres_pool")
-
-  let assert Ok(connection) =
-    new(pool_name)
-    |> host(extract_host_from_url(url))
-    |> port(extract_port_from_url(url))
-    |> database(extract_database_from_url(url))
-    |> user(extract_user_from_url(url))
-    |> set_password_if_present(extract_password_from_url(url))
-    |> pool_size(15)
-    |> connect()
-
-  connection
+pub fn from_url(url: String) -> Result(Connection, FromUrlError) {
+  use config <- result.try(
+    parse_config(process.new_name("postgres_pool"), url)
+    |> result.map_error(InvalidUrl),
+  )
+  config
+  |> pool_size(15)
+  |> connect()
+  |> result.map_error(convert_start_error_to_from_url_error)
 }
 
-fn set_password_if_present(
-  config: Config,
-  pass: option.Option(String),
-) -> Config {
-  case pass {
-    option.Some(p) -> password(config, p)
-    option.None -> config
+fn convert_start_error_to_from_url_error(
+  error: actor.StartError,
+) -> FromUrlError {
+  case error {
+    actor.InitTimeout -> PoolStartTimedOut
+    actor.InitFailed(message) -> PoolStartFailed(message)
+    actor.InitExited(_reason_that_can_hold_the_password) -> PoolStartExited
   }
 }
 
 // Private URL parsing - flat functions, no nesting
 
-fn extract_host_from_url(url: String) -> String {
-  case string.contains(url, "@") {
-    True -> extract_host_after_at(url)
-    False -> "localhost"
+fn parse_uri(url: String) -> Result(uri.Uri, UrlError) {
+  uri.parse(url)
+  |> result.replace_error(MalformedUrl)
+}
+
+fn check_scheme(scheme: option.Option(String)) -> Result(Nil, UrlError) {
+  case scheme {
+    option.Some("postgresql") | option.Some("postgres") -> Ok(Nil)
+    option.Some(other) -> Error(UnsupportedScheme(other))
+    option.None -> Error(MissingScheme)
   }
 }
 
-fn extract_host_after_at(url: String) -> String {
-  case string.split(url, "@") {
-    [_, rest] -> extract_host_from_rest(rest)
-    _ -> "localhost"
+fn check_fragment(fragment: option.Option(String)) -> Result(Nil, UrlError) {
+  case fragment {
+    option.None -> Ok(Nil)
+    option.Some(_) -> Error(UnsupportedFragment)
   }
 }
 
-fn extract_host_from_rest(rest: String) -> String {
-  case string.split(rest, ":") {
-    [host, _] -> host
-    _ -> "localhost"
+fn require_host(host_name: option.Option(String)) -> Result(String, UrlError) {
+  case host_name {
+    option.None | option.Some("") -> Error(MissingHost)
+    option.Some(value) -> Ok(value)
   }
 }
 
-fn extract_port_from_url(url: String) -> Int {
-  case string.contains(url, "@") {
-    True -> extract_port_after_at(url)
-    False -> 5432
+fn check_port(port_number: option.Option(Int)) -> Result(Int, UrlError) {
+  case port_number {
+    option.None -> Ok(5432)
+    option.Some(value) if value >= 1 && value <= 65_535 -> Ok(value)
+    option.Some(value) -> Error(InvalidPort(value))
   }
 }
 
-fn extract_port_after_at(url: String) -> Int {
-  case string.split(url, "@") {
-    [_, rest] -> extract_port_from_rest(rest)
-    _ -> 5432
+fn parse_database(path: String) -> Result(String, UrlError) {
+  case path {
+    "" | "/" -> Error(MissingDatabase)
+    "/" <> encoded_name -> decode_database_name(path, encoded_name)
+    _ -> Error(InvalidDatabase(path))
   }
 }
 
-fn extract_port_from_rest(rest: String) -> Int {
-  case string.split(rest, ":") {
-    [_, port_and_db] -> parse_port_from_segment(port_and_db)
-    _ -> 5432
+fn decode_database_name(
+  path: String,
+  encoded_name: String,
+) -> Result(String, UrlError) {
+  case string.contains(encoded_name, "/") {
+    True -> Error(InvalidDatabase(path))
+    False ->
+      uri.percent_decode(encoded_name)
+      |> result.replace_error(InvalidDatabaseEncoding)
   }
 }
 
-fn parse_port_from_segment(segment: String) -> Int {
-  case string.split(segment, "/") {
-    [port_str, _] -> parse_port_string(port_str)
-    _ -> 5432
+fn set_host_and_ip_version(config: Config, host_name: String) -> Config {
+  case string.contains(host_name, ":") {
+    True ->
+      host(config, host_name)
+      |> pog.ip_version(pog.Ipv6)
+    False -> host(config, host_name)
   }
 }
 
-fn parse_port_string(port_str: String) -> Int {
-  case int.parse(port_str) {
-    Ok(port) -> port
-    Error(_) -> 5432
+fn apply_userinfo(
+  config: Config,
+  userinfo: option.Option(String),
+) -> Result(Config, UrlError) {
+  case userinfo {
+    option.None -> Ok(config)
+    option.Some(value) -> apply_user_and_password(config, value)
   }
 }
 
-fn extract_database_from_url(url: String) -> String {
-  url
-  |> string.split("/")
-  |> list.last()
-  |> result.unwrap("postgres")
-}
-
-fn extract_user_from_url(url: String) -> String {
-  case string.contains(url, "://") {
-    True -> extract_user_after_protocol(url)
-    False -> "postgres"
+fn apply_user_and_password(
+  config: Config,
+  userinfo: String,
+) -> Result(Config, UrlError) {
+  case string.split_once(userinfo, ":") {
+    Ok(#(encoded_user, encoded_password)) ->
+      apply_user_with_password(config, encoded_user, encoded_password)
+    Error(Nil) -> apply_user(config, userinfo)
   }
 }
 
-fn extract_user_after_protocol(url: String) -> String {
-  case string.split(url, "://") {
-    [_, rest] -> extract_user_from_rest(rest)
-    _ -> "postgres"
+fn apply_user_with_password(
+  config: Config,
+  encoded_user: String,
+  encoded_password: String,
+) -> Result(Config, UrlError) {
+  use config <- result.try(apply_user(config, encoded_user))
+  use decoded_password <- result.try(decode_password(encoded_password))
+  Ok(password(config, decoded_password))
+}
+
+fn apply_user(
+  config: Config,
+  encoded_user: String,
+) -> Result(Config, UrlError) {
+  use decoded_user <- result.try(decode_user(encoded_user))
+  Ok(user(config, decoded_user))
+}
+
+fn decode_user(encoded_user: String) -> Result(String, UrlError) {
+  case encoded_user {
+    "" -> Error(MissingUser)
+    _ ->
+      uri.percent_decode(encoded_user)
+      |> result.replace_error(InvalidUserEncoding)
   }
 }
 
-fn extract_user_from_rest(rest: String) -> String {
-  case string.split(rest, ":") {
-    [user, _] -> user
-    _ -> "postgres"
+fn decode_password(encoded_password: String) -> Result(String, UrlError) {
+  uri.percent_decode(encoded_password)
+  |> result.replace_error(InvalidPasswordEncoding)
+}
+
+fn apply_query(
+  config: Config,
+  query: option.Option(String),
+) -> Result(Config, UrlError) {
+  case query {
+    option.None -> Ok(config)
+    option.Some(value) -> apply_query_string(config, value)
   }
 }
 
-fn extract_password_from_url(url: String) -> option.Option(String) {
-  case string.contains(url, "://") {
-    True -> extract_password_after_protocol(url)
-    False -> option.None
+fn apply_query_string(
+  config: Config,
+  query: String,
+) -> Result(Config, UrlError) {
+  use parameters <- result.try(
+    uri.parse_query(query)
+    |> result.replace_error(MalformedUrl),
+  )
+  list.try_fold(parameters, config, apply_parameter)
+}
+
+fn apply_parameter(
+  config: Config,
+  parameter: #(String, String),
+) -> Result(Config, UrlError) {
+  case parameter {
+    #("sslmode", mode) -> apply_ssl_mode(config, mode)
+    #("application_name", value) ->
+      Ok(pog.connection_parameter(config, name: "application_name", value:))
+    #(name, _value) -> Error(UnsupportedParameter(name))
   }
 }
 
-fn extract_password_after_protocol(url: String) -> option.Option(String) {
-  case string.split(url, "://") {
-    [_, rest] -> extract_password_from_rest(rest)
-    _ -> option.None
-  }
+fn apply_ssl_mode(config: Config, mode: String) -> Result(Config, UrlError) {
+  use ssl <- result.try(parse_ssl_mode(mode))
+  Ok(pog.ssl(config, ssl))
 }
 
-fn extract_password_from_rest(rest: String) -> option.Option(String) {
-  case string.split(rest, ":") {
-    [_, pass_and_rest] -> extract_password_before_at(pass_and_rest)
-    _ -> option.None
-  }
-}
-
-fn extract_password_before_at(pass_and_rest: String) -> option.Option(String) {
-  case string.split(pass_and_rest, "@") {
-    [pass, _] -> option.Some(pass)
-    _ -> option.None
+fn parse_ssl_mode(mode: String) -> Result(pog.Ssl, UrlError) {
+  case mode {
+    "disable" -> Ok(pog.SslDisabled)
+    "require" -> Ok(pog.SslUnverified)
+    "verify-ca" | "verify-full" -> Ok(pog.SslVerified)
+    _ -> Error(UnsupportedSslMode(mode))
   }
 }

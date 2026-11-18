@@ -25,7 +25,7 @@
 
 **Type-safe HTTP client for Gleam with recording + streaming support.**
 
-A standalone HTTP/HTTPS client built on Erlang's battle-tested `httpc`. Supports blocking requests, yielder streaming, and process-based streaming via callbacks. Built with the same quality standards as [Dream](https://github.com/TrustBound/dream), but completely independent—use it in any Gleam project.
+A standalone HTTP/HTTPS client built on [gun](https://github.com/ninenines/gun), supporting HTTP/1.1 and HTTP/2 with native multiplexing. Provides blocking requests, yielder streaming, and process-based streaming via callbacks. Built with the same quality standards as [Dream](https://github.com/TrustBound/dream), but completely independent—use it in any Gleam project.
 
 ---
 
@@ -49,7 +49,7 @@ A standalone HTTP/HTTPS client built on Erlang's battle-tested `httpc`. Supports
 | **OTP-first design**      | Process-based streams work great with OTP                   |
 | **Recording/playback**    | Record HTTP calls for tests, debug production, work offline |
 | **Type-safe**             | `Result` types force error handling—no silent failures      |
-| **Battle-tested**         | Built on Erlang's `httpc`—proven in production for decades  |
+| **HTTP/2 ready**          | Native HTTP/2 multiplexing via gun for high concurrency     |
 | **Framework-independent** | Zero dependencies on Dream or other frameworks              |
 | **Concurrent streams**    | Handle multiple HTTP streams in a single actor              |
 | **Stream cancellation**   | Cancel in-flight requests cleanly                           |
@@ -69,6 +69,8 @@ gleam add dream_http_client
 
 Make a simple HTTP request:
 
+### Simple GET request <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/blocking_request.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream_http_client/client.{
   type HttpResponse, type SendError, host, method, path, port, scheme, send,
@@ -86,8 +88,6 @@ pub fn simple_get() -> Result(HttpResponse, SendError) {
 }
 ```
 
-<sub>🧪 [Tested source](test/snippets/blocking_request.gleam)</sub>
-
 ---
 
 ## Execution Modes
@@ -98,56 +98,65 @@ dream_http_client provides three execution modes. Choose based on your use case:
 
 **Best for:** JSON APIs, small responses
 
+#### Send and handle errors <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/blocking_send.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream_http_client/client.{
-  HttpResponse, RequestError, ResponseError,
-  host, path, port, scheme, send,
+  HttpResponse, RequestError, ResponseError, host, path, port, scheme, send,
+  transport_error_to_string,
 }
 import gleam/http
 
-let result =
-  client.new()
-  |> scheme(http.Http)
-  |> host("localhost")
-  |> port(9876)
-  |> path("/text")
-  |> send()
+pub fn fetch_text() -> Result(String, String) {
+  let result =
+    client.new()
+    |> scheme(http.Http)
+    |> host("localhost")
+    |> port(9876)
+    |> path("/text")
+    |> send()
 
-case result {
-  Ok(HttpResponse(body: body, ..)) -> Ok(body)
-  Error(ResponseError(response: response)) -> Error(response.body)
-  Error(RequestError(message: msg)) -> Error(msg)
+  case result {
+    Ok(HttpResponse(body: body, ..)) -> Ok(body)
+    Error(ResponseError(response: response)) -> Error(response.body)
+    Error(RequestError(error: error)) -> Error(transport_error_to_string(error))
+  }
 }
 ```
-
-<sub>🧪 [Tested source](test/snippets/blocking_request.gleam)</sub>
 
 ### 2. Yielder Streaming - `stream_yielder()`
 
 **Best for:** AI/LLM streaming, file downloads, sequential processing
 
+#### Count the bytes of a stream <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/stream_yielder_basic.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import dream_http_client/client.{host, path, port, scheme, stream_yielder}
-import gleam/bytes_tree
+import dream_http_client/client.{
+  type StreamFailure, host, path, port, scheme, stream_yielder,
+}
+import gleam/bytes_tree.{type BytesTree}
 import gleam/http
+import gleam/result
 import gleam/yielder
 
-let total_bytes =
+pub fn count_stream_bytes() -> Result(Int, StreamFailure) {
   client.new()
   |> scheme(http.Http)
   |> host("localhost")
   |> port(9876)
   |> path("/stream/fast")
   |> stream_yielder()
-  |> yielder.fold(0, fn(total, chunk_result) {
-    case chunk_result {
-      Ok(chunk) -> total + bytes_tree.byte_size(chunk)
-      Error(_) -> total
-    }
-  })
-```
+  |> yielder.try_fold(0, add_chunk_size)
+}
 
-<sub>🧪 [Tested source](test/snippets/stream_yielder_basic.gleam)</sub>
+fn add_chunk_size(
+  total: Int,
+  chunk_result: Result(BytesTree, StreamFailure),
+) -> Result(Int, StreamFailure) {
+  use chunk <- result.map(chunk_result)
+  total + bytes_tree.byte_size(chunk)
+}
+```
 
 **⚠️ Note:** This blocks while waiting for chunks. Not suitable for OTP actors handling concurrent operations.
 
@@ -155,10 +164,13 @@ let total_bytes =
 
 **Best for:** Background tasks, concurrent operations, cancellable streams
 
+#### Stream with callbacks <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/stream_messages_basic.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream_http_client/client.{
-  await_stream, host, on_stream_chunk, on_stream_end, on_stream_error,
-  on_stream_start, path, port, scheme, start_stream,
+  type Header, type StreamFailure, await_stream, host, on_stream_chunk,
+  on_stream_end, on_stream_error, on_stream_start, path, port, scheme,
+  start_stream, stream_failure_to_string,
 }
 import gleam/bit_array
 import gleam/http
@@ -171,30 +183,41 @@ pub fn stream_and_print() -> Result(Nil, String) {
     |> host("localhost")
     |> port(9876)
     |> path("/stream/fast")
-    |> on_stream_start(fn(_headers) { io.println("Stream started") })
-    |> on_stream_chunk(fn(data) {
-      case bit_array.to_string(data) {
-        Ok(text) -> io.print(text)
-        Error(_) -> io.print("<binary>")
-      }
-    })
-    |> on_stream_end(fn(_headers) { io.println("\nStream completed") })
-    |> on_stream_error(fn(reason) {
-      io.println_error("Stream error: " <> reason)
-    })
+    |> on_stream_start(print_stream_start)
+    |> on_stream_chunk(print_chunk)
+    |> on_stream_end(print_stream_end)
+    |> on_stream_error(print_stream_error)
     |> start_stream()
 
   case stream_result {
     Error(reason) -> Error(reason)
     Ok(stream_handle) -> {
+      // Wait for the stream to complete
       await_stream(stream_handle)
       Ok(Nil)
     }
   }
 }
-```
 
-<sub>🧪 [Tested source](test/snippets/stream_messages_basic.gleam)</sub>
+fn print_stream_start(_headers: List(Header)) -> Nil {
+  io.println("Stream started")
+}
+
+fn print_chunk(data: BitArray) -> Nil {
+  case bit_array.to_string(data) {
+    Ok(text) -> io.print(text)
+    Error(Nil) -> io.print("<binary>")
+  }
+}
+
+fn print_stream_end(_headers: List(Header)) -> Nil {
+  io.println("\nStream completed")
+}
+
+fn print_stream_error(failure: StreamFailure) -> Nil {
+  io.println_error("Stream error: " <> stream_failure_to_string(failure))
+}
+```
 
 ### Choosing a Mode
 
@@ -207,6 +230,82 @@ pub fn stream_and_print() -> Result(Nil, String) {
 | Background processing             | `start_stream()`   | Non-blocking, concurrent, cancellable |
 | Long-lived connections            | `start_stream()`   | Can cancel mid-stream                 |
 | Cancellable operations            | `start_stream()`   | Cancel via handle                     |
+
+---
+
+## Configuration
+
+### Per-Request Settings
+
+Configure connection behavior on individual requests:
+
+#### Connect timeout and redirects <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/per_request_settings.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+import dream_http_client/client.{type HttpResponse, type SendError}
+import gleam/http
+
+// Set TCP connection timeout (default: 15000ms)
+pub fn fetch_with_connect_timeout() -> Result(HttpResponse, SendError) {
+  client.new()
+  |> client.scheme(http.Http)
+  |> client.host("localhost")
+  |> client.port(9876)
+  |> client.path("/text")
+  |> client.connect_timeout(5000)
+  |> client.send()
+}
+
+// Disable automatic redirect following (default: True)
+pub fn fetch_without_redirect() -> Result(HttpResponse, SendError) {
+  client.new()
+  |> client.scheme(http.Http)
+  |> client.host("localhost")
+  |> client.port(9876)
+  |> client.path("/redirect/302")
+  |> client.auto_redirect(False)
+  |> client.send()
+}
+```
+
+### Transport Settings
+
+Configure the gun connection pool (global, affects all requests):
+
+#### High-concurrency pool <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/transport_config_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+import dream_http_client/client
+
+pub fn configure_high_concurrency() -> Nil {
+  client.transport_config()
+  |> client.max_connections(200)
+  |> client.idle_timeout(120_000)
+  |> client.max_concurrent_streams(500)
+  |> client.configure_transport()
+}
+```
+
+### Defaults
+
+| Setting                          | Default | Scope       |
+| -------------------------------- | ------- | ----------- |
+| `timeout`                        | 30000ms | Per-request |
+| `connect_timeout`                | 15000ms | Per-request |
+| `auto_redirect`                  | True    | Per-request |
+| `max_connections`                | 50      | Global      |
+| `idle_timeout`                   | 60000ms | Global      |
+| `default_connect_timeout`        | 15000ms | Global      |
+| `domain_lookup_timeout`          | 5000ms  | Global      |
+| `tls_handshake_timeout`          | 10000ms | Global      |
+| `retry`                          | 3       | Global      |
+| `retry_timeout`                  | 1000ms  | Global      |
+| `keepalive`                      | 30000ms | Global      |
+| `keepalive_tolerance`            | 3       | Global      |
+| `max_concurrent_streams`         | 100     | Global      |
+| `initial_connection_window_size` | 65535   | Global      |
+| `initial_stream_window_size`     | 65535   | Global      |
+| `closing_timeout`                | 15000ms | Global      |
 
 ---
 
@@ -225,45 +324,76 @@ Streaming recordings capture each chunk along with timing information.
 The same fixture format is shared between `stream_yielder()` and `start_stream()`,
 so recordings made with one can be played back by either.
 
-### Quick Example
+### Quick Example <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/recording_basic.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
+import dream_http_client/client.{
+  type HttpResponse, type SendError, host, path, port, recorder as with_recorder,
+  scheme, send,
+}
 import dream_http_client/recorder.{directory, mode, start}
-import dream_http_client/client.{host, path, port, recorder as with_recorder, scheme, send}
 import gleam/http
+import gleam/result
+
+pub type RecordingError {
+  RecorderFailed(reason: String)
+  RequestFailed(error: SendError)
+}
 
 // Record real requests
-let assert Ok(rec) =
-  recorder.new()
-  |> directory("mocks/api")
-  |> mode("record")
-  |> start()
+pub fn record_text(
+  recordings_directory: String,
+) -> Result(HttpResponse, RecordingError) {
+  use record_recorder <- result.try(
+    recorder.new()
+    |> directory(recordings_directory)
+    |> mode("record")
+    |> start()
+    |> result.map_error(RecorderFailed),
+  )
 
-client.new()
-  |> scheme(http.Http)
-  |> host("localhost")
-  |> port(9876)
-  |> path("/text")
-  |> with_recorder(rec)
-  |> send()  // Saved immediately to disk
+  let response =
+    client.new()
+    |> scheme(http.Http)
+    |> host("localhost")
+    |> port(9876)
+    |> path("/text")
+    |> with_recorder(record_recorder)
+    |> send()
+    |> result.map_error(RequestFailed)
+
+  // The recorder writes each recording in its own process. Stop returns
+  // when every recording is on disk.
+  use Nil <- result.try(
+    recorder.stop(record_recorder)
+    |> result.map_error(RecorderFailed),
+  )
+  response
+}
 
 // Playback later (no network)
-let assert Ok(playback) =
-  recorder.new()
-  |> directory("mocks/api")
-  |> mode("playback")
-  |> start()
+pub fn play_back_text(
+  recordings_directory: String,
+) -> Result(HttpResponse, RecordingError) {
+  use playback_recorder <- result.try(
+    recorder.new()
+    |> directory(recordings_directory)
+    |> mode("playback")
+    |> start()
+    |> result.map_error(RecorderFailed),
+  )
 
-client.new()
+  // Returns the recorded response
+  client.new()
   |> scheme(http.Http)
   |> host("localhost")
   |> port(9876)
   |> path("/text")
-  |> with_recorder(playback)
-  |> send()  // Returns recorded response
+  |> with_recorder(playback_recorder)
+  |> send()
+  |> result.map_error(RequestFailed)
+}
 ```
-
-<sub>🧪 [Tested source](test/snippets/recording_basic.gleam)</sub>
 
 ### Recording Modes
 
@@ -277,20 +407,36 @@ client.new()
 
 **Testing:**
 
-```gleam
-// test/api_test.gleam
-import dream_http_client/recorder.{directory, mode, start}
+#### Play back fixtures in tests <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/recording_playback.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-let assert Ok(rec) =
+```gleam
+import dream_http_client/client.{
+  type HttpResponse, type SendError, host, path, port, recorder as with_recorder,
+  scheme, send,
+}
+import dream_http_client/recorder.{type Recorder, directory, mode, start}
+import gleam/http
+
+pub fn start_api_playback() -> Result(Recorder, String) {
   recorder.new()
   |> directory("test/fixtures/api")
   |> mode("playback")
   |> start()
+}
 
 // Tests run without external dependencies
+pub fn fetch_recorded_text(
+  playback_recorder: Recorder,
+) -> Result(HttpResponse, SendError) {
+  client.new()
+  |> scheme(http.Http)
+  |> host("localhost")
+  |> port(9876)
+  |> path("/text")
+  |> with_recorder(playback_recorder)
+  |> send()
+}
 ```
-
-<sub>🧪 [Tested source](test/snippets/recording_playback.gleam)</sub>
 
 **Offline Development:**
 Record API responses once, then work offline using recorded responses.
@@ -298,53 +444,53 @@ Record API responses once, then work offline using recorded responses.
 **Debugging Production:**
 Record problematic request/response pairs for investigation.
 
-### Request Matching
+### Request Matching <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/matching_config.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/matching
-import dream_http_client/recorder.{directory, key, mode, start}
+import dream_http_client/recorder.{type Recorder, directory, key, mode, start}
 
 // Build a request key function from include/exclude flags
-let request_key_fn = matching.request_key(
-  method: True,
-  url: True,
-  headers: False,  // Ignore auth tokens, timestamps
-  body: False,     // Ignore request IDs in body
-)
+pub fn method_and_url_key() -> matching.MatchKey {
+  matching.request_key(
+    method: True,
+    url: True,
+    // Ignore auth tokens, timestamps
+    headers: False,
+    // Ignore request IDs in body
+    body: False,
+  )
+}
 
-let assert Ok(rec) =
+pub fn start_playback(
+  recordings_directory: String,
+) -> Result(Recorder, String) {
   recorder.new()
-  |> directory("mocks/api")
+  |> directory(recordings_directory)
   |> mode("playback")
-  |> key(request_key_fn)
+  |> key(method_and_url_key())
   |> start()
+}
 ```
-
-<sub>🧪 [Tested source](test/snippets/matching_config.gleam)</sub>
 
 ### Scrubbing Secrets (Transformers)
 
 If your requests contain secrets (like `Authorization` headers) or volatile fields (timestamps, request IDs),
 you can attach a transformer to **normalize** requests _before_ the key is computed and before anything is persisted.
 
+#### Scrub the request <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/recording_transformer.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream_http_client/matching
 import dream_http_client/recorder.{
-  directory, key, mode, request_transformer, start,
+  type Recorder, directory, key, mode, request_transformer, start,
 }
 import dream_http_client/recording
 import gleam/list
 
-let request_key_fn =
-  matching.request_key(method: True, url: True, headers: True, body: True)
-
-fn scrub_auth_and_body(
+pub fn scrub_auth_and_body(
   request: recording.RecordedRequest,
 ) -> recording.RecordedRequest {
-  fn is_not_authorization_header(header: #(String, String)) -> Bool {
-    header.0 != "Authorization"
-  }
-
   let recording.RecordedRequest(
     method,
     scheme,
@@ -356,8 +502,7 @@ fn scrub_auth_and_body(
     _body,
   ) = request
 
-  let scrubbed_headers =
-    list.filter(headers, is_not_authorization_header)
+  let scrubbed_headers = list.filter(headers, is_not_authorization_header)
 
   recording.RecordedRequest(
     method: method,
@@ -371,67 +516,100 @@ fn scrub_auth_and_body(
   )
 }
 
-let assert Ok(rec) =
+fn is_not_authorization_header(header: #(String, String)) -> Bool {
+  header.0 != "Authorization"
+}
+
+// Requests recorded through this recorder have their secrets scrubbed
+pub fn start_scrubbing_recorder(
+  recordings_directory: String,
+) -> Result(Recorder, String) {
+  let request_key_fn =
+    matching.request_key(method: True, url: True, headers: True, body: True)
+
   recorder.new()
-  |> directory("mocks/api")
+  |> directory(recordings_directory)
   |> mode("record")
   |> key(request_key_fn)
   |> request_transformer(scrub_auth_and_body)
   |> start()
-
-// ... requests recorded via this recorder will have secrets scrubbed ...
+}
 ```
-
-<sub>🧪 [Tested source](test/snippets/recording_transformer.gleam)</sub>
 
 If you need to scrub **responses** (cookies, tokens, PII) before fixtures are written to disk, use a response transformer.
 This runs **only in record mode**.
 
-```gleam
-import dream_http_client/recorder.{directory, mode, response_transformer, start}
-import dream_http_client/recording
+#### Scrub the response <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/recording_response_transformer.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-fn scrub_response(
+```gleam
+import dream_http_client/recorder.{
+  type Recorder, directory, mode, response_transformer, start,
+}
+import dream_http_client/recording
+import gleam/list
+
+pub fn scrub_response(
   _request: recording.RecordedRequest,
   response: recording.RecordedResponse,
 ) -> recording.RecordedResponse {
-  // Implementation omitted here (see tested snippet)
-  response
+  case response {
+    recording.BlockingResponse(status, headers, _body) ->
+      recording.BlockingResponse(
+        status: status,
+        headers: list.filter(headers, is_not_set_cookie),
+        body: "",
+      )
+
+    recording.StreamingResponse(status, headers, chunks) ->
+      recording.StreamingResponse(
+        status: status,
+        headers: list.filter(headers, is_not_set_cookie),
+        chunks: chunks,
+      )
+  }
 }
 
-let assert Ok(rec) =
+fn is_not_set_cookie(header: #(String, String)) -> Bool {
+  header.0 != "set-cookie"
+}
+
+pub fn start_scrubbing_recorder(
+  recordings_directory: String,
+) -> Result(Recorder, String) {
   recorder.new()
-  |> directory("mocks/api")
+  |> directory(recordings_directory)
   |> mode("record")
   |> response_transformer(scrub_response)
   |> start()
+}
 ```
-
-<sub>🧪 [Tested source](test/snippets/recording_response_transformer.gleam)</sub>
 
 ### Ambiguous Matches (Key Collisions)
 
 Playback **errors** if more than one recording matches the same request key. This is intentional: it forces you to
 refine your key function (or add a transformer) so each request maps to exactly one recording.
 
+#### Playback with a method and URL key <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/recording_ambiguous_match.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream_http_client/matching
-import dream_http_client/recorder.{directory, key, mode, start}
+import dream_http_client/recorder.{type Recorder, directory, key, mode, start}
 
-let request_key_fn =
-  matching.request_key(method: True, url: True, headers: False, body: False)
+// A lookup through this recorder returns Error("Ambiguous recording match ...")
+// when more than one recording matches the request key
+pub fn start_playback(
+  recordings_directory: String,
+) -> Result(Recorder, String) {
+  let request_key_fn =
+    matching.request_key(method: True, url: True, headers: False, body: False)
 
-let assert Ok(playback) =
   recorder.new()
-  |> directory("mocks/api")
+  |> directory(recordings_directory)
   |> mode("playback")
   |> key(request_key_fn)
   |> start()
-
-// ... lookup will return Error("Ambiguous recording match ...") if multiple match ...
+}
 ```
-
-<sub>🧪 [Tested source](test/snippets/recording_ambiguous_match.gleam)</sub>
 
 ### Recording Storage
 
@@ -458,30 +636,39 @@ mocks/api/POST_localhost__text_c7d8e9_4f22bc.json
 
 ## API Reference
 
-### Builder Pattern
+### Builder Pattern <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/request_builder.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_http_client/client.{
-  add_header, body, host, method, path, port, query, scheme, send, timeout,
+  type HttpResponse, type SendError, add_header, body, host, method, path, port,
+  query, scheme, send, timeout,
 }
 import gleam/http
 
-let json_body = "{\"hello\":\"world\"}"
+pub fn send_post() -> Result(HttpResponse, SendError) {
+  let json_body = "{\"hello\":\"world\"}"
 
-client.new()
-|> method(http.Post)         // HTTP method
-|> scheme(http.Http)         // HTTP or HTTPS
-|> host("localhost")         // Hostname (required)
-|> port(9876)                // Port (optional, defaults 80/443)
-|> path("/post")             // Request path
-|> query("page=1&limit=10")  // Query string
-|> add_header("Content-Type", "application/json")
-|> body(json_body)           // Request body
-|> timeout(60_000)           // Timeout in ms (default: 30s)
-|> send()
+  client.new()
+  // HTTP method
+  |> method(http.Post)
+  // HTTP or HTTPS
+  |> scheme(http.Http)
+  // Hostname (required)
+  |> host("localhost")
+  // Port (optional, defaults 80/443)
+  |> port(9876)
+  // Request path
+  |> path("/post")
+  // Query string
+  |> query("page=1&limit=10")
+  |> add_header("Content-Type", "application/json")
+  // Request body
+  |> body(json_body)
+  // Timeout in ms (default: 30s)
+  |> timeout(60_000)
+  |> send()
+}
 ```
-
-<sub>🧪 [Tested source](test/snippets/request_builder.gleam)</sub>
 
 ### Execution
 
@@ -491,7 +678,7 @@ client.new()
 
 **Yielder Streaming:**
 
-- `stream_yielder(req) -> Yielder(Result(BytesTree, String))` - Returns yielder producing chunks
+- `stream_yielder(req) -> Yielder(Result(BytesTree, StreamFailure))` - Returns yielder producing chunks
 
 **Process-Based Streaming:**
 
@@ -507,7 +694,7 @@ client.new()
 
 **`SendError`** - Error from `send()`:
 - `ResponseError(response: HttpResponse)` — HTTP error (4xx/5xx) with full response
-- `RequestError(message: String)` — Transport failure (connection, timeout, DNS)
+- `RequestError(error: TransportError)` — Transport failure (connection, timeout, DNS)
 
 **`StreamHandle`** - Opaque identifier for process-based streams
 
@@ -515,39 +702,43 @@ client.new()
 
 All modes use `Result` types for explicit error handling:
 
+#### Handle each kind of error <a href="https://github.com/TrustBound/dream/blob/dream_http_client-6.0.0/modules/http_client/test/snippets/timeout_config.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream_http_client/client.{
-  HttpResponse, RequestError, ResponseError,
-  host, path, port, scheme, send, timeout,
+  HttpResponse, RequestError, ResponseError, host, path, port, scheme, send,
+  timeout, transport_error_to_string,
 }
 import gleam/http
+import gleam/int
 import gleam/io
 
-let request =
-  client.new()
-  |> scheme(http.Http)
-  |> host("localhost")
-  |> port(9876)
-  |> path("/text")
-  |> timeout(5000)
+pub fn fetch_text_with_timeout() -> Result(String, String) {
+  let request =
+    client.new()
+    |> scheme(http.Http)
+    |> host("localhost")
+    |> port(9876)
+    |> path("/text")
+    |> timeout(5000)
 
-case send(request) {
-  Ok(HttpResponse(body: body, ..)) -> {
-    io.println(body)
-    Ok(body)
-  }
-  Error(ResponseError(response: response)) -> {
-    io.println_error("HTTP error " <> int.to_string(response.status))
-    Error(response.body)
-  }
-  Error(RequestError(message: msg)) -> {
-    io.println_error("Request failed: " <> msg)
-    Error(msg)
+  case send(request) {
+    Ok(HttpResponse(body: body, ..)) -> {
+      io.println(body)
+      Ok(body)
+    }
+    Error(ResponseError(response: response)) -> {
+      io.println_error("HTTP error " <> int.to_string(response.status))
+      Error(response.body)
+    }
+    Error(RequestError(error: error)) -> {
+      let message = transport_error_to_string(error)
+      io.println_error("Request failed: " <> message)
+      Error(message)
+    }
   }
 }
 ```
-
-<sub>🧪 [Tested source](test/snippets/timeout_config.gleam)</sub>
 
 ---
 
@@ -591,7 +782,7 @@ This module follows the same quality standards as [Dream](https://github.com/Tru
 - **Type safety** - `Result` types force error handling at compile time
 - **OTP-first design** - Process-based streaming designed for supervision trees
 - **Comprehensive testing** - Unit tests (no network) + integration tests (real HTTP)
-- **Battle-tested foundation** - Built on Erlang's production-proven `httpc`
+- **HTTP/2 ready** - Built on gun for native HTTP/2 multiplexing
 
 ---
 

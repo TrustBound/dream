@@ -33,44 +33,63 @@ Then access endpoints at `http://localhost:3004/`
 
 Use in tests or other applications:
 
+#### Run a test body against the mock server <a href="https://github.com/TrustBound/dream/blob/dream_mock_server-1.1.1/modules/mock_server/test/snippets/programmatic_mode.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream_mock_server/server
+import gleam/int
+import gleam/otp/actor
 
-pub fn my_test() {
-  let assert Ok(handle) = server.start(3004)
-  
-  // Make HTTP requests to localhost:3004
-  // ... test logic ...
-  
-  server.stop(handle)
+pub fn with_mock_server(
+  port: Int,
+  test_body: fn(String) -> outcome,
+) -> Result(outcome, actor.StartError) {
+  case server.start(port) {
+    Ok(handle) -> {
+      // Make HTTP requests to the base URL, http://localhost:<port>
+      let outcome = test_body("http://localhost:" <> int.to_string(port))
+      server.stop(handle)
+      Ok(outcome)
+    }
+    Error(start_error) -> Error(start_error)
+  }
 }
 ```
-<sub>🧪 [Tested source](test/snippets/programmatic_mode.gleam)</sub>
 
 ### Config mode
 
 For proxy tests or any test that needs a **deterministic upstream** with specific status and body per path, start the server with a config list. The mock has no built-in provider logic (no OpenAI, Google, AWS, etc.); the caller supplies all path → (status, body) mappings. First matching route in the list wins.
 
+#### Start with one prefix route <a href="https://github.com/TrustBound/dream/blob/dream_mock_server-1.1.1/modules/mock_server/test/snippets/config_mode_prefix.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import dream_mock_server/config.{MockRoute, Prefix}
+import dream/servers/mist/server as dream_server
+import dream_mock_server/config.{type MockRoute, MockRoute, Prefix}
 import dream_mock_server/server
 import gleam/option.{None}
+import gleam/otp/actor
 
-// One route: path /v1/chat/completions (prefix match), any method, 200 + JSON body
-let config = [
-  MockRoute(
-    path: "/v1/chat/completions",
-    path_match: Prefix,
-    method: None,
-    status: 200,
-    body: "{\"choices\":[{\"message\":{\"content\":\"\"}}]}",
-  ),
-]
-let assert Ok(handle) = server.start_with_config(3004, config)
-// Point your proxy or client at http://127.0.0.1:3004 ...
-server.stop(handle)
+/// One route: path /v1/chat/completions (prefix match), any method, 200 + JSON body
+pub fn chat_completion_routes() -> List(MockRoute) {
+  [
+    MockRoute(
+      path: "/v1/chat/completions",
+      path_match: Prefix,
+      method: None,
+      status: 200,
+      body: "{\"choices\":[{\"message\":{\"content\":\"\"}}]}",
+    ),
+  ]
+}
+
+pub fn start_chat_mock(
+  port: Int,
+) -> Result(dream_server.ServerHandle, actor.StartError) {
+  // Point your proxy or client at http://localhost:<port>,
+  // then call server.stop(handle).
+  server.start_with_config(port, chat_completion_routes())
+}
 ```
-<sub>🧪 [Tested source](test/snippets/config_mode_prefix.gleam)</sub>
 
 #### How matching works
 
@@ -81,37 +100,41 @@ server.stop(handle)
 - `method: None` matches any method.
 - No match returns `404` with body `"Not found"`.
 
-#### Exact + method-specific example
+#### Exact + method-specific example <a href="https://github.com/TrustBound/dream/blob/dream_mock_server-1.1.1/modules/mock_server/test/snippets/config_mode_method_specific.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{Get, Post}
-import dream_mock_server/config.{Exact, MockRoute}
-import dream_mock_server/server
+import dream_mock_server/config.{type MockRoute, Exact, MockRoute}
 import gleam/option.{Some}
 
-let config = [
-  MockRoute("/resource", Exact, Some(Get), 200, "{\"ok\":true}"),
-  MockRoute("/resource", Exact, Some(Post), 201, "{\"created\":true}"),
-]
-let assert Ok(handle) = server.start_with_config(3004, config)
 // GET /resource  -> 200 {"ok":true}
 // POST /resource -> 201 {"created":true}
-server.stop(handle)
+pub fn resource_routes() -> List(MockRoute) {
+  [
+    MockRoute("/resource", Exact, Some(Get), 200, "{\"ok\":true}"),
+    MockRoute("/resource", Exact, Some(Post), 201, "{\"created\":true}"),
+  ]
+}
 ```
-<sub>🧪 [Tested source](test/snippets/config_mode_method_specific.gleam)</sub>
 
 #### Ordering gotcha (important)
 
 If you mix broad prefixes and specific routes, put specific routes first:
 
+##### Good: specific route first <a href="https://github.com/TrustBound/dream/blob/dream_mock_server-1.1.1/modules/mock_server/test/snippets/config_mode_ordering.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
+import dream_mock_server/config.{type MockRoute, Exact, MockRoute, Prefix}
+import gleam/option.{None}
+
 // Good: specific before broad prefix
-[
-  MockRoute("/api/special", Exact, None, 200, "special"),
-  MockRoute("/api", Prefix, None, 200, "general"),
-]
+pub fn api_routes() -> List(MockRoute) {
+  [
+    MockRoute("/api/special", Exact, None, 200, "special"),
+    MockRoute("/api", Prefix, None, 200, "general"),
+  ]
+}
 ```
-<sub>🧪 [Tested source](test/snippets/config_mode_ordering.gleam)</sub>
 
 - **Path match:** `Exact` (path must equal) or `Prefix` (path must start with).
 - **Method:** `Some(Get)` etc. to restrict; `None` for any method.
@@ -295,35 +318,68 @@ make run
 
 ### 2. Programmatic Control
 
-Start/stop programmatically for tests:
+Start/stop programmatically for tests. `http_helper` and `port` are small test helpers in this module's `test/snippets/` folder.
+
+#### Start, use and stop the server <a href="https://github.com/TrustBound/dream/blob/dream_mock_server-1.1.1/modules/mock_server/test/snippets/programmatic_control.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
+import dream/servers/mist/server as dream_server
 import dream_mock_server/server
+import gleam/int
+import gleam/result
+import gleam/string
+import snippets/http_helper
 
-// Start server
-let assert Ok(handle) = server.start(3004)
+pub fn fetch_text(port: Int) -> Result(#(Int, String), String) {
+  // Start server
+  use handle <- result.try(start_server(port))
 
-// Use server...
+  // Use server
+  let response =
+    http_helper.get("http://localhost:" <> int.to_string(port) <> "/text")
 
-// Stop server
-server.stop(handle)
+  // Stop server
+  server.stop(handle)
+  response
+}
+
+fn start_server(port: Int) -> Result(dream_server.ServerHandle, String) {
+  server.start(port)
+  |> result.map_error(string.inspect)
+}
 ```
 
 ### 3. Integration Testing
 
-Used by Dream's HTTP client tests:
+Dream's HTTP client tests use the mock server in this way. This test starts the server on a free port from the operating system:
+
+#### A test against the mock server <a href="https://github.com/TrustBound/dream/blob/dream_mock_server-1.1.1/modules/mock_server/test/snippets/integration_testing.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// In modules/http_client/test/integration_test.gleam
 import dream_mock_server/server
+import gleam/int
+import gleeunit/should
+import snippets/http_helper
+import snippets/port
 
-pub fn concurrent_streams_test() {
-  let assert Ok(mock) = server.start(3004)
-  
-  // Test HTTP client against localhost:3004
-  // ...
-  
+pub fn fast_stream_sends_ten_chunks_test() {
+  let port = port.free_port()
+  let mock = server.start(port) |> should.be_ok()
+
+  // Send the request to http://localhost:<port>
+  let response =
+    http_helper.get(
+      "http://localhost:" <> int.to_string(port) <> "/stream/fast",
+    )
+
   server.stop(mock)
+  response
+  |> should.equal(
+    Ok(#(
+      200,
+      "Chunk 1\nChunk 2\nChunk 3\nChunk 4\nChunk 5\nChunk 6\nChunk 7\nChunk 8\nChunk 9\nChunk 10\n",
+    )),
+  )
 }
 ```
 
@@ -333,22 +389,35 @@ pub fn concurrent_streams_test() {
 
 Streaming endpoints use Dream's `response.stream_response()`:
 
-```gleam
-import dream/http/response.{stream_response}
-import dream/http/status
-import gleam/yielder
-import gleam/erlang/process
+#### Fast stream controller <a href="https://github.com/TrustBound/dream/blob/dream_mock_server-1.1.1/modules/mock_server/test/snippets/streaming_technique.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-pub fn stream_fast(...) -> Response {
+```gleam
+import dream/context.{type EmptyContext}
+import dream/http/request.{type Request}
+import dream/http/response.{type Response, stream_response}
+import dream/http/status
+import dream/router.{type EmptyServices}
+import gleam/bit_array
+import gleam/erlang/process
+import gleam/int
+import gleam/yielder
+
+pub fn stream_fast(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
   let stream =
     yielder.range(1, 10)
-    |> yielder.map(fn(n) {
-      process.sleep(100)
-      let line = "Chunk " <> int.to_string(n) <> "\n"
-      bit_array.from_string(line)
-    })
+    |> yielder.map(create_fast_chunk)
 
   stream_response(status.ok, stream, "text/plain")
+}
+
+fn create_fast_chunk(number: Int) -> BitArray {
+  process.sleep(100)
+  let line = "Chunk " <> int.to_string(number) <> "\n"
+  bit_array.from_string(line)
 }
 ```
 
@@ -356,19 +425,28 @@ pub fn stream_fast(...) -> Response {
 
 Non-streaming endpoints use standard `json_response()` and `text_response()`:
 
+#### JSON controller <a href="https://github.com/TrustBound/dream/blob/dream_mock_server-1.1.1/modules/mock_server/test/snippets/non_streaming_technique.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import dream/http/response.{json_response}
+import dream/context.{type EmptyContext}
+import dream/http/request.{type Request}
+import dream/http/response.{type Response, json_response}
 import dream/http/status
+import dream/router.{type EmptyServices}
 import gleam/json
 
-pub fn get(...) -> Response {
+pub fn get(
+  request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
   let body =
     json.object([
       #("method", json.string("GET")),
       #("url", json.string(request.path)),
     ])
     |> json.to_string
-  
+
   json_response(status.ok, body)
 }
 ```

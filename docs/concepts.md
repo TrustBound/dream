@@ -8,33 +8,48 @@ Everything you need to understand Dream. Read this, then explore the examples.
 
 A controller is a module that contains action functions—public functions that handle HTTP requests. Each action takes a request, some context about that request, and your app's shared services (like a database connection), then returns a response.
 
+### The controller action type <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_signatures.gleam#L9-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-fn(Request, Context, Services) -> Response
+pub type Action =
+  fn(Request, Context, Services) -> Response
 ```
 
 That's it. No magic, no hidden state. The Request has the HTTP method, path, headers, and body. Context holds per-request data like the authenticated user. Services are your shared dependencies—database, cache, HTTP clients—things that don't change between requests.
 
-Here's what a controller module looks like with two actions:
+Here's what a controller module (`controllers/hello_controller.gleam`) looks like with two actions:
+
+### A controller with two actions <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_hello_controller.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// controllers/hello_controller.gleam
-import dream/http.{type Request, type Response, text_response, ok}
-import dream/context.{type AppContext}
+import dream/context.{type EmptyContext}
+import dream/http.{type Request, type Response, require_string, text_response}
+import dream/http/error
+import dream/http/status
 import dream/router.{type EmptyServices}
+import gleam/result
 
-pub fn hello_world(_request: Request, _context: EmptyContext, _services: EmptyServices) -> Response {
+pub fn greet_world(
+  _request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
   text_response(status.ok, "Hello, World!")
 }
 
-pub fn hello_name(request: Request, _context: EmptyContext, _services: EmptyServices) -> Response {
+pub fn greet_person(
+  request: Request,
+  _context: EmptyContext,
+  _services: EmptyServices,
+) -> Response {
   let result = {
     use name <- result.try(require_string(request, "name"))
     Ok(name)
   }
-  
+
   case result {
     Ok(name) -> text_response(status.ok, "Hello, " <> name <> "!")
-    Error(err) -> response_helpers.handle_error(err)
+    Error(err) -> text_response(error.to_status_code(err), error.message(err))
   }
 }
 ```
@@ -51,16 +66,33 @@ Use controllers for simple CRUD operations, single-model operations, or any dire
 
 The router matches incoming requests to your controller actions based on HTTP method and path pattern. You define routes like this:
 
+### A router <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/custom_context/src/router.gleam#L9-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn create_router() -> Router(AppContext, Services) {
+pub fn create_router() -> Router(AuthContext, Services) {
   router()
-  |> route(method: Get, path: "/users", controller: users_controller.index, middleware: [])
-  |> route(method: Get, path: "/users/:id", controller: users_controller.show, middleware: [])
-  |> route(method: Post, path: "/users", controller: users_controller.create, middleware: [])
+  |> route(
+    method: Get,
+    path: "/",
+    controller: posts_controller.index,
+    middleware: [],
+  )
+  |> route(
+    method: Get,
+    path: "/users/:id/posts/:post_id",
+    controller: posts_controller.show,
+    middleware: [auth_middleware],
+  )
+  |> route(
+    method: Get,
+    path: "/admin",
+    controller: posts_controller.index,
+    middleware: [auth_middleware, admin_middleware],
+  )
 }
 ```
 
-Path parameters like `:id` get extracted automatically. So `/users/:id` matches `/users/123` and makes `id` available via `require_int(request, "id")` or `require_string(request, "id")`. These functions safely extract and validate parameters, returning `Result` types for error handling. You can have multiple parameters too—`/posts/:post_id/comments/:id` extracts both.
+Path parameters like `:id` get extracted automatically. So `/users/:id/posts/:post_id` matches `/users/1/posts/2` and makes `id` and `post_id` available via `require_string(request, "id")` and `require_string(request, "post_id")`, or via `require_int` for numbers. These functions safely extract and validate parameters, returning `Result` types for error handling.
 
 The router is generic over your Context and Services types. This means the compiler verifies every controller action has the right signature. Change your Context or Services type? The compiler will tell you exactly which actions need updating.
 
@@ -68,7 +100,7 @@ The router is generic over your Context and Services types. This means the compi
 
 **Router Performance:** Dream uses a radix trie for O(path depth) route matching. Benchmarks show consistent ~1.3-1.5μs lookup times whether you have 100 or 1000 routes. The router is fast enough that it won't be your bottleneck.
 
-**See:** [examples/simple/src/router.gleam](../examples/simple/src/router.gleam)
+**See:** [examples/custom_context/src/router.gleam](../examples/custom_context/src/router.gleam)
 
 ---
 
@@ -76,31 +108,39 @@ The router is generic over your Context and Services types. This means the compi
 
 Your controller actions need things like database connections, HTTP clients, and caches. You could pass these through every function call, but that gets messy fast. You could use global variables, but Gleam doesn't have safe globals. You could use Erlang's process dictionary, but that's not type-safe.
 
-Services solves this with type-safe dependency injection. You define what your app needs:
+Services solves this with type-safe dependency injection. You define what your app needs as fields of one type. The database example needs one service:
+
+### The Services type <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/services.gleam#L8-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Services {
-  Services(
-    db: pog.Connection,
-    cache: ets.Table,
-  )
+  Services(database: DatabaseService)
 }
 ```
 
 Initialize it once at startup:
 
+### Initializing services <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/services.gleam#L14-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 pub fn initialize_services() -> Services {
-  let assert Ok(db) = init_database()
-  let assert Ok(cache) = init_cache()
-  Services(db: db, cache: cache)
+  let assert Ok(database_service) = database.init_database()
+  Services(database: database_service)
 }
+```
 
+Then give it to the server in `main`:
+
+### Passing services to the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/main.gleam#L15-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
 pub fn main() {
-  server.new()
-  |> services(initialize_services())  // Called once
+  dream.new()
+  |> context(db_context.context)
+  |> services(initialize_services())
   |> router(create_router())
-  |> listen(3000)
+  |> bind("localhost")
+  |> listen(3002)
 }
 ```
 
@@ -110,6 +150,15 @@ Yes, Services is a "god object" that holds multiple dependencies. We're okay wit
 
 **See:** [examples/database/src/services.gleam](../examples/database/src/services.gleam)
 
+### Builder order
+
+Call the server builder functions in this order: `context()`, `services()`, `router()`, then `listen()`. The compiler enforces this order:
+
+- A router's type includes the context and services types: `Router(context, services)`. Thus `context()` and `services()` accept only an app that has no router yet. If you call one of them after `router()`, the build fails with a type mismatch between `NoRouter` and `Router(...)`.
+- `listen()` and `listen_with_handle()` accept only an app that has a router. If you forget `router()`, the build fails with the same type mismatch.
+
+`bind()`, `max_body_size()` and `tls()` work before or after `router()`.
+
 ---
 
 ## Context
@@ -117,6 +166,8 @@ Yes, Services is a "god object" that holds multiple dependencies. We're okay wit
 Context holds per-request data that changes for each request. Request A's authenticated user is different from Request B's authenticated user. That's what Context is for.
 
 Dream provides `EmptyContext` for simple apps that don't need per-request data:
+
+### EmptyContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/context.gleam#L138-L140"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type EmptyContext {
@@ -126,6 +177,8 @@ pub type EmptyContext {
 
 This is the default when you call `server.new()`. For apps that need request tracking, Dream also provides `AppContext`:
 
+### AppContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/context.gleam#L146-L148"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 pub type AppContext {
   AppContext(request_id: String)
@@ -134,19 +187,20 @@ pub type AppContext {
 
 But you'll probably want to add authentication with your own custom type:
 
+### A custom AuthContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_context.gleam#L12-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 pub type AuthContext {
-  AuthContext(
-    request_id: String,
-    user: Option(User),
-  )
+  AuthContext(request_id: String, user: Option(User))
 }
 ```
 
 Middleware enriches the context before it reaches controllers. Here's how an auth middleware might work:
 
+### An auth middleware that enriches the context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_context.gleam#L16-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn auth_middleware(request, context, services, next) {
+pub fn auth_middleware(request: Request, context, services, next) {
   case get_header(request.headers, "Authorization") {
     None -> unauthorized_response()
     Some(token) -> handle_token(request, context, services, next, token)
@@ -158,7 +212,8 @@ fn handle_token(request, context, services, next, token) {
     Ok(user) -> {
       // Enrich context with authenticated user
       let enriched = AuthContext(..context, user: Some(user))
-      next(request, enriched, services)  // Controller receives enriched context
+      // Controller receives enriched context
+      next(request, enriched, services)
     }
     Error(_) -> unauthorized_response()
   }
@@ -186,8 +241,12 @@ Middleware wraps controller actions to handle cross-cutting concerns. Instead of
 
 A middleware function has this signature:
 
+### The middleware type <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_signatures.gleam#L12-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-fn(Request, Context, Services, fn(Request, Context, Services) -> Response) -> Response
+pub type Middleware =
+  fn(Request, Context, Services, fn(Request, Context, Services) -> Response) ->
+    Response
 ```
 
 The fourth parameter is a function that represents the next middleware or controller action in the chain.
@@ -196,30 +255,41 @@ You get the request, context, services, and a `next` function. You can modify th
 
 Here's a logging middleware:
 
+### A logging middleware <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_middleware.gleam#L13-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 pub fn logging_middleware(request, context, services, next) {
-  let start_time = timestamp.now()
-  
+  let start_time = timestamp.system_time()
+
   // Call next (could be another middleware or the controller action)
   let response = next(request, context, services)
-  
-  let duration = timestamp.difference(timestamp.now(), start_time)
+
+  let duration = timestamp.difference(start_time, timestamp.system_time())
   log_request(request, response, duration)
-  
-  response  // Return (possibly modified) response
+
+  // Return (possibly modified) response
+  response
 }
 ```
 
 Apply middleware to routes:
 
+### Middleware on routes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_middleware.gleam#L26-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-router
-|> route(method: Get, path: "/", controller: home, middleware: [])  // Public
-|> route(method: Post, path: "/admin", controller: admin, middleware: [
-  auth_middleware,       // Run first
-  admin_check_middleware, // Run second
-  logging_middleware,    // Run third
-])
+pub fn create_router() -> Router(AuthContext, services) {
+  router()
+  // Public
+  |> route(method: Get, path: "/", controller: home, middleware: [])
+  |> route(method: Post, path: "/admin", controller: admin, middleware: [
+    // Run first
+    auth_middleware,
+    // Run second
+    admin_check_middleware,
+    // Run third
+    logging_middleware,
+  ])
+}
 ```
 
 Execution flows like an onion:
@@ -244,87 +314,70 @@ Use middleware for cross-cutting concerns like logging and auth, or for request/
 
 ## Operations
 
-Sometimes a controller action needs to coordinate multiple services with complex business rules. That doesn't belong in an action.
+Sometimes a controller action must coordinate more than one model, or more than one step. That logic doesn't belong in the action.
 
-Say you need to publish a post:
-1. Get post from database
-2. Verify user is the author
-3. Update post status
-4. Index in search engine
-5. Broadcast event to subscribers
+Say the task page shows a task card. The card needs:
+1. The task, from the task model
+2. The task's tags, from the tag model
 
-That's coordinating Postgres, OpenSearch, and SSE with authorization logic. Extract it to an operation:
+Extract that to an operation. The controller action stays thin, with only HTTP work:
+
+### Controller action calls the operation <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/controllers/tasks_controller.gleam#L19-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{require_int, type Request, type Response}
-import dream/http.{json_response, ok}
-import gleam/option
-import gleam/result
-import operations/publish_post
-import utilities/response_helpers
-import views/post_view
-
-// Controller action stays thin - just HTTP concerns
-pub fn publish(request: Request, context: Context, services: Services) -> Response {
+/// Show single task
+pub fn show(
+  request: http.Request,
+  _context: TasksContext,
+  services: Services,
+) -> http.Response {
   let result = {
-    use id <- result.try(require_int(request, "id"))
-    use user <- result.try(
-      case context.user {
-        option.Some(u) -> Ok(u)
-        option.None -> Error(error.Unauthorized("Authentication required"))
-      }
-    )
-    publish_post.execute(id, user.id, services)
+    use task_id <- result.try(http.require_int(request, "task_id"))
+    task_operations.get_task_with_tags(services.db, task_id)
   }
-  
+
   case result {
-    Ok(post) -> json_response(ok, post_view.to_json(post))
+    Ok(#(task, tags)) -> http.html_response(http.ok, task_view.card(task, tags))
     Error(err) -> response_helpers.handle_error(err)
   }
 }
 ```
 
+The operation holds the logic, with no HTTP. If the task does not exist, it returns the error. If the tags query fails, it shows the task with no tags:
+
+### Operation coordinates two models <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/operations/task_operations.gleam#L33-L45"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-import dream/http/error.{type Error, Forbidden, NotFound, InternalServerError}
-import gleam/result
+/// Get a task with its tags
+pub fn get_task_with_tags(
+  db: Connection,
+  task_id: Int,
+) -> Result(#(Task, List(Tag)), Error) {
+  use task <- result.try(task_model.get(db, task_id))
 
-// Operation handles business logic - no HTTP
-pub fn execute(post_id: Int, user_id: Int, services: Services) -> Result(Post, Error) {
-  use post <- result.try(post_model.get(services.db, post_id))
-  use _ <- result.try(check_authorization(user_id, post))
-  use published <- result.try(post_model.publish(services.db, post_id))
-  
-  // Side effects
-  let _ = search.index_post(services.search, published)
-  let _ = events.broadcast(services.events, PostPublished(published))
-  
-  Ok(published)
-}
+  let tags =
+    tag_model.get_tags_for_task(db, task.id)
+    |> result.unwrap([])
 
-fn check_authorization(user_id: Int, post: Post) -> Result(Nil, Error) {
-  case user_id == post.author_id {
-    True -> Ok(Nil)
-    False -> Error(Forbidden("Not authorized to publish this post"))
-  }
+  Ok(#(task, tags))
 }
 ```
 
-The big win? Operations are testable without HTTP. No mocking requests, no building Request objects—just test the business logic:
+The operation takes a database connection and a task ID. It doesn't need a Request object. The tasks example tests it through the HTTP API, with a Cucumber scenario in [test/integration/features/tasks.feature](../examples/tasks/test/integration/features/tasks.feature):
 
-```gleam
-pub fn publish_post_with_wrong_user_returns_forbidden_test() {
-  let services = test_services()
-  let post = create_test_post(services)
-  
-  let result = publish_post.execute(post.id, wrong_user_id, services)
-  
-  assert Error(error.Forbidden(_)) = result
-}
+```gherkin
+Scenario: Get task by ID returns correct task
+    Given a task exists with title "Specific Task"
+    When I send a GET request to "/tasks/1"
+    Then the response status should be 200
+    And the response should contain "Specific Task"
 ```
 
-Use operations when you're coordinating 2+ models, have complex business rules spanning entities, or need side effects like events, emails, or search indexing. Don't use them for simple CRUD—most controller actions don't need operations. Only extract when complexity demands it.
+Run `make test-integration` in `examples/tasks` to run the scenarios.
 
-**See:** [examples/cms/src/operations/](../examples/cms/src/operations/)
+Use operations when you coordinate 2 or more models, when an action has steps that must happen in order, or when a business rule spans entities. Don't use them for simple CRUD. Most controller actions don't need operations. Only extract when the logic demands it.
+
+**See:** [examples/tasks/src/operations/](../examples/tasks/src/operations/)
 
 ---
 
@@ -332,10 +385,10 @@ Use operations when you're coordinating 2+ models, have complex business rules s
 
 Models handle data access. They take a database connection (explicit dependency, no globals), run queries, and convert database rows into your domain types. Controller actions call models, not SQL directly.
 
-```gleam
-// models/user/user.gleam
-import dream/http/error.{type Error, NotFound, InternalServerError}
+### Model functions <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L23-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
+```gleam
+/// Get a single user by ID
 pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
@@ -343,20 +396,30 @@ pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
   }
 }
 
-pub fn create(db: pog.Connection, data: UserData) -> Result(User, Error) {
-  case sql.create_user(db, data.email, data.name) {
-    Ok(returned) -> extract_first_user(returned)
+/// Create a new user
+pub fn create(
+  db: pog.Connection,
+  name: String,
+  email: String,
+) -> Result(User, Error) {
+  case sql.create_user(db, name, email) {
+    Ok(returned) -> extract_created_user(returned)
     Error(_) -> Error(InternalServerError("Database error"))
   }
 }
+```
 
-// Convert Squirrel row to domain type
+A private function converts each Squirrel row to the domain type:
+
+### Converting a row to a domain type <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L107-L114"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
 fn row_to_user(row: sql.GetUserRow) -> User {
   User(
     id: row.id,
-    email: row.email,
     name: row.name,
-    created_at: row.created_at,
+    email: row.email,
+    created_at: option.unwrap(row.created_at, timestamp.system_time()),
   )
 }
 ```
@@ -371,8 +434,9 @@ Models take connections as parameters, return domain types (not DB types), and h
 
 Views format domain types into strings. JSON, HTML, CSV—whatever format you need. They're pure functions: take a domain type, return a string. No Result types, no HTTP knowledge.
 
+### A view for JSON, CSV and HTML <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_user_view.gleam#L16-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-// views/user_view.gleam
 pub fn respond(user: User, param: PathParam) -> Response {
   case param.format {
     Some("json") -> json_response(status.ok, to_json(user))
@@ -418,11 +482,13 @@ Dream enforces clear boundaries between layers.
 
 Keep validation and response building separate. Validation takes a string and a decoder, returns `Result(T, ValidationError)`. Response building takes a status and body, returns a `Response`. Controllers connect them explicitly:
 
+### Validate, then build the response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_validation.gleam#L36-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-case validate_json(request.body, decoder) {
-  Ok(data) -> create_with_data(services, data)
-  Error(err) -> json_response(status.bad_request, error_json(err))
-}
+  case validate_json(body, decoder) {
+    Ok(data) -> create_with_data(services, data)
+    Error(err) -> json_response(status.bad_request, error_json(err))
+  }
 ```
 
 **Models ≠ Views**

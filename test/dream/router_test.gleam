@@ -33,6 +33,7 @@ pub fn tests() -> UnitTest {
     middleware_chain_tests(),
     parameter_remapping_tests(),
     extension_stripping_tests(),
+    backtracking_tests(),
     regression_tests(),
   ])
 }
@@ -1105,6 +1106,288 @@ fn regression_tests() -> UnitTest {
       |> extract_route_params()
       |> equal([#("id", "123")])
       |> or_fail_with("Should match deeply nested route")
+    }),
+  ])
+}
+
+fn backtracking_tests() -> UnitTest {
+  describe("backtracking", [
+    it("finds multi-wildcard route when param route fails deeper", fn() {
+      // Arrange
+      let test_router =
+        router()
+        |> route(Get, "/users/:id/posts", test_handler, [])
+        |> route(Get, "/users/**rest", test_handler, [])
+      let request = test_request.create_request(Get, "/users/1/comments")
+
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> extract_route_params()
+      |> equal([#("rest", "1/comments")])
+      |> or_fail_with(
+        "Multi-wildcard route should capture the rest of the path",
+      )
+    }),
+    it("finds param route when literal route fails deeper", fn() {
+      // Arrange
+      let test_router =
+        router()
+        |> route(Get, "/users/new/edit", test_handler, [])
+        |> route(Get, "/users/:id/profile", test_handler, [])
+      let request = test_request.create_request(Get, "/users/new/profile")
+
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> extract_route_params()
+      |> equal([#("id", "new")])
+      |> or_fail_with(
+        "Param route should capture the segment the literal route left",
+      )
+    }),
+    it("finds single wildcard route when param route fails deeper", fn() {
+      // Arrange
+      let test_router =
+        router()
+        |> route(Get, "/files/:id/meta", test_handler, [])
+        |> route(Get, "/files/*name/raw", test_handler, [])
+      let request = test_request.create_request(Get, "/files/report/raw")
+
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> extract_route_params()
+      |> equal([#("name", "report")])
+      |> or_fail_with("Single wildcard route should capture the segment")
+    }),
+    it(
+      "finds multi-wildcard route when single wildcard route fails deeper",
+      fn() {
+        // Arrange
+        let test_router =
+          router()
+          |> route(Get, "/files/*name/raw", test_handler, [])
+          |> route(Get, "/files/**rest", test_handler, [])
+        let request = test_request.create_request(Get, "/files/report/old")
+
+        // Act
+        let result = find_route(test_router, request)
+
+        // Assert
+        result
+        |> should()
+        |> be_some()
+        |> extract_route_params()
+        |> equal([#("rest", "report/old")])
+        |> or_fail_with(
+          "Multi-wildcard route should capture the rest of the path",
+        )
+      },
+    ),
+    it(
+      "finds single wildcard route when extension pattern route fails deeper",
+      fn() {
+        // Arrange
+        let test_router =
+          router()
+          |> route(Get, "/images/*.jpg/thumb", test_handler, [])
+          |> route(Get, "/images/*name/full", test_handler, [])
+        let request = test_request.create_request(Get, "/images/photo.jpg/full")
+
+        // Act
+        let result = find_route(test_router, request)
+
+        // Assert
+        result
+        |> should()
+        |> be_some()
+        |> extract_route_params()
+        |> equal([#("name", "photo.jpg")])
+        |> or_fail_with("Single wildcard route should capture the file name")
+      },
+    ),
+    it(
+      "finds param route when multi-extension pattern route fails deeper",
+      fn() {
+        // Arrange
+        let test_router =
+          router()
+          |> route(Get, "/images/*.{jpg,png}/thumb", test_handler, [])
+          |> route(Get, "/images/:file/full", test_handler, [])
+        let request = test_request.create_request(Get, "/images/photo.png/full")
+
+        // Act
+        let result = find_route(test_router, request)
+
+        // Assert
+        result
+        |> should()
+        |> be_some()
+        |> extract_route_params()
+        |> equal([#("file", "photo.png")])
+        |> or_fail_with(
+          "Param route should capture the file name with its extension",
+        )
+      },
+    ),
+    it("finds second extension pattern route when first fails deeper", fn() {
+      // Arrange
+      let test_router =
+        router()
+        |> route(Get, "/images/*.{jpg,png}/thumb", test_handler, [])
+        |> route(Get, "/images/*.jpg/full", test_handler, [])
+      let request = test_request.create_request(Get, "/images/photo.jpg/full")
+
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> extract_route_params()
+      |> equal([])
+      |> or_fail_with(
+        "Second extension pattern route should match with no params",
+      )
+    }),
+    it(
+      "finds single wildcard route when stripped literal route fails deeper",
+      fn() {
+        // Arrange
+        let test_router =
+          router()
+          |> route(Get, "/files/report/meta", test_handler, [])
+          |> route(Get, "/files/*name/raw", test_handler, [])
+        let request = test_request.create_request(Get, "/files/report.pdf/raw")
+
+        // Act
+        let result = find_route(test_router, request)
+
+        // Assert
+        result
+        |> should()
+        |> be_some()
+        |> extract_route_params()
+        |> equal([#("name", "report.pdf")])
+        |> or_fail_with("Single wildcard route should capture the full segment")
+      },
+    ),
+    it(
+      "finds param route when single wildcard route fails deeper for segment with extension",
+      fn() {
+        // Arrange
+        let test_router =
+          router()
+          |> route(Get, "/items/*name/raw", test_handler, [])
+          |> route(Get, "/items/:id/meta", test_handler, [])
+        let request = test_request.create_request(Get, "/items/1.json/meta")
+
+        // Act
+        let result = find_route(test_router, request)
+
+        // Assert
+        result
+        |> should()
+        |> be_some()
+        |> extract_route_params()
+        |> equal([#("id", "1.json")])
+        |> or_fail_with(
+          "Param route should capture the segment with its extension",
+        )
+      },
+    ),
+    it(
+      "finds single wildcard route two levels deep when literal route fails",
+      fn() {
+        // Arrange
+        let test_router =
+          router()
+          |> route(Get, "/api/:version/users/list", test_handler, [])
+          |> route(Get, "/api/:version/*resource/count", test_handler, [])
+        let request = test_request.create_request(Get, "/api/v1/users/count")
+
+        // Act
+        let result = find_route(test_router, request)
+
+        // Assert
+        result
+        |> should()
+        |> be_some()
+        |> extract_route_params()
+        |> equal([#("version", "v1"), #("resource", "users")])
+        |> or_fail_with("Route should capture the version and the resource")
+      },
+    ),
+    it("finds multi-wildcard route two levels up when param route fails", fn() {
+      // Arrange
+      let test_router =
+        router()
+        |> route(Get, "/api/:version/users/:id/posts", test_handler, [])
+        |> route(Get, "/api/:version/**rest", test_handler, [])
+      let request = test_request.create_request(Get, "/api/v1/users/7/comments")
+
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> extract_route_params()
+      |> equal([#("version", "v1"), #("rest", "users/7/comments")])
+      |> or_fail_with(
+        "Route should capture the version and the rest of the path",
+      )
+    }),
+    it("does not keep params from an abandoned route", fn() {
+      // Arrange
+      let test_router =
+        router()
+        |> route(Get, "/users/:id/posts/:post_id", test_handler, [])
+        |> route(Get, "/users/**rest", test_handler, [])
+      let request = test_request.create_request(Get, "/users/1/posts/2/extra")
+
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> extract_route_params()
+      |> equal([#("rest", "1/posts/2/extra")])
+      |> or_fail_with("Params should be only those of the matched route")
+    }),
+    it("finds no route when no alternative fits the path", fn() {
+      // Arrange
+      let test_router =
+        router()
+        |> route(Get, "/users/:id/posts", test_handler, [])
+        |> route(Get, "/users/*name/raw", test_handler, [])
+      let request = test_request.create_request(Get, "/users/1/comments")
+
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
+      |> should()
+      |> be_none()
+      |> or_fail_with("Should not match when no route fits the path")
     }),
   ])
 }

@@ -2,14 +2,17 @@
 
 import dream/dream
 import dream/router.{router}
+import dream/servers/mist/port_probe
 import dream/servers/mist/server
 import dream_test/assertions/should.{equal, or_fail_with, should}
 import dream_test/types.{AssertionFailed, AssertionFailure, AssertionOk}
-import dream_test/unit.{type UnitTest, after_each, before_each, describe, it}
-import fixtures/hooks.{start_server, stop_server, test_server_port}
+import dream_test/unit.{type UnitTest, describe, it}
 import gleam/erlang/process
-import gleam/option.{None}
+import gleam/int
+import gleam/list
+import gleam/option.{None, Some}
 import gleam/otp/actor
+import gleam/result
 import gleam/string
 
 // ============================================================================
@@ -86,20 +89,25 @@ fn builder_tests() -> UnitTest {
 
 fn listen_tests() -> UnitTest {
   describe("listen_with_handle", [
-    before_each(start_server),
-    after_each(stop_server),
     it("starts on expected port", fn() {
       // Arrange
-      let expected_port = 19_999
+      let port = free_port()
 
       // Act
-      let actual_port = test_server_port
+      let started = start_server_on(port)
 
       // Assert
-      actual_port
+      started
+      |> result.map(fn(handle) {
+        let in_use = port_probe.is_in_use(Some("127.0.0.1"), port)
+        server.stop(handle)
+        in_use
+      })
       |> should()
-      |> equal(expected_port)
-      |> or_fail_with("Test server port should be 19999")
+      |> equal(Ok(True))
+      |> or_fail_with(
+        "The server should accept connections on the port it was given",
+      )
     }),
   ])
 }
@@ -111,7 +119,7 @@ fn lifecycle_tests() -> UnitTest {
       let dream_instance =
         server.new()
         |> server.router(router())
-      let port = 19_990
+      let port = free_port()
 
       // Act
       let result = server.listen_with_handle(dream_instance, port)
@@ -125,7 +133,9 @@ fn lifecycle_tests() -> UnitTest {
         Error(start_error) ->
           AssertionFailed(AssertionFailure(
             operator: "listen_with_handle",
-            message: "Server failed to start on port 19990: "
+            message: "Server failed to start on port "
+              <> int.to_string(port)
+              <> ": "
               <> string.inspect(start_error),
             payload: None,
           ))
@@ -136,7 +146,7 @@ fn lifecycle_tests() -> UnitTest {
       let dream_instance =
         server.new()
         |> server.router(router())
-      let port = 19_996
+      let port = free_port()
 
       // Act
       let first_result = server.listen_with_handle(dream_instance, port)
@@ -189,7 +199,7 @@ fn lifecycle_tests() -> UnitTest {
       let dream_instance =
         server.new()
         |> server.router(router())
-      let port = 19_991
+      let port = free_port()
 
       // Act
       let result = server.listen_with_handle(dream_instance, port)
@@ -215,7 +225,7 @@ fn lifecycle_tests() -> UnitTest {
       let dream_instance =
         server.new()
         |> server.router(router())
-      let port = 19_992
+      let port = free_port()
 
       // Act
       let result = server.listen_with_handle(dream_instance, port)
@@ -237,8 +247,125 @@ fn lifecycle_tests() -> UnitTest {
           ))
       }
     }),
+    stop_from_another_process_tests(),
   ])
 }
+
+fn stop_from_another_process_tests() -> UnitTest {
+  describe("stop from another process", [
+    it("frees the port for a new server", fn() {
+      // Arrange
+      let port = free_port()
+      let started = start_server_on(port)
+
+      // Act
+      let restarted =
+        started
+        |> result.try(stop_from_another_process(_, 1))
+        |> result.try(fn(_stopped) { start_server_on(port) })
+
+      // Assert
+      restarted
+      |> result.map(server.stop)
+      |> should()
+      |> equal(Ok(Nil))
+      |> or_fail_with("A new server must bind the port after stop returns")
+    }),
+    it("is safe to call twice", fn() {
+      // Arrange
+      let port = free_port()
+      let started = start_server_on(port)
+
+      // Act
+      let restarted =
+        started
+        |> result.try(stop_from_another_process(_, 2))
+        |> result.try(fn(_stopped) { start_server_on(port) })
+
+      // Assert
+      restarted
+      |> result.map(server.stop)
+      |> should()
+      |> equal(Ok(Nil))
+      |> or_fail_with(
+        "Two stops must not crash the caller and must free the port",
+      )
+    }),
+    it("is safe after the server already stopped", fn() {
+      // Arrange
+      let port = free_port()
+      let stopped_by_owner =
+        start_server_on(port)
+        |> result.map(fn(handle) {
+          server.stop(handle)
+          handle
+        })
+
+      // Act
+      let result =
+        stopped_by_owner
+        |> result.try(stop_from_another_process(_, 1))
+
+      // Assert
+      result
+      |> should()
+      |> equal(Ok(Nil))
+      |> or_fail_with("Stop on a stopped server must return Nil to the caller")
+    }),
+    it("refuses a connection sent after stop returns", fn() {
+      // Arrange
+      let port = free_port()
+      let started = start_server_on(port)
+
+      // Act
+      let in_use =
+        started
+        |> result.try(stop_from_another_process(_, 1))
+        |> result.map(fn(_stopped) {
+          port_probe.is_in_use(Some("127.0.0.1"), port)
+        })
+
+      // Assert
+      in_use
+      |> should()
+      |> equal(Ok(False))
+      |> or_fail_with("The server must refuse connections after stop returns")
+    }),
+  ])
+}
+
+/// Starts a server on `port` in the calling process.
+fn start_server_on(port: Int) -> Result(server.ServerHandle, String) {
+  server.new()
+  |> server.router(router())
+  |> server.listen_with_handle(port)
+  |> result.map_error(fn(start_error) {
+    "Server failed to start: " <> string.inspect(start_error)
+  })
+}
+
+/// Calls `server.stop` `times` times from a new process that is not linked
+/// to the caller. Returns `Ok(Nil)` when that process reports that every call
+/// returned, and an error when it does not report within 5 seconds (for
+/// example because `stop` crashed it).
+fn stop_from_another_process(
+  handle: server.ServerHandle,
+  times: Int,
+) -> Result(Nil, String) {
+  let reply = process.new_subject()
+  process.spawn_unlinked(fn() {
+    list.repeat(handle, times)
+    |> list.each(server.stop)
+    process.send(reply, Nil)
+  })
+  process.receive(reply, within: 5000)
+  |> result.map_error(fn(_timeout) {
+    "The stopping process did not report back within 5000 ms"
+  })
+}
+
+@external(erlang, "port_ffi", "free_port")
+fn free_port() -> Int
 
 fn bind_tests() -> UnitTest {
   describe("bind configuration", [
@@ -248,7 +375,7 @@ fn bind_tests() -> UnitTest {
         server.new()
         |> server.router(router())
         |> server.bind("127.0.0.1")
-      let port = 19_993
+      let port = free_port()
 
       // Act
       let result = server.listen_with_handle(dream_instance, port)
@@ -262,7 +389,9 @@ fn bind_tests() -> UnitTest {
         Error(start_error) ->
           AssertionFailed(AssertionFailure(
             operator: "bind_persists",
-            message: "Server with bind() failed to start on port 19993: "
+            message: "Server with bind() failed to start on port "
+              <> int.to_string(port)
+              <> ": "
               <> string.inspect(start_error),
             payload: None,
           ))
@@ -274,7 +403,7 @@ fn bind_tests() -> UnitTest {
         server.new()
         |> server.router(router())
         |> server.bind("localhost")
-      let port = 19_994
+      let port = free_port()
 
       // Act
       let result = server.listen_with_handle(dream_instance, port)
@@ -300,7 +429,7 @@ fn bind_tests() -> UnitTest {
         server.new()
         |> server.router(router())
         |> server.bind("0.0.0.0")
-      let port = 19_995
+      let port = free_port()
 
       // Act
       let result = server.listen_with_handle(dream_instance, port)

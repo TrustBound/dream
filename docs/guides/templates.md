@@ -45,19 +45,20 @@ prebuilt Matcha binary and just use it via this Makefile target.
    Hello {{ name }}!
    ```
 
-2. Run `matcha` at the project root (or `make matcha`). Matcha will
-   generate `templates/elements/hello.gleam` with a `render` function:
+2. Run `matcha` at the project root (or `make matcha`). Matcha
+   generates `templates/elements/hello.gleam` with a `render` function.
+3. Import the generated module and call `render`, as the example below
+   shows. `greet("Dream")` returns the rendered string `Hello Dream!`.
 
-   ```gleam
-   import templates/elements/hello
+#### Calling the generated module <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/templates_guide_greeting.gleam#L7-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-   pub fn greet(name: String) -> String {
-     hello.render(name: name)
-   }
-   ```
+```gleam
+pub fn greet(name: String) -> String {
+  hello.render(name: name)
+}
+```
 
-3. Call `greet("Dream")` from your views or controllers to get the
-   rendered HTML string.
+In this example the generated module is imported as `hello`.
 
 You never call `render_tree` directly unless you are composing
 `StringTree` values manually; most apps will just use the
@@ -108,17 +109,19 @@ Elements are the smallest reusable pieces. They're compiled from Matcha template
 - Reusable across the entire application
 - Compiled to Gleam functions via Matcha
 
-**Usage in Components:**
+Components call the generated `render` function of an element:
+
+### Using the button element <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/templates_guide_components.gleam#L15-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import templates/elements/button
-
-let button_html = button.render(
-  button_id: "submit-btn",
-  button_type: "submit",
-  button_text: "Save Task",
-  attributes: "hx-post=\"/tasks\""
-)
+pub fn save_button() -> String {
+  button.render(
+    button_id: "submit-btn",
+    button_type: "submit",
+    button_text: "Save Task",
+    attributes: "hx-post=\"/tasks\"",
+  )
+}
 ```
 
 ## Layer 2: Components
@@ -127,42 +130,60 @@ Components are Gleam functions that compose multiple elements into reusable piec
 
 **Location:** `templates/components/*.gleam`
 
-**Example: Task Card Component**
+The component below imports the generated element modules as `badge`, `button`, `checkbox`, `input` and `task_card`.
+
+### The task card component <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/templates_guide_components.gleam#L24-L73"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import templates/elements/button
-import templates/elements/checkbox
-import templates/elements/input
-import templates/components/task_card
-import types/task.{type Task}
-import types/tag.{type Tag}
-
-pub fn task_card(task: Task, tags: List(Tag)) -> String {
+pub fn task_card(task: Task) -> String {
   let task_id = int.to_string(task.id)
-  
+
   // Compose elements
-  let checkbox_html = checkbox.render(
-    checkbox_id: "checkbox-" <> task_id,
-    checkbox_name: "completed",
-    label_text: "",
-    checked_attr: if task.completed { "checked" } else { "" },
-    attributes: htmx_attributes(task_id)
-  )
-  
-  let title_input = input.render(
-    input_id: "title-" <> task_id,
-    input_name: "title",
-    input_value: task.title,
-    attributes: "readonly"
-  )
-  
+  let checkbox_html =
+    checkbox.render(
+      checkbox_id: "checkbox-" <> task_id,
+      checkbox_name: "completed",
+      label_text: "",
+      checked_attr: checked_attribute(task.completed),
+      attributes: htmx_attributes(task_id),
+    )
+
+  let title_input =
+    input.render(
+      input_id: "title-" <> task_id,
+      input_name: "title",
+      input_value: task.title,
+      attributes: "readonly",
+    )
+
   // Use compiled Matcha template for structure
   task_card.render(
     task_id: task_id,
     checkbox_html: checkbox_html,
     title_input: title_input,
-    tags_html: render_tags(tags)
+    tags_html: render_tags(task.tags),
   )
+}
+
+pub fn task_list(tasks: List(Task)) -> String {
+  list.map(tasks, task_card)
+  |> string.concat
+}
+
+fn checked_attribute(completed: Bool) -> String {
+  case completed {
+    True -> "checked"
+    False -> ""
+  }
+}
+
+fn htmx_attributes(task_id: String) -> String {
+  "hx-post=\"/tasks/" <> task_id <> "/toggle\""
+}
+
+fn render_tags(tags: List(Tag)) -> String {
+  list.map(tags, fn(tag) { badge.render(label: tag.name) })
+  |> string.concat
 }
 ```
 
@@ -194,22 +215,18 @@ Pages compose multiple components into full page content. They represent the mai
 </main>
 ```
 
-**Or as a Gleam function:**
+A page can also be a Gleam function:
+
+### The index page as a Gleam function <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/templates_guide_pages.gleam#L8-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import templates/components/task_components
-import templates/components/form_components
-
-pub fn index_page(
-  tasks: List(Task),
-  tags_by_task: List(#(Int, List(Tag))),
-) -> String {
+pub fn index_page(tasks: List(Task)) -> String {
   // Components compose elements
-  let list = task_components.task_list(tasks, tags_by_task)
-  let form = form_components.task_form()
-  
+  let task_list = task_components.task_list(tasks)
+  let task_form = form_components.task_form()
+
   // Page composes components
-  index.render(task_form: form, task_list: list)
+  index.render(task_form:, task_list:)
 }
 ```
 
@@ -224,24 +241,18 @@ Layouts wrap pages with consistent structure. They handle navigation, footer, sc
 
 **Location:** `templates/layouts/*.gleam`
 
-**Example: Page Layout**
+### The page layout <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/templates_guide_layouts.gleam#L9-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import templates/layouts/footer
-import templates/layouts/main_wrapper
-import templates/layouts/nav
-import templates/layouts/page
-import templates/layouts/scripts
-
 pub fn build_page(title: String, content: String) -> String {
   // Compose layout pieces
   let nav_html = nav.render()
   let main_html = main_wrapper.render(main_content: content)
   let footer_html = footer.render()
   let scripts_html = scripts.render()
-  
+
   let body_content = nav_html <> main_html <> footer_html <> scripts_html
-  
+
   // Wrap everything in page structure
   page.render(page_title: title, page_content: body_content)
 }
@@ -257,18 +268,17 @@ pub fn build_page(title: String, content: String) -> String {
 
 Here's how all layers work together:
 
+### The view layer <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/templates_guide_views.gleam#L8-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 // View layer (views/task_view.gleam)
-pub fn index_page(
-  tasks: List(Task),
-  tags_by_task: List(#(Int, List(Tag))),
-) -> String {
+pub fn index_page(tasks: List(Task)) -> String {
   // Components compose elements
-  let list = task_components.task_list(tasks, tags_by_task)
-  
+  let task_list = task_components.task_list(tasks)
+
   // Pages compose components
-  let content = index.render(task_form: "", task_list: list)
-  
+  let content = index.render(task_form: "", task_list:)
+
   // Layouts wrap pages
   layout_components.build_page("Tasks", content)
 }

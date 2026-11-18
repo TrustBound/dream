@@ -22,7 +22,7 @@ pub fn type_safe_storage() -> Result(String, table.EtsError) {
   use value <- result.try(operations.get(cache, "key"))
 
   case value {
-    option.Some(v) -> Ok(v)
+    option.Some(stored_value) -> Ok(stored_value)
     option.None -> Error(table.OperationFailed("Not found"))
   }
 }

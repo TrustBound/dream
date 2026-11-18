@@ -25,20 +25,24 @@ A standalone module providing convenience functions for encoding optional values
 gleam add dream_json
 ```
 
-## Quick Start
+## Quick Start <a href="https://github.com/TrustBound/dream/blob/dream_json-1.0.3/modules/json/test/snippets/quick_start.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_json/json_encoders as encoders
 import gleam/json
 import gleam/option
-import gleam/time/timestamp
+import gleam/time/timestamp.{type Timestamp}
 
-let user_json = json.object([
-  #("name", json.string("Alice")),
-  #("email", encoders.optional_string(option.Some("alice@example.com"))),
-  #("age", encoders.optional_int(option.None)),  // Encodes as null
-  #("created_at", encoders.timestamp(option.Some(timestamp.now()))),
-])
+pub fn user_json(created_at: Timestamp) -> String {
+  json.object([
+    #("name", json.string("Alice")),
+    #("email", encoders.optional_string(option.Some("alice@example.com"))),
+    // Encodes as null
+    #("age", encoders.optional_int(option.None)),
+    #("created_at", encoders.timestamp(option.Some(created_at))),
+  ])
+  |> json.to_string()
+}
 ```
 
 ## Usage
@@ -47,35 +51,51 @@ let user_json = json.object([
 
 All `optional_*` functions convert `Option` types to JSON, encoding `Some(value)` as the JSON value and `None` as `null`:
 
+#### Encode optional fields <a href="https://github.com/TrustBound/dream/blob/dream_json-1.0.3/modules/json/test/snippets/optional_values.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream_json/json_encoders as encoders
 import gleam/json
 import gleam/option
 
-json.object([
-  #("name", json.string("Alice")),
-  #("middle_name", encoders.optional_string(option.None)),  // null
-  #("nickname", encoders.optional_string(option.Some("Al"))),  // "Al"
-  #("age", encoders.optional_int(option.Some(30))),  // 30
-  #("score", encoders.optional_float(option.None)),  // null
-  #("is_active", encoders.optional_bool(option.Some(True))),  // true
-])
+pub fn profile_json() -> String {
+  json.object([
+    #("name", json.string("Alice")),
+    // null
+    #("middle_name", encoders.optional_string(option.None)),
+    // "Al"
+    #("nickname", encoders.optional_string(option.Some("Al"))),
+    // 30
+    #("age", encoders.optional_int(option.Some(30))),
+    // null
+    #("score", encoders.optional_float(option.None)),
+    // true
+    #("is_active", encoders.optional_bool(option.Some(True))),
+  ])
+  |> json.to_string()
+}
 ```
 
 ### Timestamps
 
 Encode timestamps as ISO 8601 strings:
 
+#### Encode a timestamp <a href="https://github.com/TrustBound/dream/blob/dream_json-1.0.3/modules/json/test/snippets/timestamps.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream_json/json_encoders as encoders
 import gleam/json
-import gleam/time/timestamp
+import gleam/option
+import gleam/time/timestamp.{type Timestamp}
 
-let now = timestamp.now()
-let json = json.object([
-  #("created_at", encoders.timestamp(option.Some(now))),
-  #("deleted_at", encoders.timestamp(option.None)),  // null
-])
+pub fn audit_json(created_at: Timestamp) -> String {
+  json.object([
+    #("created_at", encoders.timestamp(option.Some(created_at))),
+    // null
+    #("deleted_at", encoders.timestamp(option.None)),
+  ])
+  |> json.to_string()
+}
 ```
 
 ## API Reference

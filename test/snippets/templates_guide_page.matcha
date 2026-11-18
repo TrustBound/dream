@@ -1,0 +1,3 @@
+{> with page_title as String
+{> with page_content as String
+<!DOCTYPE html><html><head><title>{{ page_title }}</title></head><body>{{ page_content }}</body></html>

@@ -1,7 +1,7 @@
 # Dream Library Development Makefile
 # For example-specific commands, see individual example directories
 
-.PHONY: test test-dream test-unit test-integration setup-integration-dbs clean build format docs check install-hooks
+.PHONY: test test-dream test-unit test-integration setup-integration-dbs clean build format docs check check-snippets install-hooks
 
 # Run all tests (unit + integration)
 test:
@@ -44,12 +44,19 @@ format:
 # Generate documentation
 docs:
 	@gleam docs build
+	@gleam run -m docs_snippet_pages
 
 # Run format check and build (useful for CI)
 check:
 	@gleam format --check
 	@gleam build
 	@gleam test
+	@make check-snippets
+
+# Check that every Gleam code block in the docs matches the tested snippet
+# that its badge links to (see docs/contributing/contributing.md)
+check-snippets:
+	@gleam run -m docs_snippet_check
 
 # Install repo-managed git hooks into .git/hooks/
 # (Git does not version-control .git/hooks, so this must be run per-clone.)
