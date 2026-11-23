@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `make check-snippets` checks that every Gleam code block in the docs has
   a heading with the badge and matches its snippet file. It runs in the
   pre-commit hook, in CI, and before every publish.
+- The snippet check moved to the [`dream_snippets`](https://github.com/TrustBound/dream_snippets) package.
 
 ### Changed
 
@@ -96,7 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CI and the publish workflows use Gleam 1.19.2. Dream and the
   examples build and pass their tests on Gleam 1.19.2.
-- 1014 tests run, 0 failed, in about 7 seconds (Apple M1 Max, OTP 29, Gleam
+- 962 tests run, 0 failed, in about 7 seconds (Apple M1 Max, OTP 29, Gleam
   1.19.2). The snippet check finds 514 code blocks and 4 diff blocks with no problems. The integration tests run
   ten examples over HTTP/1.1 and over HTTP/2 with TLS.
 

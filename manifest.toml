@@ -16,6 +16,7 @@ packages = [
   { name = "dream_json", version = "2.0.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib", "gleam_time"], source = "git", repo = "https://github.com/TrustBound/dream_json.git", commit = "2f76ee54031db6edb92bb8bf53477fa736b9e42e" },
   { name = "dream_opensearch", version = "3.0.0", build_tools = ["gleam"], requirements = ["dream_http_client", "gleam_http", "gleam_json", "gleam_stdlib"], source = "git", repo = "https://github.com/TrustBound/dream_opensearch.git", commit = "6af45f7def17d46b2e3c2198738d58c9fcd89fd7" },
   { name = "dream_postgres", version = "2.0.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_otp", "gleam_stdlib", "pog"], source = "git", repo = "https://github.com/TrustBound/dream_postgres.git", commit = "43f78a304bca68934633ea12628a05c4fa199b36" },
+  { name = "dream_snippets", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_stdlib", "simplifile", "tom"], source = "git", repo = "https://github.com/TrustBound/dream_snippets.git", commit = "7a862a3e5b74f0a7f2e9c15170d4d6c772605cfb" },
   { name = "dream_socket_server", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_otp", "gleam_stdlib", "logging"], otp_app = "dream_socket_server", source = "hex", outer_checksum = "1D54F39888984D947E9AC93229A5142B8BB672A7E13128128D6064FA8B8E8A36" },
   { name = "dream_test", version = "1.2.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_json", "gleam_otp", "gleam_regexp", "gleam_stdlib"], otp_app = "dream_test", source = "hex", outer_checksum = "761B472ECF65785239611AE8E27104B57B8697018576060114574F5CF8DFE2A2" },
   { name = "envoy", version = "1.2.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "envoy", source = "hex", outer_checksum = "9C6FBB6BFA02A52798BEEC5977A738CAD6E4A057F4B67FD0C8061AD2502C191A" },
@@ -63,6 +64,7 @@ dream_http_server = { version = ">= 1.2.0 and < 2.0.0" }
 dream_json = { git = "https://github.com/TrustBound/dream_json.git", ref = "2f76ee54031db6edb92bb8bf53477fa736b9e42e" }
 dream_opensearch = { git = "https://github.com/TrustBound/dream_opensearch.git", ref = "6af45f7def17d46b2e3c2198738d58c9fcd89fd7" }
 dream_postgres = { git = "https://github.com/TrustBound/dream_postgres.git", ref = "43f78a304bca68934633ea12628a05c4fa199b36" }
+dream_snippets = { git = "https://github.com/TrustBound/dream_snippets.git", ref = "7a862a3e5b74f0a7f2e9c15170d4d6c772605cfb" }
 dream_test = { version = ">= 1.0.3 and < 2.0.0" }
 envoy = { version = ">= 1.0.0 and < 2.0.0" }
 gleam_erlang = { version = ">= 1.0.0 and < 2.0.0" }

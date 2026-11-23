@@ -131,6 +131,8 @@ Every Gleam code block in the guides, the READMEs, the doc comments and SECURITY
 
 `make check-snippets` keeps it that way. It checks that every Gleam code block has a heading with the badge and shows the same code as its snippet file. It runs in the pre-commit hook, in CI and before every publish, so a wrong example cannot ship. It found 514 code blocks and 4 diff blocks with no problems.
 
+The snippet check moved to the [`dream_snippets`](https://github.com/TrustBound/dream_snippets) package.
+
 ### Modules in Their Own Repositories
 
 The modules moved out of this repository. Each one now has its own repository and its own releases: [dream_config](https://github.com/TrustBound/dream_config), [dream_ets](https://github.com/TrustBound/dream_ets), [dream_http_client](https://github.com/TrustBound/dream_http_client), [dream_json](https://github.com/TrustBound/dream_json), [dream_mock_server](https://github.com/TrustBound/dream_mock_server), [dream_opensearch](https://github.com/TrustBound/dream_opensearch) and [dream_postgres](https://github.com/TrustBound/dream_postgres).
@@ -166,7 +168,7 @@ Over HTTP/1.1, a response sent just before the connection closed could be lost t
 
 ## Testing
 
-- Dream's own tests: 952 run, 0 failed, in about 7 seconds (MacBook, OTP 28, Gleam 1.17.0)
+- Dream's own tests: 962 run, 0 failed, in about 7 seconds (Apple M1 Max, OTP 29, Gleam 1.19.2)
 - `dream_http_server` 1.2.0: 100 passed, on Gleam 1.17.0 and on Gleam 1.14.0 with OTP 28. Each of its fixes has a test that fails without the fix
 - `dream_socket_server`: 6 passed
 - Integration tests: ten examples run twice, over HTTP/1.1 and over HTTP/2 with TLS, through `dream_http_client`

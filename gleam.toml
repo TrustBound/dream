@@ -35,5 +35,12 @@ dream_json = { git = "https://github.com/TrustBound/dream_json.git", ref = "2f76
 dream_opensearch = { git = "https://github.com/TrustBound/dream_opensearch.git", ref = "6af45f7def17d46b2e3c2198738d58c9fcd89fd7" }
 # Pinned to the module's move branch until it is on Hex.
 dream_postgres = { git = "https://github.com/TrustBound/dream_postgres.git", ref = "43f78a304bca68934633ea12628a05c4fa199b36" }
+# Pinned to the module's move branch until it is on Hex.
+dream_snippets = { git = "https://github.com/TrustBound/dream_snippets.git", ref = "7a862a3e5b74f0a7f2e9c15170d4d6c772605cfb" }
 envoy = ">= 1.0.0 and < 2.0.0"
 pog = ">= 4.0.0 and < 5.0.0"
+
+[tools.dream_snippets]
+# Changelog sections and release notes before this version are history. They are not checked.
+checked_from_version = "3.0.0"
+badge_guide = "docs/contributing/contributing.md"

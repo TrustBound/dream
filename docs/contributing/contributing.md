@@ -166,7 +166,7 @@ Run the check by hand from the repository root:
 make check-snippets
 ```
 
-It runs `gleam run -m docs_snippet_check`. The check reads `README.md`, `SECURITY.md`, each `.md` file in `docs/` and `examples/`, and the doc comments in `src/`. It also reads the release notes and changelog sections from 3.0.0 on. It does not use the network. For a `diff` block it runs `git diff <old tag> -- <path>`, so it needs the release tags in your clone. It fails when:
+It runs `gleam run -m dream_snippets`. The check is the [`dream_snippets`](https://github.com/TrustBound/dream_snippets) package, a dev dependency of Dream. Its settings are in the `[tools.dream_snippets]` table of `gleam.toml`. The check reads `README.md`, `SECURITY.md`, each `.md` file in `docs/` and `examples/`, and the doc comments in `src/`. It also reads the release notes and changelog sections from 3.0.0 on. It does not use the network. For a `diff` block it runs `git diff <old tag> -- <path>`, so it needs the release tags in your clone. It fails when:
 
 - a Gleam code block has no heading with the badge directly above it (one blank line between is allowed)
 - the badge is not in the exact format shown above

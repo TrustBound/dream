@@ -50,7 +50,7 @@ check:
 # Check that every Gleam code block in the docs matches the tested snippet
 # that its badge links to (see docs/contributing/contributing.md)
 check-snippets:
-	@gleam run -m docs_snippet_check
+	@gleam run -m dream_snippets
 
 # Install repo-managed git hooks into .git/hooks/
 # (Git does not version-control .git/hooks, so this must be run per-clone.)
