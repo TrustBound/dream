@@ -11,7 +11,7 @@ import dream/http/header.{Header}
 import dream/http/request.{type Method, type Request, Get, Post, Request}
 import dream/http/response.{type Response}
 import dream/router.{EmptyServices}
-import dream_http_client/client.{HttpResponse, ResponseError}
+import dream_http_client/client.{ResponseError}
 import dream_test/assertions/should.{equal, or_fail_with, should}
 import dream_test/unit.{type UnitTest, describe, it}
 import fixtures/request as test_request
@@ -21,6 +21,7 @@ import gleam/http/request as http_request
 import gleam/http/response as http_response
 import gleam/list
 import gleam/option.{None, Some}
+import gleam/result
 import matchers/extract_body_text.{extract_body_text}
 import matchers/extract_response_status.{extract_response_status}
 import mist.{type Connection, type ResponseData}
@@ -1069,11 +1070,19 @@ fn send_request(
       client.add_header(request, header.0, header.1)
     })
   case client.send(client_request) {
-    Ok(HttpResponse(status:, body:, ..)) -> Ok(#(status, body))
-    Error(ResponseError(response: HttpResponse(status:, body:, ..))) ->
-      Ok(#(status, body))
+    Ok(response) -> status_and_text(response)
+    Error(ResponseError(response: response)) -> status_and_text(response)
     Error(_transport_error) -> Error("request failed")
   }
+}
+
+// The response body is bytes. These tests compare it as text.
+fn status_and_text(
+  response: client.HttpResponse,
+) -> Result(#(Int, String), String) {
+  client.body_text(response)
+  |> result.map(fn(text) { #(response.status, text) })
+  |> result.replace_error("the response body is not text")
 }
 
 /// Asks the operating system for a free TCP port.

@@ -475,8 +475,9 @@ Dream automatically uses HTTP chunked transfer encoding for streaming responses.
 3. Each yielder value becomes a chunk
 4. Client receives chunks as they're generated
 5. When the yielder is done, Dream sends the last chunk, which has zero length
-6. Over HTTP/1.1 the server then closes the connection. It does not keep the
-   connection open for another request. Over HTTP/2 only that stream ends
+6. Over HTTP/1.1 the connection then stays open for the next request, unless
+   the client or your response sent `connection: close`. Over HTTP/2 only that
+   stream ends
 
 **No configuration needed** - it's automatic for streaming responses.
 

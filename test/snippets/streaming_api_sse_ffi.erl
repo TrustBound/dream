@@ -36,12 +36,33 @@ read_until_events(Socket, EventCount, Timeout, Received) ->
 complete_body(Received, EventCount) ->
     case binary:split(Received, <<"\r\n\r\n">>) of
         [_Headers, Body] ->
-            case length(binary:matches(Body, <<"\n\n">>)) >= EventCount of
-                true -> {ok, Body};
+            Events = dechunk(Body),
+            case length(binary:matches(Events, <<"\n\n">>)) >= EventCount of
+                true -> {ok, Events};
                 false -> incomplete
             end;
         [_Incomplete] ->
             incomplete
+    end.
+
+%% The server sends an event stream with chunked transfer encoding, one
+%% chunk for each event. Returns the data of the complete chunks, joined, so
+%% the tests read the events as an event stream client gets them.
+dechunk(Body) ->
+    dechunk(Body, <<>>).
+
+dechunk(Body, Events) ->
+    case binary:split(Body, <<"\r\n">>) of
+        [SizeHex, Rest] ->
+            Size = binary_to_integer(SizeHex, 16),
+            case Rest of
+                <<Chunk:Size/binary, "\r\n", More/binary>> when Size > 0 ->
+                    dechunk(More, <<Events/binary, Chunk/binary>>);
+                _LastOrIncomplete ->
+                    Events
+            end;
+        [_Incomplete] ->
+            Events
     end.
 
 describe(Reason) ->

@@ -51,14 +51,28 @@ fn make_request_and_respond(user_id: String, post_id: String) -> Response {
     |> client.add_header("User-Agent", "Dream-Simple-Example")
 
   case client.send(req) {
-    Ok(client.HttpResponse(body: body, ..)) ->
-      text_response(status.ok, post_view.format_show(user_id, post_id, body))
-    Error(client.ResponseError(response: client.HttpResponse(body: body, ..))) ->
-      text_response(status.internal_server_error, post_view.format_error(body))
+    Ok(response) ->
+      text_response(
+        status.ok,
+        post_view.format_show(user_id, post_id, text_of(response)),
+      )
+    Error(client.ResponseError(response: response)) ->
+      text_response(
+        status.internal_server_error,
+        post_view.format_error(text_of(response)),
+      )
     Error(client.RequestError(error: transport_error)) ->
       text_response(
         status.internal_server_error,
         post_view.format_error(client.transport_error_to_string(transport_error)),
       )
+  }
+}
+
+/// Returns the body of an upstream response as text.
+fn text_of(response: client.HttpResponse) -> String {
+  case client.body_text(response) {
+    Ok(text) -> text
+    Error(Nil) -> "The body is not text"
   }
 }

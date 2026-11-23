@@ -81,12 +81,12 @@ pub fn new(
     |> client.timeout(5000)
 
   case client.send(req) {
-    Ok(client.HttpResponse(body: body, ..)) ->
-      text_response(status.ok, stream_view.format_fetch(body))
-    Error(client.ResponseError(response: client.HttpResponse(body: body, ..))) ->
+    Ok(response) ->
+      text_response(status.ok, stream_view.format_fetch(text_of(response)))
+    Error(client.ResponseError(response: response)) ->
       text_response(
         status.internal_server_error,
-        stream_view.format_error(body),
+        stream_view.format_error(text_of(response)),
       )
     Error(client.RequestError(error: transport_error)) ->
       text_response(
@@ -111,4 +111,12 @@ fn chunk_to_string(chunk: bytes_tree.BytesTree) -> String {
   bytes_tree.to_bit_array(chunk)
   |> bit_array.to_string
   |> result.unwrap("")
+}
+
+/// Returns the body of an upstream response as text.
+fn text_of(response: client.HttpResponse) -> String {
+  case client.body_text(response) {
+    Ok(text) -> text
+    Error(Nil) -> "The body is not text"
+  }
 }

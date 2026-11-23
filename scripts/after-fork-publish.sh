@@ -26,7 +26,7 @@ REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$REPO_ROOT"
 
 # Each package with the version that dream's gleam.toml needs.
-FORK_RELEASES="dream_socket_server:1.0.0 dream_http_server:1.2.0"
+FORK_RELEASES="dream_socket_server:1.0.0 dream_http_server:1.3.1"
 PAUSE_SECONDS=70
 
 # Step 1: Refuse to run before both packages are on Hex. One request each.

@@ -18,6 +18,7 @@ import gleam/dynamic.{type Dynamic}
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/otp/actor
+import gleam/result
 import gleam/string
 import gleam/yielder
 import simplifile
@@ -1516,18 +1517,19 @@ fn received_body(
 }
 
 fn split_body(bytes: BitArray) -> Result(String, String) {
-  case bit_array.to_string(bytes) {
-    Ok(text) -> after_headers(text)
-    Error(Nil) -> Error("response is not UTF-8")
+  case response_text(bytes) {
+    Ok(body) -> body_string(body)
+    Error(Nil) -> Error("no header end in: " <> string.inspect(bytes))
   }
 }
 
-fn after_headers(text: String) -> Result(String, String) {
-  case string.split_once(text, "\r\n\r\n") {
-    Ok(#(_headers, body)) -> Ok(body)
-    Error(Nil) -> Error("no header end in: " <> text)
-  }
+fn body_string(body: BitArray) -> Result(String, String) {
+  bit_array.to_string(body)
+  |> result.replace_error("response is not UTF-8")
 }
+
+@external(erlang, "raw_http_ffi", "response_text")
+fn response_text(received: BitArray) -> Result(BitArray, Nil)
 
 @external(erlang, "raw_http_ffi", "request_until_closed")
 fn request_until_closed(

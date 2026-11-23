@@ -26,7 +26,9 @@ import gleam/string
 /// is a race, so one request is not enough to make it show.
 const attempts = 50
 
-const socket_timeout_ms = 2000
+/// The server keeps the connection open after the last chunk, so each read
+/// ends when no data came for this time.
+const socket_timeout_ms = 50
 
 // ============================================================================
 // Tests

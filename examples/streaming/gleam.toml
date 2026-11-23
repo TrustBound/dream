@@ -4,12 +4,11 @@ description = "Streaming example - HTTP client streaming"
 licences = ["MIT"]
 
 [dependencies]
-# Pinned to the same dream commit as dream_mock_server until both are on Hex. Then back to { path = "../.." }.
-dream = { git = "https://github.com/TrustBound/dream.git", ref = "c916b5a9652d2d0188e69c5236cda7f7c449ab0d" }
+dream = { path = "../.." }
 # Pinned to the module's move branch until it is on Hex.
-dream_http_client = { git = "https://github.com/TrustBound/dream_http_client.git", ref = "ff8298baa2d8e742c9832ef4c2f6921c351a1271" }
+dream_http_client = { git = "https://github.com/TrustBound/dream_http_client.git", ref = "af661517f46417b72b67e84545ba6dcfc04fc59d" }
 # Pinned to the module's move branch until it is on Hex.
-dream_mock_server = { git = "https://github.com/TrustBound/dream_mock_server.git", ref = "27929c07c4b4b5eccf1abe3a87ae8768ee979c13" }
+dream_mock_server = { git = "https://github.com/TrustBound/dream_mock_server.git", ref = "525abd32be8cbc5f8aff33bb37d3f8ba1c7d00d1" }
 gleam_http = ">= 4.0.0 and < 5.0.0"
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"
 gleam_yielder = ">= 1.1.0 and < 2.0.0"

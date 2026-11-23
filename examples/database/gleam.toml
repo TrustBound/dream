@@ -6,9 +6,9 @@ licences = ["MIT"]
 [dependencies]
 dream = { path = "../.." }
 # Pinned to the module's move branch until it is on Hex.
-dream_json = { git = "https://github.com/TrustBound/dream_json.git", ref = "2f76ee54031db6edb92bb8bf53477fa736b9e42e" }
+dream_json = { git = "https://github.com/TrustBound/dream_json.git", ref = "d375862f3107194c6011879fb6492cd2ced8c533" }
 # Pinned to the module's move branch until it is on Hex.
-dream_postgres = { git = "https://github.com/TrustBound/dream_postgres.git", ref = "43f78a304bca68934633ea12628a05c4fa199b36" }
+dream_postgres = { git = "https://github.com/TrustBound/dream_postgres.git", ref = "bfdd3435c173947b3aef6c5d5ae280449338ed76" }
 pog = ">= 4.0.0 and < 5.0.0"
 cigogne = ">= 5.0.0 and < 6.0.0"
 gleam_json = ">= 2.2.0 and < 4.0.0"

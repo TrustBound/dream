@@ -84,6 +84,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mist hands the socket to the chunk actor. The first drain message is now
   sent only after `mist.chunked()` has returned, so a keep-alive client no
   longer reads that 500 as the answer to its next request.
+- Over HTTP/1.1 the connection stays open for the next request after a
+  streamed response or an event stream. The server used to close it with no
+  `connection: close` header, so a client that kept the connection got no
+  answer to its next request. An event stream is now sent with chunked
+  transfer encoding.
+- Over HTTP/1.1 a request with a `connection: close` header gets
+  `connection: close` in the response, and the server closes the connection
+  after it. The server used to answer `connection: keep-alive` and hold the
+  connection open for 10 seconds.
 - `server.stop` stops the server from any process, and returns after the
   server is down. It used to do nothing unless the starting process called
   it.
@@ -97,7 +106,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CI and the publish workflows use Gleam 1.19.2. Dream and the
   examples build and pass their tests on Gleam 1.19.2.
-- 962 tests run, 0 failed, in about 7 seconds (Apple M1 Max, OTP 29, Gleam
+- 962 tests run, 0 failed, in about 13 seconds (Apple M1 Max, OTP 29, Gleam
   1.19.2). The snippet check finds 514 code blocks and 4 diff blocks with no problems. The integration tests run
   ten examples over HTTP/1.1 and over HTTP/2 with TLS.
 

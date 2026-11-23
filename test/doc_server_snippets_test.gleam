@@ -870,16 +870,15 @@ fn get_payload(path: String) -> BitArray {
 }
 
 fn response_body(received: Result(BitArray, Dynamic)) -> String {
-  let text =
-    received
-    |> result.unwrap(<<>>)
-    |> bit_array.to_string
-    |> result.unwrap("")
-  case string.split_once(text, "\r\n\r\n") {
-    Ok(#(_head, body)) -> body
-    Error(Nil) -> text
-  }
+  let bytes = result.unwrap(received, <<>>)
+  response_text(bytes)
+  |> result.unwrap(bytes)
+  |> bit_array.to_string
+  |> result.unwrap("")
 }
+
+@external(erlang, "raw_http_ffi", "response_text")
+fn response_text(received: BitArray) -> Result(BitArray, Nil)
 
 @external(erlang, "port_ffi", "free_port")
 fn free_port() -> Int

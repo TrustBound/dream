@@ -7,6 +7,7 @@ import dream/router.{route, router}
 import dream/servers/mist/server
 import dream_http_client/client
 import gleam/http
+import gleam/result
 
 pub fn test_server(port: Int) -> Result(String, String) {
   // Start server and get handle
@@ -38,7 +39,9 @@ fn response_body(
   response: Result(client.HttpResponse, client.SendError),
 ) -> Result(String, String) {
   case response {
-    Ok(client.HttpResponse(body:, ..)) -> Ok(body)
+    Ok(response) ->
+      client.body_text(response)
+      |> result.replace_error("the body is not text")
     Error(_send_error) -> Error("request failed")
   }
 }

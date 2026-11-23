@@ -547,7 +547,7 @@ pub fn listen(
 ///
 /// ## Example
 ///
-/// ### Start and stop a test server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_listen_with_handle.gleam#L3-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Start and stop a test server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_listen_with_handle.gleam#L3-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/request.{Get}
@@ -557,6 +557,7 @@ pub fn listen(
 /// import dream/servers/mist/server
 /// import dream_http_client/client
 /// import gleam/http
+/// import gleam/result
 ///
 /// pub fn test_server(port: Int) -> Result(String, String) {
 ///   // Start server and get handle

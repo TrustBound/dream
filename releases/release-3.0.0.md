@@ -156,6 +156,14 @@ A form field, query parameter or cookie value that contains `=` (`token=a=b`) wa
 
 Over HTTP/1.1, a streamed response that finished very quickly could be followed by a stray `500 Internal Server Error`. A keep-alive client could read that 500 as the answer to its next request. The first chunk is now sent only after the server has handed the socket to the stream.
 
+### Connection Stays Open After a Streamed Response
+
+Over HTTP/1.1, the server closed the connection after each streamed response and each event stream, and did not send `connection: close`. A client that kept the connection for its next request got no answer. The connection now stays open for the next request. The server sends an event stream with chunked transfer encoding, so the client can see where the event stream ends.
+
+### Server Closes the Connection When the Client Asks
+
+Over HTTP/1.1, a request with a `connection: close` header got a `connection: keep-alive` response, and the server held the connection open until its 10 second idle timer ended. The server now sends `connection: close` in the response and closes the connection after it, as RFC 9112 section 9.6 says.
+
 ### Response Lost to a Connection Reset
 
 Over HTTP/1.1, a response sent just before the connection closed could be lost to a connection reset. The server now reads the remaining request data before it closes.
@@ -168,8 +176,8 @@ Over HTTP/1.1, a response sent just before the connection closed could be lost t
 
 ## Testing
 
-- Dream's own tests: 962 run, 0 failed, in about 7 seconds (Apple M1 Max, OTP 29, Gleam 1.19.2)
-- `dream_http_server` 1.2.0: 100 passed, on Gleam 1.17.0 and on Gleam 1.14.0 with OTP 28. Each of its fixes has a test that fails without the fix
+- Dream's own tests: 962 run, 0 failed, in about 13 seconds (Apple M1 Max, OTP 29, Gleam 1.19.2)
+- `dream_http_server` 1.3.1: 108 passed, on Gleam 1.14.0 with OTP 28. Each of its fixes has a test that fails without the fix
 - `dream_socket_server`: 6 passed
 - Integration tests: ten examples run twice, over HTTP/1.1 and over HTTP/2 with TLS, through `dream_http_client`
 
@@ -209,7 +217,7 @@ Dream's server packages define the same modules, and Gleam stops the build with 
 +gleam_stdlib = ">= 1.0.0 and < 2.0.0"
 +# dream's HTTP server: a fork of mist 6.0.3 with HTTP/2 fixes, published under
 +# its own name with mist's module names.
-+dream_http_server = ">= 1.2.0 and < 2.0.0"
++dream_http_server = ">= 1.3.1 and < 2.0.0"
 ```
 
 Replace `glisten` with `dream_socket_server = ">= 1.0.0 and < 2.0.0"` in the same way. Your `import mist` and `import glisten` lines stay as they are, because the module names are the same.
@@ -377,7 +385,7 @@ To Alex Manning and the contributors to mist and glisten. Problems with the HTTP
 ## Documentation
 
 - [dream](https://hexdocs.pm/dream) - v3.0.0
-- [dream_http_server](https://hexdocs.pm/dream_http_server) - v1.2.0
+- [dream_http_server](https://hexdocs.pm/dream_http_server) - v1.3.1
 - [dream_socket_server](https://hexdocs.pm/dream_socket_server) - v1.0.0
 - [Dream's HTTP server packages](https://github.com/TrustBound/dream/blob/main/docs/contributing/http-server-packages.md)
 - [HTTP/2 guide](https://github.com/TrustBound/dream/blob/main/docs/guides/http2.md)

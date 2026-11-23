@@ -362,10 +362,19 @@ fn get_root(port: Int) -> Result(#(Int, String), String) {
   |> client.port(port)
   |> client.path("/")
   |> client.send()
-  |> result.map(fn(response) { #(response.status, response.body) })
   |> result.map_error(fn(send_error) {
     "Request failed: " <> string.inspect(send_error)
   })
+  |> result.try(status_and_text)
+}
+
+// The response body is bytes. These tests compare it as text.
+fn status_and_text(
+  response: client.HttpResponse,
+) -> Result(#(Int, String), String) {
+  client.body_text(response)
+  |> result.map(fn(text) { #(response.status, text) })
+  |> result.replace_error("The response body is not text")
 }
 
 @external(erlang, "port_ffi", "free_port")

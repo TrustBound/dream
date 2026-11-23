@@ -6,6 +6,6 @@ licences = ["MIT"]
 [dependencies]
 dream = { path = "../.." }
 # Pinned to the module's move branch until it is on Hex.
-dream_http_client = { git = "https://github.com/TrustBound/dream_http_client.git", ref = "ff8298baa2d8e742c9832ef4c2f6921c351a1271" }
+dream_http_client = { git = "https://github.com/TrustBound/dream_http_client.git", ref = "af661517f46417b72b67e84545ba6dcfc04fc59d" }
 gleam_http = ">= 4.3.0 and < 5.0.0"
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"

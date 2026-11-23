@@ -18,6 +18,7 @@ import gleam/erlang/process
 import gleam/http
 import gleam/list
 import gleam/option.{None}
+import gleam/result
 import gleam/string
 
 // ============================================================================
@@ -38,7 +39,10 @@ pub fn tests() -> UnitTest {
 
       case result {
         Ok(resp) -> {
-          case resp.status == 200 && resp.body == "hello from dream over h2c" {
+          case
+            resp.status == 200
+            && resp.body == <<"hello from dream over h2c":utf8>>
+          {
             True -> AssertionOk
             False ->
               assertion_failed(
@@ -46,7 +50,7 @@ pub fn tests() -> UnitTest {
                 "Expected status 200 and body 'hello from dream over h2c', got status "
                   <> string.inspect(resp.status)
                   <> " body '"
-                  <> resp.body
+                  <> string.inspect(resp.body)
                   <> "'",
               )
           }
@@ -67,7 +71,7 @@ pub fn tests() -> UnitTest {
 
       case result {
         Ok(resp) -> {
-          case resp.status == 200 && string.contains(resp.body, "test-value") {
+          case resp.status == 200 && body_contains(resp, "test-value") {
             True -> AssertionOk
             False ->
               assertion_failed(
@@ -75,7 +79,7 @@ pub fn tests() -> UnitTest {
                 "Expected status 200 with body containing 'test-value', got status "
                   <> string.inspect(resp.status)
                   <> " body '"
-                  <> resp.body
+                  <> string.inspect(resp.body)
                   <> "'",
               )
           }
@@ -99,7 +103,7 @@ pub fn tests() -> UnitTest {
 
       case result {
         Ok(resp) -> {
-          let has_json_body = string.contains(resp.body, "\"greeting\"")
+          let has_json_body = body_contains(resp, "\"greeting\"")
           let has_json_ct =
             list.any(resp.headers, fn(h) {
               let client.Header(name, value) = h
@@ -115,7 +119,7 @@ pub fn tests() -> UnitTest {
                 "Expected status 200, JSON body with 'greeting', and application/json content-type. Got status "
                   <> string.inspect(resp.status)
                   <> " body '"
-                  <> resp.body
+                  <> string.inspect(resp.body)
                   <> "' headers "
                   <> string.inspect(resp.headers),
               )
@@ -174,7 +178,7 @@ pub fn tests() -> UnitTest {
 
       case result {
         Ok(resp) -> {
-          case resp.status == 200 && string.contains(resp.body, payload) {
+          case resp.status == 200 && body_contains(resp, payload) {
             True -> AssertionOk
             False ->
               assertion_failed(
@@ -184,7 +188,7 @@ pub fn tests() -> UnitTest {
                   <> "', got status "
                   <> string.inspect(resp.status)
                   <> " body '"
-                  <> resp.body
+                  <> string.inspect(resp.body)
                   <> "'",
               )
           }
@@ -240,9 +244,9 @@ pub fn tests() -> UnitTest {
             resp1.status == 200
             && resp2.status == 200
             && resp3.status == 200
-            && resp1.body == "hello from dream over h2c"
-            && resp2.body == "hello from dream over h2c"
-            && resp3.body == "hello from dream over h2c"
+            && resp1.body == <<"hello from dream over h2c":utf8>>
+            && resp2.body == <<"hello from dream over h2c":utf8>>
+            && resp3.body == <<"hello from dream over h2c":utf8>>
           {
             True -> AssertionOk
             False ->
@@ -363,3 +367,10 @@ fn assertion_failed(operator: String, message: String) -> AssertionResult {
 
 @external(erlang, "port_ffi", "free_port")
 fn free_port() -> Int
+
+// The response body is bytes. A body that is not text contains no text.
+fn body_contains(response: client.HttpResponse, text: String) -> Bool {
+  client.body_text(response)
+  |> result.map(string.contains(_, text))
+  |> result.unwrap(False)
+}
