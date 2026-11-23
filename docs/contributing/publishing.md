@@ -1,121 +1,55 @@
 # Publishing Strategy
 
-**How Dream modules are published to Hex.pm**
+**How Dream is published to Hex.pm**
 
-Dream uses a **monorepo** approach where all modules live in a single repository but are published independently to Hex.pm. This document explains how the publishing process works.
+This document explains how the `dream` package gets to Hex.pm.
 
 ## Overview
 
-- **Repository Structure**: All modules live in `modules/` directory
-- **Independent Publishing**: Each module is published separately with its own version
-- **Automated Workflow**: GitHub Actions automatically publishes when version numbers change
-- **Manual Override**: Maintainers can trigger manual publishes if needed
+- **One package**: This repository publishes the `dream` package only
+- **Automated workflow**: GitHub Actions publishes when the version in `gleam.toml` changes on `main`
+- **Manual override**: Maintainers can start the workflow by hand
 
-## Module List
+## Modules
 
-The following modules are published independently:
-
-- `dream_config` - Configuration management
-- `dream_http_client` - HTTP client with streaming
-- `dream_postgres` - PostgreSQL utilities
-- `dream_opensearch` - OpenSearch client
-- `dream_json` - JSON encoding utilities
-- `dream_ets` - Type-safe ETS storage
+Each Dream module has its own repository, its own version and its own release workflow: [dream_config](https://github.com/TrustBound/dream_config), [dream_ets](https://github.com/TrustBound/dream_ets), [dream_http_client](https://github.com/TrustBound/dream_http_client), [dream_json](https://github.com/TrustBound/dream_json), [dream_mock_server](https://github.com/TrustBound/dream_mock_server), [dream_opensearch](https://github.com/TrustBound/dream_opensearch) and [dream_postgres](https://github.com/TrustBound/dream_postgres). Read the contributing guide of a module to release it.
 
 ## Publishing Process
 
 ### Automatic Publishing
 
-When code is merged to `main`, GitHub Actions automatically:
+When a change to `gleam.toml` is merged to `main`, the "Publish Dream to Hex" workflow (`.github/workflows/publish-modules.yml`):
 
-1. **Checks version changes** - Compares current version to previous commit
-2. **Builds and tests** - Ensures the module compiles and tests pass
-3. **Publishes to Hex** - If version changed, publishes the new version
-4. **Publishes docs** - Updates documentation on HexDocs
-
-**No manual intervention needed** - just bump the version and merge!
+1. **Checks the version** - Asks Hex if the version in `gleam.toml` is published already, and stops if it is
+2. **Builds and tests** - Runs `gleam build`, `make test-unit` and `make check-snippets`
+3. **Publishes to Hex** - Runs `gleam publish --yes`
+4. **Tags the release** - Creates and pushes the git tag `<version>`, for example `3.0.0`
+5. **Publishes docs** - Builds the docs and publishes them to HexDocs
 
 ### Manual Publishing
 
-If you need to publish manually (e.g., for a hotfix):
-
-```bash
-cd modules/<module_name>
-gleam publish
-gleam docs publish
-```
+Start the workflow from the Actions tab of the repository (`workflow_dispatch`). It does the same steps.
 
 ## Version Management
 
 ### Semantic Versioning
 
-All modules follow [Semantic Versioning](https://semver.org/):
+Dream follows [Semantic Versioning](https://semver.org/):
 
 - **MAJOR** (1.0.0 → 2.0.0) - Breaking changes
 - **MINOR** (1.0.0 → 1.1.0) - New features (backward compatible)
 - **PATCH** (1.0.0 → 1.0.1) - Bug fixes (backward compatible)
 
-### Updating Versions
+### Updating the Version
 
-1. **Edit `gleam.toml`** in the module directory:
+1. **Edit `gleam.toml`**:
    ```toml
-   version = "1.0.1"
+   version = "3.0.1"
    ```
 
-2. **Update CHANGELOG.md** (if the module has one):
-   ```markdown
-   ## 1.0.1 - 2025-11-20
-   - Fixed bug in configuration loading
-   ```
+2. **Update `CHANGELOG.md`** and the release notes in `releases/`.
 
-3. **Commit and push**:
-   ```bash
-   git add modules/<module_name>/gleam.toml
-   git commit -m "chore(<module_name>): bump version to 1.0.1"
-   git push origin main
-   ```
-
-4. **GitHub Actions handles the rest** - Automatically publishes when merged
-
-### Version Independence
-
-Each module has its own version number. You can update one module without affecting others:
-
-- `dream_config` can be at `1.0.5`
-- `dream_http_client` can be at `1.2.0`
-- `dream_postgres` can be at `1.0.0`
-
-This allows independent release cycles based on each module's needs.
-
-## Workflow Details
-
-### Version Detection
-
-The GitHub Actions workflow:
-
-1. Detects all modules in the `modules/` directory
-2. For each module, checks if `gleam.toml` version changed compared to previous commit
-3. Only publishes if version changed (prevents duplicate publishes)
-4. Runs for each module independently in parallel
-
-**Note:** The workflow checks all modules on every push to `main`. This ensures we catch version changes even if the workflow file itself wasn't updated. The version check step quickly skips modules that haven't changed.
-
-### Build and Test
-
-Before publishing, the workflow:
-
-1. Downloads dependencies
-2. Builds the module
-3. Runs tests
-4. Only publishes if all checks pass
-
-### Publishing Steps
-
-For each module with a version change:
-
-1. **Publish to Hex** - `gleam publish`
-2. **Build documentation** - `gleam docs build`
-3. **Publish documentation** - `gleam docs publish`
+3. **Merge the change to `main`**. The workflow publishes the new version.
 
 ## Requirements
 
@@ -145,35 +79,13 @@ Can trigger publishes.
 - **MINOR**: New features, new functions, backward-compatible changes
 - **MAJOR**: Breaking changes, API changes, dependency updates that break compatibility
 
-### Coordinated Releases
-
-If multiple modules need updates for a feature:
-
-1. Update all affected modules in a single PR
-2. Bump versions appropriately for each
-3. Merge once - all modules publish together
-
-### Changelog
-
-Consider adding a `CHANGELOG.md` to each module:
-
-```markdown
-# Changelog
-
-## 1.0.1 - 2025-11-20
-- Fixed bug in configuration loading
-
-## 1.0.0 - 2025-11-21
-- Initial release
-```
-
 ## Troubleshooting
 
 ### Version Not Publishing
 
 **Check:**
-- Is the version actually different from the previous commit?
-- Did the build/tests pass?
+- Is the version in `gleam.toml` different from the published versions?
+- Did the build, the tests and the snippet check pass?
 - Is `HEX_API_KEY` configured correctly?
 - Check GitHub Actions logs for errors
 
@@ -183,16 +95,8 @@ If Hex rejects a publish because the version already exists:
 - Bump to the next version
 - Check if someone else already published this version
 
-### Module Not Found
-
-If a module isn't being published:
-- Check that `gleam.toml` exists in `modules/<module_name>/`
-- Verify the module name matches the directory name
-- Check GitHub Actions workflow logs
-
 ## Related Documentation
 
 - [Contributing Guide](index.md) - General contribution guidelines
 - [Design Principles](../reference/design-principles.md) - Code quality standards
 - [Architecture](../reference/architecture.md) - How modules fit together
-

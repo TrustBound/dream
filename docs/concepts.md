@@ -294,7 +294,7 @@ pub fn create_router() -> Router(AuthContext, services) {
 
 Execution flows like an onion:
 
-```
+```text
 Request
   → auth_middleware
     → admin_check_middleware
@@ -501,7 +501,7 @@ Models handle persistence and return domain types. Views format domain types and
 
 When a request arrives:
 
-```
+```text
 1. Router matches path + method
 2. Creates default context (or your custom context)
 3. Runs middleware chain (each can enrich context)

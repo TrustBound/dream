@@ -25,4 +25,15 @@ simplifile = ">= 2.3.0 and < 3.0.0"
 [dev-dependencies]
 squirrel = ">= 4.0.0 and < 5.0.0"
 dream_test = ">= 1.0.3 and < 2.0.0"
-dream_http_client = { path = "modules/http_client" }
+# Pinned to the module's move branch until it is on Hex.
+dream_http_client = { git = "https://github.com/TrustBound/dream_http_client.git", ref = "ff8298baa2d8e742c9832ef4c2f6921c351a1271" }
+# Pinned to the module's move branch until it is on Hex.
+dream_config = { git = "https://github.com/TrustBound/dream_config.git", ref = "ce7b62639de9570c3c20a6193e4a1fa4a905324d" }
+# Pinned to the module's move branch until it is on Hex.
+dream_json = { git = "https://github.com/TrustBound/dream_json.git", ref = "2f76ee54031db6edb92bb8bf53477fa736b9e42e" }
+# Pinned to the module's move branch until it is on Hex.
+dream_opensearch = { git = "https://github.com/TrustBound/dream_opensearch.git", ref = "6af45f7def17d46b2e3c2198738d58c9fcd89fd7" }
+# Pinned to the module's move branch until it is on Hex.
+dream_postgres = { git = "https://github.com/TrustBound/dream_postgres.git", ref = "43f78a304bca68934633ea12628a05c4fa199b36" }
+envoy = ">= 1.0.0 and < 2.0.0"
+pog = ">= 4.0.0 and < 5.0.0"

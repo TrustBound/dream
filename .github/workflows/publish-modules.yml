@@ -1,12 +1,11 @@
-name: Publish Modules to Hex
+name: Publish Dream to Hex
 
 on:
   push:
     branches:
       - main
     paths:
-      - "modules/**/gleam.toml"
-      - "modules/**/*.gleam"
+      - "gleam.toml"
       - ".github/workflows/publish-modules.yml"
   workflow_dispatch:
     # Allows manual triggering for testing
@@ -17,47 +16,8 @@ env:
   REBAR3_VERSION: "3"
 
 jobs:
-  detect-changes:
-    runs-on: ubuntu-latest
-    outputs:
-      modules: ${{ steps.set-modules.outputs.modules }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Detect changed modules
-        id: set-modules
-        run: |
-          # Find all modules with gleam.toml files
-          MODULES=""
-          for dir in modules/*/; do
-            if [ -f "${dir}gleam.toml" ]; then
-              # Extract module name (directory name)
-              MODULE=$(basename "$dir")
-              if [ -z "$MODULES" ]; then
-                MODULES="\"$MODULE\""
-              else
-                MODULES="$MODULES,\"$MODULE\""
-              fi
-            fi
-          done
-
-          # Output as JSON array
-          if [ -n "$MODULES" ]; then
-            echo "modules=[$MODULES]" >> $GITHUB_OUTPUT
-            echo "Found modules: [$MODULES]"
-          else
-            echo "modules=[]" >> $GITHUB_OUTPUT
-            echo "No modules found"
-          fi
-
-  # Phase 0: Publish core Dream package first
-  # All modules that depend on Dream must wait for this to complete
   publish-dream:
     name: Publish Core Dream Package
-    needs: detect-changes
     runs-on: ubuntu-latest
     permissions:
       contents: write  # Allow creating and pushing git tags
@@ -146,8 +106,6 @@ jobs:
         if: steps.version_check.outputs.should_publish == 'true'
         run: gleam build
 
-      # Root tests plus the module tests. The HTTP client module is the only
-      # place that drives a real HTTP/2 client against dream's HTTP server.
       - name: Run tests
         if: steps.version_check.outputs.should_publish == 'true'
         run: make test-unit
@@ -209,127 +167,3 @@ jobs:
           echo "Waiting for Hex to process the package..."
           sleep 10
           gleam docs publish
-
-  # Phase 1: Publish independent modules (no Dream dependencies)
-  # These modules can be published in parallel in any order
-  publish-independent-modules:
-    name: Publish Independent Modules
-    needs: [detect-changes, publish-dream]
-    runs-on: ubuntu-latest
-    if: needs.detect-changes.outputs.modules != '[]'
-    permissions:
-      contents: write  # Allow creating and pushing the module release tag
-    strategy:
-      matrix:
-        # Modules with no internal Dream dependencies
-        module: ["config", "ets", "http_client", "json", "postgres"]
-      fail-fast: false
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Check if module version exists on Hex
-        id: version_check
-        uses: ./.github/actions/check-hex-version
-        with:
-          module_dir: modules/${{ matrix.module }}
-          force_publish: ${{ secrets.FORCE_PUBLISH }}
-
-      - name: Install Erlang and Gleam
-        uses: erlef/setup-beam@v1
-        with:
-          otp-version: ${{ env.OTP_VERSION }}
-          gleam-version: ${{ env.GLEAM_VERSION }}
-          rebar3-version: ${{ env.REBAR3_VERSION }}
-
-      - name: Build and test module
-        uses: ./.github/actions/test-module
-        with:
-          module_dir: modules/${{ matrix.module }}
-          patch_deps: "false"
-
-      - name: Publish module and documentation to Hex
-        if: steps.version_check.outputs.should_publish == 'true'
-        uses: ./.github/actions/publish-module
-        with:
-          module_dir: modules/${{ matrix.module }}
-          module_name: ${{ matrix.module }}
-          version: ${{ steps.version_check.outputs.version }}
-          hex_api_key: ${{ secrets.HEX_API_KEY }}
-
-      # The badges in the module README link at the tag <package name>-<version>.
-      # This step runs only when this run published the module, so the tag
-      # is on the commit that was published. A version that was on Hex
-      # already gets no tag here: a tag on a newer commit would point at code
-      # that is not the published code. It does nothing when the tag exists.
-      - name: Create and push module release tag
-        if: steps.version_check.outputs.should_publish == 'true'
-        uses: ./.github/actions/tag-module-release
-        with:
-          package_name: ${{ steps.version_check.outputs.package_name }}
-          version: ${{ steps.version_check.outputs.version }}
-
-  # Phase 2: Publish dependent modules (depend on Phase 1 modules or core Dream)
-  # These modules must wait for Phase 1 to complete before publishing
-  publish-dependent-modules:
-    name: Publish Dependent Modules
-    needs: [detect-changes, publish-dream, publish-independent-modules]
-    runs-on: ubuntu-latest
-    if: needs.detect-changes.outputs.modules != '[]'
-    permissions:
-      contents: write  # Allow creating and pushing the module release tag
-    strategy:
-      matrix:
-        # Modules that depend on Phase 1 modules (e.g., http_client) or core Dream
-        module: ["opensearch", "mock_server"]
-      fail-fast: false
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Check if module version exists on Hex
-        id: version_check
-        uses: ./.github/actions/check-hex-version
-        with:
-          module_dir: modules/${{ matrix.module }}
-          force_publish: ${{ secrets.FORCE_PUBLISH }}
-
-      - name: Install Erlang and Gleam
-        uses: erlef/setup-beam@v1
-        with:
-          otp-version: ${{ env.OTP_VERSION }}
-          gleam-version: ${{ env.GLEAM_VERSION }}
-          rebar3-version: ${{ env.REBAR3_VERSION }}
-
-      - name: Build and test module (with local Dream dependencies)
-        uses: ./.github/actions/test-module
-        with:
-          module_dir: modules/${{ matrix.module }}
-          patch_deps: "true"
-
-      - name: Publish module and documentation to Hex
-        if: steps.version_check.outputs.should_publish == 'true'
-        uses: ./.github/actions/publish-module
-        with:
-          module_dir: modules/${{ matrix.module }}
-          module_name: ${{ matrix.module }}
-          version: ${{ steps.version_check.outputs.version }}
-          hex_api_key: ${{ secrets.HEX_API_KEY }}
-
-      # The badges in the module README link at the tag <package name>-<version>.
-      # This step runs only when this run published the module, so the tag
-      # is on the commit that was published. A version that was on Hex
-      # already gets no tag here: a tag on a newer commit would point at code
-      # that is not the published code. It does nothing when the tag exists.
-      - name: Create and push module release tag
-        if: steps.version_check.outputs.should_publish == 'true'
-        uses: ./.github/actions/tag-module-release
-        with:
-          package_name: ${{ steps.version_check.outputs.package_name }}
-          version: ${{ steps.version_check.outputs.version }}

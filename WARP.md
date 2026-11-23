@@ -129,18 +129,19 @@ While Dream is a library, the docs and examples promote a set of scalable patter
 
 These patterns are described in the top-level `README.md` and `docs/reference/architecture.md`; when editing code, keep new APIs and examples consistent with those documents.
 
-### Modules ecosystem (`modules/`)
+### Modules ecosystem
 
-Additional functionality lives in separate Gleam packages under `modules/`, each with its own `gleam.toml`, `manifest.toml`, and `Makefile`. They follow the same design principles (explicit dependencies, builder patterns, strong typing).
+Additional functionality lives in separate Gleam packages, each in its own repository with its own `gleam.toml`, `manifest.toml`, and `Makefile`. They follow the same design principles (explicit dependencies, builder patterns, strong typing).
 
 At a high level:
 
-- **`modules/postgres`** – Postgres helpers (query/result helpers, error mapping) designed to work with Squirrel-generated SQL.
-- **`modules/http_client`** – A builder-style HTTP client on top of Erlang's `httpc`, supporting streaming and non-streaming HTTP(S) requests.
-- **`modules/config`** – Configuration loading helpers (environment variables, `.env`, typed config loading).
-- **`modules/opensearch`** – OpenSearch client and document helpers.
-- **`modules/ets`** – ETS utilities for in-memory state such as caches or rate limiters.
-- **`modules/helpers` and other utilities** – Shared helpers and optional conveniences.
+- **[`dream_postgres`](https://github.com/TrustBound/dream_postgres)** – Postgres helpers (query/result helpers, error mapping) designed to work with Squirrel-generated SQL.
+- **[`dream_http_client`](https://github.com/TrustBound/dream_http_client)** – A builder-style HTTP client, supporting streaming and non-streaming HTTP(S) requests.
+- **[`dream_config`](https://github.com/TrustBound/dream_config)** – Configuration loading helpers (environment variables, `.env`, typed config loading).
+- **[`dream_opensearch`](https://github.com/TrustBound/dream_opensearch)** – OpenSearch client and document helpers.
+- **[`dream_ets`](https://github.com/TrustBound/dream_ets)** – ETS utilities for in-memory state such as caches or rate limiters.
+- **[`dream_json`](https://github.com/TrustBound/dream_json)** – JSON encoding helpers.
+- **[`dream_mock_server`](https://github.com/TrustBound/dream_mock_server)** – A mock HTTP server for tests.
 
 Consumers can depend on these modules individually (e.g. via Hex or local `path` dependencies), and the `docs/reference/architecture.md` file documents typical usage patterns.
 
@@ -163,7 +164,7 @@ The `docs/` tree is the canonical source for user-facing concepts and should sta
 - `docs/reference/` – Technical reference, including `architecture.md`, `design-principles.md`, `dream-vs-mist.md`, and `naming-conventions.md`.
 - `docs/contributing/` – Docs-specific contribution guidelines and tone.
 
-When changing APIs or patterns in `src/dream` or `modules/`, look for corresponding guides or reference docs and update them together.
+When changing APIs or patterns in `src/dream`, look for corresponding guides or reference docs and update them together.
 
 ## Conventions and code style specific to this repo
 
@@ -190,6 +191,6 @@ These rules come from `CONTRIBUTING.md` and `docs/reference/naming-conventions.m
 - **Project structure expectations**
   - `src/dream/` defines core types, servers, routing, HTTP utilities, and related helpers.
   - `test/dream/` mirrors that structure.
-  - `modules/` and `examples/` are separate Gleam projects and should remain loosely coupled building blocks or demos rather than tightly integrated framework code.
+  - `examples/` holds separate Gleam projects. They should remain loosely coupled demos rather than tightly integrated framework code.
 
 When modifying or generating code, align with these existing patterns and keep the documentation and examples consistent with the behavior of the library.

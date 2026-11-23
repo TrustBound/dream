@@ -4,7 +4,7 @@
 
 Here's a complete Dream app structure with models, views, controllers, and more:
 
-```
+```text
 your_app/
 ├── src/
 │   ├── main.gleam          # Application entry point

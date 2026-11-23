@@ -70,9 +70,10 @@ contain the fixes, the adapter goes back to `mist` and `glisten`.
    lock files. Resolve one project at a time with a pause between projects,
    because every resolution asks the Hex API about every package and Hex
    limits those calls. `scripts/after-fork-publish.sh` does this.
-5. Run `make test-unit`. The module tests matter: `modules/http_client`
-   drives a real HTTP/2 client against the mock server, which serves its
-   requests through the HTTP server package.
+5. Run `make test-unit`. Then run the tests of
+   [dream_http_client](https://github.com/TrustBound/dream_http_client)
+   against this Dream. They drive a real HTTP/2 client against the mock
+   server, which serves its requests through the HTTP server package.
 
 ## How to go back to mist and glisten
 

@@ -35,7 +35,7 @@ Before diving in, let's understand what we're building:
 
 ### HTTP (Normal Web Requests)
 
-```
+```text
 Browser                    Server
    |                          |
    |----"GET /api/users"----->|
@@ -48,7 +48,7 @@ Every request opens a new connection, gets a response, and closes. This is fine 
 
 ### WebSocket (This Example)
 
-```
+```text
 Browser                    Server
    |                          |
    |---"Upgrade to WebSocket"-|
@@ -77,7 +77,7 @@ The connection stays open. Both sides can send messages anytime. Perfect for cha
 
 Here's the complete picture of how everything fits together:
 
-```
+```text
 ┌─────────────────┐                    ┌─────────────────┐
 │  Alice's        │                    │  Bob's          │
 │  Browser        │                    │  Browser        │
@@ -141,7 +141,7 @@ Here's the complete picture of how everything fits together:
 
 ## Code Structure
 
-```
+```text
 examples/websocket_chat/
 ├── gleam.toml              # Project config
 ├── Makefile                # Build and test commands
@@ -217,7 +217,7 @@ function joinChat() {
 ```
 
 This sends an HTTP request with special headers:
-```
+```http
 GET /chat?user=Alice HTTP/1.1
 Connection: Upgrade
 Upgrade: websocket
@@ -339,7 +339,7 @@ fn handle_websocket_message(
 
 **Message Flow Diagram:**
 
-```
+```text
 Alice's Browser            Server            Bob's Browser
       |                      |                      |
       |--"Hello!"----------->|                      |

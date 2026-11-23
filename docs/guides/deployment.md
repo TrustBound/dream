@@ -20,7 +20,7 @@ This generates BEAM bytecode in `build/dev/erlang/`. For production, you want an
 
 Dream apps should read configuration from environment variables (12-factor app style):
 
-### Config from environment variables <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/config/test/snippets/deployment_guide_config.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Config from environment variables <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_config.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // config.gleam
@@ -271,7 +271,7 @@ For containerized deployments, your orchestrator (Kubernetes, ECS, etc.) handles
 
 Pog (PostgreSQL client) includes connection pooling:
 
-#### Pool size <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/postgres/test/snippets/deployment_guide_postgres.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Pool size <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_postgres.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import gleam/erlang/process

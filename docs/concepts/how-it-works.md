@@ -6,7 +6,7 @@ When a request arrives at your Dream server, here's exactly what happens:
 
 ## The Flow
 
-```
+```text
 1. Request arrives
 2. Context created (AppContext with unique request_id)
 3. Router matches path/method → finds controller action

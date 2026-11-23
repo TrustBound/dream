@@ -11,9 +11,9 @@ packages = [
   { name = "backoff", version = "1.1.6", build_tools = ["rebar3"], requirements = [], otp_app = "backoff", source = "hex", outer_checksum = "CF0CFFF8995FB20562F822E5CC47D8CCF664C5ECDC26A684CBE85C225F9D7C39" },
   { name = "cigogne", version = "5.0.6", build_tools = ["gleam"], requirements = ["argv", "envoy", "gleam_crypto", "gleam_erlang", "gleam_otp", "gleam_stdlib", "gleam_time", "pog", "simplifile", "splitter", "tom"], otp_app = "cigogne", source = "hex", outer_checksum = "10F52CBDB395F102719662651FA2676AD588F11920D8915AA7350655CEAFE795" },
   { name = "dream", version = "3.0.0", build_tools = ["gleam"], requirements = ["dream_http_server", "gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_time", "gleam_yielder", "marceau", "simplifile"], source = "local", path = "../.." },
-  { name = "dream_config", version = "1.1.0", build_tools = ["gleam"], requirements = ["envoy", "gleam_stdlib"], source = "local", path = "../../modules/config" },
+  { name = "dream_config", version = "1.1.0", build_tools = ["gleam"], requirements = ["envoy", "gleam_stdlib"], source = "git", repo = "https://github.com/TrustBound/dream_config.git", commit = "ce7b62639de9570c3c20a6193e4a1fa4a905324d" },
   { name = "dream_http_server", version = "1.2.0", build_tools = ["gleam"], requirements = ["dream_socket_server", "exception", "gleam_erlang", "gleam_http", "gleam_otp", "gleam_stdlib", "gramps", "hpack_erl", "logging"], otp_app = "dream_http_server", source = "hex", outer_checksum = "0E5BD2B13F4C92ACEE2ECFD84A40AAB7EFAA9B597AC56E87FBB96A5960080EEF" },
-  { name = "dream_postgres", version = "2.0.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_otp", "gleam_stdlib", "pog"], source = "local", path = "../../modules/postgres" },
+  { name = "dream_postgres", version = "2.0.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_otp", "gleam_stdlib", "pog"], source = "git", repo = "https://github.com/TrustBound/dream_postgres.git", commit = "43f78a304bca68934633ea12628a05c4fa199b36" },
   { name = "dream_socket_server", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_otp", "gleam_stdlib", "logging"], otp_app = "dream_socket_server", source = "hex", outer_checksum = "1D54F39888984D947E9AC93229A5142B8BB672A7E13128128D6064FA8B8E8A36" },
   { name = "envoy", version = "1.2.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "envoy", source = "hex", outer_checksum = "9C6FBB6BFA02A52798BEEC5977A738CAD6E4A057F4B67FD0C8061AD2502C191A" },
   { name = "eval", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "eval", source = "hex", outer_checksum = "264DAF4B49DF807F303CA4A4E4EBC012070429E40BE384C58FE094C4958F9BDA" },
@@ -56,8 +56,8 @@ packages = [
 [requirements]
 cigogne = { version = ">= 5.0.0 and < 6.0.0" }
 dream = { path = "../.." }
-dream_config = { path = "../../modules/config" }
-dream_postgres = { path = "../../modules/postgres" }
+dream_config = { git = "https://github.com/TrustBound/dream_config.git", ref = "ce7b62639de9570c3c20a6193e4a1fa4a905324d" }
+dream_postgres = { git = "https://github.com/TrustBound/dream_postgres.git", ref = "43f78a304bca68934633ea12628a05c4fa199b36" }
 envoy = { version = ">= 1.0.2" }
 gleam_erlang = { version = ">= 1.0.0 and < 2.0.0" }
 gleam_http = { version = ">= 4.3.0 and < 5.0.0" }

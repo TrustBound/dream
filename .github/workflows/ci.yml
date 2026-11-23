@@ -33,11 +33,10 @@ jobs:
         with:
           path: |
             build/packages
-            modules/*/build/packages
             examples/*/build/packages
-          key: gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-unit-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'modules/*/gleam.toml', 'modules/*/manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-unit-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-unit-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'modules/*/gleam.toml', 'modules/*/manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-
+            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-unit-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-
             gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-unit-tests-
 
       - name: Install Erlang and Gleam
@@ -56,16 +55,6 @@ jobs:
       - name: Build project
         run: gleam build
 
-      - name: Patch http_client dependencies
-        uses: ./.github/actions/patch-dream-deps
-        with:
-          module_dir: modules/http_client
-
-      - name: Patch mock_server dependencies
-        uses: ./.github/actions/patch-dream-deps
-        with:
-          module_dir: modules/mock_server
-
       - name: Run all unit tests
         env:
           CI: "true"
@@ -76,18 +65,6 @@ jobs:
       - name: Check docs code blocks against tested snippets
         run: make check-snippets
 
-      - name: Restore http_client dependencies
-        if: always()
-        uses: ./.github/actions/restore-dream-deps
-        with:
-          module_dir: modules/http_client
-
-      - name: Restore mock_server dependencies
-        if: always()
-        uses: ./.github/actions/restore-dream-deps
-        with:
-          module_dir: modules/mock_server
-
       # Gleam writes a path dependency fingerprint before it asks Hex to
       # resolve, and build/packages/packages.toml only after all downloads. A
       # fingerprint newer than packages.toml (or with no packages.toml) means
@@ -96,7 +73,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          for dir in build/packages modules/*/build/packages examples/*/build/packages; do
+          for dir in build/packages examples/*/build/packages; do
             for fp in "$dir"/*.config_fingerprint; do
               [ -f "$fp" ] || continue
               if [ ! -f "$dir/packages.toml" ] || [ "$fp" -nt "$dir/packages.toml" ]; then
@@ -114,7 +91,6 @@ jobs:
         with:
           path: |
             build/packages
-            modules/*/build/packages
             examples/*/build/packages
           key: ${{ steps.gleam-packages.outputs.cache-primary-key }}
 
@@ -149,11 +125,10 @@ jobs:
         with:
           path: |
             build/packages
-            modules/*/build/packages
             examples/*/build/packages
-          key: gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-integration-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'modules/*/gleam.toml', 'modules/*/manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-integration-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-integration-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'modules/*/gleam.toml', 'modules/*/manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-
+            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-integration-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-
             gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-integration-tests-
 
       - name: Install Erlang and Gleam
@@ -197,7 +172,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          for dir in build/packages modules/*/build/packages examples/*/build/packages; do
+          for dir in build/packages examples/*/build/packages; do
             for fp in "$dir"/*.config_fingerprint; do
               [ -f "$fp" ] || continue
               if [ ! -f "$dir/packages.toml" ] || [ "$fp" -nt "$dir/packages.toml" ]; then
@@ -215,6 +190,5 @@ jobs:
         with:
           path: |
             build/packages
-            modules/*/build/packages
             examples/*/build/packages
           key: ${{ steps.gleam-packages.outputs.cache-primary-key }}

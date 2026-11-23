@@ -43,7 +43,7 @@ The first 10 requests will succeed with `200 OK`. Requests 11-15 will return `42
 
 Responses include rate limit information:
 
-```
+```http
 X-RateLimit-Limit: 10
 X-RateLimit-Remaining: 5
 X-RateLimit-Reset: 60
@@ -64,7 +64,7 @@ curl -i http://localhost:3000/api/status
 
 ## Code Structure
 
-```
+```text
 examples/rate_limiter/
 ├── gleam.toml          # Project config
 ├── Makefile            # Build and run commands

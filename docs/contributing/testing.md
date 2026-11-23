@@ -31,7 +31,6 @@ framework with `describe`/`it` blocks and chainable assertions.
 |--------|------|
 | `src/dream/context.gleam` | `test/dream/context_test.gleam` |
 | `src/dream/router.gleam` | `test/dream/router_test.gleam` |
-| `modules/http_client/src/...` | `modules/http_client/test/...` |
 
 ### Test Structure
 
@@ -302,7 +301,7 @@ pub fn tests() -> UnitTest {
 ```
 
 **Benchmark Output:** Self-identifying single lines for parallel execution:
-```
+```text
 [BENCH] 100-first: 11815μs total, 1.18μs/lookup (10000 iterations)
 ```
 
@@ -317,7 +316,7 @@ pub fn tests() -> UnitTest {
 
 ### Location
 
-```
+```text
 examples/simple/
 ├── test/integration/
 │   ├── features/
@@ -352,9 +351,6 @@ make test-integration
 
 # Specific example
 cd examples/database && make test-integration
-
-# Specific module
-cd modules/mock_server && make test-integration
 ```
 
 ### Test Isolation
@@ -376,7 +372,7 @@ cd modules/mock_server && make test-integration
 
 ### Naming Convention
 
-```
+```text
 <function_name>_<condition>_<expected_result>
 ```
 

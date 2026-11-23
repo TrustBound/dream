@@ -139,7 +139,7 @@ Open `http://localhost:3000` in your browser to:
 
 ## Code Structure
 
-```
+```text
 examples/tasks/
 ├── src/
 │   ├── main.gleam              # Entry point

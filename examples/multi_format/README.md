@@ -92,7 +92,7 @@ No nested cases, every function has a single responsibility.
 
 ## Code Structure
 
-```
+```text
 examples/multi_format/
 ├── gleam.toml                    # Project config
 ├── Makefile                      # Build commands

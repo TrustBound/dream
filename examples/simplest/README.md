@@ -55,7 +55,7 @@ curl http://localhost:3000
 
 You should see:
 
-```
+```text
 Hello, World!
 ```
 

@@ -787,7 +787,7 @@ curl http://localhost:3002/users/1
 
 You now have:
 
-```
+```text
 src/
 ├── main.gleam           # Server setup
 ├── router.gleam         # Route definitions

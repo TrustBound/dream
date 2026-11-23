@@ -70,7 +70,7 @@ All examples use **Cucumber** (BDD framework) with **HTTPoison** for HTTP testin
 
 ### Example Test Structure
 
-```
+```text
 examples/simple/
 ├── test/
 │   └── integration/

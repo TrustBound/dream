@@ -129,7 +129,11 @@ The broadcaster removes a subscriber when the process that subscribed stops, so 
 
 Every Gleam code block in the guides, the READMEs, the doc comments and SECURITY.md comes from a snippet file that the tests compile and run. Each block has a "tested snippet" badge that links to its snippet at this release's tag. Converting them found and fixed wrong examples across the docs.
 
-`make check-snippets` keeps it that way. It checks that every Gleam code block has a heading with the badge and shows the same code as its snippet file. It runs in the pre-commit hook, in CI and before every publish, so a wrong example cannot ship. It found 512 code blocks and 5 diff blocks with no problems.
+`make check-snippets` keeps it that way. It checks that every Gleam code block has a heading with the badge and shows the same code as its snippet file. It runs in the pre-commit hook, in CI and before every publish, so a wrong example cannot ship. It found 514 code blocks and 4 diff blocks with no problems.
+
+### Modules in Their Own Repositories
+
+The modules moved out of this repository. Each one now has its own repository and its own releases: [dream_config](https://github.com/TrustBound/dream_config), [dream_ets](https://github.com/TrustBound/dream_ets), [dream_http_client](https://github.com/TrustBound/dream_http_client), [dream_json](https://github.com/TrustBound/dream_json), [dream_mock_server](https://github.com/TrustBound/dream_mock_server), [dream_opensearch](https://github.com/TrustBound/dream_opensearch) and [dream_postgres](https://github.com/TrustBound/dream_postgres).
 
 ## Bug Fixes
 
@@ -163,11 +167,9 @@ Over HTTP/1.1, a response sent just before the connection closed could be lost t
 ## Testing
 
 - Dream's own tests: 952 run, 0 failed, in about 7 seconds (MacBook, OTP 28, Gleam 1.17.0)
-- `dream_http_client`: 281 passed. Its `h2c_test` drives a real HTTP/2 client against the mock server, which serves its requests through Dream's server adapter
-- `dream_mock_server`: 25 passed
 - `dream_http_server` 1.2.0: 100 passed, on Gleam 1.17.0 and on Gleam 1.14.0 with OTP 28. Each of its fixes has a test that fails without the fix
 - `dream_socket_server`: 6 passed
-- Integration tests: every scenario of the mock server and ten examples runs twice, over HTTP/1.1 and over HTTP/2 with TLS, through `dream_http_client`
+- Integration tests: ten examples run twice, over HTTP/1.1 and over HTTP/2 with TLS, through `dream_http_client`
 
 ## Upgrading
 
@@ -261,35 +263,17 @@ pub type RequestBody {
 
 `validate_json(text, decoder)` did not change. Use it when you already have a `String`.
 
-**A controller that needs the body as text.** Use `body_as_string(request)`. It returns `Error(Nil)` when the body is not valid UTF-8. The mock server used `request.body` as a `String`, and now reads it with `body_as_string`:
+**A controller that needs the body as text.** Use `body_as_string(request)`. It returns `Error(Nil)` when the body is not valid UTF-8. Before 3.0.0 a controller could read `request.body` as a `String`. Now it reads the body with `body_as_string`:
 
-#### Read a text body with `body_as_string` <a href="https://github.com/TrustBound/dream/compare/2.4.1...3.0.0#diff-aafe04b74828dcf43f35dd72b3ed668640b1d9b18a0ad42c3915b4810f92ee54"><img align="right" alt="Tested diff" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square"></a>
+#### Read a text body with `body_as_string` <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L46-L51"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-```diff
---- a/modules/mock_server/src/dream_mock_server/controllers/api_controller.gleam
-+++ b/modules/mock_server/src/dream_mock_server/controllers/api_controller.gleam
-@@ -31,10 +31,7 @@ pub fn post(
--  json_response(
--    status.created,
--    api_view.post_to_json(request.path, request.body),
--  )
-+  echo_text_body(request, status.created, api_view.post_to_json)
-@@ -43,7 +40,32 @@ pub fn put(
-+/// Echo a text request body as JSON, or reply 400 when the body is not text
-+fn echo_text_body(
-+  request: Request,
-+  status_code: Int,
-+  format_echo: fn(String, String) -> String,
-+) -> Response {
-+  case body_as_string(request) {
-+    Ok(body) -> json_response(status_code, format_echo(request.path, body))
-+    Error(Nil) ->
-+      json_response(
-+        status.bad_request,
-+        api_view.error_to_json("Request body is not UTF-8 text"),
-+      )
-+  }
- }
+```gleam
+pub fn show_body(request: Request, _context, _services) -> Response {
+  case body_as_string(request) {
+    Ok(body) -> text_response(status.ok, body)
+    Error(_) -> text_response(status.bad_request, "Body is not valid UTF-8")
+  }
+}
 ```
 
 **A controller or middleware that reads the stream.** Match `Stream` on `request.body` in place of `Some` on `request.stream`:

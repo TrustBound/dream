@@ -92,7 +92,7 @@ curl -X POST http://localhost:3002/users/1/posts \
 
 ## Code Structure
 
-```
+```text
 examples/database/
 ├── gleam.toml              # Project config
 ├── Makefile                # Build and database commands

@@ -41,6 +41,7 @@ import gleam/list
 import guides_deployment_templates_snippets_test
 import guides_sse_websockets_rest_snippets_test
 import learning_snippets_test
+import module_snippets_test
 import naming_snippets_test
 import reference_snippets_test
 import security_snippets_test
@@ -123,6 +124,7 @@ pub fn main() {
         guides_deployment_templates_snippets_test.tests(),
       ),
       unit.to_test_cases("learning snippets", learning_snippets_test.tests()),
+      unit.to_test_cases("module snippets", module_snippets_test.tests()),
       unit.to_test_cases(
         "contributing_snippets",
         contributing_snippets_test.tests(),

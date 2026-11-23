@@ -37,7 +37,7 @@ gleam test
 
 Tests mirror your source structure:
 
-```
+```text
 src/
   your_app/
     controllers/

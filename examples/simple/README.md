@@ -35,7 +35,7 @@ curl http://localhost:3000/users/1/posts/2
 
 ## Code Structure
 
-```
+```text
 examples/simple/
 ├── gleam.toml          # Project config with dream dependency
 ├── Makefile            # Build and run commands

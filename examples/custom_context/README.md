@@ -56,7 +56,7 @@ curl -H "Authorization: Bearer user-token" \
 
 ## Code Structure
 
-```
+```text
 examples/custom_context/
 ├── gleam.toml          # Project config
 ├── Makefile            # Build and run commands

@@ -75,7 +75,7 @@ Static files are served as-is. No server-side execution. No code interpretation.
 
 ## File Structure
 
-```
+```text
 examples/static/
   src/
     controllers/

@@ -111,7 +111,7 @@ All streaming patterns are tested:
 
 ## Code Structure
 
-```
+```text
 examples/streaming_capabilities/
 ├── gleam.toml                           # Project config
 ├── Makefile                             # Build commands

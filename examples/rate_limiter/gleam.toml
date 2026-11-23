@@ -5,6 +5,7 @@ licences = ["MIT"]
 
 [dependencies]
 dream = { path = "../.." }
-dream_ets = { path = "../../modules/ets" }
+# Pinned to the module's move branch until it is on Hex.
+dream_ets = { git = "https://github.com/TrustBound/dream_ets.git", ref = "86e5515aef50539f250e501f4db061856b81283b" }
 gleam_time = ">= 1.5.0 and < 2.0.0"
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"

@@ -344,7 +344,7 @@ Dream encourages a clean separation of concerns using the Model-View-Controller 
 
 Here's how a typical request flows through the MVC layers:
 
-```
+```text
 1. Router matches request → finds controller
 2. Controller extracts parameters (e.g., `require_int(request, "id")`)
 3. Controller calls Model to fetch data
@@ -608,7 +608,7 @@ The core `dream` package provides:
 - Connection pooling support
 - Works with Squirrel-generated SQL queries
 
-#### Connect and query with dream_postgres <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/postgres/test/snippets/architecture_postgres.gleam#L6-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Connect and query with dream_postgres <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_postgres.gleam#L6-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_postgres/client.{
@@ -658,7 +658,7 @@ pub fn describe_user_name(
 - Query builders (match_all, term, match)
 - HTTP wrapper for OpenSearch API
 
-#### Index a document with dream_opensearch <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/opensearch/test/snippets/architecture_opensearch.gleam#L5-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Index a document with dream_opensearch <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_opensearch.gleam#L5-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_opensearch/client.{type Client}
@@ -715,7 +715,7 @@ Each builder step returns a new request. `client.send()` sends it and returns `R
 - .env file support
 - Type-safe configuration loading
 
-#### Load configuration with dream_config <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/config/test/snippets/architecture_config.gleam#L6-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Load configuration with dream_config <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_config.gleam#L6-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_config/loader
@@ -737,7 +737,7 @@ pub fn load_config() -> Result(AppConfig, String) {
 - JSON encoders for optional values and timestamps
 - Convenience functions for common JSON encoding patterns
 
-#### Encode optional fields with dream_json <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/json/test/snippets/architecture_json.gleam#L5-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Encode optional fields with dream_json <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_json.gleam#L5-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_json/json_encoders
@@ -764,16 +764,16 @@ pub fn profile_to_json(profile: Profile) -> String {
 
 ### Using Modules
 
-Modules are independent Gleam packages. For local development, add them as path dependencies:
+Modules are independent Gleam packages on Hex. Add the ones you need next to `dream`:
 
 ```toml
 [dependencies]
-dream = { path = "../dream" }
-dream_postgres = { path = "../dream/modules/postgres" }
-dream_http_client = { path = "../dream/modules/http_client" }
+dream = ">= 3.0.0 and < 4.0.0"
+dream_postgres = ">= 2.0.0 and < 3.0.0"
+dream_http_client = ">= 6.0.0 and < 7.0.0"
 ```
 
-Each module has its own README with detailed usage examples. See the `modules/` directory for complete documentation.
+Each module has its own repository, with a README that has detailed usage examples: [dream_config](https://github.com/TrustBound/dream_config), [dream_ets](https://github.com/TrustBound/dream_ets), [dream_http_client](https://github.com/TrustBound/dream_http_client), [dream_json](https://github.com/TrustBound/dream_json), [dream_mock_server](https://github.com/TrustBound/dream_mock_server), [dream_opensearch](https://github.com/TrustBound/dream_opensearch) and [dream_postgres](https://github.com/TrustBound/dream_postgres).
 
 ### Module Philosophy
 

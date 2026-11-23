@@ -50,20 +50,11 @@
 //// `@@` hunk headers. The check runs `git diff <old tag> -- <path>` against
 //// the working tree, and each run of lines must be in that diff, in order
 //// and contiguous within one hunk. The new tag is the version in
-//// `gleam.toml` (in a module README, the tag of the module release),
-//// because that tag does not exist before the release.
+//// `gleam.toml`, because that tag does not exist before the release.
 ////
 //// Release notes and changelog entries for version 3.0.0 and later are
 //// checked. Older ones show code that was right for their own version, so
 //// they are not (see `checked_from_version`).
-////
-//// The README of each module in `modules/` is checked too. A module is
-//// released on its own, so the badges in its README link at the tag of
-//// the module release, `<name>-<version>` from the module's own
-//// `gleam.toml`, for example
-//// `https://github.com/TrustBound/dream/blob/dream_ets-2.0.0/modules/ets/test/snippets/basic_usage.gleam#L5-L14`.
-//// The publish job creates that tag when it publishes the module. The
-//// rest of the rule is the same (see `check_module_readme`).
 ////
 //// The module lives in `test/` so that it never ships in the Hex package.
 //// The logic is in pure functions (`check_markdown`, `check_changelog`,
@@ -123,19 +114,8 @@ pub type CheckedRoot {
 /// `releases/` and `CHANGELOG.md` are checked only from
 /// `checked_from_version` on (see `ReleaseNotes` and `Changelog`).
 ///
-/// The `README.md` of each folder in `modules_directory` is checked too,
-/// with the tag of that module (see `check_module_readme`). The folders are
-/// found by listing the directory, so a new module is checked with no
-/// change here.
-///
 /// These are not checked, on purpose:
 ///
-/// - The other files in `modules/`: each module's `CHANGELOG.md`, its
-///   `releases/` and its other `.md` files. They are history. The modules
-///   move to their own repositories later, and get the release notes
-///   cutoff there.
-/// - The `///` and `////` doc comments in `modules/*/src/`: their examples
-///   do not link to tested snippets yet.
 /// - `.cursor/`: it holds prompts for coding agents, not docs.
 /// - `build/` and dependency folders: see `skipped_directory_names`.
 const checked_roots = [
@@ -156,13 +136,6 @@ const skipped_directory_names = ["build", "deps", "_build", "node_modules"]
 
 /// The file that holds the version that badge links must use as their tag.
 const gleam_toml_path = "gleam.toml"
-
-/// The directory that holds one folder for each module. Each module is a
-/// package with its own `gleam.toml` and its own releases.
-const modules_directory = "modules"
-
-/// The name of the README of a module, in the module folder.
-const module_readme_name = "README.md"
 
 // ---------------------------------------------------------------------------
 // The badge
@@ -204,9 +177,7 @@ pub type Line {
 /// What the checks need from the outside.
 ///
 /// `release_tag` is the tag that badge links in the document must use: the
-/// version in the root `gleam.toml` for the docs of dream, and
-/// `<name>-<version>` from the module's `gleam.toml` for a module README
-/// (see `module_release_tag`). `read_source` reads a file by its path
+/// version in the root `gleam.toml`. `read_source` reads a file by its path
 /// relative to the repository root. `tag_exists` tells whether a
 /// git tag is in the local clone. `diff_from_tag` returns the text of the
 /// git diff of one path (the second argument) from a tag (the first
@@ -357,8 +328,6 @@ pub type CheckError {
   ReadFailed(path: String, reason: simplifile.FileError)
   /// `gleam.toml` has no `version = "..."` line.
   VersionNotFound(path: String)
-  /// A module's `gleam.toml` has no `name = "..."` line.
-  NameNotFound(path: String)
 }
 
 /// The opening line of a fenced code block.
@@ -434,7 +403,6 @@ fn run_check() -> Result(#(Report, Int), CheckError) {
   use gleam_toml <- result.try(read_document(gleam_toml_path))
   use version <- result.try(parse_version(gleam_toml))
   use files <- result.try(list_checked_files())
-  use module_folders <- result.try(list_module_folders())
   let context =
     CheckContext(
       release_tag: version,
@@ -445,86 +413,7 @@ fn run_check() -> Result(#(Report, Int), CheckError) {
   use reports <- result.try(
     list.try_map(files, fn(file) { check_file(file, context) }),
   )
-  use module_reports <- result.try(
-    list.try_map(module_folders, fn(folder) {
-      check_module_readme(folder, context)
-    }),
-  )
-  let module_reports = option.values(module_reports)
-  Ok(#(
-    merge_reports(list.append(reports, module_reports)),
-    list.length(files) + list.length(module_reports),
-  ))
-}
-
-/// Lists the module folders, for example `modules/ets`, sorted by name.
-/// There are none when the repository has no `modules_directory`.
-fn list_module_folders() -> Result(List(String), CheckError) {
-  case simplifile.is_directory(modules_directory) {
-    Ok(True) -> list_subdirectories(modules_directory)
-    Ok(False) -> Ok([])
-    Error(reason) -> Error(ListFailed(modules_directory, reason))
-  }
-}
-
-fn list_subdirectories(path: String) -> Result(List(String), CheckError) {
-  use names <- result.try(
-    simplifile.read_directory(path)
-    |> result.map_error(fn(reason) { ListFailed(path, reason) }),
-  )
-  names
-  |> list.filter(fn(name) { !list.contains(skipped_directory_names, name) })
-  |> list.sort(string.compare)
-  |> list.map(fn(name) { path <> "/" <> name })
-  |> list.try_map(keep_if_directory)
-  |> result.map(list.flatten)
-}
-
-fn keep_if_directory(path: String) -> Result(List(String), CheckError) {
-  case simplifile.is_directory(path) {
-    Ok(True) -> Ok([path])
-    Ok(False) -> Ok([])
-    Error(reason) -> Error(ListFailed(path, reason))
-  }
-}
-
-/// Checks the README of one module, for example `modules/ets/README.md`
-/// for the folder `modules/ets`.
-///
-/// The README is checked like any Markdown document, but its badges must
-/// link at the tag of the module release, `<name>-<version>` from the
-/// module's `gleam.toml` (see `module_release_tag`), in place of the tag
-/// in `context`. A module is published on its own, so its README links to
-/// the code that was tested for that release. A link at the tag of dream,
-/// or at the tag of another module, is a `WrongTag` problem.
-///
-/// Both files are read with `context.read_source`. It returns `None` when
-/// the module has no README, because a module does not need one.
-pub fn check_module_readme(
-  folder: String,
-  context: CheckContext,
-) -> Result(Option(Report), CheckError) {
-  let readme_path = folder <> "/" <> module_readme_name
-  case context.read_source(readme_path) {
-    Ok(text) -> check_module_readme_text(folder, readme_path, text, context)
-    Error(simplifile.Enoent) -> Ok(None)
-    Error(reason) -> Error(ReadFailed(readme_path, reason))
-  }
-}
-
-fn check_module_readme_text(
-  folder: String,
-  readme_path: String,
-  text: String,
-  context: CheckContext,
-) -> Result(Option(Report), CheckError) {
-  let gleam_toml = folder <> "/" <> gleam_toml_path
-  use toml_text <- result.try(
-    context.read_source(gleam_toml)
-    |> result.map_error(fn(reason) { ReadFailed(gleam_toml, reason) }),
-  )
-  use release_tag <- result.map(module_release_tag(toml_text, gleam_toml))
-  Some(check_markdown(readme_path, text, CheckContext(..context, release_tag:)))
+  Ok(#(merge_reports(reports), list.length(files)))
 }
 
 fn read_document(path: String) -> Result(String, CheckError) {
@@ -723,8 +612,6 @@ pub fn describe_error(error: CheckError) -> String {
       "Cannot read " <> path <> ": " <> simplifile.describe_error(reason)
     VersionNotFound(path:) ->
       path <> " has no version = \"...\" line before its first [section]."
-    NameNotFound(path:) ->
-      path <> " has no name = \"...\" line before its first [section]."
   }
 }
 
@@ -733,25 +620,6 @@ pub fn describe_error(error: CheckError) -> String {
 pub fn parse_version(gleam_toml: String) -> Result(String, CheckError) {
   top_level_value(gleam_toml, "version")
   |> result.replace_error(VersionNotFound(gleam_toml_path))
-}
-
-/// Reads the release tag of a module from the text of its `gleam.toml`:
-/// `<name>-<version>`, for example `dream_ets-2.0.0`. The publish job
-/// creates this tag when it publishes the module. `path` is the path of
-/// the file, used in the error.
-pub fn module_release_tag(
-  gleam_toml: String,
-  path: String,
-) -> Result(String, CheckError) {
-  use name <- result.try(
-    top_level_value(gleam_toml, "name")
-    |> result.replace_error(NameNotFound(path)),
-  )
-  use version <- result.map(
-    top_level_value(gleam_toml, "version")
-    |> result.replace_error(VersionNotFound(path)),
-  )
-  name <> "-" <> version
 }
 
 /// Reads the value of a `key = "..."` line before the first `[section]`.
@@ -833,8 +701,7 @@ pub fn describe_problem(problem: Problem) -> String {
 
 /// The end of the message of a wrong tag: where the expected tag comes
 /// from.
-const tag_rule =
-  " (the docs of dream use the version in gleam.toml; a module README uses <name>-<version> from the gleam.toml of its module)"
+const tag_rule = " (the docs of dream use the version in gleam.toml)"
 
 /// Describes why a code block fails the check.
 pub fn describe_reason(reason: Reason) -> String {

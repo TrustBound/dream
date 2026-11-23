@@ -119,7 +119,7 @@ works with any services type.
 
 Middleware wraps controllers:
 
-```
+```text
 Request → Middleware → Controller → Middleware → Response
 ```
 
@@ -296,7 +296,7 @@ curl http://localhost:3001/admin \
 
 When a request hits a route with `[auth_middleware]`:
 
-```
+```text
 1. Request arrives
 2. Router creates empty context: AuthContext(request_id: "abc", user: None)
 3. Middleware runs: Checks auth, enriches context with user
@@ -326,7 +326,7 @@ You can chain middleware. The example's admin route uses two:
 ```
 
 They run in order:
-```
+```text
 Request → auth → admin → controller → admin → auth → Response
 ```
 

@@ -9,7 +9,7 @@
 packages = [
   { name = "cowlib", version = "2.22.0", build_tools = ["make", "rebar3"], requirements = [], otp_app = "cowlib", source = "hex", outer_checksum = "B1EA5995D8F1AB5086AE7AFE710C2075C7872C7E1ACAF45DD0DB7595E900C0FC" },
   { name = "dream", version = "3.0.0", build_tools = ["gleam"], requirements = ["dream_http_server", "gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_time", "gleam_yielder", "marceau", "simplifile"], source = "local", path = "../.." },
-  { name = "dream_http_client", version = "6.0.0", build_tools = ["gleam"], requirements = ["gleam_crypto", "gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_yielder", "gun", "simplifile"], source = "local", path = "../../modules/http_client" },
+  { name = "dream_http_client", version = "6.0.0", build_tools = ["gleam"], requirements = ["gleam_crypto", "gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_yielder", "gun", "simplifile"], source = "git", repo = "https://github.com/TrustBound/dream_http_client.git", commit = "ff8298baa2d8e742c9832ef4c2f6921c351a1271" },
   { name = "dream_http_server", version = "1.2.0", build_tools = ["gleam"], requirements = ["dream_socket_server", "exception", "gleam_erlang", "gleam_http", "gleam_otp", "gleam_stdlib", "gramps", "hpack_erl", "logging"], otp_app = "dream_http_server", source = "hex", outer_checksum = "0E5BD2B13F4C92ACEE2ECFD84A40AAB7EFAA9B597AC56E87FBB96A5960080EEF" },
   { name = "dream_socket_server", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_otp", "gleam_stdlib", "logging"], otp_app = "dream_socket_server", source = "hex", outer_checksum = "1D54F39888984D947E9AC93229A5142B8BB672A7E13128128D6064FA8B8E8A36" },
   { name = "exception", version = "2.1.1", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "exception", source = "hex", outer_checksum = "6BDEA95248093599391C3B5DF1835C5C6A86C353C2F99CE539B450E3432FE117" },
@@ -32,6 +32,6 @@ packages = [
 
 [requirements]
 dream = { path = "../.." }
-dream_http_client = { path = "../../modules/http_client" }
+dream_http_client = { git = "https://github.com/TrustBound/dream_http_client.git", ref = "ff8298baa2d8e742c9832ef4c2f6921c351a1271" }
 gleam_http = { version = ">= 4.0.0 and < 5.0.0" }
 gleam_stdlib = { version = ">= 0.44.0 and < 2.0.0" }

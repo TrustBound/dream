@@ -40,7 +40,7 @@ curl http://localhost:3000/stream
 
 ## Code Structure
 
-```
+```text
 examples/streaming/
 ├── gleam.toml          # Project config
 ├── Makefile            # Build and run commands

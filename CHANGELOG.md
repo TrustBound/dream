@@ -67,6 +67,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of the removed `mist.Streaming` response variant. Dream's public
   streaming API (`stream_response`, `sse_response`, `ResponseBody.Stream`)
   is unchanged.
+- The modules moved to their own repositories, with their own releases:
+  [dream_config](https://github.com/TrustBound/dream_config),
+  [dream_ets](https://github.com/TrustBound/dream_ets),
+  [dream_http_client](https://github.com/TrustBound/dream_http_client),
+  [dream_json](https://github.com/TrustBound/dream_json),
+  [dream_mock_server](https://github.com/TrustBound/dream_mock_server),
+  [dream_opensearch](https://github.com/TrustBound/dream_opensearch) and
+  [dream_postgres](https://github.com/TrustBound/dream_postgres).
 
 ### Fixed
 
@@ -86,10 +94,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Testing
 
-- CI and the publish workflows use Gleam 1.19.2. Dream, its modules and the
+- CI and the publish workflows use Gleam 1.19.2. Dream and the
   examples build and pass their tests on Gleam 1.19.2.
-- 952 tests run, 0 failed, in about 7 seconds (MacBook, OTP 28, Gleam
-  1.17.0). The snippet check finds 509 code blocks with no problems. The integration tests run every scenario of the mock server and
+- 1014 tests run, 0 failed, in about 7 seconds (Apple M1 Max, OTP 29, Gleam
+  1.19.2). The snippet check finds 514 code blocks and 4 diff blocks with no problems. The integration tests run
   ten examples over HTTP/1.1 and over HTTP/2 with TLS.
 
 ## [2.4.1] - 2026-03-11

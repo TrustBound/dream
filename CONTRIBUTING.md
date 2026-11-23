@@ -31,8 +31,8 @@ Thank you for your interest in contributing to Dream! We're excited to have you 
 2. **Run tests:**
    ```bash
    make test                # All tests (unit + integration)
-   make test-unit           # Unit tests only (core + modules)
-   make test-integration    # Integration tests only (modules + examples, requires PostgreSQL)
+   make test-unit           # Unit tests only
+   make test-integration    # Integration tests only (examples, requires PostgreSQL)
    ```
 
 3. **Make your changes:**

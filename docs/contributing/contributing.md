@@ -125,7 +125,7 @@ Include:
 
 Every Gleam code block in a README, guide or reference page comes from a snippet file that the tests compile and run. A code block with no tested snippet can be wrong, and nobody finds out until a reader tries it.
 
-1. Write the code in `test/snippets/<name>.gleam` (or in the module's own `test/snippets/`).
+1. Write the code in `test/snippets/<name>.gleam`.
 2. Run it from `test/snippets_test.gleam`, so that the tests fail when the snippet breaks.
 3. Copy the code into the doc.
 4. Give the code block a heading, and put a "tested snippet" badge at the right of the heading. The badge links to the snippet file at the release tag of the version you are writing for, for example `blob/3.0.0/`. Each published version then links to its own code, and the link keeps working when a snippet moves later.
@@ -146,9 +146,7 @@ When you find a code block that doesn't follow this, change it in the same pull 
 
 Release notes and changelog entries follow this rule from version 3.0.0 on. The check reads `releases/release-<version>.md` when the version in the file name is 3.0.0 or later, and the `## [Unreleased]` section and the `## [<version>]` sections for 3.0.0 or later in `CHANGELOG.md`. It skips older notes and older changelog sections. They show code that was right for their own version.
 
-Each module in `modules/` has its own releases. The badges in a module README link at the module tag, not at the tag of Dream. The module tag is `<package>-<version>`, from the `name` and the `version` in the `gleam.toml` of the module. The path is the path of the snippet in this repository, for example `https://github.com/TrustBound/dream/blob/dream_ets-2.0.0/modules/ets/test/snippets/basic_usage.gleam#L5-L14`. A `diff` block in a module README uses the module tag as its new tag.
-
-The publish workflow creates and pushes the module tag when it publishes the module. The tag does not exist before the release, the same as the tag of Dream. Thus the badge links work on GitHub only after the publish. A Dream guide that shows a snippet from a module uses the tag of Dream, for example `blob/3.0.0/modules/postgres/test/snippets/architecture_postgres.gleam`. The check reads the `README.md` of each module, but not the other files in `modules/`. The module changelogs, release notes and other `.md` files are history.
+Each Dream module, such as `dream_ets`, lives in its own repository and has its own snippet check. The badges in a module README link at that repository and at the version tag of the module, for example `https://github.com/TrustBound/dream_ets/blob/3.0.0/test/snippets/basic_operations.gleam`.
 
 An upgrade guide shows how code changed. The old code does not compile on the new version, so it cannot be a tested snippet. Show each change as a `diff` block instead. The block is an excerpt of the real git diff of one file in this repository, between the last release tag and the new version:
 
@@ -174,7 +172,6 @@ It runs `gleam run -m docs_snippet_check`. The check reads `README.md`, `SECURIT
 - the badge is not in the exact format shown above
 - the badge links to another repository or host
 - the tag in the link is not the `version` in `gleam.toml`
-- a badge in a module README links at a tag that is not the module tag `<package>-<version>`
 - the linked file does not exist
 - the line range is malformed, reversed, or past the end of the file
 - the code block is not the same as the linked file or line range
@@ -275,7 +272,7 @@ Documentation improvements are always welcome:
 
 ## Project Structure
 
-```
+```text
 dream/
   src/
     dream/
@@ -295,24 +292,15 @@ dream/
 
 ## Publishing (Maintainers Only)
 
-Dream and its modules are published to Hex.pm. Only maintainers can publish.
-
-### Core Dream Package
-
-For publishing the main `dream` package, see the [Publishing Strategy](publishing.md).
+Dream is published to Hex.pm. Only maintainers can publish. See the [Publishing Strategy](publishing.md).
 
 ### Dream Modules
 
-Dream modules are published automatically via GitHub Actions when version numbers change. See the [Publishing Strategy](publishing.md) for details.
-
-**Quick version bump:**
-1. Update `modules/<module_name>/gleam.toml` version
-2. Commit and push to `main`
-3. GitHub Actions automatically publishes if version changed
+Each Dream module has its own repository and its own releases, for example [dream_http_client](https://github.com/TrustBound/dream_http_client). The [Publishing Strategy](publishing.md#modules) lists them. Release a module from its own repository.
 
 ### Semantic Versioning
 
-Dream and all modules follow [Semantic Versioning](https://semver.org/):
+Dream follows [Semantic Versioning](https://semver.org/):
 
 - **MAJOR** (1.0.0 → 2.0.0) - Breaking changes
 - **MINOR** (1.0.0 → 1.1.0) - New features (backward compatible)
