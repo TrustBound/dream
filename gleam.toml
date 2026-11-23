@@ -8,6 +8,26 @@ links = [
     { title = "GitHub", href = "https://github.com/TrustBound/dream" },
 ]
 
+[documentation]
+# Each guide in docs/guides/ is a page on HexDocs.
+pages = [
+    { title = "Guides", path = "guides/index.html", source = "./docs/guides/index.md" },
+    { title = "Authentication", path = "guides/authentication.html", source = "./docs/guides/authentication.md" },
+    { title = "Controllers and Models", path = "guides/controllers-and-models.html", source = "./docs/guides/controllers-and-models.md" },
+    { title = "Deployment", path = "guides/deployment.html", source = "./docs/guides/deployment.md" },
+    { title = "File Uploads", path = "guides/file-uploads.html", source = "./docs/guides/file-uploads.md" },
+    { title = "HTTP/2", path = "guides/http2.html", source = "./docs/guides/http2.md" },
+    { title = "Multiple Formats", path = "guides/multiple-formats.html", source = "./docs/guides/multiple-formats.md" },
+    { title = "Operations", path = "guides/operations.html", source = "./docs/guides/operations.md" },
+    { title = "REST API", path = "guides/rest-api.html", source = "./docs/guides/rest-api.md" },
+    { title = "Server-Sent Events", path = "guides/sse.html", source = "./docs/guides/sse.md" },
+    { title = "Streaming", path = "guides/streaming.html", source = "./docs/guides/streaming.md" },
+    { title = "Streaming Quick Reference", path = "guides/streaming-quick-reference.html", source = "./docs/guides/streaming-quick-reference.md" },
+    { title = "Templates", path = "guides/templates.html", source = "./docs/guides/templates.md" },
+    { title = "Testing", path = "guides/testing.html", source = "./docs/guides/testing.md" },
+    { title = "WebSockets", path = "guides/websockets.html", source = "./docs/guides/websockets.md" },
+]
+
 [dependencies]
 gleam_stdlib = ">= 1.0.0 and < 2.0.0"
 # dream's HTTP server: a fork of mist 6.0.3 with HTTP/2 fixes, published under
@@ -36,7 +56,7 @@ dream_opensearch = { git = "https://github.com/TrustBound/dream_opensearch.git",
 # Pinned to the module's move branch until it is on Hex.
 dream_postgres = { git = "https://github.com/TrustBound/dream_postgres.git", ref = "bfdd3435c173947b3aef6c5d5ae280449338ed76" }
 # Pinned to the module's move branch until it is on Hex.
-dream_snippets = { git = "https://github.com/TrustBound/dream_snippets.git", ref = "60c1f3c789eb9c096a7baa4d34dcc27f58baa862" }
+dream_snippets = { git = "https://github.com/TrustBound/dream_snippets.git", ref = "f116b072699ec33315980418036d962e22fab872" }
 envoy = ">= 1.0.0 and < 2.0.0"
 pog = ">= 4.0.0 and < 5.0.0"
 
@@ -44,3 +64,5 @@ pog = ">= 4.0.0 and < 5.0.0"
 # Changelog sections and release notes before this version are history. They are not checked.
 checked_from_version = "3.0.0"
 badge_guide = "docs/contributing/contributing.md"
+# A README guide badge can link to any page under docs/.
+guides = ["docs"]

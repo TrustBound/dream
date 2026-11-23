@@ -2,6 +2,42 @@
 
 Production-ready patterns for building REST APIs with Dream.
 
+## A JSON Endpoint
+
+Start with one controller that returns JSON. It gets a user from `Services` and returns the user as JSON, or a `404` response when no user matches. The view function `user_to_json` keeps the JSON format apart from the data access.
+
+### Return a user as JSON <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_json_api.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+import dream/http.{json_response, not_found, ok}
+import gleam/json
+import gleam/list
+
+pub type User {
+  User(id: Int, name: String)
+}
+
+pub type Services {
+  Services(db: List(User))
+}
+
+pub fn get_user(_request, _context, services: Services) {
+  case find_user(services.db, id: 1) {
+    Ok(user) -> json_response(ok, user_to_json(user))
+    Error(Nil) -> json_response(not_found, "{}")
+  }
+}
+
+fn find_user(db: List(User), id id: Int) -> Result(User, Nil) {
+  list.find(db, fn(user) { user.id == id })
+}
+
+fn user_to_json(user: User) -> String {
+  json.object([#("id", json.int(user.id)), #("name", json.string(user.name))])
+  |> json.to_string
+}
+```
+
 ## Pagination
 
 ### Offset-based Pagination
@@ -505,7 +541,7 @@ The database example routes `GET /health` to this controller. It returns 503 whe
 
 ## See Also
 
-- [Testing](testing.md) - Test your API
-- [Deployment](deployment.md) - Deploy to production
-- [Lesson 3: Adding Auth](../learn/03-adding-auth.md) - Learn authentication and middleware
+- [Testing](https://github.com/TrustBound/dream/blob/main/docs/guides/testing.md) - Test your API
+- [Deployment](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md) - Deploy to production
+- [Lesson 3: Adding Auth](https://github.com/TrustBound/dream/blob/main/docs/learn/03-adding-auth.md) - Learn authentication and middleware
 

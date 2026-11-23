@@ -136,6 +136,21 @@ Every Gleam code block in a README, guide or reference page comes from a snippet
 
 Use the full GitHub URL, not a relative path. HexDocs and Hex show the README without the repository, so a relative link goes nowhere.
 
+Each example in the root `README.md` has a second badge, the guide badge. It links to the docs section that shows the same example, so a reader can go from the short README example to its full explanation. Put the tested snippet badge first, then one space, then the guide badge, all on the heading line:
+
+```markdown
+### JSON APIs <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_json_api.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a> <a href="https://github.com/TrustBound/dream/blob/3.0.0/docs/guides/rest-api.md#return-a-user-as-json-"><img align="right" alt="Guide" src="https://img.shields.io/badge/%F0%9F%93%96_read-guide-blue.svg?style=flat-square"></a>
+```
+
+The check makes sure of these things for a guide badge:
+
+- The link is a `blob` link of this repository, at the tag of the `version` in `gleam.toml`.
+- The link goes to a `.md` file under `docs/`. The `guides` setting in `[tools.dream_snippets]` sets this directory.
+- The file exists, and the link ends with `#<anchor>`. The anchor is the GitHub anchor of a heading in that file: the heading text in lowercase, with each character removed that is not a letter, a digit, a space, a hyphen or an underscore, and each space changed to a hyphen. The space between the heading text and its badge also becomes a hyphen, so the anchor of a heading with a badge ends with a hyphen: `### Return a user as JSON` with a badge has the anchor `return-a-user-as-json-`.
+- The docs file shows the same example, with a tested snippet badge that links to the same snippet file. The line range can be different.
+
+Only the root README has guide badges. A heading in a guide, the changelog, the release notes or a doc comment has only the tested snippet badge. When you add an example to the README, add it to a docs page first, then link the guide badge to that section.
+
 A code block can be a whole snippet file, or a range of lines from one. For an excerpt, the badge link ends in a GitHub line range, for example `https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_create.gleam#L8-L10`. The block shows those lines byte for byte, with the same indent. The snippet file around the excerpt still compiles and has a test.
 
 An example of what not to do is real Dream code too. It compiles and runs in a tested snippet. Don't show a function that doesn't exist, and don't put Gleam code in a `text` block or in prose to get past the check. The text next to the block says why the code is bad.
@@ -176,6 +191,9 @@ It runs `gleam run -m dream_snippets`. The check is the [`dream_snippets`](https
 - the line range is malformed, reversed, or past the end of the file
 - the code block is not the same as the linked file or line range
 - the code block uses the old `🧪 Tested source` line
+- a README example has no guide badge, or the guide badge is not in the exact format or place
+- the guide badge does not link to a heading in a `.md` file under `docs/` at the release tag, or that file does not show the same snippet
+- a heading outside the README has a guide badge
 - a code fence with another language, or with no language, holds Gleam code
 - a `diff` block has no heading with the tested diff badge, or the badge is not in the exact format
 - the diff badge link is not a compare link in this repository, its new tag is not the `version` in `gleam.toml`, or its anchor is not the digest of the path in the block

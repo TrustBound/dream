@@ -37,7 +37,7 @@ Use WebSockets when:
 - The server must push updates without the client polling.
 
 If you only need one request → one response, or one-way event streams,
-prefer regular HTTP or SSE. See the [Streaming Guide](streaming.md) for that.
+prefer regular HTTP or SSE. See the [Streaming Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) for that.
 
 ## Overview: How Dream WebSockets Work
 
@@ -68,6 +68,67 @@ The high-level flow is:
    - `on_init` (once, when the connection is established).
    - `on_message` (every time a text/binary/custom message arrives).
    - `on_close` (once, after the connection is closed).
+
+## A Small Example
+
+This controller upgrades a request to a WebSocket. It sends each text message back with the name of the user. The steps below explain each part.
+
+### Echo each message with the user name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_websocket_chat.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+import dream/http/request.{type Request, get_query_param}
+import dream/servers/mist/websocket
+import gleam/erlang/process.{type Selector}
+import gleam/option.{type Option, None}
+
+pub type Dependencies {
+  Dependencies(user_name: String)
+}
+
+pub fn chat(request, _context, _services) {
+  websocket.upgrade_websocket(
+    request,
+    dependencies: make_dependencies(request),
+    on_init: handle_init,
+    on_message: handle_message,
+    on_close: handle_close,
+  )
+}
+
+fn make_dependencies(request: Request) -> Dependencies {
+  let user_name =
+    get_query_param(request.query, "user")
+    |> option.unwrap("guest")
+  Dependencies(user_name:)
+}
+
+fn handle_init(
+  _connection: websocket.Connection,
+  _deps: Dependencies,
+) -> #(Nil, Option(Selector(Nil))) {
+  #(Nil, None)
+}
+
+fn handle_message(
+  state: Nil,
+  message: websocket.Message(Nil),
+  connection: websocket.Connection,
+  deps: Dependencies,
+) -> websocket.Action(Nil, Nil) {
+  case message {
+    websocket.TextMessage(text) -> {
+      let _ = websocket.send_text(connection, deps.user_name <> ": " <> text)
+      websocket.continue_connection(state)
+    }
+    websocket.ConnectionClosed -> websocket.stop_connection()
+    _ -> websocket.continue_connection(state)
+  }
+}
+
+fn handle_close(_state: Nil, _deps: Dependencies) -> Nil {
+  Nil
+}
+```
 
 ## Step 1: Define a Dependencies type
 
@@ -416,7 +477,7 @@ without opening real connections.
   full API (`Message`, `Action`, `send_text`, `send_binary`, etc.).
 - Explore `src/dream/services/broadcaster.gleam` for the pub/sub
   implementation.
-- Run and modify the [`examples/websocket_chat/`](../../examples/websocket_chat/)
+- Run and modify the [`examples/websocket_chat/`](https://github.com/TrustBound/dream/tree/main/examples/websocket_chat)
   example to fit your own use case.
-- Revisit the [Streaming Guide](streaming.md) to compare WebSockets with
+- Revisit the [Streaming Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) to compare WebSockets with
   HTTP streaming and SSE.

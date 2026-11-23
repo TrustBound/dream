@@ -1,0 +1,216 @@
+name: Publish to Hex
+
+# A pushed version tag starts a release, for example 3.0.0 (not v3.0.0).
+# Merge the release to main first: the preflight check fails when the
+# tagged commit is not on main. Start the workflow by hand with a tag to
+# finish a release, for example to create the GitHub release after Hex
+# approves a staged release.
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The version tag to publish or to finish, for example 3.0.0"
+        required: true
+        type: string
+
+env:
+  # A read-only Hex key. With it, dependency lookups do not hit the limit for requests with no key.
+  HEXPM_READ_API_KEY: ${{ secrets.HEX_READ_API_KEY }}
+  OTP_VERSION: "28"
+  GLEAM_VERSION: "1.19.2"
+  REBAR3_VERSION: "3"
+
+jobs:
+  publish:
+    name: Publish Package to Hex
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Allow creating the GitHub release
+    env:
+      PACKAGE: dream
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          fetch-depth: 0
+
+      - name: Preflight checks
+        # The checks are in a script, so you can run them on your machine
+        # too. See the comment at the top of the script.
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          bash .github/scripts/release-preflight.sh "$TAG"
+
+      - name: Check if version exists on Hex
+        id: version_check
+        env:
+          FORCE_PUBLISH: ${{ secrets.FORCE_PUBLISH }}
+        run: |
+          # Check if force publish is enabled
+          if [ "$FORCE_PUBLISH" = "true" ]; then
+            echo "FORCE_PUBLISH is enabled, bypassing version check"
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check if this version already exists on Hex. One request, no
+          # retries: a failed request fails the job.
+          if ! HTTP_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 10 \
+            "https://hex.pm/api/packages/$PACKAGE/releases/$TAG"); then
+            echo "Error: Failed to check Hex API"
+            exit 1
+          fi
+
+          # Handle HTTP status codes
+          case "$HTTP_RESPONSE" in
+            200)
+              echo "✓ Version $TAG already exists on Hex, skipping publish"
+              echo "should_publish=false" >> "$GITHUB_OUTPUT"
+              ;;
+            404)
+              echo "✓ Version $TAG not found on Hex, will publish"
+              echo "should_publish=true" >> "$GITHUB_OUTPUT"
+              ;;
+            429)
+              echo "Error: Hex API rate limit exceeded (HTTP 429)"
+              exit 1
+              ;;
+            5*)
+              echo "Error: Hex API server error (HTTP $HTTP_RESPONSE)"
+              exit 1
+              ;;
+            *)
+              echo "Error: Unexpected HTTP status from Hex API: $HTTP_RESPONSE"
+              exit 1
+              ;;
+          esac
+
+      - name: Install Erlang and Gleam
+        if: steps.version_check.outputs.should_publish == 'true'
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ env.OTP_VERSION }}
+          gleam-version: ${{ env.GLEAM_VERSION }}
+          rebar3-version: ${{ env.REBAR3_VERSION }}
+
+      - name: Download dependencies
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: gleam deps download
+
+      - name: Build project
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: gleam build
+
+      - name: Run tests
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: make test-unit
+
+      # A release must not ship a doc code block that does not match its
+      # tested snippet. See docs/contributing/contributing.md.
+      - name: Check docs code blocks against tested snippets
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: make check-snippets
+
+      - name: Publish to Hex
+        if: steps.version_check.outputs.should_publish == 'true'
+        env:
+          HEXPM_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run: |
+          if [ -z "$HEXPM_API_KEY" ]; then
+            echo "Error: HEX_API_KEY secret is not set"
+            exit 1
+          fi
+          gleam publish --yes
+
+      - name: Check that the version is public on Hex
+        # Hex can hold a release for approval ("staged"), for example the
+        # first release of a new package. Then gleam publish prints success,
+        # but the API answers 404 until an owner approves the release.
+        id: hex_public
+        env:
+          SHOULD_PUBLISH: ${{ steps.version_check.outputs.should_publish }}
+        run: |
+          if [ "$SHOULD_PUBLISH" != "true" ]; then
+            echo "✓ Version $TAG was on Hex before this run"
+            echo "public=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # One request, no retries.
+          if ! HTTP_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 10 \
+            "https://hex.pm/api/packages/$PACKAGE/releases/$TAG"); then
+            echo "Error: Failed to check Hex API after the publish"
+            echo "Fix: when Hex shows $PACKAGE $TAG, start this workflow by hand with the tag $TAG."
+            exit 1
+          fi
+
+          case "$HTTP_RESPONSE" in
+            200)
+              echo "✓ Version $TAG is public on Hex"
+              echo "public=true" >> "$GITHUB_OUTPUT"
+              ;;
+            404)
+              MESSAGE="Hex holds $PACKAGE $TAG for approval (staged release). The GitHub release is not created yet. After an owner approves the release on Hex, start this workflow by hand with the tag $TAG."
+              echo "::notice title=Release waits for approval on Hex::$MESSAGE"
+              echo "## ⏳ $PACKAGE $TAG waits for approval on Hex" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "$MESSAGE" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "**Hex:** https://hex.pm/packages/$PACKAGE" >> "$GITHUB_STEP_SUMMARY"
+              echo "public=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Error: Unexpected HTTP status from Hex API after the publish: $HTTP_RESPONSE"
+              echo "Fix: when Hex shows $PACKAGE $TAG, start this workflow by hand with the tag $TAG."
+              exit 1
+              ;;
+          esac
+
+      - name: Build documentation
+        if: steps.version_check.outputs.should_publish == 'true' && steps.hex_public.outputs.public == 'true'
+        run: gleam docs build
+
+      - name: Publish documentation
+        if: steps.version_check.outputs.should_publish == 'true' && steps.hex_public.outputs.public == 'true'
+        env:
+          HEXPM_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run: |
+          if [ -z "$HEXPM_API_KEY" ]; then
+            echo "Error: HEX_API_KEY secret is not set"
+            exit 1
+          fi
+          echo "Waiting for Hex to process the package..."
+          sleep 10
+          gleam docs publish
+
+      - name: Create the GitHub release
+        if: steps.hex_public.outputs.public == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "✓ The GitHub release $TAG exists already, nothing to do"
+            exit 0
+          fi
+          gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "releases/release-$TAG.md"
+          echo "✓ Created the GitHub release $TAG"
+
+      - name: Summary
+        if: steps.hex_public.outputs.public == 'true'
+        run: |
+          echo "## 📦 $PACKAGE $TAG is released" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Version:** $TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Package:** $PACKAGE" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Hex:** https://hex.pm/packages/$PACKAGE/$TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Docs:** https://hexdocs.pm/$PACKAGE/$TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "**GitHub release:** $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"

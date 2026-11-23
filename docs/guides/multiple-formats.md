@@ -142,7 +142,7 @@ This layered approach solves real-world problems:
 - **Type safety**: Full Gleam type checking throughout the template pipeline
 - **Maintainability**: Clear separation of concerns makes changes predictable
 
-See [Template Composition](../guides/templates.md) for a complete guide to this pattern.
+See [Template Composition](https://github.com/TrustBound/dream/blob/main/docs/guides/templates.md) for a complete guide to this pattern.
 
 ## Content Negotiation
 
@@ -177,7 +177,7 @@ fn detect_format_from_headers(request: Request) -> String {
 
 ## Working Example
 
-See [examples/tasks](../../examples/tasks/) for a complete application demonstrating:
+See [examples/tasks](https://github.com/TrustBound/dream/tree/main/examples/tasks) for a complete application demonstrating:
 - Side-by-side JSON and HTML
 - HTMX for dynamic updates
 - Shared business logic

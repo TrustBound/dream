@@ -38,6 +38,32 @@ Streaming uses Gleam's `Yielder` type for lazy, memory-efficient data processing
 
 ## Egress Streaming (Sending Streams)
 
+### Stream a Log
+
+The smallest streaming controller changes a list of lines into a `Yielder(BitArray)` and gives it to `stream_response`. Each line goes to the client as one chunk.
+
+#### Stream log lines <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_streaming.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+import dream/http.{ok, stream_response}
+import gleam/bit_array
+import gleam/yielder
+
+pub type Services {
+  Services(log_store: List(String))
+}
+
+pub fn download_log(_request, _context, services: Services) {
+  let stream = make_log_stream(services.log_store)
+  stream_response(ok, stream, "text/plain")
+}
+
+fn make_log_stream(lines: List(String)) -> yielder.Yielder(BitArray) {
+  yielder.from_list(lines)
+  |> yielder.map(fn(line) { bit_array.from_string(line <> "\n") })
+}
+```
+
 ### Basic Streaming Response
 
 Stream data to the client without loading it all into memory:
@@ -423,7 +449,7 @@ pub fn echo_stream(request: Request, _context, _services) -> Response {
 ## Server-Sent Events (SSE)
 
 SSE now has its own dedicated module and guide. See the
-**[SSE Guide](sse.md)** for a full walkthrough of `upgrade_to_sse`,
+**[SSE Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/sse.md)** for a full walkthrough of `upgrade_to_sse`,
 event builders, broadcasting, and integration testing.
 
 > **Note:** The old `sse_response` function from `dream/http/response` used
@@ -905,11 +931,11 @@ fn map_validation_result_to_response(
 
 ### Simple Streaming
 
-See [`examples/streaming/`](../../examples/streaming/) for HTTP client streaming.
+See [`examples/streaming/`](https://github.com/TrustBound/dream/tree/main/examples/streaming) for HTTP client streaming.
 
 ### Advanced Streaming
 
-See [`examples/streaming_capabilities/`](../../examples/streaming_capabilities/) for:
+See [`examples/streaming_capabilities/`](https://github.com/TrustBound/dream/tree/main/examples/streaming_capabilities) for:
 - **Ingress streaming**: File uploads with byte counting
 - **Egress streaming**: Generate and stream 1000 lines
 - **Bi-directional streaming**: Transform data both ways
@@ -918,7 +944,7 @@ See [`examples/streaming_capabilities/`](../../examples/streaming_capabilities/)
 
 ### Multi-Format Streaming
 
-See [`examples/multi_format/`](../../examples/multi_format/) for:
+See [`examples/multi_format/`](https://github.com/TrustBound/dream/tree/main/examples/multi_format) for:
 - CSV export as a stream
 - Different formats from same data
 - Streaming with database queries
@@ -1032,7 +1058,7 @@ Feature: Streaming Example
     And the response should have at least 100 lines
 ```
 
-See [Testing Guide](testing.md) for more examples.
+See [Testing Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/testing.md) for more examples.
 
 ## Common Pitfalls
 
@@ -1125,7 +1151,7 @@ pub fn create_csv_download(csv_rows: Yielder(BitArray)) -> Response {
 ```
 
 `sse_response` is deprecated. For Server-Sent Events, use
-`dream/servers/mist/sse.upgrade_to_sse`. See the [SSE Guide](sse.md).
+`dream/servers/mist/sse.upgrade_to_sse`. See the [SSE Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/sse.md).
 
 ### Router Functions <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_ingress.gleam#L88-L97"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -1173,8 +1199,8 @@ pub fn describe_body(body: ResponseBody) -> String {
 
 ## See Also
 
-- [Multiple Formats Guide](multiple-formats.md) - Different response formats
-- [File Uploads Guide](file-uploads.md) - Multipart form handling
-- [Streaming Example](../../examples/streaming/) - HTTP client streaming
-- [Streaming Capabilities Example](../../examples/streaming_capabilities/) - Advanced streaming
-- [Multi-Format Example](../../examples/multi_format/) - CSV streaming with database
+- [Multiple Formats Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/multiple-formats.md) - Different response formats
+- [File Uploads Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/file-uploads.md) - Multipart form handling
+- [Streaming Example](https://github.com/TrustBound/dream/tree/main/examples/streaming) - HTTP client streaming
+- [Streaming Capabilities Example](https://github.com/TrustBound/dream/tree/main/examples/streaming_capabilities) - Advanced streaming
+- [Multi-Format Example](https://github.com/TrustBound/dream/tree/main/examples/multi_format) - CSV streaming with database

@@ -121,7 +121,7 @@ For simple CRUD operations, controllers can call models directly. But when busin
 
 For example, creating a user might be simple enough for a controller, but publishing a post that updates the database, indexes in search, and sends notifications belongs in an Operation.
 
-See the [Operations Guide](operations.md) and [Advanced Patterns](../learn/04-advanced-patterns.md) for detailed examples.
+See the [Operations Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/operations.md) and [Advanced Patterns](https://github.com/TrustBound/dream/blob/main/docs/learn/04-advanced-patterns.md) for detailed examples.
 
 ## Models
 
@@ -229,7 +229,7 @@ pub fn to_json(task: Task) -> String {
 ### Best Practices
 - **Pure Functions:** Views should not have side effects.
 - **Dumb Templates:** Logic belongs in the controller or model, not the view.
-- **Multiple Formats:** Views can provide multiple format functions (to_json, to_html, to_csv) for the same data. See [Multiple Formats Guide](multiple-formats.md) for content negotiation patterns.
+- **Multiple Formats:** Views can provide multiple format functions (to_json, to_html, to_csv) for the same data. See [Multiple Formats Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/multiple-formats.md) for content negotiation patterns.
 
 ## Putting It Together
 
@@ -331,11 +331,11 @@ fn respond_with_format(task: Task, format: Option(String)) -> Response {
 }
 ```
 
-See the [Multiple Formats Guide](multiple-formats.md) for detailed content negotiation patterns.
+See the [Multiple Formats Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/multiple-formats.md) for detailed content negotiation patterns.
 
 ## Further Reading
 
-- [Architecture Reference](../reference/architecture.md) - MVC architecture overview
-- [Operations Guide](operations.md) - Complex business logic patterns
-- [Multiple Formats Guide](multiple-formats.md) - Content negotiation
-- [Advanced Patterns](../learn/04-advanced-patterns.md) - When to use Operations
+- [Architecture Reference](https://github.com/TrustBound/dream/blob/main/docs/reference/architecture.md) - MVC architecture overview
+- [Operations Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/operations.md) - Complex business logic patterns
+- [Multiple Formats Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/multiple-formats.md) - Content negotiation
+- [Advanced Patterns](https://github.com/TrustBound/dream/blob/main/docs/learn/04-advanced-patterns.md) - When to use Operations

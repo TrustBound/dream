@@ -767,5 +767,5 @@ make test
 **See Also:**
 
 - [dream_test documentation](https://hexdocs.pm/dream_test/)
-- [Deployment](deployment.md)
-- [REST API](rest-api.md)
+- [Deployment](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md)
+- [REST API](https://github.com/TrustBound/dream/blob/main/docs/guides/rest-api.md)

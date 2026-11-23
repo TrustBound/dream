@@ -327,7 +327,7 @@ This is by no means the only way to do server-side rendering, but we have found 
 
 ## Working Example
 
-See [examples/tasks](../../examples/tasks/) for a complete working example of this pattern, including:
+See [examples/tasks](https://github.com/TrustBound/dream/tree/main/examples/tasks) for a complete working example of this pattern, including:
 - Element templates (button, input, checkbox, etc.)
 - Component functions (task_card, task_list, etc.)
 - Page templates (index, show, etc.)
@@ -335,6 +335,6 @@ See [examples/tasks](../../examples/tasks/) for a complete working example of th
 
 ## See Also
 
-- [Multiple Formats](multiple-formats.md) - Using templates with JSON/HTML responses
-- [Controllers & Models](controllers-and-models.md) - How views fit into the MVC pattern
+- [Multiple Formats](https://github.com/TrustBound/dream/blob/main/docs/guides/multiple-formats.md) - Using templates with JSON/HTML responses
+- [Controllers & Models](https://github.com/TrustBound/dream/blob/main/docs/guides/controllers-and-models.md) - How views fit into the MVC pattern
 

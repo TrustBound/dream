@@ -406,5 +406,5 @@ fn error_json(message: String) -> String {
 
 ## See Also
 
-- [Streaming](streaming.md) - Stream large files
-- [REST API](rest-api.md) - File upload endpoints in APIs
+- [Streaming](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) - Stream large files
+- [REST API](https://github.com/TrustBound/dream/blob/main/docs/guides/rest-api.md) - File upload endpoints in APIs

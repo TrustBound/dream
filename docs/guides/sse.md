@@ -35,8 +35,8 @@ Use SSE when:
 - You are building **live dashboards**, notification feeds, or progress indicators.
 
 If the client also needs to send messages, use
-[WebSockets](websockets.md) instead. For large file downloads or one-off
-streams, see the [Streaming Guide](streaming.md).
+[WebSockets](https://github.com/TrustBound/dream/blob/main/docs/guides/websockets.md) instead. For large file downloads or one-off
+streams, see the [Streaming Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md).
 
 ## Overview: How Dream SSE Works
 
@@ -452,9 +452,9 @@ state transitions without opening real connections.
   API (`SSEConnection`, `Event`, `Action`, `send_event`, etc.).
 - Explore `src/dream/services/broadcaster.gleam` for the pub/sub
   implementation.
-- Run and modify the [`examples/sse/`](../../examples/sse/) example to
+- Run and modify the [`examples/sse/`](https://github.com/TrustBound/dream/tree/main/examples/sse) example to
   fit your own use case.
-- Revisit the [WebSocket Guide](websockets.md) to compare SSE with
+- Revisit the [WebSocket Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/websockets.md) to compare SSE with
   bi-directional connections.
-- See the [Streaming Guide](streaming.md) for chunked transfer encoding
+- See the [Streaming Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) for chunked transfer encoding
   and file downloads.

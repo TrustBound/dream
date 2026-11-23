@@ -129,9 +129,11 @@ The broadcaster removes a subscriber when the process that subscribed stops, so 
 
 Every Gleam code block in the guides, the READMEs, the doc comments and SECURITY.md comes from a snippet file that the tests compile and run. Each block has a "tested snippet" badge that links to its snippet at this release's tag. Converting them found and fixed wrong examples across the docs.
 
-`make check-snippets` keeps it that way. It checks that every Gleam code block has a heading with the badge and shows the same code as its snippet file. It runs in the pre-commit hook, in CI and before every publish, so a wrong example cannot ship. It found 514 code blocks and 4 diff blocks with no problems.
+`make check-snippets` keeps it that way. It checks that every Gleam code block has a heading with the badge and shows the same code as its snippet file. It runs in the pre-commit hook, in CI and before every publish, so a wrong example cannot ship. It found 518 code blocks and 4 diff blocks with no problems.
 
 The snippet check moved to the [`dream_snippets`](https://github.com/TrustBound/dream_snippets) package.
+
+Each example in the README has a "read guide" badge next to its "tested snippet" badge. The guide badge links to the docs section that shows the same example. The guides in `docs/guides/` are also pages on HexDocs.
 
 ### Modules in Their Own Repositories
 

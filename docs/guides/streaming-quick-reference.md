@@ -549,8 +549,8 @@ fn int_to_byte(number: Int) -> BitArray {
 
 ## See Also
 
-- [Streaming Guide](streaming.md) - Complete guide
-- [Streaming API Reference](../reference/streaming-api.md) - Full API docs
-- [WebSockets Guide](websockets.md) - Real-time, bi-directional connections
-- [Examples](../../examples/streaming_capabilities/) - Working code
+- [Streaming Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) - Complete guide
+- [Streaming API Reference](https://github.com/TrustBound/dream/blob/main/docs/reference/streaming-api.md) - Full API docs
+- [WebSockets Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/websockets.md) - Real-time, bi-directional connections
+- [Examples](https://github.com/TrustBound/dream/tree/main/examples/streaming_capabilities) - Working code
 

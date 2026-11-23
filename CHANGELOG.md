@@ -51,6 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a heading with the badge and matches its snippet file. It runs in the
   pre-commit hook, in CI, and before every publish.
 - The snippet check moved to the [`dream_snippets`](https://github.com/TrustBound/dream_snippets) package.
+- Each example in the README has a "read guide" badge that links to the
+  docs section that shows the same example. The guides in `docs/guides/`
+  are also pages on HexDocs.
 
 ### Changed
 
@@ -107,7 +110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI and the publish workflows use Gleam 1.19.2. Dream and the
   examples build and pass their tests on Gleam 1.19.2.
 - 962 tests run, 0 failed, in about 13 seconds (Apple M1 Max, OTP 29, Gleam
-  1.19.2). The snippet check finds 514 code blocks and 4 diff blocks with no problems. The integration tests run
+  1.19.2). The snippet check finds 518 code blocks and 4 diff blocks with no problems. The integration tests run
   ten examples over HTTP/1.1 and over HTTP/2 with TLS.
 
 ## [2.4.1] - 2026-03-11

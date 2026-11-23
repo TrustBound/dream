@@ -2,7 +2,7 @@
 
 This guide shows how to implement authentication in Dream using custom context and middleware.
 
-If you prefer a step-by-step walkthrough, start with [Learning Path: Adding Auth](../learn/03-adding-auth.md) and then return to this page as a shorter reference.
+If you prefer a step-by-step walkthrough, start with [Learning Path: Adding Auth](https://github.com/TrustBound/dream/blob/main/docs/learn/03-adding-auth.md) and then return to this page as a shorter reference.
 
 ## Concept
 
@@ -125,5 +125,5 @@ pub fn show_profile(
 
 ## See Also
 
-- [Learning Path: Adding Auth](../learn/03-adding-auth.md) - Step-by-step tutorial
-- [Context Reference](../reference/architecture.md#context) - More on context
+- [Learning Path: Adding Auth](https://github.com/TrustBound/dream/blob/main/docs/learn/03-adding-auth.md) - Step-by-step tutorial
+- [Context Reference](https://github.com/TrustBound/dream/blob/main/docs/reference/architecture.md#context) - More on context

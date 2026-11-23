@@ -485,6 +485,6 @@ The BEAM is production-ready out of the box. You just need to point it at the ri
 ---
 
 **See Also:**
-- [Testing](testing.md) - Testing your deployment
-- [REST API](rest-api.md) - Production API patterns
+- [Testing](https://github.com/TrustBound/dream/blob/main/docs/guides/testing.md) - Testing your deployment
+- [REST API](https://github.com/TrustBound/dream/blob/main/docs/guides/rest-api.md) - Production API patterns
 

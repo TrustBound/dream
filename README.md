@@ -8,21 +8,11 @@
 <br />
 
 <div align="center">
-  <a href="https://hex.pm/packages/dream">
-    <img src="https://img.shields.io/hexpm/v/dream" alt="Hex Package">
-  </a>
-  <a href="https://github.com/TrustBound/dream/releases">
-    <img src="https://img.shields.io/github/v/release/TrustBound/dream?label=Release" alt="Latest Release">
-  </a>
-  <a href="https://hexdocs.pm/dream">
-    <img src="https://img.shields.io/badge/hex-docs-lightgreen.svg" alt="HexDocs">
-  </a>
-  <a href="https://github.com/TrustBound/dream/blob/main/LICENSE.md">
-    <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License">
-  </a>
-  <a href="https://gleam.run">
-    <img src="https://img.shields.io/badge/gleam-%E2%9C%A8-ffaff3" alt="Gleam">
-  </a>
+  <a href="https://hex.pm/packages/dream"><img src="https://img.shields.io/hexpm/v/dream" alt="Hex Package"></a>
+  <a href="https://github.com/TrustBound/dream/releases"><img src="https://img.shields.io/github/v/release/TrustBound/dream?label=Release" alt="Latest Release"></a>
+  <a href="https://hexdocs.pm/dream"><img src="https://img.shields.io/badge/hex-docs-lightgreen.svg" alt="HexDocs"></a>
+  <a href="https://github.com/TrustBound/dream/blob/main/LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
+  <a href="https://gleam.run"><img src="https://img.shields.io/badge/gleam-%E2%9C%A8-ffaff3" alt="Gleam"></a>
 </div>
 
 <br />
@@ -37,7 +27,7 @@ Dream is a web toolkit for building servers. It's not a framework—you control 
 
 Here is the smallest useful Dream server. It responds with `"Hello, world!"`.
 
-### Hello, world <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_hello_server.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Hello, world <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_hello_server.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a> <a href="https://github.com/TrustBound/dream/blob/3.0.0/docs/quickstart.md#hello-world-"><img align="right" alt="Guide" src="https://img.shields.io/badge/%F0%9F%93%96_read-guide-blue.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http.{ok, text_response}
@@ -84,7 +74,7 @@ Dream also includes **named HTTP status constants** (like `ok`, `not_found`, and
 Dream is more than "Hello, world". Here are a few small examples of
 what it helps you build.
 
-### JSON APIs <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_json_api.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### JSON APIs <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_json_api.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a> <a href="https://github.com/TrustBound/dream/blob/3.0.0/docs/guides/rest-api.md#return-a-user-as-json-"><img align="right" alt="Guide" src="https://img.shields.io/badge/%F0%9F%93%96_read-guide-blue.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http.{json_response, not_found, ok}
@@ -120,7 +110,7 @@ fn user_to_json(user: User) -> String {
 - Use view functions (like `user_to_json`) to keep formatting separate
   from data access.
 
-### Streaming responses <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_streaming.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Streaming responses <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_streaming.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a> <a href="https://github.com/TrustBound/dream/blob/3.0.0/docs/guides/streaming.md#stream-log-lines-"><img align="right" alt="Guide" src="https://img.shields.io/badge/%F0%9F%93%96_read-guide-blue.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http.{ok, stream_response}
@@ -146,7 +136,7 @@ fn make_log_stream(lines: List(String)) -> yielder.Yielder(BitArray) {
 - Use the BEAM's strengths for long-running, memory-efficient
   operations.
 
-### WebSockets <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_websocket_chat.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### WebSockets <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_websocket_chat.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a> <a href="https://github.com/TrustBound/dream/blob/3.0.0/docs/guides/websockets.md#echo-each-message-with-the-user-name-"><img align="right" alt="Guide" src="https://img.shields.io/badge/%F0%9F%93%96_read-guide-blue.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/request.{type Request, get_query_param}

@@ -194,6 +194,35 @@ performance. This means 1000 routes perform nearly as fast as 10 routes
 (~1.3μs per lookup regardless of route count). The router is fast enough
 that it won’t be your bottleneck for typical apps.
 
+## The Same Server, Shorter
+
+Gleam infers types, so a small server can leave out its type annotations. This version is the example in the Dream README. It does the same job as the server above.
+
+### Hello, world <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_hello_server.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+import dream/http.{ok, text_response}
+import dream/http/request.{Get}
+import dream/router.{route, router}
+import dream/servers/mist/server
+
+fn index(_request, _context, _services) {
+  text_response(ok, "Hello, world!")
+}
+
+pub fn app_router() {
+  router()
+  |> route(method: Get, path: "/", controller: index, middleware: [])
+}
+
+pub fn main() {
+  server.new()
+  |> server.router(app_router())
+  |> server.bind("localhost")
+  |> server.listen(3000)
+}
+```
+
 ## What's Next?
 
 ### Learn Core Concepts
