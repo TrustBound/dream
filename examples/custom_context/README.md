@@ -12,6 +12,8 @@ Authentication and authorization with custom context types and middleware.
 
 ## Running the Example
 
+### Start the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/custom_context/test/integration/start.sh#L3-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 cd examples/custom_context
 make run
@@ -33,6 +35,8 @@ The example uses simple Bearer token authentication:
 - **Admin token**: `Bearer admin-token`
 
 ## Example Usage
+
+### Send the requests <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/custom_context/test/integration/readme.sh#L4-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
 # Public endpoint (no auth needed)
@@ -56,7 +60,7 @@ curl -H "Authorization: Bearer user-token" \
 
 ## Code Structure
 
-```text
+```text illustration
 examples/custom_context/
 ├── gleam.toml          # Project config
 ├── Makefile            # Build and run commands

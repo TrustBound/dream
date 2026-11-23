@@ -1,10 +1,11 @@
 import dream/http/error.{InternalServerError}
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, group, it}
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("dream/http/error", [
-    describe("to_status_code", [
+    group("to_status_code", [
       it("returns 500 for InternalServerError", fn() {
         // Arrange
         let database_error = InternalServerError("Database connection failed")
@@ -15,7 +16,7 @@ pub fn tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal(500)
+        |> be_equal(500)
         |> or_fail_with("Expected 500")
       }),
     ]),

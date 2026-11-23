@@ -360,6 +360,8 @@ At a high level:
 - A channel can be turned into a `Selector(message)`.
 - When you call `publish(broadcaster, message)`, all subscribers receive
   the message.
+- `unsubscribe(broadcaster, channel)` stops the messages to one channel.
+- `count_subscribers(broadcaster)` returns the number of subscribers in a `Result`.
 
 ### Initialize broadcaster in Services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L27-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -461,9 +463,10 @@ written in Gherkin (Cucumber). These tests:
 
 To run them:
 
+### Run the integration tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/test-integration.sh#L16"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
-cd examples/websocket_chat
-make test-integration
+(cd examples/websocket_chat && make test-integration)
 ```
 
 For unit tests inside Gleam, prefer to keep your WebSocket handlers

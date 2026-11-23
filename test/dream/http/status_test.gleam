@@ -1,12 +1,13 @@
 //// Tests for dream/http/status module.
 
 import dream/http/status
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, group, it}
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("status", [
-    describe("ok", [
+    group("ok", [
       it("equals 200", fn() {
         // Arrange
         let expected = 200
@@ -17,11 +18,11 @@ pub fn tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal(expected)
+        |> be_equal(expected)
         |> or_fail_with("status.ok should equal 200")
       }),
     ]),
-    describe("created", [
+    group("created", [
       it("equals 201", fn() {
         // Arrange
         let expected = 201
@@ -32,11 +33,11 @@ pub fn tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal(expected)
+        |> be_equal(expected)
         |> or_fail_with("status.created should equal 201")
       }),
     ]),
-    describe("bad_request", [
+    group("bad_request", [
       it("equals 400", fn() {
         // Arrange
         let expected = 400
@@ -47,11 +48,11 @@ pub fn tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal(expected)
+        |> be_equal(expected)
         |> or_fail_with("status.bad_request should equal 400")
       }),
     ]),
-    describe("not_found", [
+    group("not_found", [
       it("equals 404", fn() {
         // Arrange
         let expected = 404
@@ -62,11 +63,11 @@ pub fn tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal(expected)
+        |> be_equal(expected)
         |> or_fail_with("status.not_found should equal 404")
       }),
     ]),
-    describe("conflict", [
+    group("conflict", [
       it("equals 409", fn() {
         // Arrange
         let expected = 409
@@ -77,11 +78,11 @@ pub fn tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal(expected)
+        |> be_equal(expected)
         |> or_fail_with("status.conflict should equal 409")
       }),
     ]),
-    describe("internal_server_error", [
+    group("internal_server_error", [
       it("equals 500", fn() {
         // Arrange
         let expected = 500
@@ -92,7 +93,7 @@ pub fn tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal(expected)
+        |> be_equal(expected)
         |> or_fail_with("status.internal_server_error should equal 500")
       }),
     ]),

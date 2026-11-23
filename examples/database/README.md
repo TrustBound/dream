@@ -18,6 +18,8 @@ Full CRUD operations with PostgreSQL, type-safe SQL queries, and JSON validation
 
 ## Running the Example
 
+### Start the database and the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/test/integration/start.sh#L3-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 cd examples/database
 
@@ -61,6 +63,8 @@ Connection URL: `postgres://postgres:postgres@localhost:5435/dream_example_datab
 
 ## Example Usage
 
+### Send the requests <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/test/integration/readme.sh#L15-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 # List all users
 curl http://localhost:3002/users
@@ -71,35 +75,35 @@ curl http://localhost:3002/users/1
 # Create a user
 curl -X POST http://localhost:3002/users \
   -H "Content-Type: application/json" \
-  -d '{"name":"Alice","email":"alice@example.com"}'
+  -d '{"name":"Bob","email":"bob@example.com"}'
 
 # Update a user
 curl -X PUT http://localhost:3002/users/1 \
   -H "Content-Type: application/json" \
   -d '{"name":"Alice Updated","email":"alice.updated@example.com"}'
 
-# Delete a user
-curl -X DELETE http://localhost:3002/users/1
-
-# List posts for a user
-curl http://localhost:3002/users/1/posts
-
 # Create a post
 curl -X POST http://localhost:3002/users/1/posts \
   -H "Content-Type: application/json" \
   -d '{"title":"My First Post","content":"This is my first post!"}'
+
+# List posts for a user
+curl http://localhost:3002/users/1/posts
+
+# Delete a user
+curl -X DELETE http://localhost:3002/users/1
 ```
 
 ## Code Structure
 
-```text
+```text illustration
 examples/database/
 ├── gleam.toml              # Project config
 ├── Makefile                # Build and database commands
 ├── docker-compose.yml      # PostgreSQL setup
 ├── priv/migrations/        # Database migrations
-├── sql/                    # SQL query files (for Squirrel)
 └── src/
+    ├── sql/               # SQL query files (for Squirrel)
     ├── main.gleam         # Application entry point
     ├── router.gleam       # Route definitions
     ├── context.gleam      # Database context type
@@ -116,33 +120,53 @@ examples/database/
 
 ## Database Commands
 
-```bash
-# Start database
-make db-up
+Each target of the `Makefile` runs one command: `make db-up` starts PostgreSQL, `make db-down` stops it, `make db-logs` follows its log, `make db-shell` opens `psql`, `make db-reset` removes all data and starts it again, `make migrate` applies every migration, `make migrate-up` and `make migrate-down` apply or revert one, and `make migrate-new name=my_migration` creates a new migration file.
 
-# Stop database
-make db-down
+### The database targets <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/Makefile#L75-L116"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-# View database logs
-make db-logs
+```makefile
+# Docker Compose commands for PostgreSQL
+# In CI, PostgreSQL is a service of the job, on the same port.
+db-up:
+	@if [ -n "$$CI" ]; then \
+		echo "PostgreSQL runs as a service of the CI job"; \
+	else \
+		docker-compose up -d postgres; \
+		echo "Waiting for PostgreSQL to be ready..."; \
+		timeout 30 bash -c 'until docker-compose exec -T postgres pg_isready -U postgres; do sleep 1; done' || true; \
+	fi
 
-# Access database shell
-make db-shell
+db-down:
+	@docker-compose down
 
-# Reset database (removes all data)
-make db-reset
+db-logs:
+	@docker-compose logs -f postgres
 
-# Run migrations
-make migrate
+db-shell:
+	@docker-compose exec postgres psql -U postgres -d dream_example_database_db
 
-# Run migrations up
-make migrate-up
+db-reset:
+	@docker-compose down -v
+	@docker-compose up -d postgres
+	@echo "Waiting for PostgreSQL to be ready..."
+	@timeout 30 bash -c 'until docker-compose exec -T postgres pg_isready -U postgres; do sleep 1; done' || true
 
-# Run migrations down
-make migrate-down
+# Migration commands using cigogne
+migrate:
+	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m cigogne all
 
-# Create new migration
-make migrate-new name=my_migration
+migrate-up:
+	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m cigogne up
+
+migrate-down:
+	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m cigogne down
+
+migrate-new:
+	@gleam run -m cigogne new --name $(name)
+
+# Generate src/sql.gleam from the queries in src/sql/ with Squirrel
+squirrel:
+	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m squirrel
 ```
 
 ## Key Concepts

@@ -1,7 +1,7 @@
 import dream/http/request.{type Request, body_as_string}
 import dream/http/response.{type Response, json_response}
 import dream/http/status.{bad_request, created}
-import dream/http/validation.{validate_json}
+import dream/http/validation.{type ValidationError, validate_json}
 import gleam/dynamic/decode
 import gleam/json
 import gleam/option.{type Option}
@@ -31,16 +31,22 @@ fn create_post_from_json(body: String) -> Response {
       json_response(created, post_to_json(post))
     }
 
-    Error(validation_error) -> {
-      let field_json = format_field_as_json(validation_error.field)
-      let error_json =
+    Error(validation_errors) -> {
+      // One object for each field that failed
+      let errors_json =
         json.object([
-          #("error", json.string(validation_error.message)),
-          #("field", field_json),
+          #("errors", json.array(validation_errors, validation_error_to_json)),
         ])
-      json_response(bad_request, json.to_string(error_json))
+      json_response(bad_request, json.to_string(errors_json))
     }
   }
+}
+
+fn validation_error_to_json(validation_error: ValidationError) -> json.Json {
+  json.object([
+    #("error", json.string(validation_error.message)),
+    #("field", format_field_as_json(validation_error.field)),
+  ])
 }
 
 fn post_to_json(post: CreatePost) -> String {

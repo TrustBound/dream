@@ -1,4 +1,5 @@
 import controllers/sse_controller
+import dream/controllers/static
 import dream/http/request.{Get}
 import dream/http/response
 import dream/http/status
@@ -11,6 +12,21 @@ pub fn create() {
     Get,
     "/health",
     fn(_, _, _) { response.text_response(status.ok, "ok") },
+    [],
+  )
+  |> route(
+    Get,
+    "/client.js",
+    fn(request, context, services) {
+      static.serve(
+        request: request,
+        context: context,
+        services: services,
+        root: "./assets",
+        filepath: "client.js",
+        config: static.default_config(),
+      )
+    },
     [],
   )
   |> route(Get, "/events", sse_controller.handle_events, [])

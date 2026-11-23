@@ -6,7 +6,7 @@
 
 import dream/http/header.{Header}
 import dream/http/request.{
-  type Request, type RequestBody, Http, Http1, Post, Request,
+  type BodyReadError, type Request, type RequestBody, Http, Http1, Post, Request,
 }
 import dream/http/response.{
   type Response, type ResponseBody, Bytes, Response, Stream, Text,
@@ -14,7 +14,9 @@ import dream/http/response.{
 import gleam/option.{None, Some}
 import gleam/yielder.{type Yielder}
 
-pub fn create_upload_request(chunks: Yielder(BitArray)) -> Request {
+pub fn create_upload_request(
+  chunks: Yielder(Result(BitArray, BodyReadError)),
+) -> Request {
   Request(
     method: Post,
     protocol: Http,
@@ -25,7 +27,8 @@ pub fn create_upload_request(chunks: Yielder(BitArray)) -> Request {
     host: None,
     port: None,
     remote_address: None,
-    // A streaming route gets the request body as a stream of chunks.
+    // A streaming route gets the request body as a stream of chunks. Each
+    // item is Ok(chunk), or Error when the connection broke.
     body: request.Stream(chunks),
     headers: [],
     cookies: [],

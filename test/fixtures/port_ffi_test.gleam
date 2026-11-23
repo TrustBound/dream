@@ -1,12 +1,13 @@
 //// Tests for `port_ffi.free_port`, the one helper that gives each server
 //// test its TCP port.
 
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, it}
 import gleam/erlang/process
 import gleam/list
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("port_ffi", [
     it("gives a different port to each of 200 concurrent callers", fn() {
       // Arrange
@@ -31,7 +32,7 @@ pub fn tests() -> UnitTest {
       // Assert
       #(list.length(ports), list.length(list.unique(ports)))
       |> should()
-      |> equal(#(caller_count, caller_count))
+      |> be_equal(#(caller_count, caller_count))
       |> or_fail_with("Expected 200 distinct ports from 200 concurrent callers")
     }),
   ])

@@ -31,17 +31,24 @@ import dream/http/cookie.{type Cookie}
 import dream/http/header.{type Header}
 import gleam/bit_array
 import gleam/float
+import gleam/http
 import gleam/int
 import gleam/list
 import gleam/option
+import gleam/result
 import gleam/string
 import gleam/uri
 import gleam/yielder.{type Yielder}
 
 /// HTTP request methods
 ///
-/// The standard HTTP methods your routes can handle. Use these in your router
-/// to specify which method a route responds to.
+/// The method of a request, and the method that a route responds to. The
+/// nine methods that RFC 9110 and RFC 5789 define each have a constructor.
+/// Every other method is `Other`, with its name exactly as the client sent
+/// it. Method names are case-sensitive (RFC 9110, section 9.1), so
+/// `Other("PURGE")` and `Other("purge")` are two different methods. The
+/// server never changes one method into another: a request with a method
+/// that has no route gets 404.
 ///
 /// ## Example
 ///
@@ -82,6 +89,9 @@ pub type Method {
   Patch
   Options
   Head
+  Connect
+  Trace
+  Other(String)
 }
 
 /// HTTP protocol type
@@ -144,7 +154,8 @@ pub type Version {
 /// - `params`: Path parameters extracted by router (e.g., [#("id", "123")])
 /// - `host`: Host header value (e.g., "example.com")
 /// - `port`: Port number (e.g., 443)
-/// - `remote_address`: Client IP address
+/// - `remote_address`: Client IP address as text: dotted decimal for IPv4,
+///   and the RFC 5952 form for IPv6 (for example `2601:282:a00:b38::421d`)
 /// - `body`: Request body as a `RequestBody`: `Text` or `Bytes` on a normal
 ///   route, `Stream` on a route added with `stream_route`
 /// - `headers`: List of HTTP headers
@@ -204,7 +215,12 @@ pub type Request {
 /// body arrives as `Bytes` with the exact bytes the client sent, so a binary
 /// upload is never lost. A route added with `stream_route` does not read the
 /// body first: the body arrives as `Stream`, and the controller reads the
-/// chunks when it needs them.
+/// chunks when it needs them. Each item of the stream is `Ok(chunk)`, or
+/// `Error(BodyReadError)` when a read from the connection fails, for example
+/// because the client sent 5 of 10 bytes and the connection broke. After an
+/// `Error` item the stream ends. The controller owns the answer to that
+/// failure, and because each item is a `Result`, code that uses an item as
+/// bytes does not compile until it handles the `Error`.
 ///
 /// The constructor names are the same as the names of `ResponseBody` in
 /// `dream/http/response`, so a request and a response read the same way. In
@@ -215,30 +231,46 @@ pub type Request {
 /// ### Measure the body <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request_body.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
-/// import dream/http/request.{type Request, Bytes, Stream, Text}
+/// import dream/http/request.{type BodyReadError, type Request, Bytes, Stream, Text}
 /// import gleam/bit_array
+/// import gleam/result
 /// import gleam/string
 /// import gleam/yielder
 ///
-/// pub fn body_size(request: Request) -> Int {
+/// pub fn body_size(request: Request) -> Result(Int, BodyReadError) {
 ///   case request.body {
 ///     // A normal route, body is valid UTF-8
-///     Text(text) -> string.byte_size(text)
+///     Text(text) -> Ok(string.byte_size(text))
 ///     // A normal route, body is not valid UTF-8
-///     Bytes(bytes) -> bit_array.byte_size(bytes)
-///     // A stream_route: add up the chunks as they arrive
-///     Stream(chunks) -> yielder.fold(chunks, 0, add_chunk_size)
+///     Bytes(bytes) -> Ok(bit_array.byte_size(bytes))
+///     // A stream_route: add up the chunks as they arrive. An Error item means
+///     // that the connection broke before the end, and try_fold stops there.
+///     Stream(chunks) -> yielder.try_fold(chunks, 0, add_chunk_size)
 ///   }
 /// }
 ///
-/// fn add_chunk_size(total: Int, chunk: BitArray) -> Int {
+/// fn add_chunk_size(
+///   total: Int,
+///   item: Result(BitArray, BodyReadError),
+/// ) -> Result(Int, BodyReadError) {
+///   use chunk <- result.map(item)
 ///   total + bit_array.byte_size(chunk)
 /// }
 /// ```
 pub type RequestBody {
   Text(String)
   Bytes(BitArray)
-  Stream(Yielder(BitArray))
+  Stream(Yielder(Result(BitArray, BodyReadError)))
+}
+
+/// Why a read of a streamed request body failed
+///
+/// The server reports one cause. `MalformedBody` means that the server could
+/// not read the rest of the body: the connection closed before the end of
+/// the body, no data came in the read timeout, or the chunked framing was
+/// not valid. The server does not tell these cases apart.
+pub type BodyReadError {
+  MalformedBody
 }
 
 /// Get the request body as a string
@@ -248,7 +280,7 @@ pub type RequestBody {
 /// `Bytes` gives `Ok` only when the bytes are valid UTF-8. `Stream` reads
 /// every chunk, joins them, and then converts the result, so the stream is
 /// used up after this call. A body that is not valid UTF-8 gives
-/// `Error(Nil)`.
+/// `Error(Nil)`, and so does a stream with an `Error` item.
 ///
 /// ## Example
 ///
@@ -268,9 +300,17 @@ pub fn body_as_string(request: Request) -> Result(String, Nil) {
     Bytes(bytes) -> bit_array.to_string(bytes)
     Stream(chunks) ->
       chunks
-      |> yielder.fold(<<>>, bit_array.append)
-      |> bit_array.to_string
+      |> yielder.try_fold(<<>>, append_chunk)
+      |> result.replace_error(Nil)
+      |> result.try(bit_array.to_string)
   }
+}
+
+fn append_chunk(
+  body: BitArray,
+  item: Result(BitArray, BodyReadError),
+) -> Result(BitArray, BodyReadError) {
+  result.map(item, bit_array.append(body, _))
 }
 
 /// Path parameter with automatic type conversion and format detection
@@ -294,6 +334,22 @@ pub type PathParam {
 // Method conversion utilities
 
 /// Convert Method to its string representation
+///
+/// A standard method gives its upper-case name. `Other` gives its name
+/// exactly as it is, so `Other("purge")` gives `"purge"`.
+///
+/// ## Example
+///
+/// ### Get the method name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request_method_to_string.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/request.{Post, method_to_string}
+///
+/// pub fn post_name() -> String {
+///   // "POST"
+///   method_to_string(Post)
+/// }
+/// ```
 pub fn method_to_string(method: Method) -> String {
   case method {
     Get -> "GET"
@@ -303,10 +359,33 @@ pub fn method_to_string(method: Method) -> String {
     Patch -> "PATCH"
     Options -> "OPTIONS"
     Head -> "HEAD"
+    Connect -> "CONNECT"
+    Trace -> "TRACE"
+    Other(name) -> name
   }
 }
 
 /// Parse a string to Method (case-insensitive)
+///
+/// The match ignores case for the nine standard names, so `"delete"` gives
+/// `Some(Delete)`. Another valid method token (RFC 9110, section 5.6.2)
+/// gives `Some(Other(name))` with the name exactly as given, so `"PURGE"`
+/// gives `Some(Other("PURGE"))`. Text that is not a method token, for
+/// example `""` or `"GET /"`, gives `None`.
+///
+/// ## Example
+///
+/// ### Parse a method name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request_parse_method.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/request.{type Method, parse_method}
+/// import gleam/option.{type Option}
+///
+/// pub fn delete_method() -> Option(Method) {
+///   // The match ignores case: Some(Delete)
+///   parse_method("delete")
+/// }
+/// ```
 pub fn parse_method(method_name: String) -> option.Option(Method) {
   case string.lowercase(method_name) {
     "get" -> option.Some(Get)
@@ -316,7 +395,18 @@ pub fn parse_method(method_name: String) -> option.Option(Method) {
     "patch" -> option.Some(Patch)
     "options" -> option.Some(Options)
     "head" -> option.Some(Head)
-    _ -> option.None
+    "connect" -> option.Some(Connect)
+    "trace" -> option.Some(Trace)
+    _ -> parse_other_method(method_name)
+  }
+}
+
+/// A valid method token that is no standard method name becomes `Other` with
+/// the exact name. gleam/http checks the token rules of RFC 9110.
+fn parse_other_method(method_name: String) -> option.Option(Method) {
+  case http.parse_method(method_name) {
+    Ok(_token) -> option.Some(Other(method_name))
+    Error(Nil) -> option.None
   }
 }
 
@@ -326,6 +416,21 @@ pub fn parse_method(method_name: String) -> option.Option(Method) {
 ///
 /// Properly decodes URL-encoded values (e.g., %20 → space, %26 → &)
 /// Returns None if the parameter is not found.
+///
+/// ## Example
+///
+/// ### Read a query parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request_get_query_param.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/request.{get_query_param}
+/// import gleam/option.{type Option}
+///
+/// pub fn search_term() -> Option(String) {
+///   let query = "q=hello%20world&page=2"
+///   // The value is decoded: Some("hello world")
+///   get_query_param(query, "q")
+/// }
+/// ```
 pub fn get_query_param(query: String, name: String) -> option.Option(String) {
   get_query_param_recursive(string.split(query, "&"), name)
 }
@@ -389,6 +494,19 @@ fn decode_url_component(component: String) -> String {
 }
 
 /// Check if request has a specific content type
+///
+/// ## Example
+///
+/// ### Check for JSON <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request_has_content_type.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/request.{type Request, has_content_type}
+///
+/// pub fn is_json(request: Request) -> Bool {
+///   // True for "application/json; charset=utf-8"
+///   has_content_type(request, "application/json")
+/// }
+/// ```
 pub fn has_content_type(request: Request, content_type: String) -> Bool {
   case request.content_type {
     option.Some(actual_content_type) ->
@@ -398,11 +516,37 @@ pub fn has_content_type(request: Request, content_type: String) -> Bool {
 }
 
 /// Check if request method matches
+///
+/// ## Example
+///
+/// ### Check for POST <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request_is_method.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/request.{type Request, Post, is_method}
+///
+/// pub fn is_post(request: Request) -> Bool {
+///   // True only for a POST request
+///   is_method(request, Post)
+/// }
+/// ```
 pub fn is_method(request: Request, method: Method) -> Bool {
   request.method == method
 }
 
 /// Create a new request with updated params
+///
+/// ## Example
+///
+/// ### Set the path parameters <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request_set_params.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/request.{type Request, set_params}
+///
+/// pub fn with_user_id(request: Request) -> Request {
+///   // The new request has params [#("id", "42")]
+///   set_params(request, [#("id", "42")])
+/// }
+/// ```
 pub fn set_params(
   request: Request,
   new_params: List(#(String, String)),

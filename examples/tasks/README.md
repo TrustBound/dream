@@ -41,57 +41,37 @@ All using semantic HTML without classes.
 
 ## Setup
 
-1. **Start database:**
+### Start the database and the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/start.sh#L3-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
+cd examples/tasks
+
+# Start database
 make db-up
-```
 
-2. **Create migrations (already created):**
-```bash
-make migrate-new name=create_projects
-make migrate-new name=create_todos
-make migrate-new name=create_tags
-make migrate-new name=create_todo_tags
-```
-
-3. **Run migrations:**
-```bash
+# Run migrations
 make migrate
-```
 
-4. **Generate SQL code:**
-```bash
-make squirrel
-```
-
-5. **Compile Matcha templates:**
-```bash
-make matcha
-```
-
-6. **Run the application:**
-```bash
+# Run the application
 make run
 ```
 
 Server will start on `http://localhost:3000`.
 
-## Quick Start
+The migrations are already in `priv/migrations`. They were made with `make migrate-new name=create_projects`, and the same for `create_todos`, `create_tags` and `create_todo_tags`.
+
+When you change a query or a template, generate the code again. `make squirrel` needs the database:
+
+### Generate the SQL code <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/sql.sh#L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
-# All-in-one setup
-make db-up
-sleep 5
-make migrate
 make squirrel
-make matcha
-make run
 ```
 
-Or use the automated test script:
+### Compile the templates <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/templates.sh#L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
-./run_example.sh
+make matcha
 ```
 
 ## Endpoints
@@ -139,7 +119,7 @@ Open `http://localhost:3000` in your browser to:
 
 ## Code Structure
 
-```text
+```text illustration
 examples/tasks/
 ├── src/
 │   ├── main.gleam              # Entry point

@@ -3,13 +3,15 @@
 //// Middleware that transforms request and response streams, and a router
 //// that uses both, as shown in docs/guides/streaming.md.
 
-import dream/http/request.{type Request, Post, Request}
+import dream/http/request.{type BodyReadError, type Request, Post, Request}
 import dream/http/response.{
   type Response, Response, Stream, stream_response, text_response,
 }
 import dream/http/status
 import dream/router.{type Router, router, stream_route}
-import gleam/yielder
+import gleam/function
+import gleam/result
+import gleam/yielder.{type Yielder}
 
 pub fn uppercase_incoming(
   request: Request,
@@ -19,13 +21,20 @@ pub fn uppercase_incoming(
 ) -> Response {
   case request.body {
     request.Stream(stream) -> {
-      let uppercase_stream = yielder.map(stream, uppercase_chunk)
+      let uppercase_stream = yielder.map(stream, uppercase_item)
       let transformed_request =
         Request(..request, body: request.Stream(uppercase_stream))
       next(transformed_request, context, services)
     }
     _ -> next(request, context, services)
   }
+}
+
+// An Error item stays as it is, so the controller still sees the failure
+fn uppercase_item(
+  item: Result(BitArray, BodyReadError),
+) -> Result(BitArray, BodyReadError) {
+  result.map(item, uppercase_chunk)
 }
 
 fn uppercase_chunk(chunk: BitArray) -> BitArray {
@@ -98,7 +107,16 @@ pub fn create_router() -> Router(context, services) {
 // The controller sends the request stream back as the response
 pub fn echo_stream(request: Request, _context, _services) -> Response {
   case request.body {
-    request.Stream(stream) -> stream_response(status.ok, stream, "text/plain")
+    request.Stream(stream) ->
+      stream_response(status.ok, chunks_until_error(stream), "text/plain")
     _ -> text_response(status.bad_request, "Expected streaming request")
   }
+}
+
+// The response is already on its way when a read fails, so it cannot become
+// a 400. The echo keeps each Ok chunk and ends at the Error item.
+fn chunks_until_error(
+  stream: Yielder(Result(BitArray, BodyReadError)),
+) -> Yielder(BitArray) {
+  yielder.filter_map(stream, function.identity)
 }

@@ -404,6 +404,23 @@ pub fn stream_response(
 /// - `Content-Type: text/event-stream`
 /// - `Cache-Control: no-cache`
 /// - `Connection: keep-alive`
+///
+/// ## Example
+///
+/// ### Create an SSE response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_sse_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/response.{type Response, sse_response}
+/// import dream/http/status.{ok}
+/// import gleam/yielder
+///
+/// pub fn events() -> Response {
+///   let stream = yielder.from_list([<<"data: hello\n\n":utf8>>])
+///   // Headers: Content-Type: text/event-stream, Cache-Control: no-cache,
+///   // Connection: keep-alive
+///   sse_response(ok, stream, "text/event-stream")
+/// }
+/// ```
 pub fn sse_response(
   status: Int,
   stream: yielder.Yielder(BitArray),

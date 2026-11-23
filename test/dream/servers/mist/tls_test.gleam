@@ -10,14 +10,15 @@ import dream/http/request.{type Request, Get}
 import dream/http/response.{type Response, text_response}
 import dream/router.{route, router}
 import dream/servers/mist/server
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, it}
 import fixtures/server_start.{with_server}
 import gleam/erlang/atom.{type Atom}
 import gleam/option.{None, Some}
 import gleam/otp/actor
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("tls", [
     it("agrees on HTTP/2 over TLS and answers the request", fn() {
       // Arrange
@@ -37,7 +38,7 @@ pub fn tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#(atom.create("http2"), 200, <<"hello over tls":utf8>>)))
+      |> be_equal(Ok(#(atom.create("http2"), 200, <<"hello over tls":utf8>>)))
       |> or_fail_with("Expected an HTTP/2 response over TLS")
     }),
     it("answers HTTP/1.1 over TLS to clients that ask for it", fn() {
@@ -58,7 +59,7 @@ pub fn tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#(atom.create("http"), 200, <<"hello over tls":utf8>>)))
+      |> be_equal(Ok(#(atom.create("http"), 200, <<"hello over tls":utf8>>)))
       |> or_fail_with("Expected an HTTP/1.1 response over TLS")
     }),
     it("keeps TLS when settings are changed after tls()", fn() {
@@ -81,7 +82,7 @@ pub fn tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#(atom.create("http2"), 200, <<"hello over tls":utf8>>)))
+      |> be_equal(Ok(#(atom.create("http2"), 200, <<"hello over tls":utf8>>)))
       |> or_fail_with("Expected TLS to survive later settings")
     }),
     it("tls stores the certificate and key files", fn() {
@@ -95,7 +96,7 @@ pub fn tests() -> UnitTest {
       // Assert
       dream.get_tls(configured)
       |> should()
-      |> equal(Some(dream.Tls(certfile: "cert.pem", keyfile: "key.pem")))
+      |> be_equal(Some(dream.Tls(certfile: "cert.pem", keyfile: "key.pem")))
       |> or_fail_with("Expected the TLS files to be stored")
     }),
     it("new serves plain HTTP", fn() {
@@ -108,7 +109,7 @@ pub fn tests() -> UnitTest {
       // Assert
       tls
       |> should()
-      |> equal(None)
+      |> be_equal(None)
       |> or_fail_with("Expected no TLS by default")
     }),
     it("listen_with_handle fails when the certificate file is missing", fn() {
@@ -126,7 +127,7 @@ pub fn tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         Error(actor.InitFailed("TLS file not found: build/test_tls/missing.pem")),
       )
       |> or_fail_with("Expected a start error for a missing certificate")

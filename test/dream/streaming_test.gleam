@@ -11,10 +11,9 @@ import dream/router.{
   type EmptyServices, EmptyServices, Middleware, build_controller_chain, route,
   stream_route,
 }
-import dream_test/assertions/should.{
-  be_error, be_ok, equal, or_fail_with, should,
-}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, be_error, be_ok, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/handler.{
   echo_buffered_handler, echo_stream_handler, test_handler,
 }
@@ -28,7 +27,7 @@ import matchers/extract_body_text.{extract_body_text}
 // Tests
 // ============================================================================
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("streaming", [
     body_as_string_tests(),
     middleware_streaming_tests(),
@@ -37,8 +36,8 @@ pub fn tests() -> UnitTest {
   ])
 }
 
-fn body_as_string_tests() -> UnitTest {
-  describe("body_as_string", [
+fn body_as_string_tests() -> UnitNode {
+  group("body_as_string", [
     it("returns empty string for empty stream", fn() {
       // Arrange
       let stream = yielder.empty()
@@ -51,7 +50,7 @@ fn body_as_string_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal("")
+      |> be_equal("")
       |> or_fail_with("Empty stream should return empty string")
     }),
     it("returns error for invalid UTF-8", fn() {
@@ -84,7 +83,7 @@ fn body_as_string_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal("Chunk 1Chunk 2")
+      |> be_equal("Chunk 1Chunk 2")
       |> or_fail_with("Should collect all chunks")
     }),
     it("handles many chunks", fn() {
@@ -106,7 +105,7 @@ fn body_as_string_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal("Chunk 1 Chunk 2 Chunk 3 Chunk 4 Chunk 5")
+      |> be_equal("Chunk 1 Chunk 2 Chunk 3 Chunk 4 Chunk 5")
       |> or_fail_with("Should handle many chunks")
     }),
     it("returns empty string for buffered empty body", fn() {
@@ -120,14 +119,14 @@ fn body_as_string_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal("")
+      |> be_equal("")
       |> or_fail_with("Empty buffered body should return empty string")
     }),
   ])
 }
 
-fn middleware_streaming_tests() -> UnitTest {
-  describe("middleware with streaming", [
+fn middleware_streaming_tests() -> UnitNode {
+  group("middleware with streaming", [
     it("preserves stream through pass-through middleware", fn() {
       // Arrange
       let stream = yielder.from_list([bit_array.from_string("test")])
@@ -144,7 +143,7 @@ fn middleware_streaming_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(200)
+      |> be_equal(200)
       |> or_fail_with("Middleware should preserve stream")
     }),
     it("can consume stream before controller", fn() {
@@ -182,7 +181,7 @@ fn middleware_streaming_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(200)
+      |> be_equal(200)
       |> or_fail_with("Status should be 200")
     }),
     it("passes consumed body to controller", fn() {
@@ -221,14 +220,14 @@ fn middleware_streaming_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("consumed")
+      |> be_equal("consumed")
       |> or_fail_with("Controller should receive consumed body")
     }),
   ])
 }
 
-fn stream_error_tests() -> UnitTest {
-  describe("stream error handling", [
+fn stream_error_tests() -> UnitNode {
+  group("stream error handling", [
     it("handles invalid UTF-8 gracefully", fn() {
       // Arrange
       let invalid_chunk = <<0xFF, 0xFE, 0xFD>>
@@ -256,14 +255,14 @@ fn stream_error_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal("test")
+      |> be_equal("test")
       |> or_fail_with("First consumption should work")
     }),
   ])
 }
 
-fn route_streaming_tests() -> UnitTest {
-  describe("route streaming", [
+fn route_streaming_tests() -> UnitNode {
+  group("route streaming", [
     it("buffered route receives full body", fn() {
       // Arrange
       let test_router = create_test_router()
@@ -279,7 +278,7 @@ fn route_streaming_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("buffered data")
+      |> be_equal("buffered data")
       |> or_fail_with("Should receive buffered data")
     }),
     it("streaming route receives stream", fn() {
@@ -298,7 +297,7 @@ fn route_streaming_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("streamed data")
+      |> be_equal("streamed data")
       |> or_fail_with("Should receive streamed data")
     }),
     it("streaming route handles empty stream", fn() {
@@ -317,7 +316,7 @@ fn route_streaming_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("")
+      |> be_equal("")
       |> or_fail_with("Should handle empty stream")
     }),
     it("buffered route handles empty body", fn() {
@@ -334,7 +333,7 @@ fn route_streaming_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("")
+      |> be_equal("")
       |> or_fail_with("Should handle empty body")
     }),
     it("returns 404 for nonexistent route", fn() {
@@ -350,7 +349,7 @@ fn route_streaming_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("Should return 404")
     }),
   ])

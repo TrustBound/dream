@@ -4,11 +4,12 @@ import dream/router/parser
 import dream/router/trie.{
   ExtensionPattern, Literal, MultiWildcard, Param, SingleWildcard,
 }
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import gleam/option.{None, Some}
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("parser", [
     static_path_tests(),
     parameter_tests(),
@@ -16,11 +17,12 @@ pub fn tests() -> UnitTest {
     extension_pattern_tests(),
     complex_pattern_tests(),
     edge_case_tests(),
+    unclosed_brace_tests(),
   ])
 }
 
-fn static_path_tests() -> UnitTest {
-  describe("static paths", [
+fn static_path_tests() -> UnitNode {
+  group("static paths", [
     it("parses single static segment", fn() {
       // Arrange
       let pattern = "/users"
@@ -31,7 +33,7 @@ fn static_path_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([Literal("users")])
+      |> be_equal([Literal("users")])
       |> or_fail_with("Should parse /users")
     }),
     it("parses multiple static segments", fn() {
@@ -44,7 +46,7 @@ fn static_path_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([Literal("api"), Literal("v1"), Literal("users")])
+      |> be_equal([Literal("api"), Literal("v1"), Literal("users")])
       |> or_fail_with("Should parse /api/v1/users")
     }),
     it("parses root path as empty list", fn() {
@@ -57,14 +59,14 @@ fn static_path_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([])
+      |> be_equal([])
       |> or_fail_with("Root path should be empty list")
     }),
   ])
 }
 
-fn parameter_tests() -> UnitTest {
-  describe("parameters", [
+fn parameter_tests() -> UnitNode {
+  group("parameters", [
     it("parses single param", fn() {
       // Arrange
       let pattern = "/users/:id"
@@ -75,7 +77,7 @@ fn parameter_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([Literal("users"), Param("id")])
+      |> be_equal([Literal("users"), Param("id")])
       |> or_fail_with("Should parse /users/:id")
     }),
     it("parses multiple params", fn() {
@@ -88,7 +90,7 @@ fn parameter_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([
+      |> be_equal([
         Literal("users"),
         Param("user_id"),
         Literal("posts"),
@@ -106,14 +108,14 @@ fn parameter_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([Param("id")])
+      |> be_equal([Param("id")])
       |> or_fail_with("Should parse /:id")
     }),
   ])
 }
 
-fn wildcard_tests() -> UnitTest {
-  describe("wildcards", [
+fn wildcard_tests() -> UnitNode {
+  group("wildcards", [
     it("parses anonymous single wildcard", fn() {
       // Arrange
       let pattern = "/files/*"
@@ -124,7 +126,7 @@ fn wildcard_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([Literal("files"), SingleWildcard(None)])
+      |> be_equal([Literal("files"), SingleWildcard(None)])
       |> or_fail_with("Should parse /files/*")
     }),
     it("parses named single wildcard", fn() {
@@ -137,7 +139,7 @@ fn wildcard_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([Literal("files"), SingleWildcard(Some("filename"))])
+      |> be_equal([Literal("files"), SingleWildcard(Some("filename"))])
       |> or_fail_with("Should parse /files/*filename")
     }),
     it("parses anonymous multi wildcard", fn() {
@@ -150,7 +152,7 @@ fn wildcard_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([Literal("public"), MultiWildcard(None)])
+      |> be_equal([Literal("public"), MultiWildcard(None)])
       |> or_fail_with("Should parse /public/**")
     }),
     it("parses named multi wildcard", fn() {
@@ -163,14 +165,14 @@ fn wildcard_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([Literal("public"), MultiWildcard(Some("filepath"))])
+      |> be_equal([Literal("public"), MultiWildcard(Some("filepath"))])
       |> or_fail_with("Should parse /public/**filepath")
     }),
   ])
 }
 
-fn extension_pattern_tests() -> UnitTest {
-  describe("extension patterns", [
+fn extension_pattern_tests() -> UnitNode {
+  group("extension patterns", [
     it("parses single extension", fn() {
       // Arrange
       let pattern = "/css/*.css"
@@ -181,7 +183,7 @@ fn extension_pattern_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([Literal("css"), ExtensionPattern(["css"])])
+      |> be_equal([Literal("css"), ExtensionPattern(["css"])])
       |> or_fail_with("Should parse /css/*.css")
     }),
     it("parses brace extensions", fn() {
@@ -194,7 +196,7 @@ fn extension_pattern_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([Literal("images"), ExtensionPattern(["jpg", "png", "gif"])])
+      |> be_equal([Literal("images"), ExtensionPattern(["jpg", "png", "gif"])])
       |> or_fail_with("Should parse /images/*.{jpg,png,gif}")
     }),
     it("parses brace extensions with spaces", fn() {
@@ -207,14 +209,14 @@ fn extension_pattern_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([Literal("images"), ExtensionPattern(["jpg", "png", "gif"])])
+      |> be_equal([Literal("images"), ExtensionPattern(["jpg", "png", "gif"])])
       |> or_fail_with("Should parse with spaces")
     }),
   ])
 }
 
-fn complex_pattern_tests() -> UnitTest {
-  describe("complex patterns", [
+fn complex_pattern_tests() -> UnitNode {
+  group("complex patterns", [
     it("parses pattern with all types", fn() {
       // Arrange
       let pattern = "/api/:version/users/:id/files/**path"
@@ -225,7 +227,7 @@ fn complex_pattern_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([
+      |> be_equal([
         Literal("api"),
         Param("version"),
         Literal("users"),
@@ -245,7 +247,7 @@ fn complex_pattern_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([
+      |> be_equal([
         SingleWildcard(None),
         Literal("files"),
         SingleWildcard(Some("name")),
@@ -262,7 +264,7 @@ fn complex_pattern_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([
+      |> be_equal([
         Literal("photos"),
         MultiWildcard(None),
         ExtensionPattern(["jpg", "png"]),
@@ -272,8 +274,8 @@ fn complex_pattern_tests() -> UnitTest {
   ])
 }
 
-fn edge_case_tests() -> UnitTest {
-  describe("edge cases", [
+fn edge_case_tests() -> UnitNode {
+  group("edge cases", [
     it("ignores trailing slash", fn() {
       // Arrange
       let pattern = "/users/"
@@ -284,7 +286,7 @@ fn edge_case_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([Literal("users")])
+      |> be_equal([Literal("users")])
       |> or_fail_with("Should ignore trailing slash")
     }),
     it("handles multiple slashes", fn() {
@@ -297,7 +299,7 @@ fn edge_case_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([Literal("users"), Literal("posts")])
+      |> be_equal([Literal("users"), Literal("posts")])
       |> or_fail_with("Should handle multiple slashes")
     }),
     it("handles no leading slash", fn() {
@@ -310,8 +312,26 @@ fn edge_case_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([Literal("users")])
+      |> be_equal([Literal("users")])
       |> or_fail_with("Should handle no leading slash")
+    }),
+  ])
+}
+
+fn unclosed_brace_tests() -> UnitNode {
+  group("unclosed brace", [
+    it("keeps a segment with an unclosed brace as a literal", fn() {
+      // Arrange
+      let pattern = "/files/data.{json"
+
+      // Act
+      let result = parser.parse_pattern(pattern)
+
+      // Assert
+      result
+      |> should()
+      |> be_equal([Literal("files"), Literal("data.{json")])
+      |> or_fail_with("data.{json has no closing brace, so it is a literal")
     }),
   ])
 }

@@ -11,13 +11,14 @@ import dream/http/response.{html_response, json_response}
 import dream/http/validation.{ValidationError}
 import dream_http_client/client
 import dream_http_client/recorder
-import dream_test/assertions/should.{equal, or_fail_with, should}
+import dream_test/matchers.{be_equal, or_fail_with, should}
 import dream_test/runner
+import dream_test/suite.{type TestSuite}
 import dream_test/types.{
   type Status, AssertionFailure, CustomMatcherFailure, MatchFailed, MatchOk,
   Passed,
 }
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/bit_array
 import gleam/list
@@ -55,7 +56,7 @@ import snippets/testing_guide_user
 import snippets/testing_guide_user_test
 import snippets/testing_guide_users_controller_test
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("guide snippets", [
     testing_guide_tests(),
     controllers_guide_tests(),
@@ -63,8 +64,8 @@ pub fn tests() -> UnitTest {
   ])
 }
 
-fn testing_guide_tests() -> UnitTest {
-  describe("testing guide", [
+fn testing_guide_tests() -> UnitNode {
+  group("testing guide", [
     it("quick start test passes", fn() {
       // Arrange
       let snippet_tests = testing_guide_quick_start.tests()
@@ -75,7 +76,7 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       results
       |> should()
-      |> equal([#("creates user with valid data", Passed)])
+      |> be_equal([#("creates user with valid data", Passed)])
       |> or_fail_with("Quick start test should pass")
     }),
     it("entry point exits with status 0 when its tests pass", fn() {
@@ -88,7 +89,7 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       exit_status
       |> should()
-      |> equal(0)
+      |> be_equal(0)
       |> or_fail_with("Entry point should exit with status 0")
     }),
     it("test module pattern test passes", fn() {
@@ -101,7 +102,7 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       results
       |> should()
-      |> equal([#("joins lowercase words with dashes", Passed)])
+      |> be_equal([#("joins lowercase words with dashes", Passed)])
       |> or_fail_with("Test module pattern test should pass")
     }),
     it("basic matcher tests pass", fn() {
@@ -114,7 +115,7 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       results
       |> should()
-      |> equal([
+      |> be_equal([
         #("be_empty", Passed),
         #("be_error", Passed),
         #("be_false", Passed),
@@ -138,7 +139,10 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       results
       |> should()
-      |> equal([#("accepts a valid email", Passed), #("finds user 1", Passed)])
+      |> be_equal([
+        #("accepts a valid email", Passed),
+        #("finds user 1", Passed),
+      ])
       |> or_fail_with("Chaining tests should pass")
     }),
     it("custom matcher usage test passes", fn() {
@@ -146,18 +150,18 @@ fn testing_guide_tests() -> UnitTest {
       let snippet_tests = testing_guide_examples.custom_matcher_tests()
 
       // Act
-      let results = run_unit_tests(snippet_tests)
+      let results = run_unit_node(snippet_tests)
 
       // Assert
       results
       |> should()
-      |> equal([#("reads the name from a valid user", Passed)])
+      |> be_equal([#("reads the name from a valid user", Passed)])
       |> or_fail_with("Custom matcher usage test should pass")
     }),
     it("custom matcher fails on a validation error", fn() {
       // Arrange
       let validation_result =
-        MatchOk(Error(ValidationError("bad", None, None, None)))
+        MatchOk(Error([ValidationError("bad", None, None, None)]))
 
       // Act
       let result =
@@ -169,7 +173,7 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         MatchFailed(AssertionFailure(
           operator: "extract_user_name",
           message: "Expected Ok but got validation error",
@@ -196,7 +200,7 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       request.body
       |> should()
-      |> equal(request.Text(body))
+      |> be_equal(request.Text(body))
       |> or_fail_with("Fixture should set the body")
     }),
     it("fixture usage test passes", fn() {
@@ -209,7 +213,7 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       results
       |> should()
-      |> equal([#("creates POST request with body", Passed)])
+      |> be_equal([#("creates POST request with body", Passed)])
       |> or_fail_with("Fixture usage test should pass")
     }),
     it("before_each tests pass", fn() {
@@ -222,20 +226,20 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       results
       |> should()
-      |> equal([#("creates record", Passed), #("updates record", Passed)])
+      |> be_equal([#("creates record", Passed), #("updates record", Passed)])
       |> or_fail_with("before_each tests should pass")
     }),
-    it("before_all tests pass with run_suite", fn() {
+    it("before_all tests pass", fn() {
       // Arrange
       let snippet_tests = testing_guide_before_all.tests()
 
       // Act
-      let results = run_unit_suite(snippet_tests)
+      let results = run_unit_tests(snippet_tests)
 
       // Assert
       results
       |> should()
-      |> equal([
+      |> be_equal([
         #("responds to GET /", Passed),
         #("responds to GET /users", Passed),
       ])
@@ -251,7 +255,7 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       results
       |> should()
-      |> equal([#("returns 200 for valid request", Passed)])
+      |> be_equal([#("returns 200 for valid request", Passed)])
       |> or_fail_with("Controller test should pass")
     }),
     it("middleware tests pass", fn() {
@@ -264,7 +268,7 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       results
       |> should()
-      |> equal([
+      |> be_equal([
         #("calls next with valid token", Passed),
         #("returns 401 without token", Passed),
       ])
@@ -280,7 +284,7 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       results
       |> should()
-      |> equal([
+      |> be_equal([
         #("accepts valid email", Passed),
         #("rejects empty email", Passed),
       ])
@@ -296,7 +300,7 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       results
       |> should()
-      |> equal([#("saves user to disk", Passed)])
+      |> be_equal([#("saves user to disk", Passed)])
       |> or_fail_with("Integration test should pass")
     }),
     it("black box tests pass", fn() {
@@ -309,7 +313,7 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       results
       |> should()
-      |> equal([
+      |> be_equal([
         #("returns user by ID", Passed),
         #("stores Alice first in the user list", Passed),
       ])
@@ -325,7 +329,7 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       results
       |> should()
-      |> equal([
+      |> be_equal([
         #("returns created user", Passed),
         #("sets correct name", Passed),
       ])
@@ -336,12 +340,12 @@ fn testing_guide_tests() -> UnitTest {
       let snippet_tests = testing_guide_examples.multiple_assertions_test()
 
       // Act
-      let results = run_unit_tests(snippet_tests)
+      let results = run_unit_node(snippet_tests)
 
       // Assert
       results
       |> should()
-      |> equal([#("creates user correctly", Passed)])
+      |> be_equal([#("creates user correctly", Passed)])
       |> or_fail_with("Multiple assertions test should pass")
     }),
     it("arrange act assert test passes", fn() {
@@ -349,12 +353,12 @@ fn testing_guide_tests() -> UnitTest {
       let snippet_tests = testing_guide_examples.arrange_act_assert_test()
 
       // Act
-      let results = run_unit_tests(snippet_tests)
+      let results = run_unit_node(snippet_tests)
 
       // Assert
       results
       |> should()
-      |> equal([#("uppercases string", Passed)])
+      |> be_equal([#("uppercases string", Passed)])
       |> or_fail_with("Arrange act assert test should pass")
     }),
     it("create_user rejects an email without @", fn() {
@@ -367,14 +371,14 @@ fn testing_guide_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error("Email must contain @"))
+      |> be_equal(Error("Email must contain @"))
       |> or_fail_with("create_user should reject the email")
     }),
   ])
 }
 
-fn controllers_guide_tests() -> UnitTest {
-  describe("controllers and models guide", [
+fn controllers_guide_tests() -> UnitNode {
+  group("controllers and models guide", [
     it("show returns the task page", fn() {
       // Arrange
       let request = task_request("1")
@@ -390,7 +394,7 @@ fn controllers_guide_tests() -> UnitTest {
       // Assert
       response
       |> should()
-      |> equal(html_response(200, "<h1>Write the guide</h1>"))
+      |> be_equal(html_response(200, "<h1>Write the guide</h1>"))
       |> or_fail_with("show should return the task page")
     }),
     it("show returns 404 JSON for a missing task", fn() {
@@ -408,7 +412,7 @@ fn controllers_guide_tests() -> UnitTest {
       // Assert
       response
       |> should()
-      |> equal(json_response(404, "{\"error\":\"Task not found\"}"))
+      |> be_equal(json_response(404, "{\"error\":\"Task not found\"}"))
       |> or_fail_with("show should return 404")
     }),
     it("show returns 400 JSON for an id that is not a number", fn() {
@@ -426,7 +430,7 @@ fn controllers_guide_tests() -> UnitTest {
       // Assert
       response
       |> should()
-      |> equal(json_response(400, "{\"error\":\"id must be an integer\"}"))
+      |> be_equal(json_response(400, "{\"error\":\"id must be an integer\"}"))
       |> or_fail_with("show should return 400")
     }),
     it("show has the Controller type", fn() {
@@ -443,7 +447,7 @@ fn controllers_guide_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(200)
+      |> be_equal(200)
       |> or_fail_with("The controller should return 200")
     }),
     it("to_json writes the task as JSON", fn() {
@@ -456,7 +460,9 @@ fn controllers_guide_tests() -> UnitTest {
       // Assert
       json
       |> should()
-      |> equal("{\"id\":1,\"title\":\"Write the guide\",\"completed\":false}")
+      |> be_equal(
+        "{\"id\":1,\"title\":\"Write the guide\",\"completed\":false}",
+      )
       |> or_fail_with("to_json should write the task")
     }),
     it("handle_error hides the Unauthorized message", fn() {
@@ -469,7 +475,7 @@ fn controllers_guide_tests() -> UnitTest {
       // Assert
       response
       |> should()
-      |> equal(json_response(401, "{\"error\":\"Unauthorized\"}"))
+      |> be_equal(json_response(401, "{\"error\":\"Unauthorized\"}"))
       |> or_fail_with("handle_error should return 401")
     }),
     it("handle_error escapes quotes in the message", fn() {
@@ -482,7 +488,7 @@ fn controllers_guide_tests() -> UnitTest {
       // Assert
       response
       |> should()
-      |> equal(json_response(422, "{\"error\":\"name \\\"x\\\" is taken\"}"))
+      |> be_equal(json_response(422, "{\"error\":\"name \\\"x\\\" is taken\"}"))
       |> or_fail_with("handle_error should return valid JSON")
     }),
     it("multi-format show returns JSON for .json", fn() {
@@ -500,7 +506,7 @@ fn controllers_guide_tests() -> UnitTest {
       // Assert
       response
       |> should()
-      |> equal(json_response(
+      |> be_equal(json_response(
         200,
         "{\"id\":1,\"title\":\"Write the guide\",\"completed\":false}",
       ))
@@ -521,7 +527,10 @@ fn controllers_guide_tests() -> UnitTest {
       // Assert
       response
       |> should()
-      |> equal(html_response(200, "<div class=\"task\">Write the guide</div>"))
+      |> be_equal(html_response(
+        200,
+        "<div class=\"task\">Write the guide</div>",
+      ))
       |> or_fail_with("show should return the card")
     }),
     it("multi-format show returns JSON with no extension", fn() {
@@ -539,7 +548,7 @@ fn controllers_guide_tests() -> UnitTest {
       // Assert
       response
       |> should()
-      |> equal(json_response(
+      |> be_equal(json_response(
         200,
         "{\"id\":1,\"title\":\"Write the guide\",\"completed\":false}",
       ))
@@ -560,7 +569,7 @@ fn controllers_guide_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("show should return 404")
     }),
   ])
@@ -580,8 +589,8 @@ fn task_services() -> Services {
   )
 }
 
-fn file_uploads_guide_tests() -> UnitTest {
-  describe("file uploads guide", [
+fn file_uploads_guide_tests() -> UnitNode {
+  group("file uploads guide", [
     it("upload returns 201 for a valid file", fn() {
       // Arrange
       let directory = create_upload_directory("upload_created")
@@ -598,7 +607,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(201)
+      |> be_equal(201)
       |> or_fail_with("upload should return 201")
     }),
     it("upload saves the file content", fn() {
@@ -620,7 +629,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       contents
       |> should()
-      |> equal(["hello"])
+      |> be_equal(["hello"])
       |> or_fail_with("upload should save the content")
     }),
     it("upload returns 400 without a multipart body", fn() {
@@ -638,7 +647,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       response
       |> should()
-      |> equal(json_response(400, "{\"error\": \"Invalid file\"}"))
+      |> be_equal(json_response(400, "{\"error\": \"Invalid file\"}"))
       |> or_fail_with("upload should return 400")
     }),
     it("generate_filename keeps the extension", fn() {
@@ -651,7 +660,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       #(string.length(filename), string.ends_with(filename, ".png"))
       |> should()
-      |> equal(#(36, True))
+      |> be_equal(#(36, True))
       |> or_fail_with("Should be 32 hex characters and .png")
     }),
     it("generate_filename adds no extension when the name has none", fn() {
@@ -664,7 +673,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       string.length(filename)
       |> should()
-      |> equal(32)
+      |> be_equal(32)
       |> or_fail_with("Should be 32 hex characters only")
     }),
     it("generate_filename sanitizes the extension", fn() {
@@ -677,7 +686,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       string.ends_with(filename, ".t_xt")
       |> should()
-      |> equal(True)
+      |> be_equal(True)
       |> or_fail_with("Should replace the quote in the extension")
     }),
     it("sanitize_filename replaces slashes", fn() {
@@ -690,7 +699,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       sanitized
       |> should()
-      |> equal(".._etc_passwd")
+      |> be_equal(".._etc_passwd")
       |> or_fail_with("Should replace slashes")
     }),
     it("validated upload returns 201 for a PNG", fn() {
@@ -709,7 +718,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(201)
+      |> be_equal(201)
       |> or_fail_with("upload should return 201")
     }),
     it("validated upload returns 413 for a file over 10MB", fn() {
@@ -728,7 +737,10 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       response
       |> should()
-      |> equal(json_response(413, "{\"error\":\"File too large (max 10MB)\"}"))
+      |> be_equal(json_response(
+        413,
+        "{\"error\":\"File too large (max 10MB)\"}",
+      ))
       |> or_fail_with("upload should return 413")
     }),
     it("validated upload returns 415 for a text file", fn() {
@@ -746,7 +758,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       response
       |> should()
-      |> equal(json_response(415, "{\"error\":\"Unsupported file type\"}"))
+      |> be_equal(json_response(415, "{\"error\":\"Unsupported file type\"}"))
       |> or_fail_with("upload should return 415")
     }),
     it("validate_file_type accepts a PDF", fn() {
@@ -759,7 +771,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(Nil))
+      |> be_equal(Ok(Nil))
       |> or_fail_with("PDF should be allowed")
     }),
     it("upload_multiple returns 201 for two files", fn() {
@@ -782,7 +794,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(201)
+      |> be_equal(201)
       |> or_fail_with("upload_multiple should return 201")
     }),
     it("upload_multiple saves both files", fn() {
@@ -808,7 +820,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       contents
       |> should()
-      |> equal(["first", "second"])
+      |> be_equal(["first", "second"])
       |> or_fail_with("upload_multiple should save both files")
     }),
     it("upload_multiple returns 500 when the directory is missing", fn() {
@@ -828,7 +840,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       response
       |> should()
-      |> equal(json_response(500, "{\"error\": \"Some files failed\"}"))
+      |> be_equal(json_response(500, "{\"error\": \"Some files failed\"}"))
       |> or_fail_with("upload_multiple should return 500")
     }),
     it("save_to_s3 returns the file name", fn() {
@@ -842,7 +854,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok("report.pdf"))
+      |> be_equal(Ok("report.pdf"))
       |> or_fail_with("save_to_s3 should return the file name")
     }),
     it("download returns the file content", fn() {
@@ -865,7 +877,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       response.body
       |> should()
-      |> equal(response.Bytes(bit_array.from_string("PDF content")))
+      |> be_equal(response.Bytes(bit_array.from_string("PDF content")))
       |> or_fail_with("download should return the content")
     }),
     it("download returns 404 for a missing file", fn() {
@@ -887,7 +899,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       response
       |> should()
-      |> equal(json_response(404, "{\"error\":\"File not found\"}"))
+      |> be_equal(json_response(404, "{\"error\":\"File not found\"}"))
       |> or_fail_with("download should return 404")
     }),
     it("upload_image returns 415 for a text file", fn() {
@@ -905,7 +917,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       response
       |> should()
-      |> equal(json_response(415, "{\"error\":\"Unsupported image type\"}"))
+      |> be_equal(json_response(415, "{\"error\":\"Unsupported image type\"}"))
       |> or_fail_with("upload_image should return 415")
     }),
     it("upload_image returns 500 when the resize fails", fn() {
@@ -923,7 +935,7 @@ fn file_uploads_guide_tests() -> UnitTest {
       // Assert
       response
       |> should()
-      |> equal(json_response(500, "{\"error\": \"Resize failed\"}"))
+      |> be_equal(json_response(500, "{\"error\": \"Resize failed\"}"))
       |> or_fail_with("upload_image should return 500")
     }),
   ])
@@ -987,18 +999,17 @@ fn start_s3_recorder() -> recorder.Recorder {
 // Helpers
 // ============================================================================
 
-fn run_unit_tests(snippet_tests: UnitTest) -> List(#(String, Status)) {
-  unit.to_test_cases("snippet", snippet_tests)
-  |> runner.run_all()
+fn run_unit_tests(snippet_tests: TestSuite) -> List(#(String, Status)) {
+  runner.new([snippet_tests])
+  |> runner.silent()
+  |> runner.run()
+  |> types.report_tests()
   |> list.map(fn(result) { #(result.name, result.status) })
   |> list.sort(fn(left, right) { string.compare(left.0, right.0) })
 }
 
-fn run_unit_suite(snippet_tests: UnitTest) -> List(#(String, Status)) {
-  unit.to_test_suite("snippet", snippet_tests)
-  |> runner.run_suite()
-  |> list.map(fn(result) { #(result.name, result.status) })
-  |> list.sort(fn(left, right) { string.compare(left.0, right.0) })
+fn run_unit_node(snippet_node: UnitNode) -> List(#(String, Status)) {
+  run_unit_tests(describe("snippet", [snippet_node]))
 }
 
 @external(erlang, "testing_guide_snippets_ffi", "run_main_in_new_vm")

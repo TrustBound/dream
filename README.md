@@ -11,6 +11,7 @@
   <a href="https://hex.pm/packages/dream"><img src="https://img.shields.io/hexpm/v/dream" alt="Hex Package"></a>
   <a href="https://github.com/TrustBound/dream/releases"><img src="https://img.shields.io/github/v/release/TrustBound/dream?label=Release" alt="Latest Release"></a>
   <a href="https://hexdocs.pm/dream"><img src="https://img.shields.io/badge/hex-docs-lightgreen.svg" alt="HexDocs"></a>
+  <a href="https://github.com/TrustBound/dream/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/TrustBound/dream/badges/coverage.json" alt="Coverage"></a>
   <a href="https://github.com/TrustBound/dream/blob/main/LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
   <a href="https://gleam.run"><img src="https://img.shields.io/badge/gleam-%E2%9C%A8-ffaff3" alt="Gleam"></a>
 </div>

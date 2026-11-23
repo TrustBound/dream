@@ -503,7 +503,9 @@ pub fn tls(
 /// Start the server and listen for requests
 ///
 /// Starts the server on the specified port and blocks forever. This is what you call
-/// in your `main()` function. If the server fails to start, it panics with the reason.
+/// in your `main()` function. If the server fails to start, it panics with
+/// `Failed to start server: ` and the start error, for example
+/// `Failed to start server: InitFailed("Port 3000 already in use on 0.0.0.0. ...")`.
 ///
 /// `listen()` accepts only an app that has a router: an app without a call to
 /// `router()` does not compile. `services()` is optional: the default services
@@ -535,8 +537,10 @@ pub fn listen(
   ),
   port: Int,
 ) -> Nil {
-  listen_internal(dream_instance, port, True)
-  |> panic_on_start_error
+  case listen_internal(dream_instance, port) {
+    Ok(_started) -> process.sleep_forever()
+    Error(start_error) -> panic_with_start_error(start_error)
+  }
 }
 
 /// Start the server and return a handle for stopping it
@@ -594,7 +598,7 @@ pub fn listen_with_handle(
   ),
   port: Int,
 ) -> Result(ServerHandle, actor.StartError) {
-  case listen_internal(dream_instance, port, False) {
+  case listen_internal(dream_instance, port) {
     Ok(started) -> Ok(ServerHandle(process_pid: started.pid))
     Error(error) -> Error(error)
   }
@@ -737,37 +741,12 @@ fn check_tls_files(
   }
 }
 
-fn handle_blocking(block_forever: Bool) -> Nil {
-  case block_forever {
-    True -> process.sleep_forever()
-    False -> Nil
-  }
+fn panic_with_start_error(start_error: actor.StartError) -> Nil {
+  panic as { "Failed to start server: " <> string.inspect(start_error) }
 }
 
-fn start_server(
-  server_with_port: mist.Builder(Connection, ResponseData),
-  block_forever: Bool,
-) -> Result(actor.Started(_), actor.StartError) {
-  start(server_with_port)
-  |> result.map(fn(started) {
-    handle_blocking(block_forever)
-    started
-  })
-}
-
-fn panic_on_start_error(result: Result(a, actor.StartError)) -> Nil {
-  case result {
-    Ok(_) -> Nil
-    Error(actor.InitFailed(message)) -> panic as message
-    Error(error) -> {
-      let message = "Failed to start server: " <> string.inspect(error)
-      panic as message
-    }
-  }
-}
-
-/// Internal function to start the server with configurable blocking behavior
-/// Returns Result with Started info on success, or Error with StartError on failure
+/// Internal function to start the server. It returns as soon as the server
+/// runs: Ok with the Started info, or Error with the StartError.
 fn listen_internal(
   dream_instance: dream.Dream(
     mist.Builder(Connection, ResponseData),
@@ -776,7 +755,6 @@ fn listen_internal(
     Router(context, services),
   ),
   port: Int,
-  block_forever: Bool,
 ) -> Result(actor.Started(_), actor.StartError) {
   let bind_interface = dream.get_bind_interface(dream_instance)
   let bind_interface_label = bind_label(bind_interface)
@@ -789,7 +767,7 @@ fn listen_internal(
       let server_with_port =
         build_server(dream_instance, handler_function, port)
 
-      start_server(server_with_port, block_forever)
+      start(server_with_port)
     }
   }
 }

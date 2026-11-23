@@ -7,7 +7,7 @@ import snippets/testing_guide_user.{type User}
 
 /// Extract user name from validation result
 pub fn extract_user_name(
-  result: MatchResult(Result(User, ValidationError)),
+  result: MatchResult(Result(User, List(ValidationError))),
   getter: fn(User) -> String,
 ) -> MatchResult(String) {
   case result {

@@ -1,7 +1,10 @@
 import dream/context.{type EmptyContext}
-import dream/http/request.{type Request, Bytes, Request, Stream, Text}
+import dream/http/request.{
+  type BodyReadError, type Request, Bytes, Request, Stream, Text,
+}
 import dream/http/response.{type Response, Response, Stream as ResponseStream}
 import gleam/bit_array
+import gleam/result
 import gleam/string
 import gleam/yielder
 import services.{type Services}
@@ -17,7 +20,7 @@ pub fn uppercase_incoming(
     Stream(stream) -> {
       let transformed_stream =
         stream
-        |> yielder.map(uppercase_chunk)
+        |> yielder.map(uppercase_item)
 
       let new_request = Request(..request, body: Stream(transformed_stream))
       next(new_request, context, services)
@@ -47,6 +50,13 @@ pub fn replace_space_outgoing(
     // If not a stream, pass through unchanged
     _ -> response
   }
+}
+
+// An Error item stays as it is, so the controller still sees the failure
+fn uppercase_item(
+  item: Result(BitArray, BodyReadError),
+) -> Result(BitArray, BodyReadError) {
+  result.map(item, uppercase_chunk)
 }
 
 fn uppercase_chunk(chunk: BitArray) -> BitArray {

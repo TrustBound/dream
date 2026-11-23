@@ -153,7 +153,7 @@ pub fn create_and_add_to_task(
 
 The controller is thin:
 
-- It reads the task ID and the tag name with `require_int`, `require_form` and `require_field`. Each one returns a `Result`.
+- It reads the task ID and the tag name with `require_int`, `require_form` and `require_field`. Each one returns a `Result`. For a form field that can be missing, use `field_optional`, which returns an `Option`.
 - It calls the operation, which returns `dream.Error` on failure.
 - It sends every error to `response_helpers.handle_error`.
 - It builds the response.
@@ -181,13 +181,15 @@ The tasks example tests its operations through the HTTP API, with Cucumber scena
 [test/integration/features/tasks.feature](https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/features/tasks.feature).
 This scenario runs `create_and_attach` through the controller and then examines the database:
 
+### The scenario <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/features/tasks.feature#L120-L125"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gherkin
-Scenario: Create and add tag to task in one operation
-    Given a task exists with title "New Tag Task"
-    When I send a POST request to "/tasks/1/tags/create" with form data "tag_name=Urgent"
-    Then the response status should be 200
-    And there should be 1 tags in the database
-    And the task with id 1 should have tag with id 1
+    Scenario: Create and add tag to task in one operation
+        Given a task exists with title "New Tag Task"
+        When I send a POST request to "/tasks/1/tags/create" with form data "tag_name=Urgent"
+        Then the response status should be 200
+        And there should be 1 tags in the database
+        And the task with id 1 should have tag with id 1
 ```
 
 To run the scenarios, run `make test-integration` in `examples/tasks`. It starts Postgres with Docker, starts the server and runs the Cucumber tests.

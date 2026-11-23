@@ -40,11 +40,11 @@ pub fn start(certfile: String, keyfile: String, port: Int) {
 }
 ```
 
-You can call `server.tls()` before or after the other settings. If a file does not exist, `listen()` stops with the message `TLS file not found: <path>`, and `listen_with_handle()` returns that error.
+You can call `server.tls()` before or after the other settings. If a file does not exist, `listen()` stops with the message `Failed to start server: InitFailed("TLS file not found: <path>")`, and `listen_with_handle()` returns `Error(InitFailed("TLS file not found: <path>"))`.
 
 For local development, [mkcert](https://github.com/FiloSottile/mkcert) makes a certificate that your browser trusts:
 
-```bash
+```bash illustration
 mkcert -install
 mkcert -cert-file priv/cert.pem -key-file priv/key.pem localhost
 ```
@@ -60,19 +60,31 @@ To use HTTP/2 between the proxy and Dream as well:
 
 ## Check which protocol you get
 
+The integration tests of the `simple` example run these commands against its plain HTTP server and its HTTPS server, both on port 3000.
+
 Over HTTPS (`-k` accepts a self-signed certificate):
 
+### Over HTTPS <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_http2.sh#L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
-curl -k --http2 -s -o /dev/null -w "%{http_version}\n" https://localhost:8443/
+curl -k --http2 -s -o /dev/null -w "%{http_version}\n" https://localhost:3000/
 ```
 
 Over plain HTTP, with prior knowledge:
+
+### Over plain HTTP <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme.sh#L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
 curl --http2-prior-knowledge -s -o /dev/null -w "%{http_version}\n" http://localhost:3000/
 ```
 
-Each command prints `2` when the response came over HTTP/2.
+Each command prints `2` when the response came over HTTP/2:
+
+### The output <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_http2_output.txt#L1"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+2
+```
 
 In a browser, open the developer tools, then the Network tab, and show the Protocol column. It shows `h2` for HTTP/2.
 

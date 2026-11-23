@@ -26,7 +26,7 @@ To release a version, do these steps in this order:
 2. Merge the release to `main`.
 3. Push the tag `<version>` on the merged commit. Run `git fetch origin main` first, so that `origin/main` has the merge:
 
-   ```bash
+   ```bash illustration
    git tag 3.0.1 origin/main
    git push origin 3.0.1
    ```
@@ -50,7 +50,7 @@ The workflow does these steps:
 
 You can run the preflight checks on your machine before you push the tag. Run them after `git tag` and before `git push`:
 
-```bash
+```bash illustration
 git checkout 3.0.1
 bash .github/scripts/release-preflight.sh 3.0.1
 ```
@@ -74,7 +74,7 @@ Dream follows [Semantic Versioning](https://semver.org/):
 ### Updating the Version
 
 1. **Edit `gleam.toml`**:
-   ```toml
+   ```toml illustration
    version = "3.0.1"
    ```
 
@@ -86,7 +86,7 @@ Dream follows [Semantic Versioning](https://semver.org/):
 
 5. **Push the tag** for the version. Run `git fetch origin main` first. The workflow publishes the new version and creates the GitHub release:
 
-   ```bash
+   ```bash illustration
    git tag 3.0.1 origin/main
    git push origin 3.0.1
    ```
@@ -188,7 +188,7 @@ Can trigger publishes.
 
 If the preflight check says that the tagged commit is not on `main`, or the tag does not match `gleam.toml`, move the tag. Delete the tag, then push it again on the merged commit:
 
-```bash
+```bash illustration
 git push origin :refs/tags/3.0.1
 git tag -d 3.0.1
 git fetch origin main

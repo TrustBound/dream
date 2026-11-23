@@ -5,6 +5,8 @@ End-to-end tests for the Tasks example application using Cypress.
 ## Quick Start
 
 **Run all E2E tests:**
+### Run the E2E tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/e2e.sh#L6"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 make e2e-test
 ```
@@ -18,7 +20,7 @@ This will:
 6. Clean up (stop server and database)
 
 **Open Cypress UI (interactive mode):**
-```bash
+```bash illustration
 make e2e-open
 ```
 
@@ -32,6 +34,8 @@ make e2e-open
 
 ### 1. Install Cypress
 
+#### Install Cypress <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/e2e.sh#L5"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 make e2e-install
 ```
@@ -42,14 +46,21 @@ This installs Cypress and TypeScript dependencies.
 
 The E2E tests require a running database. The `make e2e-test` command handles this automatically, but if running tests manually:
 
+#### Start the database <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/start.sh#L5-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
+# Start database
 make db-up
+
+# Run migrations
 make migrate
 ```
 
 ## Running Tests
 
 ### Full E2E Test Suite
+
+#### Run the E2E tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/e2e.sh#L6"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
 make e2e-test
@@ -61,7 +72,7 @@ This is the recommended way to run tests. It handles all setup and teardown auto
 
 For developing and debugging tests:
 
-```bash
+```bash illustration
 # Start database and server manually
 make db-up
 make migrate
@@ -81,7 +92,7 @@ The Cypress UI allows you to:
 
 ### Run Tests Headlessly (CI/CD)
 
-```bash
+```bash illustration
 # Assumes server is already running
 make e2e-run
 ```
@@ -135,6 +146,8 @@ Cypress configuration is in `cypress.config.ts`:
 - **Videos**: `cypress/videos/` - Video recordings (only in headed mode)
 
 Clean artifacts with:
+### Clean the artifacts <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/e2e.sh#L7"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 make e2e-clean
 ```
@@ -147,7 +160,7 @@ make e2e-clean
 
 Example:
 
-```typescript
+```typescript illustration
 describe('My Feature', () => {
   beforeEach(() => {
     cy.visit('/')
@@ -164,16 +177,31 @@ describe('My Feature', () => {
 
 ## HTMX Testing
 
-Since this application uses HTMX for dynamic updates, tests need to wait for HTMX requests to complete:
+Since this application uses HTMX for dynamic updates, tests need to wait for HTMX requests to complete. `cypress/support/commands.ts` adds two commands for it: call `cy.waitForHtmx()` after a form submission, and `cy.waitForHtmxSwap('#target-element')` after a click that swaps an element:
+
+### The HTMX commands <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/cypress/support/commands.ts#L12-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```typescript
-// After form submission
-cy.get('form').submit()
-cy.waitForHtmx()
 
-// After button click that triggers HTMX
-cy.get('button').click()
-cy.waitForHtmxSwap('#target-element')
+/**
+ * Wait for HTMX request to complete
+ * Just a small delay - Cypress auto-waits for network requests
+ */
+Cypress.Commands.add('waitForHtmx', () => {
+  // Cypress automatically waits for network requests
+  // Just a small delay for DOM updates
+  cy.wait(300)
+})
+
+/**
+ * Wait for HTMX swap to complete
+ * Useful after form submissions or button clicks
+ */
+Cypress.Commands.add('waitForHtmxSwap', (selector?: string) => {
+  // Cypress automatically waits for network requests
+  // Just a small delay for DOM updates
+  cy.wait(300)
+})
 ```
 
 ## Troubleshooting
@@ -183,10 +211,18 @@ cy.waitForHtmxSwap('#target-element')
 **Problem**: Test server isn't running
 
 **Solution**: Use `make e2e-test` which starts the server automatically, or start manually:
+#### Start the database and the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/start.sh#L3-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
+cd examples/tasks
+
+# Start database
 make db-up
+
+# Run migrations
 make migrate
-make build
+
+# Run the application
 make run
 ```
 
@@ -195,6 +231,8 @@ make run
 **Problem**: Database not running
 
 **Solution**:
+#### Start the database <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/start.sh#L6"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 make db-up
 ```
@@ -204,6 +242,8 @@ make db-up
 **Problem**: Cypress not installed
 
 **Solution**:
+#### Install Cypress <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/e2e.sh#L5"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 make e2e-install
 ```
@@ -212,14 +252,18 @@ make e2e-install
 
 **Problem**: HTMX requests taking too long
 
-**Solution**: Increase timeout in `cypress.config.ts`:
+**Solution**: Increase the timeout in `cypress.config.ts`. Today it is 10 seconds:
+#### The timeout <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/cypress.config.ts#L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```typescript
-defaultCommandTimeout: 15000, // Increase from 10000
+    defaultCommandTimeout: 10000,
 ```
 
 ## CI/CD Integration
 
 For CI/CD pipelines, use:
+
+### Run the E2E tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/e2e.sh#L6"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
 make e2e-test

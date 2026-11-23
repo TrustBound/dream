@@ -1,4 +1,4 @@
-{> import examples/multi_format/sql.{type ListProductsRow}
+{> import sql.{type ListProductsRow}
 {> import gleam/int
 {> import gleam/float
 {> with products as List(ListProductsRow)

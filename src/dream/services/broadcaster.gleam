@@ -79,11 +79,14 @@ pub opaque type Channel(message) {
 }
 
 type BroadcasterMessage(message) {
-  Subscribe(Subject(message))
+  /// The channel subject and the process that owns it: the process that
+  /// called `subscribe`.
+  Subscribe(subject: Subject(message), owner: process.Pid)
   Unsubscribe(Subject(message))
   Publish(message)
   CountSubscribers(reply_to: Subject(Int))
-  SubscriberDown(process.Down)
+  /// The monitor of a subscriber whose process went down.
+  SubscriberDown(Monitor)
 }
 
 /// A subscribed channel subject and the monitor on the process that owns it.
@@ -134,7 +137,7 @@ fn initialise_broadcaster(
   let selector =
     process.new_selector()
     |> process.select(subject)
-    |> process.select_monitors(SubscriberDown)
+    |> process.select_monitors(subscriber_down)
   actor.initialised([])
   |> actor.selecting(selector)
   |> actor.returning(subject)
@@ -169,7 +172,7 @@ fn wrap_broadcaster_subject(
 pub fn subscribe(broadcaster: Broadcaster(message)) -> Channel(message) {
   let Broadcaster(subject) = broadcaster
   let subscriber = process.new_subject()
-  process.send(subject, Subscribe(subscriber))
+  process.send(subject, Subscribe(subject: subscriber, owner: process.self()))
   Channel(subject: subscriber)
 }
 
@@ -284,8 +287,8 @@ fn handle_broadcaster_message(
   message: BroadcasterMessage(message),
 ) -> actor.Next(List(Subscriber(message)), BroadcasterMessage(message)) {
   case message {
-    Subscribe(subscriber) -> {
-      actor.continue(add_subscriber(subscribers, subscriber))
+    Subscribe(subject:, owner:) -> {
+      actor.continue(add_subscriber(subscribers, subject, owner))
     }
     Unsubscribe(subscriber) -> {
       let remaining_subscribers = remove_subscriber(subscribers, subscriber)
@@ -299,32 +302,29 @@ fn handle_broadcaster_message(
       process.send(reply_to, list.length(subscribers))
       actor.continue(subscribers)
     }
-    SubscriberDown(process.ProcessDown(monitor:, ..)) -> {
+    SubscriberDown(monitor) -> {
       actor.continue(remove_monitored_subscriber(subscribers, monitor))
-    }
-    SubscriberDown(process.PortDown(..)) -> {
-      actor.continue(subscribers)
     }
   }
 }
 
 /// Monitor the owner of the subject and add the subject as a subscriber.
 ///
-/// A subject without an owner is a named subject with no registered process.
-/// No process can receive its messages and no down message can ever remove
-/// it, so the broadcaster does not add it. `subscribe/1` always creates an
-/// unnamed subject, so this does not happen through the public API.
+/// `subscribe/1` creates the subject in the calling process, so it sends
+/// that process as the owner: every subscriber has an owner to monitor.
 fn add_subscriber(
   subscribers: List(Subscriber(message)),
   subject: Subject(message),
+  owner: process.Pid,
 ) -> List(Subscriber(message)) {
-  case process.subject_owner(subject) {
-    Ok(owner) -> [
-      Subscriber(subject:, monitor: process.monitor(owner)),
-      ..subscribers
-    ]
-    Error(Nil) -> subscribers
-  }
+  [Subscriber(subject:, monitor: process.monitor(owner)), ..subscribers]
+}
+
+/// The broadcaster monitors only processes, so each down message it gets
+/// names a subscriber by its monitor. `Down` gives the monitor for both of
+/// its variants.
+fn subscriber_down(down: process.Down) -> BroadcasterMessage(message) {
+  SubscriberDown(down.monitor)
 }
 
 fn remove_subscriber(

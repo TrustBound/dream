@@ -3,8 +3,9 @@
 //// Middleware that transforms the incoming and the outgoing stream, as shown
 //// in docs/guides/streaming-quick-reference.md.
 
-import dream/http/request.{type Request, Request}
+import dream/http/request.{type BodyReadError, type Request, Request}
 import dream/http/response.{type Response, Response, Stream}
+import gleam/result
 import gleam/yielder
 
 pub fn uppercase_middleware(
@@ -15,13 +16,20 @@ pub fn uppercase_middleware(
 ) -> Response {
   case request.body {
     request.Stream(stream) -> {
-      let uppercase_stream = yielder.map(stream, uppercase_chunk)
+      let uppercase_stream = yielder.map(stream, uppercase_item)
       let new_request =
         Request(..request, body: request.Stream(uppercase_stream))
       next(new_request, context, services)
     }
     _ -> next(request, context, services)
   }
+}
+
+// An Error item stays as it is, so the controller still sees the failure
+fn uppercase_item(
+  item: Result(BitArray, BodyReadError),
+) -> Result(BitArray, BodyReadError) {
+  result.map(item, uppercase_chunk)
 }
 
 fn uppercase_chunk(chunk: BitArray) -> BitArray {

@@ -1,14 +1,13 @@
 //// Tests for dream/http/header module.
 
 import dream/http/header.{Header, get_header, set_header}
-import dream_test/assertions/should.{
-  be_some, equal, have_length, or_fail_with, should,
-}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, be_some, have_length, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, group, it}
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("header", [
-    describe("get_header", [
+    group("get_header", [
       it("returns value when header exists", fn() {
         // Arrange
         let headers = [
@@ -23,11 +22,11 @@ pub fn tests() -> UnitTest {
         result
         |> should()
         |> be_some()
-        |> equal("application/json")
+        |> be_equal("application/json")
         |> or_fail_with("Expected Content-Type header value")
       }),
     ]),
-    describe("set_header", [
+    group("set_header", [
       it("adds header to empty list", fn() {
         // Arrange
         let headers = []

@@ -218,15 +218,19 @@ fn create_binary_stream_response(
 
 Routes must explicitly enable streaming to receive streamed request bodies:
 
-#### Buffered and streaming routes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_ingress.gleam#L6-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Buffered and streaming routes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_ingress.gleam#L6-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/request.{type Request, Bytes, Post, Put, Stream, Text}
+import dream/http/request.{
+  type BodyReadError, type Request, Bytes, MalformedBody, Post, Put, Stream,
+  Text,
+}
 import dream/http/response.{type Response, text_response}
 import dream/http/status
 import dream/router.{type Router, route, router, stream_route}
 import gleam/bit_array
 import gleam/int
+import gleam/result
 import gleam/string
 import gleam/yielder
 
@@ -239,7 +243,7 @@ pub fn create_router() -> Router(context, services) {
     controller: upload_buffered,
     middleware: [],
   )
-  // Streaming route: the body is available as a Yielder(BitArray)
+  // Streaming route: the body is a Yielder of Result(BitArray, BodyReadError)
   |> stream_route(
     method: Post,
     path: "/upload_stream",
@@ -252,40 +256,64 @@ pub fn create_router() -> Router(context, services) {
 **Key difference:**
 - Regular routes: `request.body` is `Text(String)` for a UTF-8 body, or
   `Bytes(BitArray)` with the exact bytes for any other body
-- Streaming routes: `request.body` is `Stream(Yielder(BitArray))`
+- Streaming routes: `request.body` is
+  `Stream(Yielder(Result(BitArray, BodyReadError)))`
 
-### Process Streaming Uploads <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_ingress.gleam#L42-L64"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+Each item of the stream is `Ok(chunk)`. When the connection breaks before
+the client sent the whole body, the read that fails gives one
+`Error(MalformedBody)` item, and then the stream ends. The controller owns
+the answer. Because each item is a `Result`, code that uses an item as bytes
+does not compile until it handles the `Error`, so a truncated upload is
+never handled as a complete one.
+
+The controller below counts the bytes with `yielder.try_fold`, which stops
+at the first `Error` item. On an `Error` it answers 400.
+
+### Process Streaming Uploads <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_ingress.gleam#L46-L81"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn upload_stream(request: Request, _context, _services) -> Response {
   case request.body {
     Stream(stream) ->
       count_stream_bytes(stream)
-      |> create_upload_success_response
+      |> create_upload_response
     _ -> text_response(status.bad_request, "Expected streaming request body")
   }
 }
 
-fn count_stream_bytes(stream: yielder.Yielder(BitArray)) -> Int {
-  yielder.fold(stream, 0, add_chunk_size)
+// try_fold stops at the first Error item
+fn count_stream_bytes(
+  stream: yielder.Yielder(Result(BitArray, BodyReadError)),
+) -> Result(Int, BodyReadError) {
+  yielder.try_fold(stream, 0, add_chunk_size)
 }
 
-fn add_chunk_size(total: Int, chunk: BitArray) -> Int {
+fn add_chunk_size(
+  total: Int,
+  item: Result(BitArray, BodyReadError),
+) -> Result(Int, BodyReadError) {
+  use chunk <- result.map(item)
   total + bit_array.byte_size(chunk)
 }
 
-fn create_upload_success_response(total_bytes: Int) -> Response {
-  text_response(
-    status.ok,
-    "Uploaded " <> int.to_string(total_bytes) <> " bytes successfully",
-  )
+fn create_upload_response(counted: Result(Int, BodyReadError)) -> Response {
+  case counted {
+    Ok(total_bytes) ->
+      text_response(
+        status.ok,
+        "Uploaded " <> int.to_string(total_bytes) <> " bytes successfully",
+      )
+    // The connection broke before the client sent the whole body
+    Error(MalformedBody) ->
+      text_response(status.bad_request, "The upload stopped before its end")
+  }
 }
 ```
 
-### Saving Streamed Files <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_saving.gleam#L6-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Saving Streamed Files <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_saving.gleam#L6-L80"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/request.{type Request, Stream}
+import dream/http/request.{type BodyReadError, type Request, Stream}
 import dream/http/response.{type Response, text_response}
 import dream/http/status
 import gleam/bit_array
@@ -297,51 +325,96 @@ pub type Services {
   Services(upload_path: String, max_upload_bytes: Int)
 }
 
+pub type UploadError {
+  // The connection broke before the client sent the whole body
+  UploadBroke(BodyReadError)
+  // Only the limited upload below gives this error
+  UploadTooLarge
+  WriteFailed(simplifile.FileError)
+}
+
 pub fn save_upload(request: Request, _context, services: Services) -> Response {
   case request.body {
     Stream(stream) ->
       save_stream_to_file(stream, services.upload_path)
-      |> handle_save_result
+      |> handle_save_result(services.upload_path)
     _ -> text_response(status.bad_request, "Expected streaming request")
   }
 }
 
 fn save_stream_to_file(
-  stream: yielder.Yielder(BitArray),
+  stream: yielder.Yielder(Result(BitArray, BodyReadError)),
   path: String,
-) -> Result(Nil, simplifile.FileError) {
-  use _ <- result.try(simplifile.create_file(path))
-  yielder.try_fold(stream, Nil, fn(_nothing, chunk) {
-    simplifile.append_bits(path, chunk)
-  })
+) -> Result(Nil, UploadError) {
+  use _ <- result.try(
+    simplifile.create_file(path) |> result.map_error(WriteFailed),
+  )
+  yielder.try_fold(stream, Nil, fn(_nothing, item) { append_item(path, item) })
 }
 
-fn handle_save_result(result: Result(Nil, simplifile.FileError)) -> Response {
+fn append_item(
+  path: String,
+  item: Result(BitArray, BodyReadError),
+) -> Result(Nil, UploadError) {
+  use chunk <- result.try(result.map_error(item, UploadBroke))
+  simplifile.append_bits(path, chunk) |> result.map_error(WriteFailed)
+}
+
+fn handle_save_result(
+  result: Result(Nil, UploadError),
+  path: String,
+) -> Response {
   case result {
-    Ok(_) -> text_response(status.ok, "File saved successfully")
-    Error(_) ->
+    Ok(Nil) -> text_response(status.ok, "File saved successfully")
+    Error(error) -> delete_partial_file(path, create_failure_response(error))
+  }
+}
+
+// Never keep part of an upload: delete the file, then answer
+fn delete_partial_file(path: String, response: Response) -> Response {
+  case simplifile.delete(path) {
+    Ok(Nil) -> response
+    Error(_delete_error) ->
+      text_response(status.internal_server_error, "Failed to delete the file")
+  }
+}
+
+fn create_failure_response(error: UploadError) -> Response {
+  case error {
+    UploadBroke(_read_error) ->
+      text_response(status.bad_request, "The upload stopped before its end")
+    UploadTooLarge -> text_response(status.bad_request, "Upload is too large")
+    WriteFailed(_reason) ->
       text_response(status.internal_server_error, "Failed to save file")
   }
 }
 ```
+
+`append_item` turns an `Error` item into `UploadBroke`, and `try_fold` stops
+there. The controller then deletes the partial file and answers 400, so a
+broken upload never stays on disk as a complete file.
 
 ## Streaming Middleware
 
 ### Transform Request Stream
 
 Middleware can transform streaming request bodies. A middleware is a function
-that gets the request, the context, the services and the next handler:
+that gets the request, the context, the services and the next handler. It
+maps each item with `result.map`, so an `Error` item reaches the controller
+unchanged:
 
-#### Uppercase the request stream <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_middleware.gleam#L6-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Uppercase the request stream <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_middleware.gleam#L6-L59"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/request.{type Request, Post, Request}
+import dream/http/request.{type BodyReadError, type Request, Post, Request}
 import dream/http/response.{
   type Response, Response, Stream, stream_response, text_response,
 }
 import dream/http/status
 import dream/router.{type Router, router, stream_route}
-import gleam/yielder
+import gleam/function
+import gleam/result
+import gleam/yielder.{type Yielder}
 
 pub fn uppercase_incoming(
   request: Request,
@@ -351,13 +424,20 @@ pub fn uppercase_incoming(
 ) -> Response {
   case request.body {
     request.Stream(stream) -> {
-      let uppercase_stream = yielder.map(stream, uppercase_chunk)
+      let uppercase_stream = yielder.map(stream, uppercase_item)
       let transformed_request =
         Request(..request, body: request.Stream(uppercase_stream))
       next(transformed_request, context, services)
     }
     _ -> next(request, context, services)
   }
+}
+
+// An Error item stays as it is, so the controller still sees the failure
+fn uppercase_item(
+  item: Result(BitArray, BodyReadError),
+) -> Result(BitArray, BodyReadError) {
+  result.map(item, uppercase_chunk)
 }
 
 fn uppercase_chunk(chunk: BitArray) -> BitArray {
@@ -371,13 +451,22 @@ fn uppercase_bytes(remaining: BitArray, uppercased: BitArray) -> BitArray {
     _ -> uppercased
   }
 }
+
+// Only the ASCII letters a to z change. Every byte of a multi-byte UTF-8
+// character is 128 or more, so a character split across two chunks is kept.
+fn uppercase_byte(byte: Int) -> Int {
+  case byte >= 97 && byte <= 122 {
+    True -> byte - 32
+    False -> byte
+  }
+}
 ```
 
 ### Transform Response Stream
 
 Middleware can also transform streaming responses:
 
-#### Replace spaces in the response stream <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_middleware.gleam#L52-L86"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Replace spaces in the response stream <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_middleware.gleam#L61-L95"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn replace_space_outgoing(
@@ -417,7 +506,7 @@ fn replace_space_bytes(remaining: BitArray, replaced: BitArray) -> BitArray {
 }
 ```
 
-### Bi-Directional Streaming Example <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_middleware.gleam#L88-L104"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Bi-Directional Streaming Example <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_middleware.gleam#L97-L122"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_router() -> Router(context, services) {
@@ -433,9 +522,18 @@ pub fn create_router() -> Router(context, services) {
 // The controller sends the request stream back as the response
 pub fn echo_stream(request: Request, _context, _services) -> Response {
   case request.body {
-    request.Stream(stream) -> stream_response(status.ok, stream, "text/plain")
+    request.Stream(stream) ->
+      stream_response(status.ok, chunks_until_error(stream), "text/plain")
     _ -> text_response(status.bad_request, "Expected streaming request")
   }
+}
+
+// The response is already on its way when a read fails, so it cannot become
+// a 400. The echo keeps each Ok chunk and ends at the Error item.
+fn chunks_until_error(
+  stream: Yielder(Result(BitArray, BodyReadError)),
+) -> Yielder(BitArray) {
+  yielder.filter_map(stream, function.identity)
 }
 ```
 
@@ -534,13 +632,14 @@ fn number_to_line(number: Int) -> BitArray {
 }
 ```
 
-### 2. Handle Errors Gracefully <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_upload_checks.gleam#L17-L64"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### 2. Handle Errors Gracefully <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_upload_checks.gleam#L17-L69"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 const max_upload_bytes = 1_000_000
 
 pub type UploadError {
   UploadTooLarge(limit: Int)
+  UploadBroke(BodyReadError)
 }
 
 pub fn upload_stream(request: Request, _context, _services) -> Response {
@@ -553,17 +652,19 @@ pub fn upload_stream(request: Request, _context, _services) -> Response {
 }
 
 fn process_stream_safely(
-  stream: yielder.Yielder(BitArray),
+  stream: yielder.Yielder(Result(BitArray, BodyReadError)),
 ) -> Result(String, UploadError) {
   stream
   |> yielder.try_fold(0, add_chunk_size)
   |> result.map(format_bytes_message)
 }
 
+// An Error item means that the connection broke before the end of the body
 fn add_chunk_size(
   total_bytes: Int,
-  chunk: BitArray,
+  item: Result(BitArray, BodyReadError),
 ) -> Result(Int, UploadError) {
+  use chunk <- result.try(result.map_error(item, UploadBroke))
   let new_total = total_bytes + bit_array.byte_size(chunk)
   case new_total > max_upload_bytes {
     True -> Error(UploadTooLarge(limit: max_upload_bytes))
@@ -583,11 +684,13 @@ fn handle_upload_result(result: Result(String, UploadError)) -> Response {
         status.bad_request,
         "Upload is larger than " <> int.to_string(limit) <> " bytes",
       )
+    Error(UploadBroke(_read_error)) ->
+      text_response(status.bad_request, "The upload stopped before its end")
   }
 }
 ```
 
-### 3. Use Streaming Routes Explicitly <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_ingress.gleam#L66-L86"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### 3. Use Streaming Routes Explicitly <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_ingress.gleam#L83-L103"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // DON'T: assume every POST route streams. This body arrives buffered.
@@ -601,7 +704,7 @@ pub fn create_buffered_upload_router() -> Router(context, services) {
   )
 }
 
-// DO: mark streaming routes explicitly. This body is a Yielder(BitArray).
+// DO: mark streaming routes explicitly. This body is a Yielder of Results.
 pub fn create_streaming_upload_router() -> Router(context, services) {
   router()
   |> stream_route(
@@ -613,14 +716,9 @@ pub fn create_streaming_upload_router() -> Router(context, services) {
 }
 ```
 
-### 4. Clean Up Resources <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_saving.gleam#L45-L116"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### 4. Clean Up Resources <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_saving.gleam#L82-L138"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub type UploadError {
-  UploadTooLarge
-  WriteFailed(simplifile.FileError)
-}
-
 pub fn save_upload_with_limit(
   request: Request,
   _context,
@@ -633,37 +731,35 @@ pub fn save_upload_with_limit(
 }
 
 fn save_or_clean_up(
-  stream: yielder.Yielder(BitArray),
+  stream: yielder.Yielder(Result(BitArray, BodyReadError)),
   services: Services,
 ) -> Response {
   case write_limited_stream(stream, services) {
     Ok(_total_bytes) -> text_response(status.created, "Upload saved")
-    Error(error) -> {
-      // Clean up the partial upload
-      let _ = simplifile.delete(services.upload_path)
-      create_failure_response(error)
-    }
+    Error(error) ->
+      delete_partial_file(services.upload_path, create_failure_response(error))
   }
 }
 
 fn write_limited_stream(
-  stream: yielder.Yielder(BitArray),
+  stream: yielder.Yielder(Result(BitArray, BodyReadError)),
   services: Services,
 ) -> Result(Int, UploadError) {
   use _ <- result.try(
     simplifile.create_file(services.upload_path)
     |> result.map_error(WriteFailed),
   )
-  yielder.try_fold(stream, 0, fn(total_bytes, chunk) {
-    write_chunk(services, total_bytes, chunk)
+  yielder.try_fold(stream, 0, fn(total_bytes, item) {
+    write_item(services, total_bytes, item)
   })
 }
 
-fn write_chunk(
+fn write_item(
   services: Services,
   total_bytes: Int,
-  chunk: BitArray,
+  item: Result(BitArray, BodyReadError),
 ) -> Result(Int, UploadError) {
+  use chunk <- result.try(result.map_error(item, UploadBroke))
   let new_total = total_bytes + bit_array.byte_size(chunk)
   use _ <- result.try(check_upload_size(new_total, services.max_upload_bytes))
   simplifile.append_bits(services.upload_path, chunk)
@@ -680,18 +776,12 @@ fn check_upload_size(
     False -> Ok(Nil)
   }
 }
-
-fn create_failure_response(error: UploadError) -> Response {
-  case error {
-    UploadTooLarge -> text_response(status.bad_request, "Upload is too large")
-    WriteFailed(_reason) ->
-      text_response(status.internal_server_error, "Failed to save file")
-  }
-}
 ```
 
-If the upload is too large, the controller deletes the partial file before it
-answers.
+If the upload is too large, or the stream gives an `Error` item, the
+controller deletes the partial file before it answers. `delete_partial_file`
+and `create_failure_response` are the functions from "Saving Streamed Files"
+above.
 
 ## Streaming vs Buffering
 
@@ -700,7 +790,7 @@ answers.
 | Feature | Buffered Route | Streaming Route |
 |---------|----------------|-----------------|
 | Route | `route(...)` | `stream_route(...)` |
-| `request.body` | `Text(String)`, or `Bytes(BitArray)` when not UTF-8 | `Stream(Yielder(BitArray))` |
+| `request.body` | `Text(String)`, or `Bytes(BitArray)` when not UTF-8 | `Stream(Yielder(Result(BitArray, BodyReadError)))` |
 | Memory | Loads full body | Processes chunks |
 | Max size | Limited by `max_body_size` | Can be unlimited |
 | Use for | Forms, JSON APIs | File uploads, large payloads |
@@ -708,7 +798,7 @@ answers.
 ### Response Types <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_types.gleam#L6-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/request.{type Request, Request}
+import dream/http/request.{type BodyReadError, type Request, Request}
 import dream/http/response.{
   type Response, type ResponseBody, Bytes, Stream, Text, stream_response,
 }
@@ -834,12 +924,13 @@ In a real app, a worker process sends the `ProgressUpdate` messages. Here the
 handler sends them to itself, so the example stays small. After the event for
 100%, `sse.stop_connection()` closes the stream.
 
-### Pattern 3: File Upload with Validation <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_upload_checks.gleam#L66-L153"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Pattern 3: File Upload with Validation <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_upload_checks.gleam#L71-L181"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type ImageError {
   EmptyUpload
   InvalidFileType
+  ImageUploadBroke(BodyReadError)
   SaveFailed(simplifile.FileError)
 }
 
@@ -861,7 +952,7 @@ pub fn upload_image(
 }
 
 fn validate_and_save_image(
-  stream: yielder.Yielder(BitArray),
+  stream: yielder.Yielder(Result(BitArray, BodyReadError)),
   path: String,
 ) -> Result(String, ImageError) {
   use full_stream <- result.try(validate_image_header(yielder.step(stream)))
@@ -869,13 +960,18 @@ fn validate_and_save_image(
 }
 
 fn validate_image_header(
-  step: yielder.Step(BitArray, yielder.Yielder(BitArray)),
-) -> Result(yielder.Yielder(BitArray), ImageError) {
+  step: yielder.Step(
+    Result(BitArray, BodyReadError),
+    yielder.Yielder(Result(BitArray, BodyReadError)),
+  ),
+) -> Result(yielder.Yielder(Result(BitArray, BodyReadError)), ImageError) {
   case step {
-    yielder.Next(first_chunk, rest) -> {
+    yielder.Next(Ok(first_chunk), rest) -> {
       use _ <- result.try(check_is_valid_image(first_chunk))
-      Ok(yielder.prepend(rest, first_chunk))
+      Ok(yielder.prepend(rest, Ok(first_chunk)))
     }
+    yielder.Next(Error(read_error), _rest) ->
+      Error(ImageUploadBroke(read_error))
     yielder.Done -> Error(EmptyUpload)
   }
 }
@@ -898,17 +994,32 @@ fn is_valid_image(chunk: BitArray) -> Bool {
 }
 
 fn save_to_storage(
-  stream: yielder.Yielder(BitArray),
+  stream: yielder.Yielder(Result(BitArray, BodyReadError)),
   path: String,
 ) -> Result(String, ImageError) {
   use _ <- result.try(
     simplifile.write_bits(path, <<>>) |> result.map_error(SaveFailed),
   )
-  yielder.try_fold(stream, Nil, fn(_nothing, chunk) {
-    simplifile.append_bits(path, chunk)
-  })
-  |> result.map_error(SaveFailed)
+  yielder.try_fold(stream, Nil, fn(_nothing, item) { append_item(path, item) })
   |> result.replace(path)
+  |> result.try_recover(delete_partial_file(path, _))
+}
+
+fn append_item(
+  path: String,
+  item: Result(BitArray, BodyReadError),
+) -> Result(Nil, ImageError) {
+  use chunk <- result.try(result.map_error(item, ImageUploadBroke))
+  simplifile.append_bits(path, chunk) |> result.map_error(SaveFailed)
+}
+
+// Never keep part of an upload: delete the file, then give the error
+fn delete_partial_file(
+  path: String,
+  error: ImageError,
+) -> Result(String, ImageError) {
+  use _ <- result.try(simplifile.delete(path) |> result.map_error(SaveFailed))
+  Error(error)
 }
 
 fn map_validation_result_to_response(
@@ -922,6 +1033,8 @@ fn map_validation_result_to_response(
       )
     Error(InvalidFileType) ->
       text_response(status.unprocessable_content, "Invalid image format")
+    Error(ImageUploadBroke(_read_error)) ->
+      text_response(status.bad_request, "The upload stopped before its end")
     Error(_) -> text_response(status.internal_server_error, "Upload failed")
   }
 }
@@ -1006,17 +1119,18 @@ pub fn create_row_chunks(rows: List(String)) -> Yielder(BitArray) {
 
 ## Testing Streaming
 
-### Unit Tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_unit_test.gleam#L6-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Unit Tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_unit_test.gleam#L6-L42"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/response.{Stream, stream_response}
 import dream/http/status
-import dream_test/assertions/should.{equal, fail_with, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, fail_with, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, it}
 import gleam/list
 import gleam/yielder
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("streaming", [
     it("generates expected chunks", fn() {
       // Arrange
@@ -1034,9 +1148,9 @@ pub fn tests() -> UnitTest {
           yielder.to_list(chunks)
           |> list.length()
           |> should()
-          |> equal(3)
+          |> be_equal(3)
           |> or_fail_with("Should have 3 chunks")
-        _ -> fail_with("Expected Stream body")
+        _ -> Ok(fail_with("Expected Stream body"))
       }
     }),
   ])
@@ -1049,20 +1163,25 @@ fn int_to_byte(number: Int) -> BitArray {
 
 ### Integration Tests
 
-```gherkin
-Feature: Streaming Example
+The `streaming_capabilities` example checks its download endpoint with this scenario:
 
-  Scenario: Streaming response contains multiple lines
-    When I send a GET request to "/download"
-    Then the response status should be 200
-    And the response should have at least 100 lines
+#### The download scenario <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/streaming_capabilities/test/integration/features/streaming.feature#L26-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gherkin
+    Scenario: Download streamed data
+        When I send a GET request to "/download"
+        Then the response status should be 200
+        And the response header "Content-Type" should be "text/plain"
+        And the response should contain "Line 1"
+        And the response should contain "Line 1000"
+        And the response should contain exactly 1000 lines
 ```
 
 See [Testing Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/testing.md) for more examples.
 
 ## Common Pitfalls
 
-### ❌ Don't Consume Stream Twice <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_pitfalls.gleam#L14-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ❌ Don't Consume Stream Twice <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_pitfalls.gleam#L15-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // BAD: the stream is read twice
@@ -1089,7 +1208,7 @@ stream again, so the work runs twice. A request body stream (`Stream` in `reques
 is worse: it reads from the socket, so after the first read the bytes are gone
 and a second read gets nothing.
 
-### ❌ Don't Mix Streaming and Buffering <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_pitfalls.gleam#L32-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ❌ Don't Mix Streaming and Buffering <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_pitfalls.gleam#L33-L42"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // BAD: defeats the purpose of streaming
@@ -1104,7 +1223,7 @@ pub fn send_lazy(stream: Yielder(BitArray)) -> Response {
 }
 ```
 
-### ❌ Don't Forget Error Handling <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_pitfalls.gleam#L43-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ❌ Don't Forget Error Handling <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_pitfalls.gleam#L44-L80"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // BAD: a buffered body becomes an empty upload
@@ -1124,12 +1243,24 @@ pub fn upload_with_check(request: Request, _context, _services) -> Response {
   }
 }
 
-fn save_stream(stream: Yielder(BitArray)) -> Response {
-  let total_bytes = yielder.fold(stream, 0, add_chunk_size)
-  text_response(status.ok, "Saved " <> int.to_string(total_bytes) <> " bytes")
+fn save_stream(stream: Yielder(Result(BitArray, BodyReadError))) -> Response {
+  case yielder.try_fold(stream, 0, add_chunk_size) {
+    Ok(total_bytes) ->
+      text_response(
+        status.ok,
+        "Saved " <> int.to_string(total_bytes) <> " bytes",
+      )
+    // The connection broke before the end of the body
+    Error(_read_error) ->
+      text_response(status.bad_request, "The upload stopped before its end")
+  }
 }
 
-fn add_chunk_size(total_bytes: Int, chunk: BitArray) -> Int {
+fn add_chunk_size(
+  total_bytes: Int,
+  item: Result(BitArray, BodyReadError),
+) -> Result(Int, BodyReadError) {
+  use chunk <- result.map(item)
   total_bytes + bit_array.byte_size(chunk)
 }
 ```
@@ -1153,7 +1284,7 @@ pub fn create_csv_download(csv_rows: Yielder(BitArray)) -> Response {
 `sse_response` is deprecated. For Server-Sent Events, use
 `dream/servers/mist/sse.upgrade_to_sse`. See the [SSE Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/sse.md).
 
-### Router Functions <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_ingress.gleam#L88-L97"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Router Functions <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_guide_ingress.gleam#L105-L114"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 // stream_route works with any HTTP method
@@ -1174,7 +1305,7 @@ pub fn create_file_router() -> Router(context, services) {
 // A streaming route gives the controller a request like this one
 pub fn create_streaming_request(
   request: Request,
-  chunks: Yielder(BitArray),
+  chunks: Yielder(Result(BitArray, BodyReadError)),
 ) -> Request {
   // The response module also has a Stream constructor, so name the
   // request one by its module

@@ -1,6 +1,6 @@
 //// This module contains the code to run the sql queries defined in
 //// `./src/sql`.
-//// > 🐿️ This module was generated automatically using v4.5.0 of
+//// > 🐿️ This module was generated automatically using v4.7.0 of
 //// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ////
 
@@ -12,7 +12,7 @@ import pog
 /// A row you get from running the `create_post` query
 /// defined in `./src/sql/create_post.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type CreatePostRow {
@@ -27,7 +27,7 @@ pub type CreatePostRow {
 
 /// Create a new post for a user
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.7.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn create_post(
@@ -64,7 +64,7 @@ INSERT INTO posts (user_id, title, content) VALUES ($1, $2, $3) RETURNING id, us
 /// A row you get from running the `create_user` query
 /// defined in `./src/sql/create_user.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type CreateUserRow {
@@ -78,7 +78,7 @@ pub type CreateUserRow {
 
 /// Create a new user
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.7.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn create_user(
@@ -111,12 +111,12 @@ INSERT INTO users (name, email) VALUES ($1, $2) RETURNING id, name, email, creat
 
 /// Delete a user
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.7.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn delete_user(
   db: pog.Connection,
-  arg_1: Int,
+  id: Int,
 ) -> Result(pog.Returned(Nil), pog.QueryError) {
   let decoder = decode.map(decode.dynamic, fn(_) { Nil })
 
@@ -129,7 +129,7 @@ DELETE FROM users WHERE id = $1
 
 "
   |> pog.query
-  |> pog.parameter(pog.int(arg_1))
+  |> pog.parameter(pog.int(id))
   |> pog.returning(decoder)
   |> pog.execute(db)
 }
@@ -137,7 +137,7 @@ DELETE FROM users WHERE id = $1
 /// A row you get from running the `get_post` query
 /// defined in `./src/sql/get_post.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type GetPostRow {
@@ -152,12 +152,12 @@ pub type GetPostRow {
 
 /// Get a single post by ID
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.7.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn get_post(
   db: pog.Connection,
-  arg_1: Int,
+  id: Int,
 ) -> Result(pog.Returned(GetPostRow), pog.QueryError) {
   let decoder = {
     use id <- decode.field(0, decode.int)
@@ -177,7 +177,7 @@ SELECT id, user_id, title, content, created_at FROM posts WHERE id = $1
 
 "
   |> pog.query
-  |> pog.parameter(pog.int(arg_1))
+  |> pog.parameter(pog.int(id))
   |> pog.returning(decoder)
   |> pog.execute(db)
 }
@@ -185,7 +185,7 @@ SELECT id, user_id, title, content, created_at FROM posts WHERE id = $1
 /// A row you get from running the `get_user` query
 /// defined in `./src/sql/get_user.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type GetUserRow {
@@ -199,12 +199,12 @@ pub type GetUserRow {
 
 /// Get a single user by ID
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.7.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn get_user(
   db: pog.Connection,
-  arg_1: Int,
+  id: Int,
 ) -> Result(pog.Returned(GetUserRow), pog.QueryError) {
   let decoder = {
     use id <- decode.field(0, decode.int)
@@ -223,7 +223,7 @@ SELECT id, name, email, created_at FROM users WHERE id = $1
 
 "
   |> pog.query
-  |> pog.parameter(pog.int(arg_1))
+  |> pog.parameter(pog.int(id))
   |> pog.returning(decoder)
   |> pog.execute(db)
 }
@@ -231,7 +231,7 @@ SELECT id, name, email, created_at FROM users WHERE id = $1
 /// A row you get from running the `list_posts` query
 /// defined in `./src/sql/list_posts.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type ListPostsRow {
@@ -246,12 +246,12 @@ pub type ListPostsRow {
 
 /// List all posts for a user
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.7.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn list_posts(
   db: pog.Connection,
-  arg_1: Int,
+  user_id: Int,
 ) -> Result(pog.Returned(ListPostsRow), pog.QueryError) {
   let decoder = {
     use id <- decode.field(0, decode.int)
@@ -271,7 +271,7 @@ SELECT id, user_id, title, content, created_at FROM posts WHERE user_id = $1 ORD
 
 "
   |> pog.query
-  |> pog.parameter(pog.int(arg_1))
+  |> pog.parameter(pog.int(user_id))
   |> pog.returning(decoder)
   |> pog.execute(db)
 }
@@ -279,7 +279,7 @@ SELECT id, user_id, title, content, created_at FROM posts WHERE user_id = $1 ORD
 /// A row you get from running the `list_users` query
 /// defined in `./src/sql/list_users.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type ListUsersRow {
@@ -293,7 +293,7 @@ pub type ListUsersRow {
 
 /// List all users
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.7.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn list_users(
@@ -323,7 +323,7 @@ SELECT id, name, email, created_at FROM users ORDER BY id
 /// A row you get from running the `update_user` query
 /// defined in `./src/sql/update_user.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type UpdateUserRow {
@@ -337,14 +337,14 @@ pub type UpdateUserRow {
 
 /// Update a user
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.7.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn update_user(
   db: pog.Connection,
   arg_1: String,
-  arg_2: String,
-  arg_3: Int,
+  email: String,
+  id: Int,
 ) -> Result(pog.Returned(UpdateUserRow), pog.QueryError) {
   let decoder = {
     use id <- decode.field(0, decode.int)
@@ -364,8 +364,8 @@ UPDATE users SET name = $1, email = $2 WHERE id = $3 RETURNING id, name, email, 
 "
   |> pog.query
   |> pog.parameter(pog.text(arg_1))
-  |> pog.parameter(pog.text(arg_2))
-  |> pog.parameter(pog.int(arg_3))
+  |> pog.parameter(pog.text(email))
+  |> pog.parameter(pog.int(id))
   |> pog.returning(decoder)
   |> pog.execute(db)
 }

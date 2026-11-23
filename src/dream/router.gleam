@@ -328,7 +328,7 @@ pub fn route(
   ),
 ) -> Router(context, services) {
   let segments = parser.parse_pattern(path_pattern)
-  let method_string = method_to_string(method_value)
+  let method_string = method_key(method_value)
   let middleware_wrappers = list.map(middleware_list, wrap_middleware)
   let param_names = extract_param_names_from_segments(segments)
 
@@ -348,12 +348,15 @@ pub fn route(
 
 /// Add a streaming route to the router
 ///
-/// Registers a route that receives the request body as a stream (Yielder(BitArray))
+/// Registers a route that receives the request body as a stream of `Result` items
 /// instead of a buffered `Text` or `Bytes` body. Use this for large file uploads,
 /// proxying external APIs, or any request body > 10MB.
 ///
-/// The controller receives `request.body` as `Stream(Yielder(BitArray))`.
-/// Process chunks as they arrive without buffering the entire body in memory.
+/// The controller receives `request.body` as
+/// `Stream(Yielder(Result(BitArray, BodyReadError)))`. Process chunks as they
+/// arrive without buffering the entire body in memory. Each item is
+/// `Ok(chunk)`, or one `Error(MalformedBody)` when a read from the
+/// connection fails, and the stream ends after that item.
 ///
 /// ## Example
 ///
@@ -396,7 +399,7 @@ pub fn stream_route(
   ),
 ) -> Router(context, services) {
   let segments = parser.parse_pattern(path_pattern)
-  let method_string = method_to_string(method_value)
+  let method_string = method_key(method_value)
   let middleware_wrappers = list.map(middleware_list, wrap_middleware)
   let param_names = extract_param_names_from_segments(segments)
 
@@ -465,7 +468,7 @@ pub fn find_route(
   router_value: Router(context, services),
   request: Request,
 ) -> option.Option(#(Route(context, services), List(#(String, String)))) {
-  let method_string = method_to_string(request.method)
+  let method_string = method_key(request.method)
   let path_segments = split_path(request.path)
 
   case trie_module.lookup(router_value.trie, method_string, path_segments) {
@@ -540,19 +543,17 @@ fn extract_param_name_from_segment(segment: Segment) -> option.Option(String) {
 /// from the route's param names when routes share param positions). This function
 /// remaps them to the correct names based on the matched route's param_names.
 ///
-/// Both lists should be in path order (first param first).
+/// Both lists are in path order (first param first) and have the same length:
+/// the route gives one name for each param that the trie extracted.
 fn remap_params_to_route_names(
   extracted_params: List(#(String, String)),
   route_param_names: List(String),
 ) -> List(#(String, String)) {
-  case extracted_params, route_param_names {
-    [], _ -> []
-    _, [] -> extracted_params
-    [#(_old_name, value), ..rest_params], [new_name, ..rest_names] -> {
-      let remapped_rest = remap_params_to_route_names(rest_params, rest_names)
-      [#(new_name, value), ..remapped_rest]
-    }
-  }
+  list.map2(extracted_params, route_param_names, rename_param)
+}
+
+fn rename_param(param: #(String, String), name: String) -> #(String, String) {
+  #(name, param.1)
 }
 
 // ============================================================================
@@ -575,6 +576,37 @@ fn remap_params_to_route_names(
 /// ## Returns
 ///
 /// A composed function that applies all middleware and the controller
+///
+/// ## Example
+///
+/// ### Wrap a controller in middleware <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router_build_controller_chain.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/request.{type Request}
+/// import dream/http/response.{type Response, Text, text_response}
+/// import dream/http/status.{ok}
+/// import dream/router.{type Middleware, Middleware, build_controller_chain}
+///
+/// fn controller(_request: Request, _context, _services) -> Response {
+///   text_response(ok, "controller")
+/// }
+///
+/// fn wrap(label: String) -> Middleware(context, services) {
+///   Middleware(fn(request, context, services, next) {
+///     let response = next(request, context, services)
+///     case response.body {
+///       Text(body) -> text_response(response.status, label <> "(" <> body <> ")")
+///       _ -> response
+///     }
+///   })
+/// }
+///
+/// pub fn handle(request: Request) -> Response {
+///   let chain = build_controller_chain([wrap("outer"), wrap("inner")], controller)
+///   // The first middleware is the outermost: "outer(inner(controller))"
+///   chain(request, Nil, Nil)
+/// }
+/// ```
 pub fn build_controller_chain(
   middleware: List(Middleware(context, services)),
   final_controller: fn(Request, context, services) -> Response,
@@ -662,7 +694,12 @@ fn wrap_middleware(
   Middleware(middleware_function)
 }
 
-/// Convert an HTTP method to its string representation
-fn method_to_string(method: Method) -> String {
-  request.method_to_string(method)
+/// The trie key of a method. `Other` gets a space before its name. A space
+/// cannot be part of a method token, so `Other("GET")` never shares the key
+/// of `Get`, and a route matches only a request with an equal method.
+fn method_key(method: Method) -> String {
+  case method {
+    request.Other(name) -> " " <> name
+    _ -> request.method_to_string(method)
+  }
 }

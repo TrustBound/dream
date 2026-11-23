@@ -1,6 +1,6 @@
 .PHONY: run test test-integration clean matcha build
 
-run: matcha
+run:
 	gleam run -m main
 
 test:
@@ -23,7 +23,7 @@ test-integration:
 	@../../integration/run-scenarios.sh websocket_chat 8080 tls_main http2
 
 matcha:
-	@matcha
+	@matcha && gleam format src
 
 build: matcha
 	@gleam build

@@ -17,11 +17,13 @@ This directory contains comprehensive examples demonstrating Dream's features an
 | [streaming_capabilities](./streaming_capabilities) | Advanced streaming patterns | No | Integration | 3001 |
 | [tasks](./tasks) | Full-featured task manager | Yes | Integration + Cypress | 3000 |
 
-**All examples except `simplest` include automated integration tests.**
+**Every example has automated integration tests.** `simplest` runs only the request of its README, the others also run Cucumber scenarios.
 
 ## Running Examples
 
 ### Quick Start (No Database)
+
+#### Start the simple example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/start.sh#L3-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
 cd examples/simple
@@ -30,16 +32,18 @@ make run
 
 ### Database Examples
 
+#### Start the database example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/test/integration/start.sh#L3-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 cd examples/database
 
-# Start PostgreSQL
-docker-compose up -d
+# Start PostgreSQL database
+make db-up
 
-# Run migrations
+# Run database migrations
 make migrate
 
-# Start server
+# Start the server
 make run
 ```
 
@@ -47,16 +51,22 @@ make run
 
 ### Run All Integration Tests
 
+From the repository root (requires PostgreSQL on port 5435). The integration job of CI runs it with this line of `scripts/ci-integration.sh`:
+
+#### Run all integration tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/ci-integration.sh#L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
-# From repository root (requires PostgreSQL on port 5435)
 make test-integration
 ```
 
 ### Run Individual Example Tests
 
+From the repository root:
+
+#### Run the tests of one example <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/test-integration.sh#L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
-cd examples/simple
-make test-integration
+(cd examples/simple && make test-integration)
 ```
 
 ## Integration Test Framework
@@ -70,7 +80,7 @@ All examples use **Cucumber** (BDD framework) with **HTTPoison** for HTTP testin
 
 ### Example Test Structure
 
-```text
+```text illustration
 examples/simple/
 ├── test/
 │   └── integration/
@@ -79,22 +89,33 @@ examples/simple/
 │       │   └── step_definitions/
 │       │       └── http_steps.exs       # Step implementations
 │       ├── cucumber_test.exs            # ExUnit entry point
-│       └── test_helper.exs              # Cucumber configuration
+│       ├── test_helper.exs              # Cucumber configuration
+│       ├── start.sh                     # Starts the server as the README says
+│       ├── readme.sh                    # The requests of the README
+│       └── readme_output.txt            # Their expected output
 ├── mix.exs                               # Elixir test dependencies
 └── Makefile                              # test-integration target
 ```
 
 ## CI Integration
 
-Integration tests run automatically on all pull requests:
+Integration tests run automatically on all pull requests. The `integration-tests` job of `.github/workflows/ci.yml` starts PostgreSQL for the database examples:
+
+### The PostgreSQL service of CI <a href="https://github.com/TrustBound/dream/blob/3.0.0/.github/workflows/ci.yml#L146-L157"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```yaml
-# .github/workflows/ci.yml includes:
-jobs:
   integration-tests:
     runs-on: ubuntu-latest
+
     services:
-      postgres:  # For database examples
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dream_example_database_db
+        ports:
+          - 5435:5432
 ```
 
 See [Integration Tests CI Documentation](../.github/workflows/integration-tests.md) for details.
@@ -157,7 +178,7 @@ See [Integration Tests CI Documentation](../.github/workflows/integration-tests.
 ### Tests Hanging
 
 Check for port conflicts:
-```bash
+```bash illustration
 lsof -i:3000  # Check if port is in use
 pkill -f "gleam run"  # Kill all Gleam processes
 ```
@@ -165,7 +186,7 @@ pkill -f "gleam run"  # Kill all Gleam processes
 ### Database Connection Errors
 
 Verify PostgreSQL is running:
-```bash
+```bash illustration
 docker-compose ps
 docker-compose logs postgres
 ```
@@ -173,7 +194,7 @@ docker-compose logs postgres
 ### Compilation Errors
 
 Clean and rebuild:
-```bash
+```bash illustration
 make clean
 gleam deps download
 gleam build

@@ -1,20 +1,16 @@
 import dream/context_test
 import dream/router_test
-import dream_test/reporter/bdd.{report}
-import dream_test/runner.{run_all}
-import dream_test/unit.{to_test_cases}
-import gleam/io
-import gleam/list
+import dream_test/reporters/bdd
+import dream_test/runner
 
 // ... other test modules
 
 pub fn main() {
-  [
-    to_test_cases("dream/context", context_test.tests()),
-    to_test_cases("dream/router", router_test.tests()),
+  runner.new([
+    context_test.tests(),
+    router_test.tests(),
     // ... other modules
-  ]
-  |> list.flatten
-  |> run_all()
-  |> report(io.println)
+  ])
+  |> runner.results_reporters([bdd.new()])
+  |> runner.run()
 }

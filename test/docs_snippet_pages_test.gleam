@@ -4,10 +4,11 @@
 import docs_snippet_pages.{
   MissingSnippet, RewrittenPage, SnippetLink, SnippetReference,
 }
-import dream_test/assertions/should.{
-  be_none, contain_string, equal, or_fail_with, should,
+import dream_test/matchers.{
+  be_equal, be_none, contain_string, or_fail_with, should,
 }
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, group, it}
 import gleam/option.{Some}
 
 const snippet_href =
@@ -17,9 +18,9 @@ fn badge(href: String) -> String {
   "<p><a href=\"" <> href <> "\"><img src=\"badge.svg\"/></a></p>"
 }
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("docs_snippet_pages", [
-    describe("rewrite_page", [
+    group("rewrite_page", [
       it("rewrites a snippet link at depth 0 to snippets/", fn() {
         // Arrange
         let html = badge(snippet_href)
@@ -30,7 +31,7 @@ pub fn tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal(
+        |> be_equal(
           RewrittenPage(
             html: badge("snippets/sse_action_builders.html"),
             snippet_names: ["sse_action_builders"],
@@ -52,7 +53,7 @@ pub fn tests() -> UnitTest {
         // Assert
         result.html
         |> should()
-        |> equal(badge("../../../snippets/sse_action_builders.html"))
+        |> be_equal(badge("../../../snippets/sse_action_builders.html"))
         |> or_fail_with("Expected three ../ segments at depth 3")
       }),
       it("keeps a line range anchor", fn() {
@@ -65,7 +66,7 @@ pub fn tests() -> UnitTest {
         // Assert
         result.html
         |> should()
-        |> equal(badge("snippets/sse_action_builders.html#L8-L10"))
+        |> be_equal(badge("snippets/sse_action_builders.html#L8-L10"))
         |> or_fail_with("Expected the #L8-L10 anchor to stay")
       }),
       it("keeps a single line anchor", fn() {
@@ -78,7 +79,7 @@ pub fn tests() -> UnitTest {
         // Assert
         result.html
         |> should()
-        |> equal(badge("snippets/sse_action_builders.html#L8"))
+        |> be_equal(badge("snippets/sse_action_builders.html#L8"))
         |> or_fail_with("Expected the #L8 anchor to stay")
       }),
       it("leaves a non-snippet GitHub link unchanged", fn() {
@@ -94,7 +95,7 @@ pub fn tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal(RewrittenPage(html:, snippet_names: []))
+        |> be_equal(RewrittenPage(html:, snippet_names: []))
         |> or_fail_with("Expected the page to stay unchanged")
       }),
       it("rewrites a snippet link with a different tag", fn() {
@@ -110,11 +111,11 @@ pub fn tests() -> UnitTest {
         // Assert
         result.html
         |> should()
-        |> equal(badge("../snippets/sse_event_builders.html#L3-L5"))
+        |> be_equal(badge("../snippets/sse_event_builders.html#L3-L5"))
         |> or_fail_with("Expected the 2.4.1 link to be rewritten")
       }),
     ]),
-    describe("find_snippet_link", [
+    group("find_snippet_link", [
       it("gives None for a link with an anchor that is not a line", fn() {
         // Arrange
         let href = snippet_href <> "#readme"
@@ -138,13 +139,13 @@ pub fn tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal(
+        |> be_equal(
           Some(SnippetLink(name: "sse_action_builders", anchor: "#L3-L5")),
         )
         |> or_fail_with("Expected the snippet name and anchor")
       }),
     ]),
-    describe("find_missing_snippet", [
+    group("find_missing_snippet", [
       it("returns MissingSnippet naming the page and file", fn() {
         // Arrange
         let references = [
@@ -161,7 +162,7 @@ pub fn tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal(
+        |> be_equal(
           Error(MissingSnippet(
             page: "dream/router.html",
             snippet_path: "test/snippets/no_such_snippet.gleam",
@@ -184,11 +185,11 @@ pub fn tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal(Ok(Nil))
+        |> be_equal(Ok(Nil))
         |> or_fail_with("Expected Ok when the snippet exists")
       }),
     ]),
-    describe("render_snippet_page", [
+    group("render_snippet_page", [
       it("contains the escaped snippet text", fn() {
         // Arrange
         let source = "let html = \"<b>&</b>\"\n"

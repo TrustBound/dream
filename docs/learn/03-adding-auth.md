@@ -119,7 +119,7 @@ works with any services type.
 
 Middleware wraps controllers:
 
-```text
+```text illustration
 Request → Middleware → Controller → Middleware → Response
 ```
 
@@ -272,6 +272,8 @@ this value as the constant `context`.
 
 Test it:
 
+#### Send the requests <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/custom_context/test/integration/readme.sh#L22-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 # Public route - succeeds
 curl http://localhost:3001/
@@ -296,7 +298,7 @@ curl http://localhost:3001/admin \
 
 When a request hits a route with `[auth_middleware]`:
 
-```text
+```text illustration
 1. Request arrives
 2. Router creates empty context: AuthContext(request_id: "abc", user: None)
 3. Middleware runs: Checks auth, enriches context with user
@@ -326,7 +328,7 @@ You can chain middleware. The example's admin route uses two:
 ```
 
 They run in order:
-```text
+```text illustration
 Request → auth → admin → controller → admin → auth → Response
 ```
 

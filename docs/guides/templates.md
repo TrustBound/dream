@@ -21,14 +21,15 @@ The basic Matcha mental model is:
 - **Output:** `.gleam` modules with `render` / `render_tree` functions
   that you import like any other module.
 
-In practice you will usually add a small Makefile target:
+In practice you will usually add a small Makefile target. These are the targets of the `websocket_chat` example. `gleam format` makes the generated modules the same as the ones in the repository:
+
+## The Matcha targets <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/Makefile#L25-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```makefile
 matcha:
-	@matcha
+	@matcha && gleam format src
 
-build:
-	@make matcha
+build: matcha
 	@gleam build
 ```
 
@@ -38,7 +39,9 @@ prebuilt Matcha binary and just use it via this Makefile target.
 
 ### Mini walkthrough: from `.matcha` to Gleam
 
-1. Create a simple template, e.g. `templates/elements/hello.matcha`:
+1. Create a simple template, e.g. `templates/elements/hello.matcha`. This is `test/snippets/templates_guide_hello.matcha`, which `make check-templates` compiles:
+
+   #### The template <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/templates_guide_hello.matcha#L1-L2"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
    ```jinja
    {> with name as String
@@ -89,6 +92,8 @@ Elements are the smallest reusable pieces. They're compiled from Matcha template
 **Location:** `templates/elements/*.matcha`
 
 **Example: Button Element**
+
+### The button element of the tasks example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/templates/elements/button.matcha#L1-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```matcha
 {> with button_id as String
@@ -201,18 +206,12 @@ Pages compose multiple components into full page content. They represent the mai
 
 **Example: Index Page**
 
+### The index page <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/templates_guide_index.matcha#L1-L3"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```matcha
 {> with task_form as String
 {> with task_list as String
-<main>
-  <section>
-    <h1>Tasks</h1>
-    {{ task_form }}
-  </section>
-  <section>
-    {{ task_list }}
-  </section>
-</main>
+<main><section><h1>Tasks</h1>{{ task_form }}</section><section>{{ task_list }}</section></main>
 ```
 
 A page can also be a Gleam function:

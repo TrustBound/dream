@@ -352,6 +352,24 @@ pub fn get_bind_interface(
 ///
 /// This is a low-level function for server adapters. Use
 /// `dream/servers/mist/server.tls()` in your application.
+///
+/// ## Example
+///
+/// ### Set the TLS files <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_set_tls.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/dream.{type Tls, Tls, get_tls, set_tls}
+/// import dream/servers/mist/server
+/// import gleam/option.{type Option, Some}
+///
+/// pub fn tls_files() -> Option(Tls) {
+///   let app =
+///     server.new()
+///     |> set_tls(Some(Tls(certfile: "cert.pem", keyfile: "key.pem")))
+///   // Some(Tls(certfile: "cert.pem", keyfile: "key.pem"))
+///   get_tls(app)
+/// }
+/// ```
 pub fn set_tls(
   dream: Dream(server, context, services, router),
   tls: option.Option(Tls),
@@ -362,6 +380,21 @@ pub fn set_tls(
 /// Get the certificate and key files for serving HTTPS, if any
 ///
 /// Returns `None` when the server serves plain HTTP.
+///
+/// ## Example
+///
+/// ### Read the TLS files <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_get_tls.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/dream.{type Tls, get_tls}
+/// import dream/servers/mist/server
+/// import gleam/option.{type Option}
+///
+/// pub fn plain_http_tls() -> Option(Tls) {
+///   // A server with no certificate and key files serves plain HTTP: None
+///   get_tls(server.new())
+/// }
+/// ```
 pub fn get_tls(
   dream: Dream(server, context, services, router),
 ) -> option.Option(Tls) {
@@ -451,6 +484,44 @@ pub fn route_request(
 /// ## Returns
 ///
 /// HTTP response from the controller
+///
+/// ## Example
+///
+/// ### Run a matched route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_execute_route.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/dream.{execute_route}
+/// import dream/http/request.{type Request, Get, get_param}
+/// import dream/http/response.{type Response, text_response}
+/// import dream/http/status.{bad_request, not_found, ok}
+/// import dream/router.{find_route, route, router}
+/// import gleam/option.{None, Some}
+///
+/// fn show_user(request: Request, _context, _services) -> Response {
+///   case get_param(request, "id") {
+///     Ok(param) -> text_response(ok, "User " <> param.value)
+///     Error(message) -> text_response(bad_request, message)
+///   }
+/// }
+///
+/// pub fn handle(request: Request) -> Response {
+///   let app_router =
+///     router()
+///     |> route(
+///       method: Get,
+///       path: "/users/:id",
+///       controller: show_user,
+///       middleware: [],
+///     )
+///   case find_route(app_router, request) {
+///     // execute_route sets the params, then runs the middleware and the
+///     // controller: GET /users/7 gives "User 7"
+///     Some(#(matched_route, params)) ->
+///       execute_route(matched_route, request, params, Nil, Nil)
+///     None -> text_response(not_found, "Route not found")
+///   }
+/// }
+/// ```
 pub fn execute_route(
   route: Route(context, services),
   request: Request,

@@ -23,15 +23,19 @@ Follow the [Naming Conventions](../reference/naming-conventions.md):
 - Full words, no abbreviations (except standard ones like `id`, `http`, `json`)
 - Builder pattern for configuration
 
-Use `gleam format` before committing:
+Run `gleam format` before committing. CI checks the format with this line of `scripts/check.sh`:
+
+### Check the format <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/check.sh#L7"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
-gleam format
+gleam format --check src test
 ```
 
 ## Testing
 
-All code must have tests. Dream requires **100% test coverage** of `src/dream/`.
+All code must have tests. Dream requires **100% line coverage** of `src/dream/`.
+
+`make test-unit` (or `gleam test`) measures it. The test entry point, `test/dream_test.gleam`, turns on the line coverage of `dream_test`. After the test results, it prints a coverage table with the lines that did not run, and it writes `build/coverage/lcov.info` and `build/coverage/coverage.json`. The run fails when coverage of `src/` is below 100%, also when every test passes. CI runs the same command. Coverage needs Erlang/OTP 27 or later with the JIT.
 
 ### Unit Tests
 
@@ -44,23 +48,27 @@ See [Testing Guide](../guides/testing.md) for details.
 
 ### Running Tests
 
+CI runs the unit tests with this line of `scripts/check.sh`:
+
+#### Run the unit tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/check.sh#L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
-gleam test
+make test-unit
 ```
 
 ### Test Naming
 
-Dream's tests use [dream_test](https://hexdocs.pm/dream_test/), not `_test` functions. Name the `describe` group for the function, and name each `it` for the result it expects and the condition:
+Dream's tests use [dream_test](https://hexdocs.pm/dream_test/), not `_test` functions. Name the `group` for the function, and name each `it` for the result it expects and the condition:
 
-#### Name a test for its result and condition <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_test_naming.gleam#L12-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Name a test for its result and condition <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_test_naming.gleam#L13-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-fn to_status_code_tests() -> UnitTest {
-  describe("to_status_code", [
+fn to_status_code_tests() -> UnitNode {
+  group("to_status_code", [
     it("returns 404 for NotFound", fn() {
       error.to_status_code(NotFound("User not found"))
       |> should()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("Expected 404")
     }),
   ])
@@ -69,21 +77,21 @@ fn to_status_code_tests() -> UnitTest {
 
 Example:
 
-#### Name the tests of one function <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_test_naming.gleam#L23-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Name the tests of one function <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_test_naming.gleam#L24-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-fn message_tests() -> UnitTest {
-  describe("message", [
+fn message_tests() -> UnitNode {
+  group("message", [
     it("returns the message of a BadRequest", fn() {
       error.message(BadRequest("Invalid email format"))
       |> should()
-      |> equal("Invalid email format")
+      |> be_equal("Invalid email format")
       |> or_fail_with("Expected the BadRequest message")
     }),
     it("returns the message of an InternalServerError", fn() {
       error.message(InternalServerError("Database connection failed"))
       |> should()
-      |> equal("Database connection failed")
+      |> be_equal("Database connection failed")
       |> or_fail_with("Expected the InternalServerError message")
     }),
   ])
@@ -175,7 +183,9 @@ An upgrade guide shows how code changed. The old code does not compile on the ne
 
 Don't write a "before" by hand. When no file in the repository made the change, show the new code as a tested snippet, and name the old form in inline code in the text next to it.
 
-Run the check by hand from the repository root:
+Run the check by hand from the repository root. CI runs it with this line of `scripts/check.sh`:
+
+#### Check the docs <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/check.sh#L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
 make check-snippets
@@ -200,7 +210,22 @@ It runs `gleam run -m dream_snippets`. The check is the [`dream_snippets`](https
 - the old tag is not in your clone (run `git fetch --tags`, because a shallow clone has no tags)
 - the file has no diff between the old tag and the working tree, or a line of the block is not in that diff in that place
 
-It prints each problem as `file:line: reason`, then a summary line. `make check`, the pre-commit hook, CI and the publish workflows also run it.
+Every other code block is proven too, in the way that fits its kind:
+
+- **A command block** (`bash`, `sh`, `shell`, `console`) is a copy of lines of a script that CI or a test runs, such as `scripts/check.sh`, `scripts/test-integration.sh`, or the `test/integration/start.sh` and `test/integration/readme.sh` of an example. Its heading has the tested snippet badge, linked to the lines. A block whose lines are only `gleam add` or `gleam deps update` of `dream` or its dependencies needs no badge.
+- **An output block** (`text`) is a copy of an output file, with the badge. A test compares that file with the real output. The integration run of an example compares the output of its `test/integration/readme.sh` with its `test/integration/readme_output.txt` (see `integration/run-scenarios.sh`).
+- **A file block** (any other language: `toml`, `yaml`, `makefile`, `sql`, `dockerfile`, `javascript`, `gherkin`, and so on) is a copy of a real file, or of a line range, that a test or CI uses, with the badge. A `toml` block of only `[dependencies]` and a `dream = ">= 3.0.0 and < 4.0.0"` line needs no badge.
+- **An illustration** is a block that nothing can run, such as a folder tree, a diagram, or a command against the reader's own accounts. Mark it with `illustration` after the language, as in ```` ```text illustration ````. Keep these few.
+
+The badge of a file, command or output block links to a path of the `tested_files` list in `[tools.dream_snippets]`. The list names the files and folders that the tests and CI use. The check also fails when:
+
+- a file, command or output block has no heading with the badge, and is not a `gleam add` block or a `dream` dependency block
+- the badge links to a file that is not under a `tested_files` path, or the block is not the same as the linked file or line range
+- a `gleam add` or `gleam deps update` line names a package that is not a dependency of `dream`
+- a code fence has no language
+- an illustration holds a line that looks like Gleam code
+
+It prints each problem as `file:line: reason`, then a summary line, such as `565 blocks and 7 diff blocks checked in 86 files, 0 problems; 46 file blocks, 75 command blocks and 10 output blocks checked; 59 illustration blocks`. `make check`, the pre-commit hook, CI and the publish workflows also run it.
 
 ### Contributing to Documentation
 
@@ -216,7 +241,7 @@ For writing or improving user-facing documentation (guides, tutorials, examples)
 1. **Fork the repository**
 
 2. **Create a feature branch**
-   ```bash
+   ```bash illustration
    git checkout -b feature/your-feature-name
    ```
 
@@ -227,14 +252,20 @@ For writing or improving user-facing documentation (guides, tutorials, examples)
    - Run `gleam format`
 
 4. **Verify everything works**
+
+   `make check` runs `scripts/check.sh`, the same checks as CI:
+
+   ### The checks of CI <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/check.sh#L7-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
    ```bash
-   gleam check    # Type checking
-   gleam test     # All tests pass
-   gleam format   # Code formatted
+   gleam format --check src test
+   gleam build
+   make test-unit
+   make check-snippets
    ```
 
 5. **Commit with clear messages**
-   ```bash
+   ```bash illustration
    git commit -m "feat: add middleware chaining support"
    ```
 
@@ -247,7 +278,7 @@ For writing or improving user-facing documentation (guides, tutorials, examples)
    - `chore:` - Maintenance tasks
 
 6. **Push and create PR**
-   ```bash
+   ```bash illustration
    git push origin feature/your-feature-name
    ```
 
@@ -290,22 +321,25 @@ Documentation improvements are always welcome:
 
 ## Project Structure
 
-```text
+```text illustration
 dream/
   src/
     dream/
-      core/            # Core types (Request, Response, Router, etc.)
-      servers/         # Server adapters (Mist)
-      services/        # Service helpers (Postgres, etc.)
-      utilities/       # Utilities (HTTP client, JSON, etc.)
-      validators/      # Validators (JSON, etc.)
+      http/            # Request, Response, headers, cookies, params, validation
+      router/          # The route trie and the path parser
+      controllers/     # The static file controller
+      servers/mist/    # The server adapter (Mist)
+      services/        # The broadcaster
   test/
     dream/             # Tests mirror src/ structure
+    snippets/          # The tested code of the docs
   docs/                # Documentation
-    tutorials/         # Step-by-step guides
+    learn/             # Step-by-step lessons
     guides/            # Topic-focused how-tos
     reference/         # Technical reference
-  examples/        # Working example applications (each is its own Gleam project)
+  examples/            # Working example applications (each is its own Gleam project)
+  integration/         # The runner and HTTP client of the examples' integration tests
+  scripts/             # What CI runs
 ```
 
 ## Publishing (Maintainers Only)

@@ -17,6 +17,8 @@ import gleam/int
 import gleam/list
 import gleam/option
 import gleam/string
+import gleam/time/calendar
+import gleam/time/timestamp
 import gleam/yielder
 import mist.{type Connection, type ResponseData, Bytes as MistBytes}
 
@@ -250,7 +252,7 @@ fn format_cookie_header(cookie: Cookie) -> String {
   let base = name <> "=" <> value
 
   let with_expires = case expires {
-    option.Some(expiry) -> base <> "; Expires=" <> int.to_string(expiry)
+    option.Some(expiry) -> base <> "; Expires=" <> format_http_date(expiry)
     option.None -> base
   }
 
@@ -285,4 +287,59 @@ fn format_cookie_header(cookie: Cookie) -> String {
     option.Some(None) -> with_http_only <> "; SameSite=None"
     option.None -> with_http_only
   }
+}
+
+/// Writes a time as an HTTP date in the IMF-fixdate form of RFC 9110
+/// section 5.6.7, which RFC 6265 section 4.1.1 requires for `Expires`, for
+/// example `Tue, 14 Nov 2023 22:13:20 GMT`. The time is in seconds since the
+/// Unix epoch and is written in UTC.
+fn format_http_date(seconds_since_epoch: Int) -> String {
+  let #(date, time) =
+    timestamp.from_unix_seconds(seconds_since_epoch)
+    |> timestamp.to_calendar(calendar.utc_offset)
+  day_name(seconds_since_epoch)
+  <> ", "
+  <> pad_number(date.day, 2)
+  <> " "
+  <> month_name(date.month)
+  <> " "
+  <> pad_number(date.year, 4)
+  <> " "
+  <> pad_number(time.hours, 2)
+  <> ":"
+  <> pad_number(time.minutes, 2)
+  <> ":"
+  <> pad_number(time.seconds, 2)
+  <> " GMT"
+}
+
+const seconds_per_day = 86_400
+
+/// The day names in order from Thursday, the day of 1 January 1970.
+const day_names_from_thursday = "ThuFriSatSunMonTueWed"
+
+/// The day of the week, from the whole days since the epoch. The remainders
+/// are made non-negative, so a time before the epoch gets the correct day.
+fn day_name(seconds_since_epoch: Int) -> String {
+  let seconds_into_day =
+    { seconds_since_epoch % seconds_per_day + seconds_per_day }
+    % seconds_per_day
+  let days_since_epoch =
+    { seconds_since_epoch - seconds_into_day } / seconds_per_day
+  let day_of_week = { days_since_epoch % 7 + 7 } % 7
+  string.slice(day_names_from_thursday, day_of_week * 3, 3)
+}
+
+/// The month names in order from January.
+const month_names_from_january = "JanFebMarAprMayJunJulAugSepOctNovDec"
+
+fn month_name(month: calendar.Month) -> String {
+  let month_index = calendar.month_to_int(month) - 1
+  string.slice(month_names_from_january, month_index * 3, 3)
+}
+
+/// Writes `number` in decimal with zeros in front, to at least `width`
+/// digits.
+fn pad_number(number: Int, width: Int) -> String {
+  string.pad_start(int.to_string(number), to: width, with: "0")
 }

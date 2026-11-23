@@ -10,17 +10,20 @@ import dream/http/request.{type Request, Post}
 import dream/http/response.{type Response, stream_response, text_response}
 import dream/router.{router, stream_route}
 import dream/servers/mist/server
+import dream_test/suite.{type TestSuite}
 import dream_test/types.{
   type AssertionResult, AssertionFailed, AssertionFailure, AssertionOk,
 }
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/unit.{describe, it}
 import gleam/bit_array
 import gleam/dynamic.{type Dynamic}
 import gleam/erlang/process
+import gleam/function
 import gleam/int
 import gleam/list
 import gleam/option.{None}
 import gleam/string
+import gleam/yielder
 
 /// How many requests to send in one test. The failure this guards against
 /// is a race, so one request is not enough to make it show.
@@ -34,7 +37,7 @@ const socket_timeout_ms = 50
 // Tests
 // ============================================================================
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("chunked stream", [
     it(
       "sends exactly one response when the request body is already buffered",
@@ -56,7 +59,7 @@ pub fn tests() -> UnitTest {
         server.stop(handle)
 
         case failures {
-          [] -> AssertionOk
+          [] -> Ok(AssertionOk)
           [first, ..] ->
             assertion_failed(
               "chunked_single_response",
@@ -140,7 +143,13 @@ fn count_occurrences(haystack: String, needle: String) -> Int {
 
 fn echo_stream_controller(request: Request, _context, _services) -> Response {
   case request.body {
-    request.Stream(chunks) -> stream_response(200, chunks, "text/plain")
+    // The test client sends the whole body, so no item is an Error
+    request.Stream(chunks) ->
+      stream_response(
+        200,
+        yielder.filter_map(chunks, function.identity),
+        "text/plain",
+      )
     request.Text(_text) -> text_response(400, "Expected streaming request body")
     request.Bytes(_bytes) ->
       text_response(400, "Expected streaming request body")
@@ -159,8 +168,8 @@ fn echo_router() {
 
 fn with_echo_server(
   port: Int,
-  test_fn: fn(server.ServerHandle) -> AssertionResult,
-) -> AssertionResult {
+  test_fn: fn(server.ServerHandle) -> Result(AssertionResult, String),
+) -> Result(AssertionResult, String) {
   let result =
     server.new()
     |> server.router(echo_router())
@@ -182,12 +191,17 @@ fn with_echo_server(
   }
 }
 
-fn assertion_failed(operator: String, message: String) -> AssertionResult {
-  AssertionFailed(AssertionFailure(
-    operator: operator,
-    message: message,
-    payload: None,
-  ))
+fn assertion_failed(
+  operator: String,
+  message: String,
+) -> Result(AssertionResult, String) {
+  Ok(
+    AssertionFailed(AssertionFailure(
+      operator: operator,
+      message: message,
+      payload: None,
+    )),
+  )
 }
 
 @external(erlang, "raw_http_ffi", "request_until_closed")

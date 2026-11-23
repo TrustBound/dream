@@ -5,6 +5,9 @@ on:
     branches:
       - main
       - develop
+  push:
+    branches:
+      - main
 
 env:
   # A read-only Hex key. With it, dependency lookups do not hit the limit for requests with no key.
@@ -16,6 +19,9 @@ env:
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
+    outputs:
+      coverage_message: ${{ steps.coverage_badge.outputs.message }}
+      coverage_color: ${{ steps.coverage_badge.outputs.color }}
 
     steps:
       # The docs check compares each diff block in the release notes with
@@ -51,12 +57,22 @@ jobs:
       - name: Download dependencies
         run: gleam deps download
 
+      - name: Check native coverage support
+        # Coverage counts lines with the native line counters of the BEAM,
+        # which need Erlang/OTP 27 or later with the JIT.
+        run: >-
+          erl -noshell -eval 'case code:coverage_support() of
+          true -> halt(0);
+          false -> io:format("No native coverage support: use Erlang/OTP 27+ with the JIT~n"), halt(1)
+          end.'
+
       - name: Check code format
         run: gleam format --check
 
       - name: Build project
         run: gleam build
 
+      # Fails when line coverage of src/ is below 100%.
       - name: Run all unit tests
         env:
           CI: "true"
@@ -66,6 +82,37 @@ jobs:
       # that its badge links to. See docs/contributing/contributing.md.
       - name: Check docs code blocks against tested snippets
         run: make check-snippets
+
+      - name: Read coverage for the badge
+        # Runs on every event, so a pull request also shows that the JSON
+        # summary is readable. Only the badge job below publishes.
+        id: coverage_badge
+        env:
+          COVERAGE_JSON: build/coverage/coverage.json
+        run: |
+          set -euo pipefail
+          if [ ! -f "$COVERAGE_JSON" ]; then
+            echo "Coverage badge failed: $COVERAGE_JSON does not exist."
+            echo "Fix: set coverage.json_path(\"$COVERAGE_JSON\") in the test main."
+            exit 1
+          fi
+          # The colour rule of the coverage table: green at 100%, red below
+          # the minimum (50% when no minimum is set), yellow between them.
+          color=$(jq -r '
+            .total as $total
+            | (.minimum_percent // 50) as $minimum
+            | if $total.lines_total == 0 then
+                error("the coverage JSON has no executable lines")
+              elif $total.lines_hit == $total.lines_total then "green"
+              elif $total.lines_hit * 100 < $minimum * $total.lines_total then "red"
+              else "yellow"
+              end
+          ' "$COVERAGE_JSON")
+          percent=$(jq -r '.total.percent' "$COVERAGE_JSON")
+          message=$(printf '%.1f%%' "$percent")
+          echo "Coverage badge: $message ($color)"
+          echo "message=$message" >> "$GITHUB_OUTPUT"
+          echo "color=$color" >> "$GITHUB_OUTPUT"
 
       # Gleam writes a path dependency fingerprint before it asks Hex to
       # resolve, and build/packages/packages.toml only after all downloads. A
@@ -194,3 +241,67 @@ jobs:
             build/packages
             examples/*/build/packages
           key: ${{ steps.gleam-packages.outputs.cache-primary-key }}
+
+  coverage-badge:
+    name: Publish coverage badge
+    # Only a push to main in this repository publishes. Pull requests and
+    # forks never do.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'TrustBound/dream'
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    # This job runs no project code. It only writes one file to the
+    # `badges` branch.
+    permissions:
+      contents: write
+    concurrency:
+      group: coverage-badge
+      cancel-in-progress: false
+    steps:
+      - name: Commit the badge to the badges branch
+        env:
+          MESSAGE: ${{ needs.unit-tests.outputs.coverage_message }}
+          COLOR: ${{ needs.unit-tests.outputs.coverage_color }}
+          GITHUB_TOKEN: ${{ github.token }}
+          REMOTE_URL: https://github.com/${{ github.repository }}.git
+        run: |
+          set -euo pipefail
+          workdir=$(mktemp -d)
+          cd "$workdir"
+          git init -q
+          git remote add origin "$REMOTE_URL"
+          auth=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')
+          git config http.https://github.com/.extraheader "AUTHORIZATION: basic $auth"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+
+          # Exit status 2 means the branch does not exist yet. Any other
+          # failure (network, access) stops the job.
+          set +e
+          git ls-remote --exit-code --heads origin refs/heads/badges > /dev/null
+          status=$?
+          set -e
+          case "$status" in
+            0)
+              git fetch -q --depth 1 origin refs/heads/badges
+              git checkout -q -B badges FETCH_HEAD
+              ;;
+            2)
+              git checkout -q --orphan badges
+              ;;
+            *)
+              echo "Coverage badge failed: git ls-remote exited with $status."
+              exit "$status"
+              ;;
+          esac
+
+          jq -n -c --arg message "$MESSAGE" --arg color "$COLOR" \
+            '{schemaVersion: 1, label: "coverage", message: $message, color: $color}' \
+            > coverage.json
+          git add coverage.json
+          if git diff --cached --quiet; then
+            echo "Coverage badge unchanged: $MESSAGE"
+            exit 0
+          fi
+          git commit -q -m "Coverage badge: $MESSAGE"
+          git push -q origin HEAD:refs/heads/badges
+          echo "Coverage badge published: $MESSAGE ($COLOR)"

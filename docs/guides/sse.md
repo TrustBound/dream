@@ -360,7 +360,9 @@ the broadcaster as its services value.
 
 ## Client-side: EventSource
 
-Browsers have built-in SSE support via `EventSource`:
+Browsers have built-in SSE support via `EventSource`. The `sse` example serves this script at `/client.js`:
+
+### The browser client <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/sse/assets/client.js#L1-L16"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```javascript
 const source = new EventSource("/events");
@@ -437,9 +439,10 @@ in Gherkin (Cucumber). These tests:
 
 To run them:
 
+### Run the integration tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/test-integration.sh#L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
-cd examples/sse
-make test-integration
+(cd examples/sse && make test-integration)
 ```
 
 For unit tests, keep your SSE handlers small and pure by extracting

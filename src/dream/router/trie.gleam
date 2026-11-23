@@ -33,7 +33,7 @@
 //// Routes: `/users/:id`, `/users/new`, `/files/**path`
 ////
 //// Tree structure:
-//// ```
+//// ```text illustration
 //// root
 ////   └─ users
 ////      ├─ new (literal - highest priority)

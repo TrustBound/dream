@@ -21,7 +21,7 @@ test-integration:
 	@echo "Running migrations..."
 	@export DATABASE_URL="$(DATABASE_URL)" && make migrate > /dev/null 2>&1
 	@echo "Generating SQL code..."
-	@export DATABASE_URL="$(DATABASE_URL)" && make squirrel > /dev/null 2>&1
+	@sh test/integration/sql.sh
 	@echo "Compiling matcha templates..."
 	@make matcha > /dev/null 2>&1
 	@echo "Building Gleam application..."
@@ -79,7 +79,7 @@ squirrel:
 
 # Compile Matcha templates
 matcha:
-	@matcha
+	@matcha && gleam format src
 
 # Migration commands using cigogne
 migrate:

@@ -72,7 +72,7 @@ pub fn create_streaming_request(
   path: String,
   stream: yielder.Yielder(BitArray),
 ) -> Request {
-  Request(..create_request(method, path), body: Stream(stream))
+  Request(..create_request(method, path), body: Stream(yielder.map(stream, Ok)))
 }
 
 /// Create request with a streaming body from string chunks.
@@ -84,6 +84,7 @@ pub fn create_streaming_request_from_strings(
   let stream =
     chunks
     |> list.map(bit_array.from_string)
+    |> list.map(Ok)
     |> yielder.from_list
   Request(..create_request(method, path), body: Stream(stream))
 }

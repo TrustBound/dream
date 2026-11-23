@@ -151,6 +151,19 @@ pub type AppContext {
 ///
 /// Helper for creating the default context. If you're using a custom context,
 /// you'll create it directly without this function.
+///
+/// ## Example
+///
+/// ### Create the default context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_context_new_context.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/context.{type AppContext, new_context}
+///
+/// pub fn request_context() -> AppContext {
+///   // AppContext(request_id: "req-123")
+///   new_context("req-123")
+/// }
+/// ```
 pub fn new_context(request_id: String) -> AppContext {
   AppContext(request_id: request_id)
 }

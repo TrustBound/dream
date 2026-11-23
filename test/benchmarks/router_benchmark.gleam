@@ -5,8 +5,9 @@
 import dream/context
 import dream/http/request.{Get}
 import dream/router
+import dream_test/suite.{type TestSuite}
 import dream_test/types.{AssertionOk}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/unit.{describe, group, it}
 import fixtures/handler.{test_handler}
 import fixtures/request as test_request
 import gleam/int
@@ -16,48 +17,48 @@ import gleam/io
 // Tests
 // ============================================================================
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("router benchmarks", [
-    describe("100 routes", [
+    group("100 routes", [
       it("first route lookup", fn() {
         let router = generate_routes(100)
         let elapsed = time_router_lookup(router, "/api/v0/resource0", 10_000)
         print_result("100-first", elapsed, 10_000)
-        AssertionOk
+        Ok(AssertionOk)
       }),
       it("middle route lookup", fn() {
         let router = generate_routes(100)
         let elapsed = time_router_lookup(router, "/api/v2/resource50", 10_000)
         print_result("100-middle", elapsed, 10_000)
-        AssertionOk
+        Ok(AssertionOk)
       }),
       it("last route lookup", fn() {
         let router = generate_routes(100)
         let elapsed = time_router_lookup(router, "/api/v4/resource99", 10_000)
         print_result("100-last", elapsed, 10_000)
-        AssertionOk
+        Ok(AssertionOk)
       }),
     ]),
-    describe("large route tables", [
+    group("large route tables", [
       it("500 routes last route", fn() {
         let router = generate_routes(500)
         let elapsed = time_router_lookup(router, "/api/v24/resource499", 5000)
         print_result("500-last", elapsed, 5000)
-        AssertionOk
+        Ok(AssertionOk)
       }),
       it("1000 routes last route", fn() {
         let router = generate_routes(1000)
         let elapsed = time_router_lookup(router, "/api/v49/resource999", 1000)
         print_result("1000-last", elapsed, 1000)
-        AssertionOk
+        Ok(AssertionOk)
       }),
     ]),
-    describe("not found", [
+    group("not found", [
       it("fails fast on first segment", fn() {
         let router = generate_routes(500)
         let elapsed = time_router_lookup(router, "/nonexistent/path", 10_000)
         print_result("500-notfound", elapsed, 10_000)
-        AssertionOk
+        Ok(AssertionOk)
       }),
     ]),
   ])

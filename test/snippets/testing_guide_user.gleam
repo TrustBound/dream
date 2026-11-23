@@ -36,7 +36,7 @@ pub fn find_user(id: Int) -> Option(User) {
   |> option.from_result()
 }
 
-pub fn validate_user(json_body: String) -> Result(User, ValidationError) {
+pub fn validate_user(json_body: String) -> Result(User, List(ValidationError)) {
   validation.validate_json(json_body, user_decoder())
 }
 

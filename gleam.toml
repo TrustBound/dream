@@ -44,11 +44,12 @@ simplifile = ">= 2.3.0 and < 3.0.0"
 
 [dev-dependencies]
 squirrel = ">= 4.0.0 and < 5.0.0"
-dream_test = ">= 1.0.3 and < 2.0.0"
+# Pinned to the release commit until 3.0.0 is on Hex.
+dream_test = { git = "https://github.com/TrustBound/dream_test.git", ref = "083e64569552e93ac64f0e8f206dad7bf532c505" }
 # Pinned to the module's move branch until it is on Hex.
 dream_http_client = { git = "https://github.com/TrustBound/dream_http_client.git", ref = "af661517f46417b72b67e84545ba6dcfc04fc59d" }
 # Pinned to the module's move branch until it is on Hex.
-dream_config = { git = "https://github.com/TrustBound/dream_config.git", ref = "f68cc45f32b4aa21234f254118f3e18ae4c9cf49" }
+dream_config = { git = "https://github.com/TrustBound/dream_config.git", ref = "0930ab712e5687f98bdb3d9a297acace3b684bec" }
 # Pinned to the module's move branch until it is on Hex.
 dream_json = { git = "https://github.com/TrustBound/dream_json.git", ref = "d375862f3107194c6011879fb6492cd2ced8c533" }
 # Pinned to the module's move branch until it is on Hex.
@@ -56,7 +57,7 @@ dream_opensearch = { git = "https://github.com/TrustBound/dream_opensearch.git",
 # Pinned to the module's move branch until it is on Hex.
 dream_postgres = { git = "https://github.com/TrustBound/dream_postgres.git", ref = "bfdd3435c173947b3aef6c5d5ae280449338ed76" }
 # Pinned to the module's move branch until it is on Hex.
-dream_snippets = { git = "https://github.com/TrustBound/dream_snippets.git", ref = "f116b072699ec33315980418036d962e22fab872" }
+dream_snippets = { git = "https://github.com/TrustBound/dream_snippets.git", ref = "6c2bf3e4d19bf023b09822def9cf04c72037b7e4" }
 envoy = ">= 1.0.0 and < 2.0.0"
 pog = ">= 4.0.0 and < 5.0.0"
 
@@ -66,3 +67,40 @@ checked_from_version = "3.0.0"
 badge_guide = "docs/contributing/contributing.md"
 # A README guide badge can link to any page under docs/.
 guides = ["docs"]
+# The files that the tests and CI use. A file, command or output block of the
+# docs links one of them.
+tested_files = [
+  "test",
+  ".github",
+  "scripts",
+  "Makefile",
+  "integration",
+  "examples/simplest/test",
+  "examples/simple/test",
+  "examples/custom_context/test",
+  "examples/static/test",
+  "examples/streaming/test",
+  "examples/rate_limiter/test",
+  "examples/database/test",
+  "examples/database/Makefile",
+  "examples/database/docker-compose.yml",
+  "examples/database/priv/migrations",
+  "examples/database/src/sql",
+  "examples/database/gleam.toml",
+  "examples/multi_format/test",
+  "examples/multi_format/Makefile",
+  "examples/streaming_capabilities/test",
+  "examples/websocket_chat/test",
+  "examples/websocket_chat/Makefile",
+  "examples/websocket_chat/assets",
+  "examples/sse/test",
+  "examples/sse/assets",
+  "examples/tasks/test",
+  "examples/deployment/test",
+  "examples/deployment/Dockerfile",
+  "examples/deployment/docker-compose.yml",
+  "examples/tasks/Makefile",
+  "examples/tasks/src/templates",
+  "examples/tasks/cypress",
+  "examples/tasks/cypress.config.ts",
+]

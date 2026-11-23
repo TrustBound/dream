@@ -11,6 +11,8 @@ In Dream, authentication is implemented using two core concepts:
 1.  **Custom Context**: A type that holds per-request data, including the authenticated user.
 2.  **Middleware**: A function that intercepts requests, verifies credentials, and enriches the context.
 
+If you keep a session ID in a cookie, make the cookie with `cookie.secure_cookie` from `dream/http/cookie`. It sets `Secure`, `HttpOnly` and `SameSite=Strict`. In the middleware, read the value back with `cookie.get_cookie_value(request.cookies, "session_id")`, which returns an `Option(String)`.
+
 ## Step 1: Define Custom Context
 
 Define a context type that includes an `Option(User)`.

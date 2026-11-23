@@ -4,13 +4,14 @@
 import dream/dream
 import dream/http/request.{Get}
 import dream/http/response.{binary_response, text_response}
-import dream_test/assertions/should.{equal, or_fail_with, should}
+import dream_test/matchers.{be_equal, or_fail_with, should}
 import dream_test/runner
+import dream_test/suite.{type TestSuite}
 import dream_test/types.{
   type Status, type TestResult, AssertionFailure, CustomMatcherFailure,
   MatchFailed, MatchOk, Passed,
 }
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/list
 import gleam/option.{Some}
@@ -30,7 +31,7 @@ import snippets/tone_guide_api_reference_avoid
 import snippets/tone_guide_api_reference_example
 import snippets/tone_guide_code_example
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("contributing snippets", [
     contributing_tests(),
     testing_tests(),
@@ -39,8 +40,8 @@ pub fn tests() -> UnitTest {
   ])
 }
 
-fn contributing_tests() -> UnitTest {
-  describe("contributing.md", [
+fn contributing_tests() -> UnitNode {
+  group("contributing.md", [
     it("test naming snippet tests all pass", fn() {
       // Arrange
       let snippet_tests = contributing_test_naming.tests()
@@ -51,7 +52,7 @@ fn contributing_tests() -> UnitTest {
       // Assert
       statuses
       |> should()
-      |> equal([Passed, Passed, Passed])
+      |> be_equal([Passed, Passed, Passed])
       |> or_fail_with("Expected three passing tests")
     }),
     it("documented function example greets Ada", fn() {
@@ -65,14 +66,14 @@ fn contributing_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello, Ada!")
+      |> be_equal("Hello, Ada!")
       |> or_fail_with("Expected the greeting for Ada")
     }),
   ])
 }
 
-fn testing_tests() -> UnitTest {
-  describe("testing.md", [
+fn testing_tests() -> UnitNode {
+  group("testing.md", [
     it("test structure snippet test passes", fn() {
       // Arrange
       let snippet_tests = contributing_testing_structure.tests()
@@ -83,7 +84,7 @@ fn testing_tests() -> UnitTest {
       // Assert
       statuses
       |> should()
-      |> equal([Passed])
+      |> be_equal([Passed])
       |> or_fail_with("Expected one passing test")
     }),
     it("entry point main runs the tests with no failures", fn() {
@@ -94,9 +95,9 @@ fn testing_tests() -> UnitTest {
       let results = main()
 
       // Assert
-      runner.has_failures(results)
+      types.failed(results)
       |> should()
-      |> equal(False)
+      |> be_equal(False)
       |> or_fail_with("Expected no failures")
     }),
     it("assertions snippet tests all pass", fn() {
@@ -109,7 +110,7 @@ fn testing_tests() -> UnitTest {
       // Assert
       statuses
       |> should()
-      |> equal(list.repeat(Passed, 10))
+      |> be_equal(list.repeat(Passed, 10))
       |> or_fail_with("Expected ten passing tests")
     }),
     it("custom matcher extracts text from a Text body", fn() {
@@ -122,7 +123,7 @@ fn testing_tests() -> UnitTest {
       // Assert
       extracted
       |> should()
-      |> equal(MatchOk("hello"))
+      |> be_equal(MatchOk("hello"))
       |> or_fail_with("Expected MatchOk(\"hello\")")
     }),
     it("custom matcher fails for a body that is not Text", fn() {
@@ -136,7 +137,7 @@ fn testing_tests() -> UnitTest {
       // Assert
       extracted
       |> should()
-      |> equal(non_text_body_failure())
+      |> be_equal(non_text_body_failure())
       |> or_fail_with("Expected the non-text body failure")
     }),
     it("fixtures snippet shows home with the test handler", fn() {
@@ -150,7 +151,7 @@ fn testing_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("test")
+      |> be_equal("test")
       |> or_fail_with("Expected body \"test\"")
     }),
     it("fixtures snippet shows user 42 with the id handler", fn() {
@@ -164,7 +165,7 @@ fn testing_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("id: 42")
+      |> be_equal("id: 42")
       |> or_fail_with("Expected body \"id: 42\"")
     }),
     it("lifecycle hooks snippet tests all pass", fn() {
@@ -177,7 +178,7 @@ fn testing_tests() -> UnitTest {
       // Assert
       statuses
       |> should()
-      |> equal([Passed, Passed])
+      |> be_equal([Passed, Passed])
       |> or_fail_with("Expected two passing tests")
     }),
     it("benchmark snippet test passes", fn() {
@@ -190,25 +191,25 @@ fn testing_tests() -> UnitTest {
       // Assert
       statuses
       |> should()
-      |> equal([Passed])
+      |> be_equal([Passed])
       |> or_fail_with("Expected one passing benchmark")
     }),
   ])
 }
 
-fn testing_standards_tests() -> UnitTest {
-  describe("testing.md standards", [
+fn testing_standards_tests() -> UnitNode {
+  group("testing.md standards", [
     it("focused tests all pass", fn() {
       // Arrange
       let snippet_tests = contributing_testing_standards.focused_tests()
 
       // Act
-      let statuses = run_snippet_tests(snippet_tests)
+      let statuses = run_snippet_node(snippet_tests)
 
       // Assert
       statuses
       |> should()
-      |> equal([Passed, Passed])
+      |> be_equal([Passed, Passed])
       |> or_fail_with("Expected two passing tests")
     }),
     it("unfocused test passes", fn() {
@@ -216,12 +217,12 @@ fn testing_standards_tests() -> UnitTest {
       let snippet_test = contributing_testing_standards.unfocused_test()
 
       // Act
-      let statuses = run_snippet_tests(snippet_test)
+      let statuses = run_snippet_node(snippet_test)
 
       // Assert
       statuses
       |> should()
-      |> equal([Passed])
+      |> be_equal([Passed])
       |> or_fail_with("Expected one passing test")
     }),
     it("nested case matcher extracts text from a Text body", fn() {
@@ -234,7 +235,7 @@ fn testing_standards_tests() -> UnitTest {
       // Assert
       extracted
       |> should()
-      |> equal(MatchOk("hello"))
+      |> be_equal(MatchOk("hello"))
       |> or_fail_with("Expected MatchOk(\"hello\")")
     }),
     it("flat matcher extracts text from a Text body", fn() {
@@ -247,7 +248,7 @@ fn testing_standards_tests() -> UnitTest {
       // Assert
       extracted
       |> should()
-      |> equal(MatchOk("hello"))
+      |> be_equal(MatchOk("hello"))
       |> or_fail_with("Expected MatchOk(\"hello\")")
     }),
     it("get_user_id returns 0 when the id param is missing", fn() {
@@ -260,7 +261,7 @@ fn testing_standards_tests() -> UnitTest {
       // Assert
       user_id
       |> should()
-      |> equal(0)
+      |> be_equal(0)
       |> or_fail_with("Expected 0")
     }),
     it("show_user returns the error message when the id is missing", fn() {
@@ -274,7 +275,7 @@ fn testing_standards_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Missing id parameter")
+      |> be_equal("Missing id parameter")
       |> or_fail_with("Expected \"Missing id parameter\"")
     }),
     it("show_user returns status 400 when the id is missing", fn() {
@@ -288,7 +289,7 @@ fn testing_standards_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("Expected status 400")
     }),
     it("show_user returns the user id", fn() {
@@ -305,14 +306,14 @@ fn testing_standards_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("User 42")
+      |> be_equal("User 42")
       |> or_fail_with("Expected \"User 42\"")
     }),
   ])
 }
 
-fn tone_guide_tests() -> UnitTest {
-  describe("tone-guide.md", [
+fn tone_guide_tests() -> UnitNode {
+  group("tone-guide.md", [
     it("match_path example extracts the id", fn() {
       // Arrange
       let match_user_path = tone_guide_api_reference_example.match_user_path
@@ -323,7 +324,7 @@ fn tone_guide_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Some([#("id", "123")]))
+      |> be_equal(Some([#("id", "123")]))
       |> or_fail_with("Expected Some([#(\"id\", \"123\")])")
     }),
     it("match_path with the bad comment extracts the id", fn() {
@@ -337,7 +338,7 @@ fn tone_guide_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Some([#("id", "123")]))
+      |> be_equal(Some([#("id", "123")]))
       |> or_fail_with("Expected Some([#(\"id\", \"123\")])")
     }),
     it("code example router returns 404 for every path", fn() {
@@ -357,16 +358,22 @@ fn tone_guide_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("Expected status 404")
     }),
   ])
 }
 
-fn run_snippet_tests(snippet_tests: UnitTest) -> List(Status) {
-  unit.to_test_cases("snippet", snippet_tests)
-  |> runner.run_all()
+fn run_snippet_tests(snippet_tests: TestSuite) -> List(Status) {
+  runner.new([snippet_tests])
+  |> runner.silent()
+  |> runner.run()
+  |> types.report_tests()
   |> list.map(status_of)
+}
+
+fn run_snippet_node(snippet_node: UnitNode) -> List(Status) {
+  run_snippet_tests(describe("snippet", [snippet_node]))
 }
 
 fn status_of(result: TestResult) -> Status {

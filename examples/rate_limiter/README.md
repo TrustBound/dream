@@ -13,6 +13,8 @@ Real-world rate limiting using shared ETS-backed state for global rate limiting.
 
 ## Running the Example
 
+### Start the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/rate_limiter/test/integration/start.sh#L3-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 cd examples/rate_limiter
 make run
@@ -28,6 +30,8 @@ Server starts on `http://localhost:3000`
 
 ## Testing Rate Limiting
 
+### Send 15 requests <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/rate_limiter/test/integration/readme.sh#L3-L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 # Make multiple requests to trigger rate limiting
 for i in {1..15}; do 
@@ -39,17 +43,41 @@ done
 
 The first 10 requests will succeed with `200 OK`. Requests 11-15 will return `429 Too Many Requests` with rate limit headers.
 
+The output of requests 10 and 11:
+
+### Requests 10 and 11 <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/rate_limiter/test/integration/readme_output.txt#L64-L76"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+Request 10:
+HTTP/1.1 200 OK
+x-ratelimit-remaining: 0
+x-ratelimit-limit: 10
+content-type: text/plain; charset=utf-8
+content-length: 127
+
+Request 11:
+HTTP/1.1 429 Too Many Requests
+retry-after: 60
+x-ratelimit-remaining: 0
+x-ratelimit-limit: 10
+content-type: text/plain; charset=utf-8
+```
+
 ## Rate Limit Headers
 
 Responses include rate limit information:
 
+### The headers of the first request <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/rate_limiter/test/integration/readme_output.txt#L2-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```http
-X-RateLimit-Limit: 10
-X-RateLimit-Remaining: 5
-X-RateLimit-Reset: 60
+HTTP/1.1 200 OK
+x-ratelimit-remaining: 9
+x-ratelimit-limit: 10
 ```
 
 ## Example Usage
+
+### Send the requests <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/rate_limiter/test/integration/readme.sh#L10-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
 # Public endpoint (no rate limit)
@@ -64,7 +92,7 @@ curl -i http://localhost:3000/api/status
 
 ## Code Structure
 
-```text
+```text illustration
 examples/rate_limiter/
 ├── gleam.toml          # Project config
 ├── Makefile            # Build and run commands

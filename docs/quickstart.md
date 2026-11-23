@@ -18,9 +18,9 @@ You do **not** need to know Erlang/OTP or BEAM internals.
 
 ## Create Your Project
 
+Create a project with `gleam new hello_dream`, go into its folder with `cd hello_dream`, and add Dream:
+
 ```bash
-gleam new hello_dream
-cd hello_dream
 gleam add dream
 ```
 
@@ -60,11 +60,7 @@ pub fn main() {
 
 ## Run It
 
-```bash
-gleam run
-```
-
-Visit http://localhost:3000 - you should see "Hello, World!"
+Run `gleam run` in the project folder, then visit http://localhost:3000 - you should see "Hello, World!"
 
 ## How It Works
 

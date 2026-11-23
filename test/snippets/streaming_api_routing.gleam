@@ -4,7 +4,9 @@
 //// response streams, and a server with a larger buffered body limit.
 
 import dream/http/header.{type Header}
-import dream/http/request.{type Request, Post, Put, Request}
+import dream/http/request.{
+  type BodyReadError, type Request, MalformedBody, Post, Put, Request,
+}
 import dream/http/response.{type Response, Response, Stream, text_response}
 import dream/http/status
 import dream/router.{type Router, router, stream_route}
@@ -12,6 +14,7 @@ import dream/servers/mist/server
 import gleam/bit_array
 import gleam/int
 import gleam/list
+import gleam/result
 import gleam/yielder
 
 pub fn create_router() -> Router(context, services) {
@@ -32,19 +35,33 @@ pub fn create_router() -> Router(context, services) {
 
 pub fn upload(request: Request, _context, _services) -> Response {
   case request.body {
-    request.Stream(chunks) -> {
-      let total_bytes = yielder.fold(chunks, 0, add_chunk_size)
-      text_response(
-        status.ok,
-        "Received " <> int.to_string(total_bytes) <> " bytes",
-      )
-    }
+    request.Stream(chunks) ->
+      chunks
+      |> yielder.try_fold(0, add_chunk_size)
+      |> respond_with_total
     _ -> text_response(status.bad_request, "Expected a streaming body")
   }
 }
 
-fn add_chunk_size(total: Int, chunk: BitArray) -> Int {
+// try_fold stops at an Error item: the connection broke before the end
+fn add_chunk_size(
+  total: Int,
+  item: Result(BitArray, BodyReadError),
+) -> Result(Int, BodyReadError) {
+  use chunk <- result.map(item)
   total + bit_array.byte_size(chunk)
+}
+
+fn respond_with_total(counted: Result(Int, BodyReadError)) -> Response {
+  case counted {
+    Ok(total_bytes) ->
+      text_response(
+        status.ok,
+        "Received " <> int.to_string(total_bytes) <> " bytes",
+      )
+    Error(MalformedBody) ->
+      text_response(status.bad_request, "The upload stopped before its end")
+  }
 }
 
 pub fn replace_file(_request: Request, _context, _services) -> Response {
@@ -76,13 +93,20 @@ pub fn uppercase_incoming(
 ) -> Response {
   case request.body {
     request.Stream(stream) -> {
-      let uppercase_stream = yielder.map(stream, uppercase_chunk)
+      let uppercase_stream = yielder.map(stream, uppercase_item)
       let new_request =
         Request(..request, body: request.Stream(uppercase_stream))
       next(new_request, context, services)
     }
     _ -> next(request, context, services)
   }
+}
+
+// An Error item stays as it is, so the controller still sees the failure
+fn uppercase_item(
+  item: Result(BitArray, BodyReadError),
+) -> Result(BitArray, BodyReadError) {
+  result.map(item, uppercase_chunk)
 }
 
 fn uppercase_chunk(chunk: BitArray) -> BitArray {

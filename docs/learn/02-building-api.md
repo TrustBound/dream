@@ -27,8 +27,22 @@ By the end, you will know how to:
 
 ### Step 1: Add Dependencies
 
-```bash
-gleam add pog squirrel cigogne
+Add `pog` and `cigogne` with `gleam add pog cigogne`, and `squirrel` as
+a dev dependency with `gleam add --dev squirrel`. In `examples/database`
+they are these lines of `gleam.toml`:
+
+#### The dependencies <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L12-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```toml
+pog = ">= 4.0.0 and < 5.0.0"
+cigogne = ">= 5.0.0 and < 6.0.0"
+```
+
+#### The dev dependency <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L20-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```toml
+[dev-dependencies]
+squirrel = ">= 4.0.0 and < 5.0.0"
 ```
 
 - `pog` - PostgreSQL driver for Gleam
@@ -38,6 +52,8 @@ gleam add pog squirrel cigogne
 ### Step 2: Create Docker Compose
 
 Create `docker-compose.yml`. This is the file from `examples/database`:
+
+#### docker-compose.yml <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/docker-compose.yml"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```yaml
 version: "3.8"
@@ -71,40 +87,56 @@ The database listens on port 5435 on your machine, so it does not collide with a
 
 ### Step 3: Create Makefile
 
-Create `Makefile`:
+Create `Makefile`. These are the targets of the Makefile of
+`examples/database`. Its `test-integration` target, which runs the
+integration tests of the example, is left out here. In CI the database
+runs as a service of the job, so `make db-up` only starts it on your
+machine:
+
+#### The top of the Makefile <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/Makefile#L1-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```makefile
+# Docker Compose database connection URL
 DATABASE_URL = postgres://postgres:postgres@localhost:5435/dream_example_database_db
 
-.PHONY: run test clean db-up db-down db-reset migrate migrate-up migrate-down migrate-new squirrel
+.PHONY: run test test-integration clean db-up db-down db-logs db-shell db-reset migrate migrate-up migrate-down migrate-new squirrel
 
 run:
 	@gleam run -m main
 
 test:
 	@gleam test
+```
 
-clean:
-	@gleam clean
+#### The database targets <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/Makefile#L74-L116"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-# Docker Compose commands
+```makefile
+
+# Docker Compose commands for PostgreSQL
+# In CI, PostgreSQL is a service of the job, on the same port.
 db-up:
-	@docker-compose up -d postgres
-	@echo "Waiting for PostgreSQL to be ready..."
-	@timeout 30 bash -c 'until docker-compose exec -T postgres pg_isready -U postgres; do sleep 1; done' || true
+	@if [ -n "$$CI" ]; then \
+		echo "PostgreSQL runs as a service of the CI job"; \
+	else \
+		docker-compose up -d postgres; \
+		echo "Waiting for PostgreSQL to be ready..."; \
+		timeout 30 bash -c 'until docker-compose exec -T postgres pg_isready -U postgres; do sleep 1; done' || true; \
+	fi
 
 db-down:
 	@docker-compose down
+
+db-logs:
+	@docker-compose logs -f postgres
+
+db-shell:
+	@docker-compose exec postgres psql -U postgres -d dream_example_database_db
 
 db-reset:
 	@docker-compose down -v
 	@docker-compose up -d postgres
 	@echo "Waiting for PostgreSQL to be ready..."
 	@timeout 30 bash -c 'until docker-compose exec -T postgres pg_isready -U postgres; do sleep 1; done' || true
-
-# Generate type-safe SQL code with Squirrel
-squirrel:
-	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m squirrel
 
 # Migration commands using cigogne
 migrate:
@@ -118,6 +150,10 @@ migrate-down:
 
 migrate-new:
 	@gleam run -m cigogne new --name $(name)
+
+# Generate src/sql.gleam from the queries in src/sql/ with Squirrel
+squirrel:
+	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m squirrel
 ```
 
 **Why a Makefile?** Instead of remembering `gleam run -m squirrel`,
@@ -132,6 +168,8 @@ for common tasks.
 
 ### Step 4: Start Database
 
+#### Start the database <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/test/integration/start.sh#L6"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 make db-up
 ```
@@ -140,11 +178,11 @@ make db-up
 
 ### Create Migration
 
-```bash
-make migrate-new name=create_users
-```
+Create the migration file with `make migrate-new name=create_users`.
 
-This creates a file like `priv/migrations/20250101120000-create_users.sql`. Edit it:
+This creates a file like `priv/migrations/20250101120000-create_users.sql`. Edit it. This is the migration of `examples/database`:
+
+#### The migration <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/priv/migrations/20251106170219-create_users_and_posts.sql#L1-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```sql
 --- migration:up
@@ -154,38 +192,54 @@ CREATE TABLE users (
   email VARCHAR(255) UNIQUE NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE posts (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  content TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 --- migration:down
+DROP TABLE IF EXISTS posts;
 DROP TABLE IF EXISTS users;
 --- migration:end
 ```
 
 ### Run Migration
 
+#### Run the migration <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/test/integration/start.sh#L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 make migrate
 ```
 
-This creates the `users` table in your database. The migration in
-`examples/database` also creates a `posts` table, which this lesson
-does not use.
+This creates the `users` table in your database. The migration also
+creates a `posts` table, which this lesson does not use.
 
 ## Step 6: Create SQL Queries
 
-Create `sql/create_user.sql`:
+Create `src/sql/create_user.sql`:
+
+### src/sql/create_user.sql <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/sql/create_user.sql#L1-L2"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```sql
 -- Create a new user
 INSERT INTO users (name, email) VALUES ($1, $2) RETURNING id, name, email, created_at
 ```
 
-Create `sql/get_user.sql`:
+Create `src/sql/get_user.sql`:
+
+### src/sql/get_user.sql <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/sql/get_user.sql#L1-L2"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```sql
 -- Get a single user by ID
 SELECT id, name, email, created_at FROM users WHERE id = $1
 ```
 
-Create `sql/list_users.sql`:
+Create `src/sql/list_users.sql`:
+
+### src/sql/list_users.sql <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/sql/list_users.sql#L1-L2"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```sql
 -- List all users
@@ -195,6 +249,8 @@ SELECT id, name, email, created_at FROM users ORDER BY id
 Squirrel names each function after its file.
 
 ### Generate Type-Safe Gleam Code
+
+#### Generate the code <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/test/integration/sql.sh#L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
 make squirrel
@@ -764,11 +820,15 @@ server function.
 
 ## Run It
 
+### Start the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/test/integration/start.sh#L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 make run
 ```
 
 Test it:
+
+### Send the requests <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/test/integration/readme.sh#L4-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
 # List users
@@ -780,14 +840,13 @@ curl -X POST http://localhost:3002/users \
   -d '{"name":"Alice","email":"alice@example.com"}'
 
 # Get specific user
-curl http://localhost:3002/users/1
 ```
 
 ## Code Organization
 
 You now have:
 
-```text
+```text illustration
 src/
 ├── main.gleam           # Server setup
 ├── router.gleam         # Route definitions

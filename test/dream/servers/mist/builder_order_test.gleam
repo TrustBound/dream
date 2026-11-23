@@ -12,8 +12,9 @@ import dream/http/status
 import dream/router.{type Router, route, router}
 import dream/servers/mist/server
 import dream_http_client/client
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import gleam/http
 import gleam/option.{Some}
 import gleam/result
@@ -28,7 +29,7 @@ pub type OrderServices {
   OrderServices(greeting: String)
 }
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("builder order", [
     right_order_tests(),
     settings_before_router_tests(),
@@ -37,8 +38,8 @@ pub fn tests() -> UnitTest {
   ])
 }
 
-fn right_order_tests() -> UnitTest {
-  describe("context, services, router, then listen", [
+fn right_order_tests() -> UnitNode {
+  group("context, services, router, then listen", [
     it("serves a request with a router that ignores the context", fn() {
       // Arrange
       let port = free_port()
@@ -54,7 +55,7 @@ fn right_order_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#(200, "Served in order")))
+      |> be_equal(Ok(#(200, "Served in order")))
       |> or_fail_with("The app should serve the request on the given port")
     }),
     it("serves a request with a router typed by the context", fn() {
@@ -72,7 +73,7 @@ fn right_order_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#(200, "typed: hello")))
+      |> be_equal(Ok(#(200, "typed: hello")))
       |> or_fail_with("The controller should get the context and services")
     }),
     it("get_router returns the router given to router()", fn() {
@@ -88,7 +89,7 @@ fn right_order_tests() -> UnitTest {
       // Assert
       dream.get_router(app)
       |> should()
-      |> equal(the_router)
+      |> be_equal(the_router)
       |> or_fail_with("The app should hold the router it was given")
     }),
     it("get_services returns the services given to services()", fn() {
@@ -104,7 +105,7 @@ fn right_order_tests() -> UnitTest {
       // Assert
       services
       |> should()
-      |> equal(OrderServices(greeting: "hello"))
+      |> be_equal(OrderServices(greeting: "hello"))
       |> or_fail_with("The app should hold the services it was given")
     }),
     it("get_router returns NoRouter before router()", fn() {
@@ -117,14 +118,14 @@ fn right_order_tests() -> UnitTest {
       // Assert
       router_state
       |> should()
-      |> equal(dream.NoRouter)
+      |> be_equal(dream.NoRouter)
       |> or_fail_with("A new app should have no router")
     }),
   ])
 }
 
-fn settings_before_router_tests() -> UnitTest {
-  describe("settings before router()", [
+fn settings_before_router_tests() -> UnitNode {
+  group("settings before router()", [
     it("bind before router() keeps the interface", fn() {
       // Arrange
       let app =
@@ -137,7 +138,7 @@ fn settings_before_router_tests() -> UnitTest {
       // Assert
       dream.get_bind_interface(configured)
       |> should()
-      |> equal(Some("127.0.0.1"))
+      |> be_equal(Some("127.0.0.1"))
       |> or_fail_with("router() should keep the bind interface")
     }),
     it("max_body_size before router() keeps the size", fn() {
@@ -152,7 +153,7 @@ fn settings_before_router_tests() -> UnitTest {
       // Assert
       dream.get_max_body_size(configured)
       |> should()
-      |> equal(2048)
+      |> be_equal(2048)
       |> or_fail_with("router() should keep the max body size")
     }),
     it("tls before router() keeps the certificate and key", fn() {
@@ -167,14 +168,14 @@ fn settings_before_router_tests() -> UnitTest {
       // Assert
       dream.get_tls(configured)
       |> should()
-      |> equal(Some(dream.Tls(certfile: "cert.pem", keyfile: "key.pem")))
+      |> be_equal(Some(dream.Tls(certfile: "cert.pem", keyfile: "key.pem")))
       |> or_fail_with("router() should keep the TLS files")
     }),
   ])
 }
 
-fn settings_after_router_tests() -> UnitTest {
-  describe("settings after router()", [
+fn settings_after_router_tests() -> UnitNode {
+  group("settings after router()", [
     it("bind after router() sets the interface", fn() {
       // Arrange
       let app =
@@ -187,7 +188,7 @@ fn settings_after_router_tests() -> UnitTest {
       // Assert
       dream.get_bind_interface(configured)
       |> should()
-      |> equal(Some("127.0.0.1"))
+      |> be_equal(Some("127.0.0.1"))
       |> or_fail_with("bind() should set the interface after router()")
     }),
     it("bind after router() keeps the router", fn() {
@@ -203,7 +204,7 @@ fn settings_after_router_tests() -> UnitTest {
       // Assert
       dream.get_router(configured)
       |> should()
-      |> equal(the_router)
+      |> be_equal(the_router)
       |> or_fail_with("bind() should keep the router")
     }),
     it("max_body_size after router() sets the size", fn() {
@@ -218,7 +219,7 @@ fn settings_after_router_tests() -> UnitTest {
       // Assert
       dream.get_max_body_size(configured)
       |> should()
-      |> equal(2048)
+      |> be_equal(2048)
       |> or_fail_with("max_body_size() should set the size after router()")
     }),
     it("tls after router() sets the certificate and key", fn() {
@@ -233,7 +234,7 @@ fn settings_after_router_tests() -> UnitTest {
       // Assert
       dream.get_tls(configured)
       |> should()
-      |> equal(Some(dream.Tls(certfile: "cert.pem", keyfile: "key.pem")))
+      |> be_equal(Some(dream.Tls(certfile: "cert.pem", keyfile: "key.pem")))
       |> or_fail_with("tls() should set the TLS files after router()")
     }),
     it("a server with bind and max_body_size after router() serves", fn() {
@@ -252,14 +253,14 @@ fn settings_after_router_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#(200, "Served in order")))
+      |> be_equal(Ok(#(200, "Served in order")))
       |> or_fail_with("The app should serve with settings after router()")
     }),
   ])
 }
 
-fn settings_through_context_tests() -> UnitTest {
-  describe("settings through context() and services()", [
+fn settings_through_context_tests() -> UnitNode {
+  group("settings through context() and services()", [
     it("context() keeps the bind interface set before it", fn() {
       // Arrange
       let app =
@@ -272,7 +273,7 @@ fn settings_through_context_tests() -> UnitTest {
       // Assert
       dream.get_bind_interface(configured)
       |> should()
-      |> equal(Some("127.0.0.1"))
+      |> be_equal(Some("127.0.0.1"))
       |> or_fail_with("context() should keep the bind interface")
     }),
     it("services() keeps the max body size set before it", fn() {
@@ -287,7 +288,7 @@ fn settings_through_context_tests() -> UnitTest {
       // Assert
       dream.get_max_body_size(configured)
       |> should()
-      |> equal(2048)
+      |> be_equal(2048)
       |> or_fail_with("services() should keep the max body size")
     }),
     it("context() keeps the TLS files set before it", fn() {
@@ -302,7 +303,7 @@ fn settings_through_context_tests() -> UnitTest {
       // Assert
       dream.get_tls(configured)
       |> should()
-      |> equal(Some(dream.Tls(certfile: "cert.pem", keyfile: "key.pem")))
+      |> be_equal(Some(dream.Tls(certfile: "cert.pem", keyfile: "key.pem")))
       |> or_fail_with("context() should keep the TLS files")
     }),
   ])

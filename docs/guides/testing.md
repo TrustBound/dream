@@ -9,11 +9,12 @@ designed for clarity and maintainability. Tests live in `test/`, mirror your
 ## Quick Start <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_quick_start.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream_test/assertions/should.{be_ok, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_ok, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, it}
 import snippets/testing_guide_user.{create_user}
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("users", [
     it("creates user with valid data", fn() {
       create_user("Alice", "alice@example.com")
@@ -25,11 +26,7 @@ pub fn tests() -> UnitTest {
 }
 ```
 
-Run tests:
-
-```bash
-gleam test
-```
+Run the tests with `gleam test`.
 
 ## Test Structure
 
@@ -37,7 +34,7 @@ gleam test
 
 Tests mirror your source structure:
 
-```text
+```text illustration
 src/
   your_app/
     controllers/
@@ -56,29 +53,24 @@ test/
 
 ### Entry Point
 
-Create `test/your_app_test.gleam`. The last step, `exit_on_failure`, ends the
-program with status 1 when a test fails, so `gleam test` and CI fail too:
+Create `test/your_app_test.gleam`. With `exit_on_failure`, `runner.run` ends
+the program with status 1 when a test fails, so `gleam test` and CI fail too:
 
 #### Test entry point <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_entry_point.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream_test/reporter/bdd.{report}
-import dream_test/runner.{exit_on_failure, run_all}
-import dream_test/unit.{to_test_cases}
-import gleam/io
-import gleam/list
+import dream_test/reporters/bdd
+import dream_test/reporters/progress
+import dream_test/runner
 import snippets/testing_guide_user_test as user_test
 import snippets/testing_guide_users_controller_test as users_controller_test
 
-pub fn main() -> Nil {
-  [
-    to_test_cases("controllers/users", users_controller_test.tests()),
-    to_test_cases("models/user", user_test.tests()),
-  ]
-  |> list.flatten
-  |> run_all()
-  |> report(io.print)
-  |> exit_on_failure()
+pub fn main() {
+  runner.new([users_controller_test.tests(), user_test.tests()])
+  |> runner.progress_reporter(progress.new())
+  |> runner.results_reporters([bdd.new()])
+  |> runner.exit_on_failure()
+  |> runner.run()
 }
 ```
 
@@ -86,16 +78,17 @@ pub fn main() -> Nil {
 
 Each test module exports a `tests()` function:
 
-#### A test module <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_test_module.gleam#L1-L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### A test module <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_test_module.gleam#L1-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, group, it}
 import gleam/string
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("slug", [
-    describe("create_slug", [
+    group("create_slug", [
       it("joins lowercase words with dashes", fn() {
         // Arrange
         let title = "Hello World"
@@ -106,7 +99,7 @@ pub fn tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal("hello-world")
+        |> be_equal("hello-world")
         |> or_fail_with("Should return a lowercase slug")
       }),
     ]),
@@ -120,22 +113,23 @@ pub fn tests() -> UnitTest {
 
 ```gleam
 import dream/http/request.{get_query_param}
-import dream_test/assertions/should.{
-  be_empty, be_error, be_false, be_none, be_ok, be_some, be_true, contain,
-  contain_string, equal, or_fail_with, should,
+import dream_test/matchers.{
+  be_empty, be_equal, be_error, be_false, be_none, be_ok, be_some, be_true,
+  contain, contain_string, or_fail_with, should,
 }
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, it}
 import gleam/int
 import gleam/list
 import gleam/string
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("basic matchers", [
     // Equality
     it("equal", fn() {
       string.length("Alice")
       |> should()
-      |> equal(5)
+      |> be_equal(5)
       |> or_fail_with("Should have 5 letters")
     }),
     // Boolean
@@ -205,10 +199,10 @@ pub fn tests() -> UnitTest {
 
 Matchers can be chained to extract and assert:
 
-#### Chaining be_some and be_ok <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_examples.gleam#L14-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Chaining be_some and be_ok <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_examples.gleam#L15-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn chaining_tests() -> UnitTest {
+pub fn chaining_tests() -> TestSuite {
   describe("chaining matchers", [
     it("finds user 1", fn() {
       let user = User(id: 1, name: "Alice", email: "alice@example.com")
@@ -219,7 +213,7 @@ pub fn chaining_tests() -> UnitTest {
       // Unwraps Option, passes inner value
       |> be_some()
       // Asserts on the unwrapped value
-      |> equal(user)
+      |> be_equal(user)
       |> or_fail_with("User should exist")
     }),
     it("accepts a valid email", fn() {
@@ -229,7 +223,7 @@ pub fn chaining_tests() -> UnitTest {
       // Unwraps Result, passes Ok value
       |> be_ok()
       // Asserts on the unwrapped value
-      |> equal("test@example.com")
+      |> be_equal("test@example.com")
       |> or_fail_with("Email should be valid")
     }),
   ])
@@ -252,7 +246,7 @@ import snippets/testing_guide_user.{type User}
 
 /// Extract user name from validation result
 pub fn extract_user_name(
-  result: MatchResult(Result(User, ValidationError)),
+  result: MatchResult(Result(User, List(ValidationError))),
   getter: fn(User) -> String,
 ) -> MatchResult(String) {
   case result {
@@ -274,10 +268,10 @@ fn validation_failed_failure() -> MatchResult(String) {
 }
 ```
 
-#### Using the custom matcher <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_examples.gleam#L41-L52"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Using the custom matcher <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_examples.gleam#L42-L53"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn custom_matcher_tests() -> UnitTest {
+pub fn custom_matcher_tests() -> UnitNode {
   it("reads the name from a valid user", fn() {
     let json_body =
       "{\"id\": 1, \"name\": \"Alice\", \"email\": \"alice@example.com\"}"
@@ -285,7 +279,7 @@ pub fn custom_matcher_tests() -> UnitTest {
     validate_user(json_body)
     |> should()
     |> extract_user_name(fn(user) { user.name })
-    |> equal("Alice")
+    |> be_equal("Alice")
     |> or_fail_with("Name should be Alice")
   })
 }
@@ -341,24 +335,27 @@ pub fn create_request_with_body(
 
 ```gleam
 import dream/http/request.{Post, Text}
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, it}
 import fixtures/request as test_request
 
-pub fn tests() -> UnitTest {
-  it("creates POST request with body", fn() {
-    let request =
-      test_request.create_request_with_body(
-        Post,
-        "/users",
-        "{\"name\":\"Alice\"}",
-      )
+pub fn tests() -> TestSuite {
+  describe("request fixture", [
+    it("creates POST request with body", fn() {
+      let request =
+        test_request.create_request_with_body(
+          Post,
+          "/users",
+          "{\"name\":\"Alice\"}",
+        )
 
-    request.body
-    |> should()
-    |> equal(Text("{\"name\":\"Alice\"}"))
-    |> or_fail_with("Body should be the JSON")
-  })
+      request.body
+      |> should()
+      |> be_equal(Text("{\"name\":\"Alice\"}"))
+      |> or_fail_with("Body should be the JSON")
+    }),
+  ])
 }
 ```
 
@@ -371,20 +368,20 @@ Run setup/teardown for each test in a group:
 #### Setup and teardown for each test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_before_each.gleam#L1-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream_test/assertions/should.{be_ok, equal, or_fail_with, should}
-import dream_test/types.{AssertionOk}
-import dream_test/unit.{type UnitTest, after_each, before_each, describe, it}
+import dream_test/matchers.{be_equal, be_ok, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{after_each, before_each, describe, it}
 import gleam/string
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("record tests", [
     before_each(fn() {
       // Reset test state
-      AssertionOk
+      Ok(Nil)
     }),
     after_each(fn() {
       // Cleanup
-      AssertionOk
+      Ok(Nil)
     }),
     it("creates record", fn() {
       create_record("Alice")
@@ -395,7 +392,7 @@ pub fn tests() -> UnitTest {
     it("updates record", fn() {
       update_record("Alice", "Alicia")
       |> should()
-      |> equal(Ok("Alicia"))
+      |> be_equal(Ok("Alicia"))
       |> or_fail_with("Should update record")
     }),
   ])
@@ -404,9 +401,7 @@ pub fn tests() -> UnitTest {
 
 ### before_all / after_all
 
-Run once before/after all tests in a group. Convert the tests with
-`to_test_suite` and run them with `run_suite`, because `to_test_cases` and
-`run_all` do not run these hooks:
+Run once before/after all tests in a group:
 
 #### Setup and teardown once for a group <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_before_all.gleam#L1-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -416,27 +411,27 @@ import dream/http/request.{Get}
 import dream/http/response.{text_response}
 import dream/http/status.{ok}
 import dream/router.{route, router}
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/types.{AssertionOk}
-import dream_test/unit.{type UnitTest, after_all, before_all, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{after_all, before_all, describe, it}
 import fixtures/request as test_request
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("server tests", [
     before_all(fn() {
       // Start shared resources once, such as a server
-      AssertionOk
+      Ok(Nil)
     }),
     after_all(fn() {
       // Stop them
-      AssertionOk
+      Ok(Nil)
     }),
     it("responds to GET /", fn() {
       let request = test_request.create_request(Get, "/")
 
       dream.route_request(app_router(), request, Nil, Nil).status
       |> should()
-      |> equal(200)
+      |> be_equal(200)
       |> or_fail_with("Should return 200")
     }),
     it("responds to GET /users", fn() {
@@ -444,7 +439,7 @@ pub fn tests() -> UnitTest {
 
       dream.route_request(app_router(), request, Nil, Nil).status
       |> should()
-      |> equal(200)
+      |> be_equal(200)
       |> or_fail_with("Should return 200")
     }),
   ])
@@ -461,21 +456,22 @@ Controllers receive `Request`, `Context`, and `Services`:
 import dream/context.{AppContext}
 import dream/http/request.{Get}
 import dream/router.{EmptyServices}
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, group, it}
 import fixtures/request as test_request
 import snippets/testing_guide_users_controller as users_controller
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("users_controller", [
-    describe("index", [
+    group("index", [
       it("returns 200 for valid request", fn() {
         let request = test_request.create_request(Get, "/users")
         let context = AppContext("test-id")
 
         users_controller.index(request, context, EmptyServices).status
         |> should()
-        |> equal(200)
+        |> be_equal(200)
         |> or_fail_with("Should return 200")
       }),
     ]),
@@ -495,8 +491,9 @@ import dream/http/header.{Header}
 import dream/http/request.{Get, Request}
 import dream/http/response.{Response, Text}
 import dream/router.{EmptyServices}
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, it}
 import fixtures/request as test_request
 import gleam/option
 import snippets/testing_guide_auth_middleware as auth
@@ -505,7 +502,7 @@ fn success_handler(_request, _context, _services) {
   Response(200, Text("Success"), [], [], option.None)
 }
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("auth middleware", [
     it("returns 401 without token", fn() {
       let request = test_request.create_request(Get, "/protected")
@@ -513,7 +510,7 @@ pub fn tests() -> UnitTest {
 
       auth.middleware(request, context, EmptyServices, success_handler).status
       |> should()
-      |> equal(401)
+      |> be_equal(401)
       |> or_fail_with("Should reject without token")
     }),
     it("calls next with valid token", fn() {
@@ -525,7 +522,7 @@ pub fn tests() -> UnitTest {
 
       auth.middleware(request, context, EmptyServices, success_handler).status
       |> should()
-      |> equal(200)
+      |> be_equal(200)
       |> or_fail_with("Should pass with valid token")
     }),
   ])
@@ -539,13 +536,14 @@ Test business logic without HTTP:
 #### A model test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_user_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream_test/assertions/should.{be_error, be_ok, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_error, be_ok, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, group, it}
 import snippets/testing_guide_user as user
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("user", [
-    describe("validate_email", [
+    group("validate_email", [
       it("accepts valid email", fn() {
         user.validate_email("alice@example.com")
         |> should()
@@ -585,28 +583,28 @@ pub fn tests() -> UnitTest {
 #### An integration test that uses the file system <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_integration.gleam#L1-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream_test/assertions/should.{equal, fail_with, or_fail_with, should}
-import dream_test/types.{AssertionOk}
-import dream_test/unit.{type UnitTest, before_each, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{before_each, describe, it}
 import gleam/result
 import simplifile
 
 const test_directory = "tmp/testing_guide_integration"
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("file storage integration", [
     before_each(fn() {
       // Delete files from earlier runs
       case simplifile.delete_all([test_directory]) {
-        Ok(_) -> AssertionOk
-        Error(_) -> fail_with("Could not delete test files")
+        Ok(_) -> Ok(Nil)
+        Error(_) -> Error("Could not delete test files")
       }
     }),
     it("saves user to disk", fn() {
       // Uses the real file system
       save_user(test_directory, "alice", "Alice")
       |> should()
-      |> equal(Ok("Alice"))
+      |> be_equal(Ok("Alice"))
       |> or_fail_with("Should read back the saved user")
     }),
   ])
@@ -619,10 +617,10 @@ pub fn tests() -> UnitTest {
 
 Test public interfaces, not implementation details:
 
-#### Good and bad black box tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_examples.gleam#L54-L74"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Good and bad black box tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_examples.gleam#L55-L75"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn black_box_tests() -> UnitTest {
+pub fn black_box_tests() -> TestSuite {
   describe("find_user", [
     // ✅ Good - tests observable behavior
     it("returns user by ID", fn() {
@@ -638,7 +636,7 @@ pub fn black_box_tests() -> UnitTest {
       |> should()
       |> be_ok()
       |> extract_name()
-      |> equal("Alice")
+      |> be_equal("Alice")
       |> or_fail_with("Alice should be first")
     }),
   ])
@@ -654,10 +652,10 @@ internal detail: the test breaks when the storage changes, even when
 
 Each test should verify one thing:
 
-#### Focused tests and a test with two assertions <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_examples.gleam#L76-L109"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Focused tests and a test with two assertions <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_examples.gleam#L77-L110"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn one_assertion_tests() -> UnitTest {
+pub fn one_assertion_tests() -> TestSuite {
   // ✅ Good - focused tests
   describe("create_user", [
     it("returns created user", fn() {
@@ -671,13 +669,13 @@ pub fn one_assertion_tests() -> UnitTest {
       |> should()
       |> be_ok()
       |> extract_name()
-      |> equal("Alice")
+      |> be_equal("Alice")
       |> or_fail_with("Name should be Alice")
     }),
   ])
 }
 
-pub fn multiple_assertions_test() -> UnitTest {
+pub fn multiple_assertions_test() -> UnitNode {
   // ❌ Bad - multiple assertions
   it("creates user correctly", fn() {
     let result = create_user("Alice", "alice@example.com")
@@ -687,7 +685,7 @@ pub fn multiple_assertions_test() -> UnitTest {
     |> should()
     |> be_ok()
     |> extract_name()
-    |> equal("Alice")
+    |> be_equal("Alice")
     |> or_fail_with("Name should be Alice")
   })
 }
@@ -701,10 +699,10 @@ dream_test never sees it, so that check can fail and the test still passes.
 
 Every test follows AAA with blank lines between sections:
 
-#### An Arrange, Act, Assert test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_examples.gleam#L111-L125"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### An Arrange, Act, Assert test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_examples.gleam#L112-L126"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn arrange_act_assert_test() -> UnitTest {
+pub fn arrange_act_assert_test() -> UnitNode {
   it("uppercases string", fn() {
     // Arrange
     let input = "hello"
@@ -715,7 +713,7 @@ pub fn arrange_act_assert_test() -> UnitTest {
     // Assert
     result
     |> should()
-    |> equal("HELLO")
+    |> be_equal("HELLO")
     |> or_fail_with("Should uppercase")
   })
 }
@@ -745,12 +743,12 @@ isn't reachable through public functions, it's dead code—delete it.
 
 ## Running Tests
 
-```bash
-# Run all tests
-gleam test
+In your app, run `gleam test`. Dream's own unit tests run with this line of `scripts/check.sh`, which CI runs. It also measures the line coverage:
 
-# Run with make (includes formatting check)
-make test
+### Run the unit tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/check.sh#L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+make test-unit
 ```
 
 ## Tips

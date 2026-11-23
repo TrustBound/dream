@@ -11,6 +11,8 @@ The simplest possible Dream app. Demonstrates basic routing, path parameters, an
 
 ## Running the Example
 
+### Start the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/start.sh#L3-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 cd examples/simple
 make run
@@ -25,6 +27,8 @@ Server starts on `http://localhost:3000`
 
 ## Example Usage
 
+### Send the requests <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme.sh#L3-L7"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 # Simple hello world
 curl http://localhost:3000/
@@ -35,7 +39,7 @@ curl http://localhost:3000/users/1/posts/2
 
 ## Code Structure
 
-```text
+```text illustration
 examples/simple/
 ├── gleam.toml          # Project config with dream dependency
 ├── Makefile            # Build and run commands

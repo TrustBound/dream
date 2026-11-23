@@ -10,8 +10,9 @@ import dream/http/header.{Header, get_header}
 import dream/http/request.{type Request, Get, PathParam, Post, Request}
 import dream/http/response.{type Response}
 import dream/router.{EmptyServices, route, router}
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/erlang/process
 import gleam/option.{None, Some}
@@ -32,7 +33,7 @@ import snippets/learn_building_api_user_view
 import snippets/learn_hello_world_app
 import snippets/quickstart_hello_server
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("learning snippets", [
     hello_world_tests(),
     quickstart_tests(),
@@ -42,8 +43,8 @@ pub fn tests() -> UnitTest {
   ])
 }
 
-fn hello_world_tests() -> UnitTest {
-  describe("learn hello world", [
+fn hello_world_tests() -> UnitNode {
+  group("learn hello world", [
     it("GET / returns status 200", fn() {
       // Arrange
       let request = test_request.create_request(Get, "/")
@@ -61,7 +62,7 @@ fn hello_world_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(200)
+      |> be_equal(200)
       |> or_fail_with("GET / should return 200")
     }),
     it("GET / returns Hello, World!", fn() {
@@ -81,14 +82,14 @@ fn hello_world_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello, World!")
+      |> be_equal("Hello, World!")
       |> or_fail_with("GET / should return 'Hello, World!'")
     }),
   ])
 }
 
-fn quickstart_tests() -> UnitTest {
-  describe("quickstart", [
+fn quickstart_tests() -> UnitNode {
+  group("quickstart", [
     it("GET / returns status 200", fn() {
       // Arrange
       let request = test_request.create_request(Get, "/")
@@ -106,7 +107,7 @@ fn quickstart_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(200)
+      |> be_equal(200)
       |> or_fail_with("GET / should return 200")
     }),
     it("GET / returns Hello, World!", fn() {
@@ -126,14 +127,14 @@ fn quickstart_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello, World!")
+      |> be_equal("Hello, World!")
       |> or_fail_with("GET / should return 'Hello, World!'")
     }),
   ])
 }
 
-fn building_api_tests() -> UnitTest {
-  describe("learn building api", [
+fn building_api_tests() -> UnitNode {
+  group("learn building api", [
     it("to_json formats one user", fn() {
       // Arrange
       let user = create_lesson_user(1, "Ada", "ada@example.com")
@@ -144,7 +145,7 @@ fn building_api_tests() -> UnitTest {
       // Assert
       json
       |> should()
-      |> equal("{\"id\":1,\"name\":\"Ada\",\"email\":\"ada@example.com\"}")
+      |> be_equal("{\"id\":1,\"name\":\"Ada\",\"email\":\"ada@example.com\"}")
       |> or_fail_with("to_json should format the user")
     }),
     it("list_to_json formats each user in order", fn() {
@@ -160,7 +161,7 @@ fn building_api_tests() -> UnitTest {
       // Assert
       json
       |> should()
-      |> equal(
+      |> be_equal(
         "[{\"id\":1,\"name\":\"Ada\",\"email\":\"ada@example.com\"},"
         <> "{\"id\":2,\"name\":\"Bo\",\"email\":\"bo@example.com\"}]",
       )
@@ -176,7 +177,7 @@ fn building_api_tests() -> UnitTest {
       // Assert
       json
       |> should()
-      |> equal("[]")
+      |> be_equal("[]")
       |> or_fail_with("list_to_json should return []")
     }),
     it("show returns the id from the path", fn() {
@@ -190,7 +191,7 @@ fn building_api_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("User 42")
+      |> be_equal("User 42")
       |> or_fail_with("show should return 'User 42'")
     }),
     it("show returns status 400 for an id that is not a number", fn() {
@@ -204,14 +205,14 @@ fn building_api_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("show should return 400")
     }),
   ])
 }
 
-fn adding_auth_tests() -> UnitTest {
-  describe("learn adding auth", [
+fn adding_auth_tests() -> UnitNode {
+  group("learn adding auth", [
     it("context starts with no user", fn() {
       // Arrange
       let context = learn_adding_auth_context.context
@@ -222,7 +223,7 @@ fn adding_auth_tests() -> UnitTest {
       // Assert
       user
       |> should()
-      |> equal(None)
+      |> be_equal(None)
       |> or_fail_with("context should have no user")
     }),
     it("auth_middleware without a header returns status 401", fn() {
@@ -236,7 +237,7 @@ fn adding_auth_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(401)
+      |> be_equal(401)
       |> or_fail_with("a request with no header should get 401")
     }),
     it("auth_middleware without a header names the missing header", fn() {
@@ -250,7 +251,7 @@ fn adding_auth_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Missing Authorization header")
+      |> be_equal("Missing Authorization header")
       |> or_fail_with("the body should name the missing header")
     }),
     it("auth_middleware with an unknown token returns Invalid token", fn() {
@@ -264,7 +265,7 @@ fn adding_auth_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Invalid token")
+      |> be_equal("Invalid token")
       |> or_fail_with("an unknown token should be rejected")
     }),
     it("auth_middleware with the admin token passes the admin user on", fn() {
@@ -278,14 +279,14 @@ fn adding_auth_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("admin@example.com")
+      |> be_equal("admin@example.com")
       |> or_fail_with("the controller should get the admin user")
     }),
   ])
 }
 
-fn concepts_tests() -> UnitTest {
-  describe("concepts", [
+fn concepts_tests() -> UnitNode {
+  group("concepts", [
     it("an Action can be called with a request, context and services", fn() {
       // Arrange
       let action: concepts_signatures.Action = concepts_signatures.say_hello
@@ -298,7 +299,7 @@ fn concepts_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello!")
+      |> be_equal("Hello!")
       |> or_fail_with("the action should say Hello!")
     }),
     it("a Middleware calls next and changes the response", fn() {
@@ -319,7 +320,7 @@ fn concepts_tests() -> UnitTest {
       // Assert
       get_header(response.headers, "Server")
       |> should()
-      |> equal(Some("Dream"))
+      |> be_equal(Some("Dream"))
       |> or_fail_with("the middleware should add the Server header")
     }),
     it("greet_world returns Hello, World!", fn() {
@@ -338,7 +339,7 @@ fn concepts_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello, World!")
+      |> be_equal("Hello, World!")
       |> or_fail_with("greet_world should return 'Hello, World!'")
     }),
     it("greet_person greets the name from the path", fn() {
@@ -361,7 +362,7 @@ fn concepts_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello, Ada!")
+      |> be_equal("Hello, Ada!")
       |> or_fail_with("greet_person should return 'Hello, Ada!'")
     }),
     it("GET / is public", fn() {
@@ -375,7 +376,7 @@ fn concepts_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Welcome")
+      |> be_equal("Welcome")
       |> or_fail_with("GET / should return 'Welcome'")
     }),
     it("POST /admin without a header returns status 401", fn() {
@@ -389,7 +390,7 @@ fn concepts_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(401)
+      |> be_equal(401)
       |> or_fail_with("POST /admin with no header should return 401")
     }),
     it("POST /admin as a member returns status 403", fn() {
@@ -403,7 +404,7 @@ fn concepts_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(403)
+      |> be_equal(403)
       |> or_fail_with("POST /admin as a member should return 403")
     }),
     it("POST /admin as an admin reaches the controller", fn() {
@@ -417,7 +418,7 @@ fn concepts_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Admin area")
+      |> be_equal("Admin area")
       |> or_fail_with("POST /admin as an admin should return 'Admin area'")
     }),
     it("logging_middleware returns the response from next", fn() {
@@ -437,7 +438,7 @@ fn concepts_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello, World!")
+      |> be_equal("Hello, World!")
       |> or_fail_with("logging_middleware should not change the body")
     }),
     it("respond with the json format returns JSON", fn() {
@@ -451,7 +452,9 @@ fn concepts_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"id\":1,\"email\":\"ada@example.com\",\"name\":\"Ada <3\"}")
+      |> be_equal(
+        "{\"id\":1,\"email\":\"ada@example.com\",\"name\":\"Ada <3\"}",
+      )
       |> or_fail_with("respond should return JSON")
     }),
     it("respond with the csv format returns CSV", fn() {
@@ -465,7 +468,7 @@ fn concepts_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("id,email,name\n1,\"ada@example.com\",\"Ada <3\"\n")
+      |> be_equal("id,email,name\n1,\"ada@example.com\",\"Ada <3\"\n")
       |> or_fail_with("respond should return CSV")
     }),
     it("respond with no format returns escaped HTML", fn() {
@@ -479,7 +482,7 @@ fn concepts_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("<p>Ada &lt;3 (ada@example.com)</p>")
+      |> be_equal("<p>Ada &lt;3 (ada@example.com)</p>")
       |> or_fail_with("respond should return escaped HTML")
     }),
     it("create_note with a valid body returns status 201", fn() {
@@ -499,7 +502,7 @@ fn concepts_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(201)
+      |> be_equal(201)
       |> or_fail_with("a valid note should return 201")
     }),
     it("create_note with a valid body sends the note on", fn() {
@@ -519,7 +522,7 @@ fn concepts_tests() -> UnitTest {
       // Assert
       received
       |> should()
-      |> equal(Ok(concepts_validation.Note(title: "Buy milk")))
+      |> be_equal(Ok(concepts_validation.Note(title: "Buy milk")))
       |> or_fail_with("the note should reach the notes subject")
     }),
     it("create_note with no title returns status 400", fn() {
@@ -539,7 +542,7 @@ fn concepts_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("a note with no title should return 400")
     }),
     it("create_note with no title says why in JSON", fn() {
@@ -559,7 +562,9 @@ fn concepts_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"error\":\"Expected Field but found Nothing at title\"}")
+      |> be_equal(
+        "{\"errors\":[\"Expected Field but found Nothing at title\"]}",
+      )
       |> or_fail_with("the body should give the validation error")
     }),
   ])

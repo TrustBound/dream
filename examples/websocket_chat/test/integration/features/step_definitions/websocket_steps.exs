@@ -35,7 +35,7 @@ defmodule WebsocketSteps do
       WebSockex.start_link(
         url,
         __MODULE__,
-        %{test_pid: test_pid, messages: []},
+        %{test_pid: test_pid, messages: [], frames: []},
         WebsocketSteps.connection_options()
       )
     end
@@ -52,11 +52,17 @@ defmodule WebsocketSteps do
     def handle_frame({:text, message}, state) do
       decoded = Jason.decode!(message)
       send(state.test_pid, {:ws_message, decoded})
-      {:ok, %{state | messages: [decoded | state.messages]}}
+      {:ok, %{state | messages: [decoded | state.messages], frames: [message | state.frames]}}
     end
 
     @impl true
     def handle_frame(_frame, state), do: {:ok, state}
+
+    @impl true
+    def handle_cast({:get_frames, from}, state) do
+      send(from, {:frames, Enum.reverse(state.frames)})
+      {:ok, state}
+    end
 
     @impl true
     def handle_cast(:get_messages, state) do
@@ -192,6 +198,28 @@ defmodule WebsocketSteps do
     after
       timeout -> raise "Timeout waiting for #{notification_type} notification for #{username}"
     end
+  end
+
+  # Compares the text frames that a user received, as the server sent them,
+  # with the lines of a file. The README shows the file.
+  step "the frames that user {string} received should be the lines of {string}",
+       %{args: [username, path]} = context do
+    pid = context.users[username]
+    WebSockex.cast(pid, {:get_frames, self()})
+
+    frames =
+      receive do
+        {:frames, frames} -> frames
+      after
+        2000 -> raise "Timeout waiting for the frames of #{username}"
+      end
+
+    expected = path |> File.read!() |> String.split("\n", trim: true)
+    if frames != expected do
+      raise "The frames of #{username} were #{inspect(frames)}, not the lines of #{path}"
+    end
+
+    context
   end
 
   step "user {string} disconnects", %{args: [username]} = context do

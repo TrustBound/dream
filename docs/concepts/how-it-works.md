@@ -6,7 +6,7 @@ When a request arrives at your Dream server, here's exactly what happens:
 
 ## The Flow
 
-```text
+```text illustration
 1. Request arrives
 2. Context created (AppContext with unique request_id)
 3. Router matches path/method → finds controller action
@@ -19,7 +19,7 @@ When a request arrives at your Dream server, here's exactly what happens:
 
 Example with auth and logging middleware:
 
-```mermaid
+```mermaid illustration
 sequenceDiagram
     autonumber
     participant Client
@@ -51,13 +51,23 @@ Simple pipeline. No magic.
 
 The HTTP server (Mist) receives the request and passes it to Dream's router.
 
+The Mist adapter does this work for you. `handler.create` in `dream/servers/mist/handler` makes the function that Mist calls for each request. That function calls `convert_metadata` from `dream/servers/mist/request`, which turns the method, path, query, headers and cookies of the Mist request into a Dream `Request` with an empty body. Each function has an example in its doc comment on [HexDocs](https://hexdocs.pm/dream/dream/servers/mist/handler.html#create).
+
+The adapter keeps the Mist request in the process dictionary of the request process, so that `upgrade_websocket` and `upgrade_to_sse` can read it later. The functions `put`, `get`, `to_dynamic` and `unsafe_coerce` in `dream/servers/mist/internal` do this. Your application does not call them.
+
 ### 2. Context Created
 
 Dream creates a default `AppContext` with a unique `request_id`. This context travels through the entire request lifecycle.
 
+The adapter makes the ID with `generate_request_id` from `dream/servers/mist/request`.
+
 ### 3. Router Matches
 
 The router looks at the HTTP method (GET, POST, etc.) and path (`/users/123`) to find a matching route. Path parameters like `:id` are extracted automatically.
+
+`dream.route_request` does all of the steps from here to the response. It calls `router.find_route`, then `dream.execute_route`. `execute_route` runs a route that is already matched: it sets the path parameters on the request with `request.set_params`, then runs the middleware and the controller.
+
+To match routes quickly, the router keeps them in a trie from `dream/router/trie`. `parser.parse_pattern` in `dream/router/parser` splits a path pattern such as `/users/:id` into segments. `trie.new` makes an empty trie, `trie.insert` adds a route, and `trie.lookup` finds the route for a path.
 
 ### 4. Middleware Runs
 
@@ -67,6 +77,8 @@ If the route has middleware, each middleware function runs in order:
 - Can transform streaming request bodies (ingress streaming)
 - Can transform streaming responses (egress streaming)
 - Can call `next()` to continue, or return early to short-circuit
+
+`router.build_controller_chain` joins the middleware of the route and the controller into one function. The first middleware in the list is the outermost one. See the example in its doc comment on [HexDocs](https://hexdocs.pm/dream/dream/router.html#build_controller_chain).
 
 ### 5. Controller Action Executes
 
@@ -85,6 +97,8 @@ The controller action orchestrates:
 ### 6. Response Returns
 
 The response flows back through middleware (which can modify it), then back to the client.
+
+The adapter converts the Dream response to a Mist response with `convert` from `dream/servers/mist/response`, or with `convert_stream` for a streaming body.
 
 ## Key Points
 

@@ -94,6 +94,8 @@ pub fn create_custom_server() -> Dream(
 }
 ```
 
+The `dream/dream` module has functions that read the settings of a `Dream` value. A server adapter uses them to start the server: `get_server`, `get_router`, `get_context`, `get_services`, `get_max_body_size`, `get_bind_interface` and `get_tls`. `set_tls` sets the certificate and key files. In your application, use `server.tls()` in place of `set_tls`. Before the server starts, the Mist adapter calls `port_probe.is_in_use` from `dream/servers/mist/port_probe` to check if the port is free. Each function has an example in its doc comment on [HexDocs](https://hexdocs.pm/dream/dream/dream.html).
+
 ### 3. Middleware
 
 Middleware intercepts requests before they reach controllers.
@@ -344,7 +346,7 @@ Dream encourages a clean separation of concerns using the Model-View-Controller 
 
 Here's how a typical request flows through the MVC layers:
 
-```text
+```text illustration
 1. Router matches request → finds controller
 2. Controller extracts parameters (e.g., `require_int(request, "id")`)
 3. Controller calls Model to fetch data
@@ -715,7 +717,7 @@ Each builder step returns a new request. `client.send()` sends it and returns `R
 - .env file support
 - Type-safe configuration loading
 
-#### Load configuration with dream_config <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_config.gleam#L6-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Load configuration with dream_config <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_config.gleam#L6-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_config/loader
@@ -726,8 +728,12 @@ pub type AppConfig {
 }
 
 pub fn load_config() -> Result(AppConfig, String) {
-  use _ <- result.try(loader.load_dotenv())
-  use database_url <- result.try(loader.get_required("DATABASE_URL"))
+  use _ <- result.try(
+    loader.load_dotenv() |> result.map_error(loader.describe_load_error),
+  )
+  use database_url <- result.try(
+    loader.get_required("DATABASE_URL") |> result.map_error(loader.describe),
+  )
   let port = loader.get_int("PORT") |> result.unwrap(3000)
   Ok(AppConfig(database_url: database_url, port: port))
 }
@@ -769,8 +775,15 @@ Modules are independent Gleam packages on Hex. Add the ones you need next to `dr
 ```toml
 [dependencies]
 dream = ">= 3.0.0 and < 4.0.0"
-dream_postgres = ">= 2.0.0 and < 3.0.0"
-dream_http_client = ">= 6.0.0 and < 7.0.0"
+```
+
+The `database` example adds `dream_postgres` this way. Until the modules are on Hex, the examples pin each one to a commit of its repository:
+
+#### dream_postgres in the database example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L10-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```toml
+# Pinned to the module's move branch until it is on Hex.
+dream_postgres = { git = "https://github.com/TrustBound/dream_postgres.git", ref = "bfdd3435c173947b3aef6c5d5ae280449338ed76" }
 ```
 
 Each module has its own repository, with a README that has detailed usage examples: [dream_config](https://github.com/TrustBound/dream_config), [dream_ets](https://github.com/TrustBound/dream_ets), [dream_http_client](https://github.com/TrustBound/dream_http_client), [dream_json](https://github.com/TrustBound/dream_json), [dream_mock_server](https://github.com/TrustBound/dream_mock_server), [dream_opensearch](https://github.com/TrustBound/dream_opensearch) and [dream_postgres](https://github.com/TrustBound/dream_postgres).

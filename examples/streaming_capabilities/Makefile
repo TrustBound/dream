@@ -1,7 +1,7 @@
 .PHONY: run test test-integration clean
 
 run:
-	gleam run
+	gleam run -m main
 
 test:
 	gleam test

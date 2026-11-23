@@ -8,10 +8,12 @@ The integration tests use Elixir and Cucumber. Dependencies are managed via `mix
 
 ## Running Tests
 
-From the example root directory:
+From the repository root. `make test-tasks` runs this line of `scripts/test-tasks.sh`, with the E2E tests after it:
+
+### Run the integration tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/test-tasks.sh#L7"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
-make test-integration
+(cd examples/tasks && make test-integration)
 ```
 
 This will:
@@ -26,11 +28,7 @@ This will:
 
 ## Running a Specific Feature
 
-You can run a specific feature file by setting the `CUCUMBER_FEATURE` environment variable:
-
-```bash
-CUCUMBER_FEATURE="test/integration/features/tasks.feature" make test-integration
-```
+You can run a specific feature file by setting the `CUCUMBER_FEATURE` environment variable, for example `CUCUMBER_FEATURE="test/integration/features/tasks.feature" make test-integration`.
 
 ## Test Structure
 

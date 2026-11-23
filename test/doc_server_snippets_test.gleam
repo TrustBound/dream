@@ -13,12 +13,15 @@ import dream/router.{type Router, route, router}
 import dream/servers/mist/server
 import dream/servers/mist/sse
 import dream/services/broadcaster
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/bit_array
 import gleam/dynamic.{type Dynamic}
 import gleam/erlang/process.{type Selector, type Subject}
+import gleam/http/request as http_request
+import gleam/http/response as http_response
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
@@ -29,7 +32,10 @@ import snippets/doc_server_bind
 import snippets/doc_server_broadcaster
 import snippets/doc_server_broadcaster_functions.{UserJoined}
 import snippets/doc_server_context
+import snippets/doc_server_convert_metadata
 import snippets/doc_server_custom_context
+import snippets/doc_server_handler_create
+import snippets/doc_server_internal
 import snippets/doc_server_listen
 import snippets/doc_server_listen_with_handle
 import snippets/doc_server_max_body_size
@@ -42,15 +48,19 @@ import snippets/doc_server_response_convert
 import snippets/doc_server_router
 import snippets/doc_server_services
 import snippets/doc_server_sse_events
+import snippets/doc_server_sse_selector
 import snippets/doc_server_sse_send
+import snippets/doc_server_sse_stop
 import snippets/doc_server_sse_ticker
 import snippets/doc_server_sse_upgrade
 import snippets/doc_server_stop
 import snippets/doc_server_websocket_chat
+import snippets/doc_server_websocket_selector
 import snippets/doc_server_websocket_send
+import snippets/doc_server_websocket_stop
 import snippets/doc_server_websocket_upgrade
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("doc comment snippets for dream/servers/mist", [
     server_module_tests(),
     sse_module_tests(),
@@ -64,8 +74,8 @@ pub fn tests() -> UnitTest {
 // dream/servers/mist/server
 // ============================================================================
 
-fn server_module_tests() -> UnitTest {
-  describe("dream/servers/mist/server", [
+fn server_module_tests() -> UnitNode {
+  group("dream/servers/mist/server", [
     it("quick start router answers GET /", fn() {
       // Arrange
       let request = test_request.create_request(Get, "/")
@@ -83,7 +93,7 @@ fn server_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello from Dream")
+      |> be_equal("Hello from Dream")
       |> or_fail_with("GET / should return 'Hello from Dream'")
     }),
     it("custom context router greets the guest", fn() {
@@ -109,7 +119,7 @@ fn server_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello, guest")
+      |> be_equal("Hello, guest")
       |> or_fail_with("GET / should return 'Hello, guest'")
     }),
     it("new simple router answers GET /", fn() {
@@ -124,7 +134,7 @@ fn server_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello from Dream")
+      |> be_equal("Hello from Dream")
       |> or_fail_with("GET / should return 'Hello from Dream'")
     }),
     it("new with context router answers with the services greeting", fn() {
@@ -146,7 +156,7 @@ fn server_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello from Dream")
+      |> be_equal("Hello from Dream")
       |> or_fail_with("GET / should return 'Hello from Dream'")
     }),
     it("context router greets the user in the context", fn() {
@@ -171,7 +181,7 @@ fn server_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello, Ada")
+      |> be_equal("Hello, Ada")
       |> or_fail_with("GET / should return 'Hello, Ada'")
     }),
     it("services are available to controllers", fn() {
@@ -191,7 +201,7 @@ fn server_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("postgres://localhost/app")
+      |> be_equal("postgres://localhost/app")
       |> or_fail_with("GET / should return the database URL")
     }),
     it("router example answers GET /users/:id", fn() {
@@ -212,7 +222,7 @@ fn server_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("User 7")
+      |> be_equal("User 7")
       |> or_fail_with("GET /users/7 should return 'User 7'")
     }),
     it("bind example router answers GET /", fn() {
@@ -232,7 +242,7 @@ fn server_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello from localhost")
+      |> be_equal("Hello from localhost")
       |> or_fail_with("GET / should return 'Hello from localhost'")
     }),
     it("max body size example router answers POST /upload", fn() {
@@ -253,7 +263,7 @@ fn server_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Received report.csv")
+      |> be_equal("Received report.csv")
       |> or_fail_with("POST /upload should return 'Received report.csv'")
     }),
     it("listen example router answers GET /", fn() {
@@ -273,7 +283,7 @@ fn server_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello from Dream")
+      |> be_equal("Hello from Dream")
       |> or_fail_with("GET / should return 'Hello from Dream'")
     }),
     it("listen_with_handle example gets the body from a running server", fn() {
@@ -286,7 +296,7 @@ fn server_module_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok("test passed"))
+      |> be_equal(Ok("test passed"))
       |> or_fail_with("test_server should return Ok(\"test passed\")")
     }),
     it("stop example starts and stops a server", fn() {
@@ -299,7 +309,7 @@ fn server_module_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(Nil))
+      |> be_equal(Ok(Nil))
       |> or_fail_with("test_server should return Ok(Nil)")
     }),
   ])
@@ -309,8 +319,8 @@ fn server_module_tests() -> UnitTest {
 // dream/servers/mist/sse
 // ============================================================================
 
-fn sse_module_tests() -> UnitTest {
-  describe("dream/servers/mist/sse", [
+fn sse_module_tests() -> UnitNode {
+  group("dream/servers/mist/sse", [
     it("ticker sends the first tick event", fn() {
       // Arrange
       let app_router =
@@ -328,7 +338,7 @@ fn sse_module_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal("id: 0\nevent: tick\ndata: 0\n\n")
+      |> be_equal("id: 0\nevent: tick\ndata: 0\n\n")
       |> or_fail_with("the ticker should send tick 0 first")
     }),
     it("upgrade_to_sse example sends a ping", fn() {
@@ -348,7 +358,7 @@ fn sse_module_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal("data: ping\n\n")
+      |> be_equal("data: ping\n\n")
       |> or_fail_with("the stream should send one ping event")
     }),
     it("send_event example sends hello", fn() {
@@ -368,7 +378,7 @@ fn sse_module_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal("data: hello\n\n")
+      |> be_equal("data: hello\n\n")
       |> or_fail_with("the stream should send one hello event")
     }),
     it("greeting event has a name, an id and a retry time", fn() {
@@ -381,7 +391,7 @@ fn sse_module_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal("retry: 5000\nid: 1\nevent: greeting\ndata: hello world\n\n")
+      |> be_equal("retry: 5000\nid: 1\nevent: greeting\ndata: hello world\n\n")
       |> or_fail_with("the greeting event should have all four fields")
     }),
     it("event sends its data", fn() {
@@ -394,7 +404,7 @@ fn sse_module_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal("data: {\"count\": 42}\n\n")
+      |> be_equal("data: {\"count\": 42}\n\n")
       |> or_fail_with("the event should send its JSON data")
     }),
     it("event_name sets the event field", fn() {
@@ -407,7 +417,7 @@ fn sse_module_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal("event: tick\ndata: payload\n\n")
+      |> be_equal("event: tick\ndata: payload\n\n")
       |> or_fail_with("the event should have the name tick")
     }),
     it("event_id sets the id field", fn() {
@@ -420,7 +430,7 @@ fn sse_module_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal("id: 42\ndata: payload\n\n")
+      |> be_equal("id: 42\ndata: payload\n\n")
       |> or_fail_with("the event should have the id 42")
     }),
     it("event_retry sets the retry field", fn() {
@@ -433,8 +443,51 @@ fn sse_module_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal("retry: 5000\ndata: payload\n\n")
+      |> be_equal("retry: 5000\ndata: payload\n\n")
       |> or_fail_with("the event should have the retry time 5000")
+    }),
+    it(
+      "stop_connection example sends three counts, then closes the stream",
+      fn() {
+        // Arrange
+        let app_router =
+          router()
+          |> route(
+            method: Get,
+            path: "/events",
+            controller: doc_server_sse_stop.countdown,
+            middleware: [],
+          )
+
+        // Act
+        let body = serve_and_get(app_router, Nil, "/events")
+
+        // Assert
+        body
+        |> should()
+        |> be_equal("data: 3\n\ndata: 2\n\ndata: 1\n\n")
+        |> or_fail_with("the stream should count down from 3 to 1")
+      },
+    ),
+    it("continue_connection_with_selector example sends the greeting", fn() {
+      // Arrange
+      let app_router =
+        router()
+        |> route(
+          method: Get,
+          path: "/events",
+          controller: doc_server_sse_selector.greetings,
+          middleware: [],
+        )
+
+      // Act
+      let body = serve_and_get(app_router, Nil, "/events")
+
+      // Assert
+      body
+      |> should()
+      |> be_equal("data: hello\n\n")
+      |> or_fail_with("the stream should send one hello event")
     }),
   ])
 }
@@ -483,8 +536,8 @@ fn event_body(event: sse.Event) -> String {
 // dream/servers/mist/websocket
 // ============================================================================
 
-fn websocket_module_tests() -> UnitTest {
-  describe("dream/servers/mist/websocket", [
+fn websocket_module_tests() -> UnitNode {
+  group("dream/servers/mist/websocket", [
     it("echo chat replies with the user name", fn() {
       // Arrange
       let app_router =
@@ -502,7 +555,7 @@ fn websocket_module_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal(Ok(#(1, <<"ada: hi":utf8>>)))
+      |> be_equal(Ok(#(1, <<"ada: hi":utf8>>)))
       |> or_fail_with("the chat should reply 'ada: hi' in a text frame")
     }),
     it("upgrade_websocket example echoes text", fn() {
@@ -522,7 +575,7 @@ fn websocket_module_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal(Ok(#(1, <<"echo me":utf8>>)))
+      |> be_equal(Ok(#(1, <<"echo me":utf8>>)))
       |> or_fail_with("the socket should echo 'echo me' in a text frame")
     }),
     it("send_text example sends Hello!", fn() {
@@ -542,7 +595,7 @@ fn websocket_module_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal(Ok(#(1, <<"Hello!":utf8>>)))
+      |> be_equal(Ok(#(1, <<"Hello!":utf8>>)))
       |> or_fail_with("the socket should send 'Hello!' in a text frame")
     }),
     it("send_binary example sends a binary frame", fn() {
@@ -562,8 +615,54 @@ fn websocket_module_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal(Ok(#(2, <<"bytes":utf8>>)))
+      |> be_equal(Ok(#(2, <<"bytes":utf8>>)))
       |> or_fail_with("the socket should send 'bytes' in a binary frame")
+    }),
+    it(
+      "continue_connection_with_selector example forwards the notification",
+      fn() {
+        // Arrange
+        let app_router =
+          router()
+          |> route(
+            method: Get,
+            path: "/notifications",
+            controller: doc_server_websocket_selector.notifications,
+            middleware: [],
+          )
+
+        // Act
+        let reply =
+          websocket_round_trip(app_router, Nil, "/notifications", "subscribe")
+
+        // Assert
+        reply
+        |> should()
+        |> be_equal(Ok(#(1, <<"You are subscribed":utf8>>)))
+        |> or_fail_with(
+          "the socket should send You are subscribed in a text frame",
+        )
+      },
+    ),
+    it("stop_connection example closes the socket after bye", fn() {
+      // Arrange
+      let app_router =
+        router()
+        |> route(
+          method: Get,
+          path: "/conversation",
+          controller: doc_server_websocket_stop.conversation,
+          middleware: [],
+        )
+
+      // Act
+      let reply = websocket_round_trip(app_router, Nil, "/conversation", "bye")
+
+      // Assert
+      reply
+      |> should()
+      |> be_equal(Ok(#(8, <<3, 232>>)))
+      |> or_fail_with("the server should send a close frame with code 1000")
     }),
   ])
 }
@@ -572,8 +671,8 @@ fn websocket_module_tests() -> UnitTest {
 // dream/servers/mist/request, response and port_probe
 // ============================================================================
 
-fn adapter_module_tests() -> UnitTest {
-  describe("dream/servers/mist adapter modules", [
+fn adapter_module_tests() -> UnitNode {
+  group("dream/servers/mist adapter modules", [
     it("generate_request_id returns the inspected process ID", fn() {
       // Arrange
       let expected = string.inspect(process.self())
@@ -584,7 +683,7 @@ fn adapter_module_tests() -> UnitTest {
       // Assert
       request_id
       |> should()
-      |> equal(expected)
+      |> be_equal(expected)
       |> or_fail_with("the request ID should be the inspected process ID")
     }),
     it("convert keeps the JSON content type", fn() {
@@ -597,7 +696,7 @@ fn adapter_module_tests() -> UnitTest {
       // Assert
       mist_response.headers
       |> should()
-      |> equal([#("content-type", "application/json; charset=utf-8")])
+      |> be_equal([#("content-type", "application/json; charset=utf-8")])
       |> or_fail_with("convert should keep the JSON content type")
     }),
     it("convert_stream sends the stream as chunks", fn() {
@@ -610,7 +709,7 @@ fn adapter_module_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal("5\r\nhello\r\n0\r\n\r\n")
+      |> be_equal("5\r\nhello\r\n0\r\n\r\n")
       |> or_fail_with("convert_stream should send one chunk, then the end")
     }),
     it("is_in_use returns False for a free port", fn() {
@@ -623,7 +722,7 @@ fn adapter_module_tests() -> UnitTest {
       // Assert
       in_use
       |> should()
-      |> equal(False)
+      |> be_equal(False)
       |> or_fail_with("a free port should not be in use")
     }),
     it("is_in_use returns True for a port with a listener", fn() {
@@ -637,8 +736,38 @@ fn adapter_module_tests() -> UnitTest {
       // Assert
       in_use
       |> should()
-      |> equal(True)
+      |> be_equal(True)
       |> or_fail_with("a port with a listener should be in use")
+    }),
+    it("handler.create example answers GET / through Mist", fn() {
+      // Act
+      let body = get_from_handler_example("/")
+
+      // Assert
+      body
+      |> should()
+      |> be_equal("Hello")
+      |> or_fail_with("the body should be Hello")
+    }),
+    it("convert_metadata example reads the method, path and query", fn() {
+      // Act
+      let body = mist_get(doc_server_convert_metadata.describe, "/users?page=2")
+
+      // Assert
+      body
+      |> should()
+      |> be_equal("GET /users?page=2")
+      |> or_fail_with("the body should be GET /users?page=2")
+    }),
+    it("internal example reads back the stored value", fn() {
+      // Act
+      let value = doc_server_internal.stash_and_read()
+
+      // Assert
+      value
+      |> should()
+      |> be_equal("hello")
+      |> or_fail_with("the stored value should be hello")
     }),
   ])
 }
@@ -672,8 +801,8 @@ fn stream_through_mist(port: Int) -> String {
 // dream/services/broadcaster
 // ============================================================================
 
-fn broadcaster_module_tests() -> UnitTest {
-  describe("dream/services/broadcaster", [
+fn broadcaster_module_tests() -> UnitNode {
+  group("dream/services/broadcaster", [
     it("module example passes a published message to a WebSocket", fn() {
       // Arrange
       let app_router =
@@ -696,7 +825,7 @@ fn broadcaster_module_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal(Ok(#(1, <<"hello":utf8>>)))
+      |> be_equal(Ok(#(1, <<"hello":utf8>>)))
       |> or_fail_with("the WebSocket should receive the published hello")
     }),
     it("start_broadcaster returns a working broadcaster", fn() {
@@ -709,7 +838,7 @@ fn broadcaster_module_tests() -> UnitTest {
       // Assert
       received
       |> should()
-      |> equal(Ok(Ok("hello")))
+      |> be_equal(Ok(Ok("hello")))
       |> or_fail_with("a subscriber should receive 'hello'")
     }),
     it("subscribe returns a selector for published messages", fn() {
@@ -727,7 +856,7 @@ fn broadcaster_module_tests() -> UnitTest {
       // Assert
       received
       |> should()
-      |> equal(Ok(Ok("hello")))
+      |> be_equal(Ok(Ok("hello")))
       |> or_fail_with("the selector should receive 'hello'")
     }),
     it("publish sends the message to subscribers", fn() {
@@ -747,7 +876,7 @@ fn broadcaster_module_tests() -> UnitTest {
       // Assert
       received
       |> should()
-      |> equal(Ok(Ok(UserJoined("Alice"))))
+      |> be_equal(Ok(Ok(UserJoined("Alice"))))
       |> or_fail_with("the subscriber should receive UserJoined(\"Alice\")")
     }),
     it("unsubscribe stops messages to the channel", fn() {
@@ -767,7 +896,7 @@ fn broadcaster_module_tests() -> UnitTest {
       // Assert
       received
       |> should()
-      |> equal(Ok(Error(Nil)))
+      |> be_equal(Ok(Error(Nil)))
       |> or_fail_with("an unsubscribed channel should receive nothing")
     }),
     it("channel_to_selector gives a selector for the initial state", fn() {
@@ -786,7 +915,7 @@ fn broadcaster_module_tests() -> UnitTest {
       // Assert
       received
       |> should()
-      |> equal(Ok(Ok("hello")))
+      |> be_equal(Ok(Ok("hello")))
       |> or_fail_with("the selector should receive 'hello'")
     }),
   ])
@@ -860,6 +989,43 @@ fn websocket_round_trip(
       reply
     }
     Error(_start_error) -> Error("server did not start")
+  }
+}
+
+/// Starts a Mist server with the handler on a free port, sends one GET
+/// request, stops the server, and returns the response body.
+fn mist_get(
+  handler: fn(http_request.Request(mist.Connection)) ->
+    http_response.Response(mist.ResponseData),
+  path: String,
+) -> String {
+  let port = free_port()
+  let started =
+    mist.new(handler)
+    |> mist.bind("127.0.0.1")
+    |> mist.port(port)
+    |> mist.start
+  case started {
+    Ok(started) -> {
+      let received = request_until_closed(port, get_payload(path), 300)
+      process.send_exit(started.pid)
+      response_body(received)
+    }
+    Error(_start_error) -> "server did not start"
+  }
+}
+
+/// Starts the server of the handler.create example on a free port, sends one
+/// GET request, stops the server, and returns the response body.
+fn get_from_handler_example(path: String) -> String {
+  let port = free_port()
+  case doc_server_handler_create.start(port) {
+    Ok(started) -> {
+      let received = request_until_closed(port, get_payload(path), 300)
+      doc_server_handler_create.stop(started)
+      response_body(received)
+    }
+    Error(_start_error) -> "server did not start"
   }
 }
 

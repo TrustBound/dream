@@ -1,6 +1,6 @@
 //// This module contains the code to run the sql queries defined in
 //// `./src/sql`.
-//// > 🐿️ This module was generated automatically using v4.5.0 of
+//// > 🐿️ This module was generated automatically using v4.7.0 of
 //// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ////
 
@@ -12,7 +12,7 @@ import pog
 /// A row you get from running the `get_product` query
 /// defined in `./src/sql/get_product.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type GetProductRow {
@@ -28,12 +28,12 @@ pub type GetProductRow {
 /// name: get_product
 /// Get a single product by ID
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.7.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn get_product(
   db: pog.Connection,
-  arg_1: Int,
+  id: Int,
 ) -> Result(pog.Returned(GetProductRow), pog.QueryError) {
   let decoder = {
     use id <- decode.field(0, decode.int)
@@ -58,7 +58,7 @@ LIMIT 1;
 
 "
   |> pog.query
-  |> pog.parameter(pog.int(arg_1))
+  |> pog.parameter(pog.int(id))
   |> pog.returning(decoder)
   |> pog.execute(db)
 }
@@ -66,7 +66,7 @@ LIMIT 1;
 /// A row you get from running the `list_products` query
 /// defined in `./src/sql/list_products.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.5.0 of the
+/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
 /// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub type ListProductsRow {
@@ -82,7 +82,7 @@ pub type ListProductsRow {
 /// name: list_products
 /// List all products
 ///
-/// > 🐿️ This function was generated automatically using v4.5.0 of
+/// > 🐿️ This function was generated automatically using v4.7.0 of
 /// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
 ///
 pub fn list_products(

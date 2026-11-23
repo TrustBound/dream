@@ -10,10 +10,11 @@ import dream/http/response.{type Response, json_response, text_response}
 import dream/router.{route, router}
 import dream/servers/mist/server
 import dream_http_client/client.{Http2Only, ResponseError}
+import dream_test/suite.{type TestSuite}
 import dream_test/types.{
   type AssertionResult, AssertionFailed, AssertionFailure, AssertionOk,
 }
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/unit.{describe, it}
 import gleam/erlang/process
 import gleam/http
 import gleam/list
@@ -25,7 +26,7 @@ import gleam/string
 // Tests
 // ============================================================================
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("h2c", [
     it("GET returns correct body over h2c", fn() {
       let port = free_port()
@@ -43,7 +44,7 @@ pub fn tests() -> UnitTest {
             resp.status == 200
             && resp.body == <<"hello from dream over h2c":utf8>>
           {
-            True -> AssertionOk
+            True -> Ok(AssertionOk)
             False ->
               assertion_failed(
                 "h2c_get",
@@ -72,7 +73,7 @@ pub fn tests() -> UnitTest {
       case result {
         Ok(resp) -> {
           case resp.status == 200 && body_contains(resp, "test-value") {
-            True -> AssertionOk
+            True -> Ok(AssertionOk)
             False ->
               assertion_failed(
                 "h2c_path_params",
@@ -112,7 +113,7 @@ pub fn tests() -> UnitTest {
             })
 
           case resp.status == 200 && has_json_body && has_json_ct {
-            True -> AssertionOk
+            True -> Ok(AssertionOk)
             False ->
               assertion_failed(
                 "h2c_json",
@@ -144,7 +145,7 @@ pub fn tests() -> UnitTest {
 
       case result {
         Error(ResponseError(response: client.HttpResponse(status: 404, ..))) ->
-          AssertionOk
+          Ok(AssertionOk)
         Error(ResponseError(response: client.HttpResponse(status: status, ..))) ->
           assertion_failed(
             "h2c_404",
@@ -179,7 +180,7 @@ pub fn tests() -> UnitTest {
       case result {
         Ok(resp) -> {
           case resp.status == 200 && body_contains(resp, payload) {
-            True -> AssertionOk
+            True -> Ok(AssertionOk)
             False ->
               assertion_failed(
                 "h2c_post_body",
@@ -248,7 +249,7 @@ pub fn tests() -> UnitTest {
             && resp2.body == <<"hello from dream over h2c":utf8>>
             && resp3.body == <<"hello from dream over h2c":utf8>>
           {
-            True -> AssertionOk
+            True -> Ok(AssertionOk)
             False ->
               assertion_failed(
                 "h2c_concurrent",
@@ -334,8 +335,8 @@ fn echo_body_controller(request: Request, _context, _services) -> Response {
 
 fn with_h2c_server(
   port: Int,
-  test_fn: fn(server.ServerHandle) -> AssertionResult,
-) -> AssertionResult {
+  test_fn: fn(server.ServerHandle) -> Result(AssertionResult, String),
+) -> Result(AssertionResult, String) {
   let result =
     server.new()
     |> server.router(h2c_router())
@@ -357,12 +358,17 @@ fn with_h2c_server(
   }
 }
 
-fn assertion_failed(operator: String, message: String) -> AssertionResult {
-  AssertionFailed(AssertionFailure(
-    operator: operator,
-    message: message,
-    payload: None,
-  ))
+fn assertion_failed(
+  operator: String,
+  message: String,
+) -> Result(AssertionResult, String) {
+  Ok(
+    AssertionFailed(AssertionFailure(
+      operator: operator,
+      message: message,
+      payload: None,
+    )),
+  )
 }
 
 @external(erlang, "port_ffi", "free_port")

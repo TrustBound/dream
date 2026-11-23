@@ -1,10 +1,11 @@
-import dream_test/assertions/should.{be_error, be_ok, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_error, be_ok, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, group, it}
 import snippets/testing_guide_user as user
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("user", [
-    describe("validate_email", [
+    group("validate_email", [
       it("accepts valid email", fn() {
         user.validate_email("alice@example.com")
         |> should()

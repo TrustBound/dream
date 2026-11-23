@@ -4,6 +4,7 @@
 //// test/snippets/doc_core_*.gleam.
 
 import dream/context.{AppContext, EmptyContext}
+import dream/controllers/static
 import dream/dream
 import dream/http/cookie.{simple_cookie}
 import dream/http/header.{type Header, Header}
@@ -12,8 +13,9 @@ import dream/http/response.{type Response, text_response}
 import dream/router.{find_route, router}
 import dream/router/trie.{ExtensionPattern, Literal, Match, MultiWildcard, Param}
 import dream/servers/mist/server
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/list
 import gleam/option.{None, Some}
@@ -21,18 +23,27 @@ import matchers/extract_body_text.{extract_body_text}
 import matchers/extract_response_status.{extract_response_status}
 import snippets/doc_core_context_custom
 import snippets/doc_core_context_middleware
+import snippets/doc_core_context_new_context
 import snippets/doc_core_dream
 import snippets/doc_core_dream_builder
+import snippets/doc_core_dream_execute_route
+import snippets/doc_core_dream_get_tls
+import snippets/doc_core_dream_set_tls
 import snippets/doc_core_dream_type
 import snippets/doc_core_parser
 import snippets/doc_core_router
 import snippets/doc_core_router_basic
+import snippets/doc_core_router_build_controller_chain
 import snippets/doc_core_router_wrong
 import snippets/doc_core_static
+import snippets/doc_core_static_default_config
 import snippets/doc_core_static_serve
+import snippets/doc_core_static_with_custom_404
+import snippets/doc_core_static_with_directory_listing
+import snippets/doc_core_static_without_index
 import snippets/doc_core_trie
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("doc comment snippets for the core modules", [
     dream_module_tests(),
     context_module_tests(),
@@ -93,8 +104,8 @@ fn middleware_context() -> doc_core_context_middleware.MyContext {
   doc_core_context_middleware.MyContext(request_id: "request-1", user: None)
 }
 
-fn dream_module_tests() -> UnitTest {
-  describe("dream/dream", [
+fn dream_module_tests() -> UnitNode {
+  group("dream/dream", [
     it("Dream type example server has the custom context", fn() {
       // Arrange
       let app = doc_core_dream_type.create_server()
@@ -105,7 +116,7 @@ fn dream_module_tests() -> UnitTest {
       // Assert
       context
       |> should()
-      |> equal(doc_core_dream_type.MyContext(request_id: "", user: None))
+      |> be_equal(doc_core_dream_type.MyContext(request_id: "", user: None))
       |> or_fail_with(
         "context should be MyContext(request_id: \"\", user: None)",
       )
@@ -120,7 +131,7 @@ fn dream_module_tests() -> UnitTest {
       // Assert
       size
       |> should()
-      |> equal(10_000_000)
+      |> be_equal(10_000_000)
       |> or_fail_with("max body size should be 10_000_000")
     }),
     it("create builder example sets the bind interface", fn() {
@@ -133,7 +144,7 @@ fn dream_module_tests() -> UnitTest {
       // Assert
       interface
       |> should()
-      |> equal(Some("0.0.0.0"))
+      |> be_equal(Some("0.0.0.0"))
       |> or_fail_with("bind interface should be Some(\"0.0.0.0\")")
     }),
     it("get_server example returns the Mist builder of the app", fn() {
@@ -146,7 +157,7 @@ fn dream_module_tests() -> UnitTest {
       // Assert
       mist_server
       |> should()
-      |> equal(dream.get_server(app, risks_understood: True))
+      |> be_equal(dream.get_server(app, risks_understood: True))
       |> or_fail_with("raw_server should return the app's Mist builder")
     }),
     it("get_router example returns the router", fn() {
@@ -159,7 +170,7 @@ fn dream_module_tests() -> UnitTest {
       // Assert
       configured_router
       |> should()
-      |> equal(expected)
+      |> be_equal(expected)
       |> or_fail_with("configured_router should return my_router()")
     }),
     it("get_context example returns the context", fn() {
@@ -172,7 +183,7 @@ fn dream_module_tests() -> UnitTest {
       // Assert
       context
       |> should()
-      |> equal(expected)
+      |> be_equal(expected)
       |> or_fail_with("configured_context should be MyContext(user: None)")
     }),
     it("get_services example returns the services", fn() {
@@ -185,7 +196,7 @@ fn dream_module_tests() -> UnitTest {
       // Assert
       services
       |> should()
-      |> equal(expected)
+      |> be_equal(expected)
       |> or_fail_with("configured_services should return my_services()")
     }),
     it("get_max_body_size example returns 5_000_000", fn() {
@@ -198,7 +209,7 @@ fn dream_module_tests() -> UnitTest {
       // Assert
       size
       |> should()
-      |> equal(expected)
+      |> be_equal(expected)
       |> or_fail_with("configured_max_body_size should be 5_000_000")
     }),
     it("get_bind_interface example names the interface", fn() {
@@ -211,7 +222,7 @@ fn dream_module_tests() -> UnitTest {
       // Assert
       status
       |> should()
-      |> equal(expected)
+      |> be_equal(expected)
       |> or_fail_with("bind_status should be \"Will bind to 0.0.0.0\"")
     }),
     it("route_request example routes GET / to the home controller", fn() {
@@ -231,7 +242,7 @@ fn dream_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Home")
+      |> be_equal("Home")
       |> or_fail_with("handle should return the body Home")
     }),
     it("parse_cookies_from_headers example returns two cookies", fn() {
@@ -247,7 +258,7 @@ fn dream_module_tests() -> UnitTest {
       // Assert
       cookies
       |> should()
-      |> equal(expected)
+      |> be_equal(expected)
       |> or_fail_with("request_cookies should be session and theme")
     }),
     it("parse_cookie_string example returns three cookies", fn() {
@@ -264,16 +275,64 @@ fn dream_module_tests() -> UnitTest {
       // Assert
       cookies
       |> should()
-      |> equal(expected)
+      |> be_equal(expected)
       |> or_fail_with("cookie_string_cookies should be session, theme, lang")
+    }),
+    it("set_tls example reads back the certificate and key files", fn() {
+      // Act
+      let tls = doc_core_dream_set_tls.tls_files()
+
+      // Assert
+      tls
+      |> should()
+      |> be_equal(Some(dream.Tls(certfile: "cert.pem", keyfile: "key.pem")))
+      |> or_fail_with("the TLS files should be cert.pem and key.pem")
+    }),
+    it("get_tls example returns None for plain HTTP", fn() {
+      // Act
+      let tls = doc_core_dream_get_tls.plain_http_tls()
+
+      // Assert
+      tls
+      |> should()
+      |> be_equal(None)
+      |> or_fail_with("a new server should have no TLS files")
+    }),
+    it("execute_route example runs the matched controller", fn() {
+      // Arrange
+      let request = test_request.create_request(Get, "/users/7")
+
+      // Act
+      let response = doc_core_dream_execute_route.handle(request)
+
+      // Assert
+      response
+      |> should()
+      |> extract_body_text()
+      |> be_equal("User 7")
+      |> or_fail_with("the body should be User 7")
+    }),
+    it("execute_route example returns 404 when no route matches", fn() {
+      // Arrange
+      let request = test_request.create_request(Get, "/teams")
+
+      // Act
+      let response = doc_core_dream_execute_route.handle(request)
+
+      // Assert
+      response
+      |> should()
+      |> extract_response_status()
+      |> be_equal(404)
+      |> or_fail_with("a path with no route should give 404")
     }),
   ])
 }
 
 // The context examples end in listen(3000), which blocks. The tests compile
 // them and run the builder steps that they use.
-fn context_module_tests() -> UnitTest {
-  describe("dream/context", [
+fn context_module_tests() -> UnitNode {
+  group("dream/context", [
     it("default context is EmptyContext", fn() {
       // Arrange
       let app = server.new() |> server.router(router())
@@ -284,7 +343,7 @@ fn context_module_tests() -> UnitTest {
       // Assert
       context
       |> should()
-      |> equal(EmptyContext)
+      |> be_equal(EmptyContext)
       |> or_fail_with("the default context should be EmptyContext")
     }),
     it("explicit EmptyContext is kept", fn() {
@@ -297,7 +356,7 @@ fn context_module_tests() -> UnitTest {
       // Assert
       context
       |> should()
-      |> equal(EmptyContext)
+      |> be_equal(EmptyContext)
       |> or_fail_with("the context should be EmptyContext")
     }),
     it("AppContext is kept", fn() {
@@ -310,7 +369,7 @@ fn context_module_tests() -> UnitTest {
       // Assert
       context
       |> should()
-      |> equal(AppContext(request_id: ""))
+      |> be_equal(AppContext(request_id: ""))
       |> or_fail_with("the context should be AppContext(request_id: \"\")")
     }),
     it("custom context starts with an empty session", fn() {
@@ -332,7 +391,7 @@ fn context_module_tests() -> UnitTest {
       // Assert
       context.session
       |> should()
-      |> equal(doc_core_context_custom.Session(values: []))
+      |> be_equal(doc_core_context_custom.Session(values: []))
       |> or_fail_with("the session should be Session(values: [])")
     }),
     it("auth middleware puts the user in the context", fn() {
@@ -352,7 +411,7 @@ fn context_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Ada")
+      |> be_equal("Ada")
       |> or_fail_with("the controller should see the user Ada")
     }),
     it("auth middleware without a token returns 401", fn() {
@@ -372,14 +431,24 @@ fn context_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(401)
+      |> be_equal(401)
       |> or_fail_with("a request with no token should get 401")
+    }),
+    it("new_context example sets the request ID", fn() {
+      // Act
+      let context = doc_core_context_new_context.request_context()
+
+      // Assert
+      context
+      |> should()
+      |> be_equal(AppContext(request_id: "req-123"))
+      |> or_fail_with("the request ID should be req-123")
     }),
   ])
 }
 
-fn router_module_tests() -> UnitTest {
-  describe("dream/router", [
+fn router_module_tests() -> UnitNode {
+  group("dream/router", [
     it("basic routing sends GET /users/123 to show_user", fn() {
       // Arrange
       let app_router = doc_core_router_basic.create_router()
@@ -391,7 +460,7 @@ fn router_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("User 123")
+      |> be_equal("User 123")
       |> or_fail_with("GET /users/123 should return User 123")
     }),
     it("parameter remapping reads id on /users/123", fn() {
@@ -405,7 +474,7 @@ fn router_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("User 123")
+      |> be_equal("User 123")
       |> or_fail_with("GET /users/123 should return User 123")
     }),
     it("parameter remapping reads user_id on /users/123/posts", fn() {
@@ -419,7 +488,7 @@ fn router_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Posts by user 123")
+      |> be_equal("Posts by user 123")
       |> or_fail_with("GET /users/123/posts should return Posts by user 123")
     }),
     it("middleware run auth outside logging", fn() {
@@ -432,7 +501,7 @@ fn router_module_tests() -> UnitTest {
       // Assert
       middleware_names(response.headers)
       |> should()
-      |> equal(["auth", "logging"])
+      |> be_equal(["auth", "logging"])
       |> or_fail_with("auth should run last on the way out")
     }),
     it("wrong parameter name returns 400", fn() {
@@ -446,7 +515,7 @@ fn router_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("the typo in the parameter name should give 400")
     }),
     it("router example sends GET / to home", fn() {
@@ -460,7 +529,7 @@ fn router_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Home")
+      |> be_equal("Home")
       |> or_fail_with("GET / should return Home")
     }),
     it("route example wildcard captures the asset path", fn() {
@@ -474,7 +543,7 @@ fn router_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Asset css/app.css")
+      |> be_equal("Asset css/app.css")
       |> or_fail_with("GET /assets/css/app.css should return Asset css/app.css")
     }),
     it("stream_route example makes a streaming route", fn() {
@@ -490,7 +559,7 @@ fn router_module_tests() -> UnitTest {
       // Assert
       streaming
       |> should()
-      |> equal(Some(True))
+      |> be_equal(Some(True))
       |> or_fail_with("POST /upload should match a streaming route")
     }),
     it("find_route example returns the id parameter", fn() {
@@ -503,14 +572,31 @@ fn router_module_tests() -> UnitTest {
       // Assert
       params
       |> should()
-      |> equal([#("id", "123")])
+      |> be_equal([#("id", "123")])
       |> or_fail_with("params should be [#(\"id\", \"123\")]")
     }),
+    it(
+      "build_controller_chain example runs the first middleware outermost",
+      fn() {
+        // Arrange
+        let request = test_request.create_request(Get, "/")
+
+        // Act
+        let response = doc_core_router_build_controller_chain.handle(request)
+
+        // Assert
+        response
+        |> should()
+        |> extract_body_text()
+        |> be_equal("outer(inner(controller))")
+        |> or_fail_with("the body should be outer(inner(controller))")
+      },
+    ),
   ])
 }
 
-fn static_module_tests() -> UnitTest {
-  describe("dream/controllers/static", [
+fn static_module_tests() -> UnitNode {
+  group("dream/controllers/static", [
     it("asset router returns 404 for a file that is not there", fn() {
       // Arrange
       let app_router = doc_core_static.asset_router()
@@ -522,7 +608,7 @@ fn static_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("a missing file should give 404")
     }),
     it("serve_assets without a path parameter returns a JSON error", fn() {
@@ -536,7 +622,7 @@ fn static_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"error\":\"Missing required path parameter: path\"}")
+      |> be_equal("{\"error\":\"Missing required path parameter: path\"}")
       |> or_fail_with("the body should be the missing parameter error")
     }),
     it("serve_public without a filepath parameter returns a JSON error", fn() {
@@ -550,7 +636,7 @@ fn static_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"error\":\"Missing required path parameter: filepath\"}")
+      |> be_equal("{\"error\":\"Missing required path parameter: filepath\"}")
       |> or_fail_with("the body should be the missing parameter error")
     }),
     it("serve_public refuses a path that leaves the root", fn() {
@@ -567,14 +653,63 @@ fn static_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("a path with .. should give 404")
     }),
+    it("default_config example serves index files and has no listing", fn() {
+      // Act
+      let flags = config_flags(doc_core_static_default_config.asset_config())
+
+      // Assert
+      flags
+      |> should()
+      |> be_equal(#(True, False))
+      |> or_fail_with("index should be on and listing off")
+    }),
+    it("with_directory_listing example allows a directory listing", fn() {
+      // Act
+      let flags =
+        config_flags(doc_core_static_with_directory_listing.listing_config())
+
+      // Assert
+      flags
+      |> should()
+      |> be_equal(#(True, True))
+      |> or_fail_with("index and listing should be on")
+    }),
+    it("without_index example turns off index files", fn() {
+      // Act
+      let flags = config_flags(doc_core_static_without_index.no_index_config())
+
+      // Assert
+      flags
+      |> should()
+      |> be_equal(#(False, False))
+      |> or_fail_with("index and listing should be off")
+    }),
+    it(
+      "with_custom_404 example uses the custom handler for a missing file",
+      fn() {
+        // Arrange
+        let request = test_request.create_request(Get, "/downloads/report.pdf")
+
+        // Act
+        let response =
+          doc_core_static_with_custom_404.download(request, "report.pdf")
+
+        // Assert
+        response
+        |> should()
+        |> extract_body_text()
+        |> be_equal("No such file")
+        |> or_fail_with("the body should be No such file")
+      },
+    ),
   ])
 }
 
-fn parser_module_tests() -> UnitTest {
-  describe("dream/router/parser", [
+fn parser_module_tests() -> UnitNode {
+  group("dream/router/parser", [
     it("module examples parse to the documented segments", fn() {
       // Arrange
       let expected = [
@@ -589,7 +724,7 @@ fn parser_module_tests() -> UnitTest {
       // Assert
       segments
       |> should()
-      |> equal(expected)
+      |> be_equal(expected)
       |> or_fail_with("the module examples should parse as documented")
     }),
     it("parse_pattern examples parse to the documented segments", fn() {
@@ -607,7 +742,7 @@ fn parser_module_tests() -> UnitTest {
       // Assert
       segments
       |> should()
-      |> equal(expected)
+      |> be_equal(expected)
       |> or_fail_with("the parse_pattern examples should parse as documented")
     }),
     it("brace extensions are trimmed", fn() {
@@ -623,14 +758,14 @@ fn parser_module_tests() -> UnitTest {
       // Assert
       segments
       |> should()
-      |> equal(expected)
+      |> be_equal(expected)
       |> or_fail_with("the extensions should be jpg, png and gif")
     }),
   ])
 }
 
-fn trie_module_tests() -> UnitTest {
-  describe("dream/router/trie", [
+fn trie_module_tests() -> UnitNode {
+  group("dream/router/trie", [
     it("new example finds GET users", fn() {
       // Arrange
       let users_trie = doc_core_trie.users_trie("list users")
@@ -641,7 +776,7 @@ fn trie_module_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Some(Match("list users", [])))
+      |> be_equal(Some(Match("list users", [])))
       |> or_fail_with("GET users should match list users")
     }),
     it("insert example finds POST users", fn() {
@@ -654,7 +789,7 @@ fn trie_module_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Some(Match("create user", [])))
+      |> be_equal(Some(Match("create user", [])))
       |> or_fail_with("POST users should match create user")
     }),
     it("lookup example returns the handler and the id", fn() {
@@ -667,8 +802,13 @@ fn trie_module_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#("show user", [#("id", "123")])))
+      |> be_equal(Ok(#("show user", [#("id", "123")])))
       |> or_fail_with("GET users/123 should match show user with id 123")
     }),
   ])
+}
+
+/// The serve_index and allow_directory_listing flags of a static config.
+fn config_flags(config: static.Config(Nil, Nil)) -> #(Bool, Bool) {
+  #(config.serve_index, config.allow_directory_listing)
 }

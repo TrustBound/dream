@@ -106,7 +106,7 @@ pub fn require_form(
   use body <- result.try(require_text_body(request))
   case body {
     "" -> Error(BadRequest("Request body is empty"))
-    _ -> Ok(parse_form_body(body))
+    _ -> Ok(parse_form_pairs(string.split(body, "&")))
   }
 }
 
@@ -120,7 +120,9 @@ pub fn require_form(
 /// - The body is not JSON: the parse message from `validate_json`, for
 ///   example `"Unexpected end of JSON input"`
 /// - A field is missing or has the wrong type: the decode message from
-///   `validate_json`, for example `"Expected Int but found String at priority"`
+///   `validate_json`, for example `"Expected Int but found String at priority"`.
+///   When more than one field fails, the messages are joined with `"; "`, in
+///   the order of the decoder.
 ///
 /// A `Stream` body is read to the end first. Use `validation.validate_json`
 /// directly when you need the separate `field`, `expected` and `found`
@@ -166,8 +168,19 @@ fn require_text_body(request: Request) -> Result(String, Error) {
   |> result.replace_error(BadRequest("Request body is not text"))
 }
 
-fn validation_error_to_bad_request(validation_error: ValidationError) -> Error {
-  BadRequest(validation_error.message)
+/// Joins the message of each validation error with "; ", in the order of
+/// the decoder.
+fn validation_error_to_bad_request(
+  validation_errors: List(ValidationError),
+) -> Error {
+  validation_errors
+  |> list.map(validation_error_message)
+  |> string.join("; ")
+  |> BadRequest
+}
+
+fn validation_error_message(validation_error: ValidationError) -> String {
+  validation_error.message
 }
 
 /// Require a field from form data
@@ -277,13 +290,6 @@ pub fn field_optional(
 }
 
 // Internal form parsing utilities
-
-fn parse_form_body(body: String) -> List(#(String, String)) {
-  case body {
-    "" -> []
-    _ -> parse_form_pairs(string.split(body, "&"))
-  }
-}
 
 fn parse_form_pairs(pairs: List(String)) -> List(#(String, String)) {
   case pairs {

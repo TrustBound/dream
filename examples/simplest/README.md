@@ -27,33 +27,28 @@ For more features, see the `simple` example.
 
 ## Running
 
-### Quick Start
+### Start the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simplest/test/integration/start.sh#L3-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
-./run_example.sh
-```
-
-### Using Make
-
-```bash
+cd examples/simplest
 make run
 ```
 
-### Manual
-
-```bash
-gleam run
-```
+`make run` runs `gleam run -m main`.
 
 ## Testing
 
 Visit http://localhost:3000 in your browser or use curl:
+
+### Send the request <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simplest/test/integration/readme.sh#L3"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
 curl http://localhost:3000
 ```
 
 You should see:
+
+### The response <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simplest/test/integration/readme_output.txt#L1"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```text
 Hello, World!
@@ -73,7 +68,7 @@ The entire application is in `src/main.gleam`:
 1. Start here to understand the bare minimum
 2. Move to `simple` example for basic routing and HTTP clients
 3. Explore `database` example for persistence
-4. Check `cms` example for a full application
+4. Check the `tasks` example for a full application
 
 ## Philosophy
 

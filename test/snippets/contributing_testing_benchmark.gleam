@@ -3,15 +3,16 @@
 import dream/context.{type AppContext}
 import dream/http/request.{type Request, Get}
 import dream/router.{type EmptyServices, type Router}
+import dream_test/suite.{type TestSuite}
 import dream_test/types.{AssertionOk}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/unit.{describe, it}
 import fixtures/handler.{test_handler}
 import fixtures/request as test_request
 import gleam/float
 import gleam/int
 import gleam/io
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("router benchmarks", [
     it("100 routes lookup", fn() {
       let resource_router = build_router(100)
@@ -19,7 +20,7 @@ pub fn tests() -> UnitTest {
       let elapsed = time_lookups(resource_router, request, 10_000)
 
       io.println("[BENCH] 100-routes: " <> format_result(elapsed, 10_000))
-      AssertionOk
+      Ok(AssertionOk)
     }),
   ])
 }

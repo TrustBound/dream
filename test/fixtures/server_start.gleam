@@ -8,7 +8,7 @@
 //// start error.
 
 import dream/servers/mist/server.{type ServerHandle}
-import dream_test/assertions/should.{fail_with}
+import dream_test/matchers.{fail_with}
 import dream_test/types.{type AssertionResult}
 import gleam/int
 import gleam/otp/actor
@@ -20,17 +20,17 @@ import gleam/string
 pub fn with_server(
   port: Int,
   start: fn() -> Result(ServerHandle, actor.StartError),
-  body: fn(ServerHandle) -> AssertionResult,
-) -> AssertionResult {
+  body: fn(ServerHandle) -> Result(AssertionResult, String),
+) -> Result(AssertionResult, String) {
   case call_trapping_exits(start) {
     Ok(handle) -> body(handle)
     Error(error) ->
-      fail_with(
+      Ok(fail_with(
         "The server did not start on port "
         <> int.to_string(port)
         <> ": "
         <> string.inspect(error),
-      )
+      ))
   }
 }
 

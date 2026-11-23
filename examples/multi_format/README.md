@@ -13,18 +13,16 @@ Demonstrates Dream's elegant pattern for serving the same data in multiple forma
 
 ## Running the Example
 
+### Start the database and the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/multi_format/test/integration/start.sh#L3-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
+cd examples/multi_format
+
 # Start database
 make db-up
 
 # Run migrations
 make migrate
-
-# Generate SQL code
-make squirrel
-
-# Compile Matcha templates
-matcha
 
 # Run the server
 make run
@@ -32,7 +30,23 @@ make run
 
 Server will start on `http://localhost:3000`.
 
+When you change a query in `src/sql/` or a template, generate the code again. `make squirrel` needs the database:
+
+### Generate the SQL code <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/multi_format/test/integration/sql.sh#L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+make squirrel
+```
+
+### Compile the templates <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/multi_format/test/templates.sh#L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+make matcha
+```
+
 ## Try It Out
+
+### Send the requests <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/multi_format/test/integration/readme.sh#L3-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
 # HTML - Full page with Pico CSS styling
@@ -92,12 +106,15 @@ No nested cases, every function has a single responsibility.
 
 ## Code Structure
 
-```text
+```text illustration
 examples/multi_format/
 ├── gleam.toml                    # Project config
 ├── Makefile                      # Build commands
 ├── docker-compose.yml            # Database setup
 ├── src/
+│   ├── sql/                      # SQL query definitions
+│   │   ├── get_product.sql
+│   │   └── list_products.sql
 │   ├── main.gleam                # Entry point
 │   ├── router.gleam              # Routes
 │   ├── context.gleam             # App context
@@ -112,9 +129,6 @@ examples/multi_format/
 │       ├── show.matcha           # Full page template
 │       ├── card.matcha           # HTMX partial template
 │       └── index.matcha          # List template
-├── sql/
-│   ├── get_product.sql          # SQL query definitions
-│   └── list_products.sql
 └── priv/migrations/              # Database migrations
 ```
 

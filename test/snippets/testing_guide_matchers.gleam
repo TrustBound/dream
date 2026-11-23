@@ -1,20 +1,21 @@
 import dream/http/request.{get_query_param}
-import dream_test/assertions/should.{
-  be_empty, be_error, be_false, be_none, be_ok, be_some, be_true, contain,
-  contain_string, equal, or_fail_with, should,
+import dream_test/matchers.{
+  be_empty, be_equal, be_error, be_false, be_none, be_ok, be_some, be_true,
+  contain, contain_string, or_fail_with, should,
 }
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, it}
 import gleam/int
 import gleam/list
 import gleam/string
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("basic matchers", [
     // Equality
     it("equal", fn() {
       string.length("Alice")
       |> should()
-      |> equal(5)
+      |> be_equal(5)
       |> or_fail_with("Should have 5 letters")
     }),
     // Boolean

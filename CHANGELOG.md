@@ -12,11 +12,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking
 
 - `Request.body` is now a `RequestBody`: `Text(String)`, `Bytes(BitArray)`
-  or `Stream(Yielder(BitArray))`, and the `Request.stream` field is gone. On
+  or `Stream(Yielder(Result(BitArray, BodyReadError)))`, and the
+  `Request.stream` field is gone. On
   a `route`, a valid UTF-8 body arrives as `Text` and any other body as
   `Bytes`; on a `stream_route`, the body arrives as `Stream`. A binary body
   used to arrive as `""`. See the Migration Guide in
   `releases/release-3.0.0.md`.
+- Each item of a `Stream` body is a `Result`. When a read from the
+  connection fails, the stream gives one `Error(MalformedBody)` item and then
+  ends. Every reader of a `Stream` body must handle the `Error` item: the
+  controller owns the answer. See the Migration Guide, step 3.
+- `Method` has three more variants: `Connect`, `Trace` and `Other(String)`.
+  A `case` over every `Method` value needs three more branches.
+  `parse_method` gives `Some(Connect)`, `Some(Trace)`, and
+  `Some(Other(name))` for another valid method token. It gives `None` only
+  for text that is not a method token. See the Migration Guide, step 7.
+- `validate_json` returns `Result(a, List(ValidationError))`: one error for
+  each decode error, in the order of the decoder, or the one syntax error.
+  It used to give only the first error. `require_json` joins the messages
+  with `"; "`. See the Migration Guide, step 8.
 - `require_form` returns `BadRequest("Request body is not text")` for a body
   that is not text, and now also reads a `Stream` body.
 - The router tries the next route when a route fits the start of a path but
@@ -37,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `require_json(request, decoder)` reads a JSON body, decodes it and returns
   `BadRequest` with the reason when a step fails.
 - `body_as_string(request)` returns the body as text, or `Error(Nil)`.
+- `BodyReadError` in `dream/http/request`, with the one cause the server
+  reports: `MalformedBody`.
 - `broadcaster.count_subscribers`.
 
 - `server.tls(certfile:, keyfile:)` serves HTTPS. Clients that ask for
@@ -47,9 +63,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Every code block in the guides, READMEs, doc comments and SECURITY.md
   comes from a tested snippet, with a "tested snippet" badge that links to
   it.
+- Every public function has a tested example in its doc comment: 47
+  functions got a new one, so all 134 have one. Every public type and
+  constant has a doc comment.
 - `make check-snippets` checks that every Gleam code block in the docs has
   a heading with the badge and matches its snippet file. It runs in the
   pre-commit hook, in CI, and before every publish.
+- Every other code block of the docs is proven too: commands are lines of
+  scripts that CI or a test runs, output is a file that a test compares
+  with the real output, and files are copies of the files that the tests
+  and CI use. The integration run of each example runs the commands of its
+  README. New `examples/deployment` (Dockerfile and Compose file of the
+  deployment guide, built by `make test-docker`), `scripts/check.sh`,
+  `scripts/ci-integration.sh`, `scripts/test-integration.sh`,
+  `scripts/check-templates.sh` and `scripts/test-tasks.sh`.
 - The snippet check moved to the [`dream_snippets`](https://github.com/TrustBound/dream_snippets) package.
 - Each example in the README has a "read guide" badge that links to the
   docs section that shows the same example. The guides in `docs/guides/`
@@ -71,6 +98,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of the removed `mist.Streaming` response variant. Dream's public
   streaming API (`stream_response`, `sse_response`, `ResponseBody.Stream`)
   is unchanged.
+- `listen()` panics with `Failed to start server: ` and the start error for
+  every start error, for example
+  `Failed to start server: InitFailed("TLS file not found: cert.pem")`. An
+  `InitFailed` error used to panic with its message only.
 - The modules moved to their own repositories, with their own releases:
   [dream_config](https://github.com/TrustBound/dream_config),
   [dream_ets](https://github.com/TrustBound/dream_ets),
@@ -104,14 +135,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   It used to be dropped or empty.
 - Parameter and variable names in `src/` use full words. No labelled
   argument changed.
+- A cookie `Expires` is written as an HTTP date (`Tue, 14 Nov 2023 22:13:20 GMT`), not as a number of seconds.
+- `remote_address` gives the real IPv6 client address in RFC 5952 form. It used to be `::1` for every IPv6 client.
+- A streamed request body that breaks before its end gives the controller one `Error(MalformedBody)` item, and then the stream ends. It used to end like a complete body.
+- CONNECT, TRACE and every other method keep their name. They used to become `Get`, so `PURGE /` and `TRACE /` ran the `GET /` controller. They now get the route of their method, or `404 Route not found`.
+- `static.serve` sends binary files with their exact bytes. It used to answer 404 for each file that is not UTF-8.
+- The `static` directory listing escapes file names and the request path, and percent-encodes each link.
 
 ### Testing
 
 - CI and the publish workflows use Gleam 1.19.2. Dream and the
   examples build and pass their tests on Gleam 1.19.2.
-- 962 tests run, 0 failed, in about 13 seconds (Apple M1 Max, OTP 29, Gleam
-  1.19.2). The snippet check finds 518 code blocks and 4 diff blocks with no problems. The integration tests run
-  ten examples over HTTP/1.1 and over HTTP/2 with TLS.
+- Dream's tests and its testing guides use `dream_test` 3.0.0.
+- `gleam test` now measures the line coverage of `src/`. The run fails when
+  coverage is below 100%. CI checks first that the BEAM supports native
+  coverage. The README shows a coverage badge.
+- 1125 tests run, 0 failed, in about 17 seconds (Apple M1 Max, OTP 29, Gleam
+  1.19.2). Line coverage of `src/` is 1083 of 1084 lines (99.9%). The snippet check finds 565 Gleam code blocks and 7 diff blocks, proves 46 file blocks, 75 command blocks and 10 output blocks, and counts 59 illustrations, with no problems. The integration tests run
+  eleven examples, ten of them over HTTP/1.1 and over HTTP/2 with TLS.
 
 ## [2.4.1] - 2026-03-11
 

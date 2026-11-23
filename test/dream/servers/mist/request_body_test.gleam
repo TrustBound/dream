@@ -5,12 +5,15 @@
 //// tag for the body shape, then the exact body bytes, so a test can see
 //// both the shape and the bytes in one value.
 
-import dream/http/request.{type Request, Bytes, Post, Stream, Text}
+import dream/http/request.{
+  type BodyReadError, type Request, Bytes, Post, Stream, Text,
+}
 import dream/http/response.{type Response, binary_response}
 import dream/router.{route, router, stream_route}
 import dream/servers/mist/server
-import dream_test/assertions/should.{be_ok, equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, be_ok, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, it}
 import gleam/bit_array
 import gleam/erlang/process
 import gleam/int
@@ -24,7 +27,7 @@ const socket_timeout_ms = 2000
 // Tests
 // ============================================================================
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("request body", [
     it("delivers a body that is not valid UTF-8 as Bytes", fn() {
       // Arrange
@@ -37,7 +40,7 @@ pub fn tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal(<<"Bytes:":utf8, 0xFF, 0xD8, 0xFF, 0x00>>)
+      |> be_equal(<<"Bytes:":utf8, 0xFF, 0xD8, 0xFF, 0x00>>)
       |> or_fail_with("Controller should receive Bytes with the exact bytes")
     }),
     it("delivers a UTF-8 body as Text", fn() {
@@ -51,7 +54,7 @@ pub fn tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal(<<"Text:héllo":utf8>>)
+      |> be_equal(<<"Text:héllo":utf8>>)
       |> or_fail_with("Controller should receive Text with the same text")
     }),
     it("delivers an empty body as empty Text", fn() {
@@ -65,7 +68,7 @@ pub fn tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal(<<"Text:":utf8>>)
+      |> be_equal(<<"Text:":utf8>>)
       |> or_fail_with("Controller should receive Text(\"\")")
     }),
     it("delivers a stream_route body as Stream with every byte", fn() {
@@ -79,7 +82,7 @@ pub fn tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal(<<"Stream:":utf8, 0xFF, 0xD8, "chunked":utf8, 0x00>>)
+      |> be_equal(<<"Stream:":utf8, 0xFF, 0xD8, "chunked":utf8, 0x00>>)
       |> or_fail_with("Controller should receive a Stream of the sent bytes")
     }),
   ])
@@ -97,8 +100,18 @@ fn describe_body(request: Request) -> BitArray {
   case request.body {
     Text(text) -> <<"Text:":utf8, text:utf8>>
     Bytes(bytes) -> <<"Bytes:":utf8, bytes:bits>>
-    Stream(chunks) -> yielder.fold(chunks, <<"Stream:":utf8>>, bit_array.append)
+    Stream(chunks) ->
+      chunks
+      |> yielder.try_fold(<<"Stream:":utf8>>, append_item)
+      |> result.unwrap(<<"Broken stream":utf8>>)
   }
+}
+
+fn append_item(
+  body: BitArray,
+  item: Result(BitArray, BodyReadError),
+) -> Result(BitArray, BodyReadError) {
+  result.map(item, bit_array.append(body, _))
 }
 
 fn echo_router() {

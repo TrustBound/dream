@@ -8,11 +8,7 @@ This guide covers common deployment patterns. You do not need all of them on day
 
 ## Building for Production
 
-Build your release:
-
-```bash
-gleam build --target erlang
-```
+Build your release with `gleam build`. Erlang is the default target, so it is the same as `gleam build --target erlang`.
 
 This generates BEAM bytecode in `build/dev/erlang/`. For production, you want an optimized build—but Gleam doesn't have a `--prod` flag yet. The dev build works fine for production. The BEAM is already optimized.
 
@@ -80,10 +76,12 @@ pub fn start_server(services: Services, port: Int) {
 
 ## Docker
 
-Create `Dockerfile`:
+Create `Dockerfile`. This is the Dockerfile of the `deployment` example, which `make test-docker` builds and starts:
+
+### Dockerfile <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/Dockerfile#L1-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```dockerfile
-FROM ghcr.io/gleam-lang/gleam:v1.6.2-erlang-alpine
+FROM ghcr.io/gleam-lang/gleam:v1.19.2-erlang-alpine
 
 # Copy source
 WORKDIR /app
@@ -96,14 +94,27 @@ RUN gleam build
 # Expose port
 EXPOSE 3000
 
+# Mark the container unhealthy when /health does not answer 200
+HEALTHCHECK --interval=5s --timeout=3s \
+  CMD wget -q -O /dev/null http://localhost:3000/health || exit 1
+
 # Run
 CMD ["gleam", "run"]
 ```
 
-Build and run:
+Add a `.dockerignore` file with the line `build`, so that your local build folder stays out of the image.
+
+Build the image:
+
+### Build the image <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/test/docker.sh#L5"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
 docker build -t your-app .
+```
+
+To run the image on its own, give it the settings of your environment:
+
+```bash illustration
 docker run -p 3000:3000 \
   -e DATABASE_URL=postgres://user:pass@host/db \
   -e SECRET_KEY=your-secret \
@@ -112,11 +123,11 @@ docker run -p 3000:3000 \
 
 ## Docker Compose
 
-For local development with database:
+For local development with database. This is the `docker-compose.yml` of the `deployment` example:
+
+### docker-compose.yml <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/docker-compose.yml#L1-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```yaml
-version: '3.8'
-
 services:
   app:
     build: .
@@ -126,15 +137,28 @@ services:
       DATABASE_URL: postgres://postgres:postgres@db:5432/yourapp
       SECRET_KEY: dev-secret-key
     depends_on:
-      - db
+      migrate:
+        condition: service_completed_successfully
+
+  migrate:
+    build: .
+    command: gleam run -m cigogne all
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/yourapp
+    depends_on:
+      db:
+        condition: service_healthy
 
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: yourapp
-    ports:
-      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -142,40 +166,31 @@ volumes:
   postgres_data:
 ```
 
-Run:
+Start it in the background, and wait until the health check of the app passes. Then ask the app for `/health`, and stop everything:
+
+### Start, check and stop <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/test/docker.sh#L6-L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
-docker-compose up
+docker compose up -d --wait app
+curl -f http://localhost:3000/health
+docker compose down -v
 ```
 
 ## Database Migrations
 
-Run migrations before starting your app:
+Run migrations before starting your app. Cigogne applies them with `gleam run -m cigogne all`. In Docker Compose, a separate service runs them, and the app starts when that service has finished:
 
-```bash
-# In Docker entrypoint or startup script
-gleam run -m squirrel migrate
-gleam run
-```
-
-Or create a separate migration service in Docker Compose:
+### The migration service <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/docker-compose.yml#L13-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```yaml
-services:
   migrate:
     build: .
-    command: gleam run -m squirrel migrate
+    command: gleam run -m cigogne all
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/yourapp
     depends_on:
-      - db
-
-  app:
-    build: .
-    command: gleam run
-    # ... rest of app config
-    depends_on:
-      - migrate
+      db:
+        condition: service_healthy
 ```
 
 ## Logging
@@ -252,11 +267,14 @@ pub fn create_router() -> Router(EmptyContext, Services) {
 }
 ```
 
-Configure Docker healthcheck:
+Configure Docker healthcheck. The Alpine image has `wget`, not `curl`:
+
+#### The health check of the Dockerfile <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/Dockerfile#L14-L16"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```dockerfile
-HEALTHCHECK --interval=30s --timeout=3s \
-  CMD curl -f http://localhost:3000/health || exit 1
+# Mark the container unhealthy when /health does not answer 200
+HEALTHCHECK --interval=5s --timeout=3s \
+  CMD wget -q -O /dev/null http://localhost:3000/health || exit 1
 ```
 
 ## Process Management
@@ -294,13 +312,15 @@ The BEAM handles thousands of concurrent connections per core. You don't need to
 
 Serve static assets from CDN or object storage (S3, Cloudflare, etc.). Don't serve them from your Dream app. Use Dream for dynamic content only.
 
+In development, or for a small number of files, `dream/controllers/static` can serve files from a directory. `static.serve` sends a file, and stops paths that try to leave the root directory. It takes a `Config`. `static.default_config` serves `index.html` for a directory and does not list directories. `static.with_directory_listing` turns on the directory listing, `static.without_index` turns off `index.html`, and `static.with_custom_404` sets your own controller for a file that is not there. Each function has an example in its doc comment on [HexDocs](https://hexdocs.pm/dream/dream/controllers/static.html).
+
 ## Deployment Platforms
 
 ### Fly.io
 
 Create `fly.toml`:
 
-```toml
+```toml illustration
 app = "your-app"
 
 [build]
@@ -322,7 +342,7 @@ app = "your-app"
 
 Deploy:
 
-```bash
+```bash illustration
 fly launch
 fly deploy
 ```
@@ -355,7 +375,7 @@ Standard container deployment:
 
 Use environment variables, not config files:
 
-```bash
+```bash illustration
 # Development
 export DATABASE_URL=postgres://localhost:5432/dev_db
 export SECRET_KEY=dev-secret-not-for-production
@@ -415,7 +435,7 @@ The BEAM provides runtime metrics:
 
 Use Erlang observer in development:
 
-```bash
+```bash illustration
 gleam run
 # In another terminal:
 erl -remsh yourapp@hostname

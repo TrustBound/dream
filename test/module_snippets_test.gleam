@@ -10,8 +10,9 @@
 //// that the pool starts, and how query results become values.
 
 import dream_opensearch/client as opensearch_client
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/environment.{with_environment}
 import fixtures/one_shot_http_server
 import gleam/option.{None, Some}
@@ -24,7 +25,7 @@ import snippets/architecture_postgres
 import snippets/deployment_guide_config.{Config}
 import snippets/deployment_guide_postgres
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("module snippets", [
     architecture_config_tests(),
     architecture_json_tests(),
@@ -39,8 +40,8 @@ pub fn tests() -> UnitTest {
 // architecture.md: dream_config
 // ---------------------------------------------------------------------------
 
-fn architecture_config_tests() -> UnitTest {
-  describe("architecture_config.load_config", [
+fn architecture_config_tests() -> UnitNode {
+  group("architecture_config.load_config", [
     it("reads DATABASE_URL and PORT", fn() {
       // Arrange
       let variables = [
@@ -54,7 +55,7 @@ fn architecture_config_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         Ok(AppConfig(database_url: "postgres://localhost/app", port: 8080)),
       )
       |> or_fail_with("load_config should read both values")
@@ -72,7 +73,7 @@ fn architecture_config_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         Ok(AppConfig(database_url: "postgres://localhost/app", port: 3000)),
       )
       |> or_fail_with("load_config should use port 3000")
@@ -87,7 +88,7 @@ fn architecture_config_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error("Required environment variable not set: DATABASE_URL"))
+      |> be_equal(Error("Required environment variable not set: DATABASE_URL"))
       |> or_fail_with("load_config should name DATABASE_URL")
     }),
   ])
@@ -97,8 +98,8 @@ fn architecture_config_tests() -> UnitTest {
 // architecture.md: dream_json
 // ---------------------------------------------------------------------------
 
-fn architecture_json_tests() -> UnitTest {
-  describe("architecture_json.profile_to_json", [
+fn architecture_json_tests() -> UnitNode {
+  group("architecture_json.profile_to_json", [
     it("encodes Some as the value and None as null", fn() {
       // Arrange
       let profile = Profile(email: Some("user@example.com"), age: None)
@@ -109,7 +110,7 @@ fn architecture_json_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal("{\"email\":\"user@example.com\",\"age\":null}")
+      |> be_equal("{\"email\":\"user@example.com\",\"age\":null}")
       |> or_fail_with("Expected the email and a null age")
     }),
     it("encodes an age", fn() {
@@ -122,7 +123,7 @@ fn architecture_json_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal("{\"email\":null,\"age\":36}")
+      |> be_equal("{\"email\":null,\"age\":36}")
       |> or_fail_with("Expected a null email and the age")
     }),
   ])
@@ -132,8 +133,8 @@ fn architecture_json_tests() -> UnitTest {
 // architecture.md: dream_opensearch
 // ---------------------------------------------------------------------------
 
-fn architecture_opensearch_tests() -> UnitTest {
-  describe("architecture_opensearch", [
+fn architecture_opensearch_tests() -> UnitNode {
+  group("architecture_opensearch", [
     it("create_client uses localhost 9200", fn() {
       // Arrange
       let opensearch = architecture_opensearch.create_client()
@@ -144,7 +145,7 @@ fn architecture_opensearch_tests() -> UnitTest {
       // Assert
       base_url
       |> should()
-      |> equal("http://localhost:9200")
+      |> be_equal("http://localhost:9200")
       |> or_fail_with("create_client should use localhost 9200")
     }),
     it("index_log_entry sends PUT to the document path", fn() {
@@ -160,7 +161,7 @@ fn architecture_opensearch_tests() -> UnitTest {
       one_shot_http_server.await_request(server)
       |> result.map(one_shot_http_server.request_line)
       |> should()
-      |> equal(Ok(#("PUT", "/logs/_doc/doc-id-123")))
+      |> be_equal(Ok(#("PUT", "/logs/_doc/doc-id-123")))
       |> or_fail_with("index_log_entry should send PUT to the document path")
     }),
     it("index_log_entry sends the message as JSON", fn() {
@@ -176,7 +177,7 @@ fn architecture_opensearch_tests() -> UnitTest {
       one_shot_http_server.await_request(server)
       |> result.map(one_shot_http_server.request_body)
       |> should()
-      |> equal(Ok("{\"message\":\"Started\"}"))
+      |> be_equal(Ok("{\"message\":\"Started\"}"))
       |> or_fail_with("index_log_entry should send the message as JSON")
     }),
     it("index_log_entry returns the response body", fn() {
@@ -192,7 +193,7 @@ fn architecture_opensearch_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok("{\"result\":\"created\"}"))
+      |> be_equal(Ok("{\"result\":\"created\"}"))
       |> or_fail_with("index_log_entry should return the response body")
     }),
   ])
@@ -202,8 +203,8 @@ fn architecture_opensearch_tests() -> UnitTest {
 // architecture.md: dream_postgres
 // ---------------------------------------------------------------------------
 
-fn architecture_postgres_tests() -> UnitTest {
-  describe("architecture_postgres", [
+fn architecture_postgres_tests() -> UnitNode {
+  group("architecture_postgres", [
     it("create_database_config sets the host", fn() {
       // Act
       let config = architecture_postgres.create_database_config()
@@ -211,7 +212,7 @@ fn architecture_postgres_tests() -> UnitTest {
       // Assert
       config.host
       |> should()
-      |> equal("localhost")
+      |> be_equal("localhost")
       |> or_fail_with("Expected host localhost")
     }),
     it("create_database_config sets the database", fn() {
@@ -221,7 +222,7 @@ fn architecture_postgres_tests() -> UnitTest {
       // Assert
       config.database
       |> should()
-      |> equal("app")
+      |> be_equal("app")
       |> or_fail_with("Expected database app")
     }),
     it("create_database_config sets the pool size", fn() {
@@ -231,7 +232,7 @@ fn architecture_postgres_tests() -> UnitTest {
       // Assert
       config.pool_size
       |> should()
-      |> equal(10)
+      |> be_equal(10)
       |> or_fail_with("Expected pool size 10")
     }),
     // The pool connects in the background, so the pool starts with no
@@ -245,7 +246,7 @@ fn architecture_postgres_tests() -> UnitTest {
       result
       |> result.replace(Nil)
       |> should()
-      |> equal(Ok(Nil))
+      |> be_equal(Ok(Nil))
       |> or_fail_with("Expected the pool to start")
     }),
     it("describe_user_name returns the name when the result has a row", fn() {
@@ -258,7 +259,7 @@ fn architecture_postgres_tests() -> UnitTest {
       // Assert
       description
       |> should()
-      |> equal("Ada")
+      |> be_equal("Ada")
       |> or_fail_with("Expected Ada")
     }),
     it(
@@ -273,7 +274,7 @@ fn architecture_postgres_tests() -> UnitTest {
         // Assert
         description
         |> should()
-        |> equal("No such user")
+        |> be_equal("No such user")
         |> or_fail_with("Expected No such user")
       },
     ),
@@ -289,7 +290,7 @@ fn architecture_postgres_tests() -> UnitTest {
         // Assert
         description
         |> should()
-        |> equal("The database query failed")
+        |> be_equal("The database query failed")
         |> or_fail_with("Expected The database query failed")
       },
     ),
@@ -300,8 +301,8 @@ fn architecture_postgres_tests() -> UnitTest {
 // deployment.md: config from environment variables
 // ---------------------------------------------------------------------------
 
-fn deployment_config_tests() -> UnitTest {
-  describe("deployment_guide_config.load", [
+fn deployment_config_tests() -> UnitNode {
+  group("deployment_guide_config.load", [
     it("returns the config when every variable is set", fn() {
       // Arrange
       let variables = [
@@ -316,7 +317,7 @@ fn deployment_config_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         Ok(Config(
           database_url: "postgres://localhost/app",
           port: 8080,
@@ -339,7 +340,7 @@ fn deployment_config_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         Ok(Config(
           database_url: "postgres://localhost/app",
           port: 3000,
@@ -362,7 +363,7 @@ fn deployment_config_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error("PORT must be a number, got: eighty"))
+      |> be_equal(Error("PORT must be a number, got: eighty"))
       |> or_fail_with("load should reject PORT=eighty")
     }),
     it("returns an error when DATABASE_URL is not set", fn() {
@@ -379,7 +380,7 @@ fn deployment_config_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error("DATABASE_URL not set"))
+      |> be_equal(Error("DATABASE_URL not set"))
       |> or_fail_with("load should name DATABASE_URL")
     }),
     it("returns an error when SECRET_KEY is not set", fn() {
@@ -396,7 +397,7 @@ fn deployment_config_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error("SECRET_KEY not set"))
+      |> be_equal(Error("SECRET_KEY not set"))
       |> or_fail_with("load should name SECRET_KEY")
     }),
   ])
@@ -406,8 +407,8 @@ fn deployment_config_tests() -> UnitTest {
 // deployment.md: pool size
 // ---------------------------------------------------------------------------
 
-fn deployment_postgres_tests() -> UnitTest {
-  describe("deployment_guide_postgres", [
+fn deployment_postgres_tests() -> UnitNode {
+  group("deployment_guide_postgres", [
     it("create_database_config sets pool size 15", fn() {
       // Act
       let config = deployment_guide_postgres.create_database_config()
@@ -415,7 +416,7 @@ fn deployment_postgres_tests() -> UnitTest {
       // Assert
       config.pool_size
       |> should()
-      |> equal(15)
+      |> be_equal(15)
       |> or_fail_with("Expected pool size 15")
     }),
   ])

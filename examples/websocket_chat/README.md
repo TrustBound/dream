@@ -18,6 +18,8 @@ If you're new to WebSockets or Dream, this guide walks you through everything st
 
 ## Quick Start
 
+### Start the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/test/integration/start.sh#L3-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 cd examples/websocket_chat
 make run
@@ -35,7 +37,7 @@ Before diving in, let's understand what we're building:
 
 ### HTTP (Normal Web Requests)
 
-```text
+```text illustration
 Browser                    Server
    |                          |
    |----"GET /api/users"----->|
@@ -48,7 +50,7 @@ Every request opens a new connection, gets a response, and closes. This is fine 
 
 ### WebSocket (This Example)
 
-```text
+```text illustration
 Browser                    Server
    |                          |
    |---"Upgrade to WebSocket"-|
@@ -77,7 +79,7 @@ The connection stays open. Both sides can send messages anytime. Perfect for cha
 
 Here's the complete picture of how everything fits together:
 
-```text
+```text illustration
 ┌─────────────────┐                    ┌─────────────────┐
 │  Alice's        │                    │  Bob's          │
 │  Browser        │                    │  Browser        │
@@ -141,7 +143,7 @@ Here's the complete picture of how everything fits together:
 
 ## Code Structure
 
-```text
+```text illustration
 examples/websocket_chat/
 ├── gleam.toml              # Project config
 ├── Makefile                # Build and test commands
@@ -205,19 +207,22 @@ The HTML contains:
 
 ### Step 2: User Enters Name and Clicks "Join Chat"
 
-The JavaScript creates a WebSocket connection:
+The JavaScript of `assets/scripts/chat.js` creates a WebSocket connection. `new WebSocket(wsUrl)` triggers the upgrade:
+
+#### Creating the connection <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/assets/scripts/chat.js#L53-L58"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```javascript
-// assets/scripts/chat.js
-function joinChat() {
-  const name = nameInput.value.trim();
-  const wsUrl = `ws://localhost:8080/chat?user=${encodeURIComponent(name)}`;
-  ws = new WebSocket(wsUrl);  // This triggers the upgrade!
-}
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const wsUrl = `${protocol}//${
+    window.location.host
+  }/chat?user=${encodeURIComponent(currentUser)}`;
+
+  ws = new WebSocket(wsUrl);
 ```
 
-This sends an HTTP request with special headers:
-```http
+This sends an HTTP request with special headers. The key is the example of RFC 6455:
+
+```http illustration
 GET /chat?user=Alice HTTP/1.1
 Connection: Upgrade
 Upgrade: websocket
@@ -339,7 +344,7 @@ fn handle_websocket_message(
 
 **Message Flow Diagram:**
 
-```text
+```text illustration
 Alice's Browser            Server            Bob's Browser
       |                      |                      |
       |--"Hello!"----------->|                      |
@@ -478,27 +483,15 @@ pub type ChatMessage {
 
 ### JSON Format Sent to Browsers
 
-`format_chat_message_to_json` in `controllers/chat.gleam` makes this JSON:
+`format_chat_message_to_json` in `controllers/chat.gleam` makes this JSON: a `message` with the user and the text, and a `joined` or `left` notification with the user. These are the frames that Bob's browser gets when he joins, Alice joins, Alice says "Hello everyone!", and Alice leaves. An integration scenario compares them with what the server sends:
 
-```json
-// Regular chat message
-{
-  "type": "message",
-  "user": "Alice",
-  "text": "Hello everyone!"
-}
+#### The frames <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/test/integration/chat_frames.txt#L1-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-// Join notification
-{
-  "type": "joined",
-  "user": "Bob"
-}
-
-// Leave notification
-{
-  "type": "left",
-  "user": "Alice"
-}
+```text
+{"type":"joined","user":"Bob"}
+{"type":"joined","user":"Alice"}
+{"type":"message","user":"Alice","text":"Hello everyone!"}
+{"type":"left","user":"Alice"}
 ```
 
 The JavaScript client parses these and displays them differently (messages in white, notifications in gray).
@@ -515,65 +508,84 @@ The file `assets/scripts/chat.js` handles all client-side WebSocket logic:
 
 #### 1. Welcome Screen → Chat Screen Flow
 
+#### Showing the screens and joining <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/assets/scripts/chat.js#L14-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```javascript
-// Start on welcome screen
 function showWelcomeScreen() {
-  welcomeScreen.style.display = 'flex';
-  chatScreen.style.display = 'none';
+  welcomeScreen.style.display = "flex";
+  chatScreen.style.display = "none";
+  nameInput.value = "";
+  nameInput.focus();
 }
 
-// User clicks "Join Chat"
+function showChatScreen() {
+  welcomeScreen.style.display = "none";
+  chatScreen.style.display = "flex";
+  messageInput.focus();
+}
+
+function disconnect() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.close();
+  }
+}
+
 function joinChat() {
   const name = nameInput.value.trim();
-  if (!name) return;  // Require a name
-  
-  currentUser = name;
-  connect(name);      // Establish WebSocket
-  showChatScreen();   // Show chat interface
-}
 
-// Show chat screen after connecting
-function showChatScreen() {
-  welcomeScreen.style.display = 'none';
-  chatScreen.style.display = 'flex';
-  usernameDisplay.textContent = currentUser;
+  if (!name) {
+    alert("Please enter your name");
+    return;
+  }
+
+  currentUser = name;
+  connect();
 }
 ```
 
 #### 2. WebSocket Connection Management
 
+#### The connection <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/assets/scripts/chat.js#L50-L89"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```javascript
-function connect(username) {
-  // Construct WebSocket URL with username
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const host = window.location.host;
-  const wsUrl = `${protocol}//${host}/chat?user=${encodeURIComponent(username)}`;
-  
-  // Create WebSocket connection
+function connect() {
+  disconnect();
+
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const wsUrl = `${protocol}//${
+    window.location.host
+  }/chat?user=${encodeURIComponent(currentUser)}`;
+
   ws = new WebSocket(wsUrl);
-  
-  // Set up event handlers
+
   ws.onopen = () => {
-    console.log('Connected to chat');
-    connectionStatus.textContent = 'Connected';
+    statusDiv.textContent = `Connected as ${currentUser}`;
+    messageInput.disabled = false;
+    sendButton.disabled = false;
+    showChatScreen();
   };
-  
+
   ws.onmessage = (event) => {
-    // Parse JSON message from server
     const data = JSON.parse(event.data);
-    displayMessage(data);
+
+    if (data.type === "joined") {
+      addSystemMessage(`${data.user} joined the chat`);
+    } else if (data.type === "left") {
+      addSystemMessage(`${data.user} left the chat`);
+    } else if (data.type === "message") {
+      addMessage(data.user, data.text, data.user === currentUser);
+    }
   };
-  
-  ws.onerror = (error) => {
-    console.error('WebSocket error:', error);
-    connectionStatus.textContent = 'Connection error';
-  };
-  
+
   ws.onclose = () => {
-    console.log('Disconnected from chat');
-    connectionStatus.textContent = 'Disconnected';
-    // Return to welcome screen on disconnect
+    statusDiv.textContent = "Disconnected";
+    messageInput.disabled = true;
+    sendButton.disabled = true;
     showWelcomeScreen();
+  };
+
+  ws.onerror = () => {
+    addSystemMessage("Connection error");
   };
 }
 ```
@@ -586,22 +598,23 @@ function connect(username) {
 
 #### 3. Sending Messages
 
+#### Sending a message <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/assets/scripts/chat.js#L119-L135"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```javascript
 function sendMessage() {
-  const text = messageInput.value.trim();
-  if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
-  
-  // Send as plain text to server
-  ws.send(text);
-  
-  // Clear input
-  messageInput.value = '';
+  const message = messageInput.value.trim();
+  if (message && ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(message);
+    messageInput.value = "";
+  }
 }
 
-// Send on Enter key (without Shift)
-messageInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
+joinButton.addEventListener("click", joinChat);
+sendButton.addEventListener("click", sendMessage);
+leaveButton.addEventListener("click", leaveChat);
+
+messageInput.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") {
     sendMessage();
   }
 });
@@ -614,6 +627,8 @@ If the connection is closed, `ws.send()` will throw an error. Checking prevents 
 #### 4. Displaying Messages
 
 Inside `connect()`, the `onmessage` handler reads the `type` field of each JSON message from the server. A `joined` or `left` message becomes a system line. A `message` shows `data.user` and `data.text`:
+
+#### Reading the messages <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/assets/scripts/chat.js#L67-L77"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```javascript
   ws.onmessage = (event) => {
@@ -630,6 +645,8 @@ Inside `connect()`, the `onmessage` handler reads the `type` field of each JSON 
 ```
 
 `addMessage` and `addSystemMessage` add the message to the page:
+
+#### Adding a message to the page <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/assets/scripts/chat.js#L91-L117"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```javascript
 function addMessage(user, text, isCurrentUser) {
@@ -673,45 +690,70 @@ The file `assets/styles/chat.css` provides the visual design:
 
 #### Key Design Elements
 
+A gradient background, with the welcome screen as a centered card:
+
+#### The background and the welcome screen <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/assets/styles/chat.css#L7-L27"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```css
-/* Animated gradient background */
 body {
-  background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-  background-size: 400% 400%;
-  animation: gradient 15s ease infinite;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-/* Welcome screen centered on page */
 .welcome-screen {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    padding: 60px 40px;
+    text-align: center;
+    width: 90%;
+    max-width: 400px;
+    display: none;
+    flex-direction: column;
+    gap: 30px;
 }
+```
 
-/* Chat screen takes full viewport */
-.chat-screen {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  max-width: 800px;
-  margin: 0 auto;
-}
+Messages scroll on their own, and each one slides in:
 
-/* Messages scroll independently */
+#### The messages <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/assets/styles/chat.css#L84-L97"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```css
 .messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background: #f8f9fa;
 }
 
-/* Input area fixed at bottom */
+.message {
+    margin-bottom: 15px;
+    padding: 10px 15px;
+    border-radius: 8px;
+    max-width: 80%;
+    animation: slideIn 0.3s ease;
+}
+```
+
+The input area stays at the bottom:
+
+#### The input area <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/assets/styles/chat.css#L139-L149"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```css
 .input-area {
-  display: flex;
-  gap: 10px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.95);
+    padding: 20px;
+    border-top: 1px solid #e1e8ed;
+    background: white;
+    border-radius: 0 0 12px 12px;
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
 }
 ```
 
@@ -719,8 +761,8 @@ body {
 
 - **Flexbox layout** - Responsive, easy to maintain
 - **Full viewport height** - Chat uses entire screen
-- **Translucent panels** - Modern glassmorphism effect
-- **Smooth animations** - Gradient background, hover effects
+- **White panels** - Rounded cards with a soft shadow on the gradient
+- **Smooth animations** - Messages slide in, buttons change on hover
 
 ## Dream's No-Closure Pattern (Important!)
 
@@ -886,9 +928,12 @@ With Dream's abstraction:
 
 ### Running the Tests
 
+From the repository root:
+
+#### Run the integration tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/test-integration.sh#L16"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
-cd examples/websocket_chat
-make test-integration
+(cd examples/websocket_chat && make test-integration)
 ```
 
 ### What Gets Tested
@@ -923,14 +968,18 @@ The integration tests cover the complete user journey:
 
 ### Testing Technology: Cucumber/Gherkin
 
-The tests are written in human-readable Gherkin:
+The tests are written in human-readable Gherkin. This is the scenario of two users who chat:
+
+#### Two users chat <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/test/integration/features/websocket_chat.feature#L22-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gherkin
-Scenario: Send and receive chat messages
-  Given the server is running
-  When user "Alice" connects to the chat
-  And user "Alice" sends message "Hello, World!"
-  Then user "Alice" should receive message from "Alice" saying "Hello, World!"
+    Scenario: Multiple users in chat
+        Given user "Alice" connects to the chat
+        And user "Bob" connects to the chat
+        When user "Alice" sends message "Hi Bob!"
+        Then user "Bob" should receive message from "Alice" saying "Hi Bob!"
+        When user "Bob" sends message "Hi Alice!"
+        Then user "Alice" should receive message from "Bob" saying "Hi Alice!"
 ```
 
 **Why Gherkin?**
@@ -942,21 +991,21 @@ Scenario: Send and receive chat messages
 
 ### Test Implementation (Step Definitions)
 
-The Gherkin steps are implemented in Elixir using `WebSockex`:
+The Gherkin steps are implemented in Elixir using `WebSockex`, in `test/integration/features/step_definitions/websocket_steps.exs`. This step connects a user:
+
+#### Connecting a user <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/test/integration/features/step_definitions/websocket_steps.exs#L138-L147"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```elixir
-# test/integration/features/step_definitions/websocket_steps.exs
-defmodule WebsocketSteps do
-  use Cucumber.StepDefinition
-
-  when_ ~r/^user "(?<user>[^"]+)" connects to the chat$/, fn state, %{user: user} ->
-    # Actually connect to WebSocket using WebSockex
-    {:ok, pid} = TestClient.start_link(user)
-    # Store the connection for later steps
-    users = Map.put(state.users || %{}, user, pid)
-    {:ok, %{state | users: users}}
-  end
-end
+  step "user {string} connects to the chat", %{args: [username]} = context do
+    url = "#{base_url()}/chat?user=#{URI.encode(username)}"
+    {:ok, pid} = TestClient.start_link(url, self())
+    
+    # Wait for this user's join message only
+    receive do
+      {:ws_message, %{"type" => "joined", "user" => ^username}} -> :ok
+    after
+      2000 -> raise "Timeout waiting for #{username} join confirmation"
+    end
 ```
 
 The test creates REAL WebSocket connections to your running server. This is true integration testing.
@@ -1106,15 +1155,14 @@ Each WebSocket connection has its own state. A list of messages in connection st
 
 **Solution:**
 
-```bash
+```bash illustration
 # Find the process using port 8080
 lsof -i :8080
 
 # Kill it
 kill -9 <PID>
 
-# Or use a different port
-PORT=3000 make run
+# Or change the port in src/main.gleam
 ```
 
 ### WebSocket Connection Fails
@@ -1145,7 +1193,7 @@ PORT=3000 make run
 
 **Solution:**
 
-```bash
+```bash illustration
 # Make sure server isn't already running
 pkill -f websocket_chat
 
@@ -1159,7 +1207,7 @@ make test-integration
 
 **Solution:**
 
-```bash
+```bash illustration
 # Install dependencies
 gleam deps download
 
@@ -1322,7 +1370,7 @@ pub fn create() {
 
 ### 6. Write Frontend JavaScript
 
-```javascript
+```javascript illustration
 // assets/scripts/app.js
 const ws = new WebSocket('ws://localhost:8080/ws');
 
@@ -1356,7 +1404,7 @@ ws.onclose = () => {
 
 Write integration tests using the Cucumber pattern from this example:
 
-```gherkin
+```gherkin illustration
 # test/integration/features/my_feature.feature
 Feature: My WebSocket Feature
 

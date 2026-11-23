@@ -200,12 +200,20 @@ Each example is self-contained with its own database (if needed), dependencies, 
 
 All examples include comprehensive integration tests using Cucumber (BDD framework):
 
-```bash
-# Run all example integration tests from the repo root
-make test-integration
+Run all example integration tests from the repo root, as the integration job of CI does in `scripts/ci-integration.sh`:
 
-# Run specific example tests
-cd examples/database && make test-integration
+### Run all integration tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/ci-integration.sh#L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+make test-integration
+```
+
+Run the tests of one example:
+
+### Run the tests of one example <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/test-integration.sh#L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+(cd examples/database && make test-integration)
 ```
 
 **Comprehensive integration tests** covering:

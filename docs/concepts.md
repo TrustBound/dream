@@ -92,7 +92,7 @@ pub fn create_router() -> Router(AuthContext, Services) {
 }
 ```
 
-Path parameters like `:id` get extracted automatically. So `/users/:id/posts/:post_id` matches `/users/1/posts/2` and makes `id` and `post_id` available via `require_string(request, "id")` and `require_string(request, "post_id")`, or via `require_int` for numbers. These functions safely extract and validate parameters, returning `Result` types for error handling.
+Path parameters like `:id` get extracted automatically. So `/users/:id/posts/:post_id` matches `/users/1/posts/2` and makes `id` and `post_id` available via `require_string(request, "id")` and `require_string(request, "post_id")`, or via `require_int` for numbers. These functions safely extract and validate parameters, returning `Result` types for error handling. `get_int_param` and `get_string_param` from `dream/http/request` do the same, but return the error as a `String`.
 
 The router is generic over your Context and Services types. This means the compiler verifies every controller action has the right signature. Change your Context or Services type? The compiler will tell you exactly which actions need updating.
 
@@ -294,7 +294,7 @@ pub fn create_router() -> Router(AuthContext, services) {
 
 Execution flows like an onion:
 
-```text
+```text illustration
 Request
   → auth_middleware
     → admin_check_middleware
@@ -365,12 +365,14 @@ pub fn get_task_with_tags(
 
 The operation takes a database connection and a task ID. It doesn't need a Request object. The tasks example tests it through the HTTP API, with a Cucumber scenario in [test/integration/features/tasks.feature](../examples/tasks/test/integration/features/tasks.feature):
 
+#### The scenario <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/features/tasks.feature#L30-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gherkin
-Scenario: Get task by ID returns correct task
-    Given a task exists with title "Specific Task"
-    When I send a GET request to "/tasks/1"
-    Then the response status should be 200
-    And the response should contain "Specific Task"
+    Scenario: Get task by ID returns correct task
+        Given a task exists with title "Specific Task"
+        When I send a GET request to "/tasks/1"
+        Then the response status should be 200
+        And the response should contain "Specific Task"
 ```
 
 Run `make test-integration` in `examples/tasks` to run the scenarios.
@@ -480,15 +482,15 @@ Dream enforces clear boundaries between layers.
 
 **Validation ≠ Responses**
 
-Keep validation and response building separate. Validation takes a string and a decoder, returns `Result(T, ValidationError)`. Response building takes a status and body, returns a `Response`. Controllers connect them explicitly:
+Keep validation and response building separate. Validation takes a string and a decoder, returns `Result(T, List(ValidationError))`. Response building takes a status and body, returns a `Response`. Controllers connect them explicitly:
 
 ### Validate, then build the response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_validation.gleam#L36-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
+  let decoder = note_decoder()
   case validate_json(body, decoder) {
     Ok(data) -> create_with_data(services, data)
     Error(err) -> json_response(status.bad_request, error_json(err))
-  }
 ```
 
 **Models ≠ Views**
@@ -501,7 +503,7 @@ Models handle persistence and return domain types. Views format domain types and
 
 When a request arrives:
 
-```text
+```text illustration
 1. Router matches path + method
 2. Creates default context (or your custom context)
 3. Runs middleware chain (each can enrich context)

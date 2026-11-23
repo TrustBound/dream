@@ -14,6 +14,8 @@ A complete example demonstrating Dream's static file controller with security, d
 
 ## Running the Example
 
+### Start the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/static/test/integration/start.sh#L3-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 cd examples/static
 make run
@@ -57,11 +59,23 @@ Server starts on `http://localhost:3000`
 
 The static controller automatically blocks dangerous paths:
 
+#### Send the requests <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/static/test/integration/readme.sh#L3-L6"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 # All of these return 404
-curl http://localhost:3000/public/../../../etc/passwd
-curl http://localhost:3000/public/../../secrets
-curl http://localhost:3000/public/.env
+curl --path-as-is -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/public/../../../etc/passwd
+curl --path-as-is -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/public/../../secrets
+curl --path-as-is -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/public/.env
+```
+
+Each request gets a 404 status:
+
+#### The status codes <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/static/test/integration/readme_output.txt#L1-L3"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+404
+404
+404
 ```
 
 How it works:
@@ -75,7 +89,7 @@ Static files are served as-is. No server-side execution. No code interpretation.
 
 ## File Structure
 
-```text
+```text illustration
 examples/static/
   src/
     controllers/
@@ -220,15 +234,29 @@ The controller automatically detects MIME types using the `marceau` library:
 
 ## Directory Listing
 
-When enabled, generates a clean HTML page listing all files and subdirectories:
+When enabled, generates a clean HTML page listing all files and subdirectories. Ask for the `images` folder:
+
+### Ask for the folder <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/static/test/integration/readme.sh#L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+curl http://localhost:3000/public/images/
+```
+
+The body of the page:
+
+### The listing <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/static/test/integration/readme_output.txt#L18-L27"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```html
-Index of /public/images/
-
-../
-cat.svg
-logo.png
-photo.jpg
+<body>
+  <h1>Index of /public/images/</h1>
+  <ul>
+    <li><a href="../">../</a></li>
+    <li><a href="cat.svg">cat.svg</a></li>
+    <li><a href="logo.png">logo.png</a></li>
+    <li><a href="photo.jpg">photo.jpg</a></li>
+  </ul>
+</body>
+</html>
 ```
 
 Directories show with trailing slash, files without.

@@ -6,8 +6,9 @@ import dream/http/request.{Get}
 import dream/router.{type Router, route, router}
 import dream/servers/mist/server
 import dream/services/broadcaster
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/result
 import matchers/extract_body_text.{extract_body_text}
@@ -17,7 +18,7 @@ import snippets/websocket_chat_readme_message_routing.{
   TextMessage, UserJoined, UserLeft,
 }
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("websocket_chat README snippets", [
     closure_tests(),
     message_routing_tests(),
@@ -25,8 +26,8 @@ pub fn tests() -> UnitTest {
   ])
 }
 
-fn closure_tests() -> UnitTest {
-  describe("closure example", [
+fn closure_tests() -> UnitNode {
+  group("closure example", [
     it("broadcasts a text message back to the sender", fn() {
       // Arrange
       let started = broadcaster.start_broadcaster()
@@ -37,7 +38,7 @@ fn closure_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal(Ok(Ok(#(1, <<"ada: hi":utf8>>))))
+      |> be_equal(Ok(Ok(#(1, <<"ada: hi":utf8>>))))
       |> or_fail_with("the closure example should reply 'ada: hi'")
     }),
   ])
@@ -62,8 +63,8 @@ fn closure_round_trip(
   )
 }
 
-fn message_routing_tests() -> UnitTest {
-  describe("message routing", [
+fn message_routing_tests() -> UnitNode {
+  group("message routing", [
     it("parses a message event", fn() {
       // Arrange
       let json_text =
@@ -76,7 +77,7 @@ fn message_routing_tests() -> UnitTest {
       // Assert
       event
       |> should()
-      |> equal(Ok(TextMessage("Alice", "hi")))
+      |> be_equal(Ok(TextMessage("Alice", "hi")))
       |> or_fail_with("a message event should parse to TextMessage")
     }),
     it("parses a joined event", fn() {
@@ -90,7 +91,7 @@ fn message_routing_tests() -> UnitTest {
       // Assert
       event
       |> should()
-      |> equal(Ok(UserJoined("Alice")))
+      |> be_equal(Ok(UserJoined("Alice")))
       |> or_fail_with("a joined event should parse to UserJoined")
     }),
     it("parses a left event", fn() {
@@ -104,7 +105,7 @@ fn message_routing_tests() -> UnitTest {
       // Assert
       event
       |> should()
-      |> equal(Ok(UserLeft("Alice")))
+      |> be_equal(Ok(UserLeft("Alice")))
       |> or_fail_with("a left event should parse to UserLeft")
     }),
     it("rejects an unknown type", fn() {
@@ -118,7 +119,7 @@ fn message_routing_tests() -> UnitTest {
       // Assert
       event
       |> should()
-      |> equal(Error(Nil))
+      |> be_equal(Error(Nil))
       |> or_fail_with("an unknown type should not parse")
     }),
     it("rejects a message event with no text", fn() {
@@ -132,7 +133,7 @@ fn message_routing_tests() -> UnitTest {
       // Assert
       event
       |> should()
-      |> equal(Error(Nil))
+      |> be_equal(Error(Nil))
       |> or_fail_with("a message event with no text should not parse")
     }),
     it("rejects text that is not JSON", fn() {
@@ -146,7 +147,7 @@ fn message_routing_tests() -> UnitTest {
       // Assert
       event
       |> should()
-      |> equal(Error(Nil))
+      |> be_equal(Error(Nil))
       |> or_fail_with("text that is not JSON should not parse")
     }),
     it("routes a message event to the text handler", fn() {
@@ -161,7 +162,7 @@ fn message_routing_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal("Alice: hi")
+      |> be_equal("Alice: hi")
       |> or_fail_with("a message event should route to 'Alice: hi'")
     }),
     it("routes a joined event to the joined handler", fn() {
@@ -175,7 +176,7 @@ fn message_routing_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal("Alice joined the chat")
+      |> be_equal("Alice joined the chat")
       |> or_fail_with("a joined event should route to 'Alice joined the chat'")
     }),
     it("routes a left event to the left handler", fn() {
@@ -189,7 +190,7 @@ fn message_routing_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal("Alice left the chat")
+      |> be_equal("Alice left the chat")
       |> or_fail_with("a left event should route to 'Alice left the chat'")
     }),
     it("routes bad input to the unknown reply", fn() {
@@ -203,14 +204,14 @@ fn message_routing_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal("Unknown message")
+      |> be_equal("Unknown message")
       |> or_fail_with("bad input should route to 'Unknown message'")
     }),
   ])
 }
 
-fn authentication_tests() -> UnitTest {
-  describe("authentication", [
+fn authentication_tests() -> UnitNode {
+  group("authentication", [
     it("finds the user for a known token", fn() {
       // Arrange
       let request =
@@ -226,7 +227,7 @@ fn authentication_tests() -> UnitTest {
       // Assert
       user
       |> should()
-      |> equal(Ok("ada"))
+      |> be_equal(Ok("ada"))
       |> or_fail_with("token-for-ada should belong to ada")
     }),
     it("rejects an unknown token", fn() {
@@ -240,7 +241,7 @@ fn authentication_tests() -> UnitTest {
       // Assert
       user
       |> should()
-      |> equal(Error(Nil))
+      |> be_equal(Error(Nil))
       |> or_fail_with("an unknown token should not authenticate")
     }),
     it("returns 401 when the token is missing", fn() {
@@ -254,7 +255,7 @@ fn authentication_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(401)
+      |> be_equal(401)
       |> or_fail_with("a request with no token should get 401")
     }),
     it("returns 401 for an unknown token", fn() {
@@ -269,7 +270,7 @@ fn authentication_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(401)
+      |> be_equal(401)
       |> or_fail_with("a request with an unknown token should get 401")
     }),
     it("says why the request is rejected", fn() {
@@ -284,7 +285,7 @@ fn authentication_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Invalid auth token")
+      |> be_equal("Invalid auth token")
       |> or_fail_with("the 401 body should be 'Invalid auth token'")
     }),
     it("upgrades the connection for a known token", fn() {
@@ -305,7 +306,7 @@ fn authentication_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal(Ok(#(1, <<"ada: hi":utf8>>)))
+      |> be_equal(Ok(#(1, <<"ada: hi":utf8>>)))
       |> or_fail_with("an authenticated socket should reply 'ada: hi'")
     }),
   ])

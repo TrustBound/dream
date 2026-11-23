@@ -1,15 +1,18 @@
 //// Tests for dream/http/request module.
 
 import dream/http/request.{
-  type Request, type RequestBody, Bytes, Get, Http, Http1, Request, Stream, Text,
+  type Request, type RequestBody, Bytes, Connect, Delete, Get, Head, Http, Http1,
+  MalformedBody, Options, Other, Patch, Post, Put, Request, Stream, Text, Trace,
   body_as_string, get_int_param, get_param, get_query_param, get_string_param,
 }
 import dream/http/transaction
-import dream_test/assertions/should.{
-  be_error, be_none, be_ok, be_some, equal, or_fail_with, should,
+import dream_test/matchers.{
+  be_equal, be_error, be_none, be_ok, be_some, or_fail_with, should,
 }
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import gleam/bit_array
+import gleam/list
 import gleam/option
 import gleam/yielder
 
@@ -22,7 +25,7 @@ fn create_test_request(body: String) -> Request {
 }
 
 fn create_request_with_stream(stream: yielder.Yielder(BitArray)) -> Request {
-  create_request_with_body(Stream(stream))
+  create_request_with_body(Stream(yielder.map(stream, Ok)))
 }
 
 fn create_request_with_body(body: RequestBody) -> Request {
@@ -91,18 +94,19 @@ fn get_param_format(request: Request, name: String) -> option.Option(String) {
 // Tests
 // ============================================================================
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("request", [
     body_as_string_tests(),
     get_param_tests(),
     get_int_param_tests(),
     get_string_param_tests(),
     get_query_param_tests(),
+    method_tests(),
   ])
 }
 
-fn body_as_string_tests() -> UnitTest {
-  describe("body_as_string", [
+fn body_as_string_tests() -> UnitNode {
+  group("body_as_string", [
     it("returns text body as string", fn() {
       // Arrange
       let request = create_test_request("test body")
@@ -114,7 +118,7 @@ fn body_as_string_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal("test body")
+      |> be_equal("test body")
       |> or_fail_with("Should return body text")
     }),
     it("returns Bytes that are valid UTF-8 as a string", fn() {
@@ -127,7 +131,7 @@ fn body_as_string_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok("héllo"))
+      |> be_equal(Ok("héllo"))
       |> or_fail_with("Should convert UTF-8 bytes to a string")
     }),
     it("returns Error(Nil) for Bytes that are not valid UTF-8", fn() {
@@ -140,7 +144,7 @@ fn body_as_string_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(Nil))
+      |> be_equal(Error(Nil))
       |> or_fail_with("Should return Error(Nil) for binary bytes")
     }),
     it("collects stream chunks to string", fn() {
@@ -157,7 +161,7 @@ fn body_as_string_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal("Hello World")
+      |> be_equal("Hello World")
       |> or_fail_with("Should collect stream to string")
     }),
     it("returns empty string for empty stream", fn() {
@@ -172,7 +176,7 @@ fn body_as_string_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal("")
+      |> be_equal("")
       |> or_fail_with("Should return empty string")
     }),
     it("returns error for invalid UTF-8 in stream", fn() {
@@ -190,11 +194,25 @@ fn body_as_string_tests() -> UnitTest {
       |> be_error()
       |> or_fail_with("Should return error for invalid UTF-8")
     }),
+    it("returns Error(Nil) when a read of the stream fails", fn() {
+      // Arrange
+      let items = [Ok(<<"Hello ":utf8>>), Error(MalformedBody)]
+      let request = create_request_with_body(Stream(yielder.from_list(items)))
+
+      // Act
+      let result = body_as_string(request)
+
+      // Assert
+      result
+      |> should()
+      |> be_equal(Error(Nil))
+      |> or_fail_with("A body that broke is not a string")
+    }),
   ])
 }
 
-fn get_param_tests() -> UnitTest {
-  describe("get_param", [
+fn get_param_tests() -> UnitNode {
+  group("get_param", [
     it("extracts value from param with format extension", fn() {
       // Arrange
       let request =
@@ -206,7 +224,7 @@ fn get_param_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal("123")
+      |> be_equal("123")
       |> or_fail_with("Value should be '123'")
     }),
     it("preserves raw value with extension", fn() {
@@ -220,7 +238,7 @@ fn get_param_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal("123.json")
+      |> be_equal("123.json")
       |> or_fail_with("Raw should be '123.json'")
     }),
     it("extracts format from extension", fn() {
@@ -235,14 +253,14 @@ fn get_param_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("json")
+      |> be_equal("json")
       |> or_fail_with("Format should be 'json'")
     }),
   ])
 }
 
-fn get_int_param_tests() -> UnitTest {
-  describe("get_int_param", [
+fn get_int_param_tests() -> UnitNode {
+  group("get_int_param", [
     it("returns Ok for valid integer", fn() {
       // Arrange
       let request = create_request_with_params("/users/123", [#("id", "123")])
@@ -254,7 +272,7 @@ fn get_int_param_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal(123)
+      |> be_equal(123)
       |> or_fail_with("Should return 123")
     }),
     it("returns error for missing parameter", fn() {
@@ -268,7 +286,7 @@ fn get_int_param_tests() -> UnitTest {
       result
       |> should()
       |> be_error()
-      |> equal("Missing id parameter")
+      |> be_equal("Missing id parameter")
       |> or_fail_with("Should return missing error")
     }),
     it("returns error for non-integer", fn() {
@@ -282,14 +300,14 @@ fn get_int_param_tests() -> UnitTest {
       result
       |> should()
       |> be_error()
-      |> equal("id must be an integer")
+      |> be_equal("id must be an integer")
       |> or_fail_with("Should return integer error")
     }),
   ])
 }
 
-fn get_string_param_tests() -> UnitTest {
-  describe("get_string_param", [
+fn get_string_param_tests() -> UnitNode {
+  group("get_string_param", [
     it("returns Ok for valid parameter", fn() {
       // Arrange
       let request =
@@ -302,7 +320,7 @@ fn get_string_param_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal("john")
+      |> be_equal("john")
       |> or_fail_with("Should return 'john'")
     }),
     it("returns error for missing parameter", fn() {
@@ -316,14 +334,14 @@ fn get_string_param_tests() -> UnitTest {
       result
       |> should()
       |> be_error()
-      |> equal("Missing name parameter")
+      |> be_equal("Missing name parameter")
       |> or_fail_with("Should return missing error")
     }),
   ])
 }
 
-fn get_query_param_tests() -> UnitTest {
-  describe("get_query_param", [
+fn get_query_param_tests() -> UnitNode {
+  group("get_query_param", [
     it("keeps a value that contains an equals sign", fn() {
       // Arrange
       let query_string = "token=a=b"
@@ -335,7 +353,7 @@ fn get_query_param_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("a=b")
+      |> be_equal("a=b")
       |> or_fail_with("token should be 'a=b'")
     }),
     it("transaction version keeps a value that contains an equals sign", fn() {
@@ -349,7 +367,7 @@ fn get_query_param_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("a=b")
+      |> be_equal("a=b")
       |> or_fail_with("token should be 'a=b'")
     }),
     it("decodes percent-encoded space", fn() {
@@ -363,7 +381,7 @@ fn get_query_param_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("hello world")
+      |> be_equal("hello world")
       |> or_fail_with("Should decode %20 as space")
     }),
     it("decodes percent-encoded ampersand", fn() {
@@ -377,7 +395,7 @@ fn get_query_param_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("Buy milk & eggs")
+      |> be_equal("Buy milk & eggs")
       |> or_fail_with("Should decode %26 as &")
     }),
     it("decodes plus sign as space", fn() {
@@ -391,7 +409,7 @@ fn get_query_param_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("hello world")
+      |> be_equal("hello world")
       |> or_fail_with("Should decode + as space")
     }),
     it("decodes multiple encoded characters", fn() {
@@ -405,7 +423,7 @@ fn get_query_param_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("search for \"test\"")
+      |> be_equal("search for \"test\"")
       |> or_fail_with("Should decode all percent-encoded chars")
     }),
     it("decodes both key and value", fn() {
@@ -419,7 +437,7 @@ fn get_query_param_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("john doe")
+      |> be_equal("john doe")
       |> or_fail_with("Should decode key and value")
     }),
     it("handles empty value", fn() {
@@ -433,7 +451,7 @@ fn get_query_param_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("")
+      |> be_equal("")
       |> or_fail_with("Should return empty string for flag")
     }),
     it("finds parameter among multiple", fn() {
@@ -447,7 +465,7 @@ fn get_query_param_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("new york")
+      |> be_equal("new york")
       |> or_fail_with("Should find city parameter")
     }),
     it("returns None for missing parameter", fn() {
@@ -487,7 +505,7 @@ fn get_query_param_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("/home/user/documents")
+      |> be_equal("/home/user/documents")
       |> or_fail_with("Should decode %2F as /")
     }),
     it("handles malformed encoding gracefully", fn() {
@@ -501,7 +519,7 @@ fn get_query_param_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("hello%2")
+      |> be_equal("hello%2")
       |> or_fail_with("Should fall back to original")
     }),
     it("decodes unicode characters", fn() {
@@ -515,7 +533,7 @@ fn get_query_param_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("hello ✓")
+      |> be_equal("hello ✓")
       |> or_fail_with("Should decode UTF-8")
     }),
     it("handles equals sign in value", fn() {
@@ -529,8 +547,121 @@ fn get_query_param_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("x=y+z")
+      |> be_equal("x=y+z")
       |> or_fail_with("Should decode = in value")
+    }),
+  ])
+}
+
+fn method_tests() -> UnitNode {
+  group("method names", [
+    it("method_to_string names every method", fn() {
+      // Arrange
+      let methods = [Get, Post, Put, Delete, Patch, Options, Head]
+
+      // Act
+      let names = list.map(methods, request.method_to_string)
+
+      // Assert
+      names
+      |> should()
+      |> be_equal(["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+      |> or_fail_with("Each method should have its upper-case name")
+    }),
+    it("parse_method parses every method name in any case", fn() {
+      // Arrange
+      let names = ["get", "POST", "Put", "delete", "patch", "OPTIONS", "head"]
+
+      // Act
+      let methods = list.map(names, request.parse_method)
+
+      // Assert
+      methods
+      |> should()
+      |> be_equal([
+        option.Some(Get),
+        option.Some(Post),
+        option.Some(Put),
+        option.Some(Delete),
+        option.Some(Patch),
+        option.Some(Options),
+        option.Some(Head),
+      ])
+      |> or_fail_with("Each method name should parse")
+    }),
+    it("method_to_string names CONNECT, TRACE and other methods", fn() {
+      // Arrange
+      let methods = [Connect, Trace, Other("PURGE"), Other("purge")]
+
+      // Act
+      let names = list.map(methods, request.method_to_string)
+
+      // Assert
+      names
+      |> should()
+      |> be_equal(["CONNECT", "TRACE", "PURGE", "purge"])
+      |> or_fail_with("Other should keep its name exactly")
+    }),
+    it("parse_method parses CONNECT and TRACE in any case", fn() {
+      // Arrange
+      let names = ["CONNECT", "connect", "TRACE", "Trace"]
+
+      // Act
+      let methods = list.map(names, request.parse_method)
+
+      // Assert
+      methods
+      |> should()
+      |> be_equal([
+        option.Some(Connect),
+        option.Some(Connect),
+        option.Some(Trace),
+        option.Some(Trace),
+      ])
+      |> or_fail_with("CONNECT and TRACE should parse")
+    }),
+    it("parse_method gives Other with the exact name for another token", fn() {
+      // Arrange
+      let names = ["PURGE", "purge", "M-SEARCH"]
+
+      // Act
+      let methods = list.map(names, request.parse_method)
+
+      // Assert
+      methods
+      |> should()
+      |> be_equal([
+        option.Some(Other("PURGE")),
+        option.Some(Other("purge")),
+        option.Some(Other("M-SEARCH")),
+      ])
+      |> or_fail_with("A token that is no standard method should be Other")
+    }),
+    it("parse_method returns None for text that is not a method token", fn() {
+      // Arrange
+      let names = ["", "GET /", "P(URGE"]
+
+      // Act
+      let methods = list.map(names, request.parse_method)
+
+      // Assert
+      methods
+      |> should()
+      |> be_equal([option.None, option.None, option.None])
+      |> or_fail_with("Text that is not a token should not parse")
+    }),
+    it("get_query_param keeps a value that is not valid percent-encoding", fn() {
+      // Arrange
+      let query = "q=100%zz+off"
+
+      // Act
+      let result = get_query_param(query, "q")
+
+      // Assert
+      result
+      |> should()
+      |> be_equal(option.Some("100%zz off"))
+      |> or_fail_with("An invalid escape should stay, with + as a space")
     }),
   ])
 }

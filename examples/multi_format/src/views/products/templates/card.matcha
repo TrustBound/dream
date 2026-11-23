@@ -1,4 +1,4 @@
-{> import examples/multi_format/sql.{type GetProductRow}
+{> import sql.{type GetProductRow}
 {> import gleam/int
 {> import gleam/float
 {> with product as GetProductRow

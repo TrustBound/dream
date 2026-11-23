@@ -38,13 +38,7 @@ pub fn main() {
 }
 ```
 
-Run it:
-
-```bash
-gleam run
-```
-
-Visit http://localhost:3000 - you should see "Hello, World!"
+Run it with `gleam run`, then visit http://localhost:3000 - you should see "Hello, World!"
 
 ## How It Works
 
