@@ -45,25 +45,36 @@ curl http://localhost:3000/users/1/posts/2
 
 ## Code Structure
 
-```text illustration
-examples/simple/
-├── gleam.toml          # Project config with dream dependency
-├── Makefile            # Build and run commands
-└── src/
-    ├── main.gleam     # Application entry point
-    ├── router.gleam   # Route definitions
-    ├── services.gleam # Empty services (no database needed)
-    ├── controllers/
-    │   ├── posts_controller.gleam         # Hello world and the HTTPS call
-    │   ├── request_data_controller.gleam  # Path, query, JSON and form data
-    │   ├── responses_controller.gleam     # Redirect, empty answer, download
-    │   ├── visits_controller.gleam        # A cookie counter
-    │   └── cache_controller.gleam         # The PURGE route
-    ├── utilities/
-    │   └── response_helpers.gleam         # Errors to responses
-    └── views/
-        └── post_view.gleam                # Text formatting
+The example has these source files:
+
+### List the source files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme.sh#L79"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+find src -type f | sort
 ```
+
+### The source files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L743-L752"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+src/controllers/cache_controller.gleam
+src/controllers/posts_controller.gleam
+src/controllers/request_data_controller.gleam
+src/controllers/responses_controller.gleam
+src/controllers/visits_controller.gleam
+src/main.gleam
+src/router.gleam
+src/services.gleam
+src/utilities/response_helpers.gleam
+src/views/post_view.gleam
+```
+
+- `src/controllers/posts_controller.gleam`: hello world and the HTTPS call.
+- `src/controllers/request_data_controller.gleam`: path, query, JSON and form data.
+- `src/controllers/responses_controller.gleam`: redirect, empty answer, download.
+- `src/controllers/visits_controller.gleam`: a cookie counter.
+- `src/controllers/cache_controller.gleam`: the `PURGE` route.
+- `src/utilities/response_helpers.gleam`: errors to responses.
+- `src/views/post_view.gleam`: text formatting.
 
 ## Key Concepts
 

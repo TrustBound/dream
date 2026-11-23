@@ -630,6 +630,7 @@ The second test compares the whole body, so it fails if a message changes or one
 - **A missing query parameter isn't a routing error.** `/search` matches with no query at all, so check for `None` in the controller.
 - **The body is bytes, not text.** A body that isn't valid UTF-8 arrives as `Bytes`, and `body_as_string` returns `Error(Nil)`. Answer `400` for it, as `create_signup` does.
 - **Decoding and validating in one step.** A decoder that checks business rules gives decode errors for rule failures, and the client can't tell a typo from a bad value. Decode, then validate.
+- **A body over the size limit never reaches the controller.** The server answers `413 Content Too Large` with `Request body too large`. [Start, stop and troubleshoot the server](https://github.com/TrustBound/dream/blob/main/docs/guides/operating.md) shows the limit and the answer.
 - **The route parameter name and the controller's name differ.** `require_int(request, "id")` on a route with `:user_id` always answers `400`.
 
 ## Where to go next

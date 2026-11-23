@@ -119,26 +119,44 @@ Open `http://localhost:3000` in your browser to:
 
 ## Code Structure
 
-```text illustration
-examples/tasks/
-├── src/
-│   ├── main.gleam              # Entry point
-│   ├── router.gleam            # Route definitions
-│   ├── context.gleam           # Request context
-│   ├── services.gleam          # Database service
-│   ├── types/                  # Domain types
-│   ├── models/                 # Data access (repositories)
-│   ├── controllers/            # HTTP handlers
-│   ├── operations/             # Business logic
-│   ├── views/
-│   │   ├── templates/
-│   │   │   ├── elements/       # Matcha templates
-│   │   │   └── components/     # Gleam composition functions
-│   │   ├── pages/              # Page templates
-│   │   └── *.gleam             # View modules
-│   └── middleware/             # Request/response wrappers
-├── priv/migrations/            # Database migrations
-├── Makefile                    # Build commands
-└── docker-compose.yml          # Database setup
+The example has these folders:
+
+### List the folders <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/readme.sh#L6"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+find src priv -type d | sort
 ```
+
+### The folders <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/readme_output.txt#L1-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+priv
+priv/migrations
+src
+src/controllers
+src/middleware
+src/models
+src/models/project
+src/models/project/sql
+src/models/tag
+src/models/tag/sql
+src/models/task
+src/models/task/sql
+src/operations
+src/services
+src/templates
+src/templates/components
+src/templates/elements
+src/templates/layouts
+src/templates/pages
+src/types
+src/utilities
+src/views
+```
+
+- `src/models/`: data access, with the SQL queries of each model in its `sql/` folder.
+- `src/templates/`: the Matcha templates, from small elements to full pages.
+- `src/views/`: the view modules that fill the templates.
+- `src/operations/`: business logic. `src/types/`: domain types.
+- `priv/migrations/`: the database migrations. `docker-compose.yml` starts PostgreSQL.
 

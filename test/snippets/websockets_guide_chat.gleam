@@ -77,33 +77,61 @@ pub fn handle_websocket_init(
   #(state, Some(selector))
 }
 
+/// What one message makes the connection do. A plain function with no
+/// connection, so a test can call it.
+pub type Reply {
+  SendText(String)
+  KeepOpen
+  Close
+}
+
+pub fn reply_to(
+  state: ChatState,
+  message: websocket.Message(ChatMessage),
+  dependencies: Dependencies,
+) -> Reply {
+  case message {
+    // Text sent by this client: broadcast to everyone (including sender)
+    websocket.TextMessage(text) -> {
+      let chat_message = ChatMessage(sender: state.user_name, content: text)
+      broadcaster.publish(dependencies.chat_bus, chat_message)
+      KeepOpen
+    }
+
+    // Message broadcast from the server (via broadcaster)
+    websocket.CustomMessage(chat_message) ->
+      SendText(format_chat_message(chat_message))
+
+    // Close frame or server shutdown
+    websocket.ConnectionClosed -> Close
+
+    // Ignore binary for now
+    websocket.BinaryMessage(_) -> KeepOpen
+  }
+}
+
 pub fn handle_websocket_message(
   state: ChatState,
   message: websocket.Message(ChatMessage),
   connection: websocket.Connection,
   dependencies: Dependencies,
 ) -> websocket.Action(ChatState, ChatMessage) {
-  case message {
-    // Text sent by this client
-    websocket.TextMessage(text) -> {
-      let chat_message = ChatMessage(sender: state.user_name, content: text)
-      // Broadcast to everyone (including sender)
-      broadcaster.publish(dependencies.chat_bus, chat_message)
-      websocket.continue_connection(state)
-    }
+  case reply_to(state, message, dependencies) {
+    SendText(text) -> send_or_stop(state, connection, text)
+    KeepOpen -> websocket.continue_connection(state)
+    Close -> websocket.stop_connection()
+  }
+}
 
-    // Message broadcast from the server (via broadcaster)
-    websocket.CustomMessage(chat_message) -> {
-      let payload = format_chat_message(chat_message)
-      let _ = websocket.send_text(connection, payload)
-      websocket.continue_connection(state)
-    }
-
-    // Close frame or server shutdown
-    websocket.ConnectionClosed -> websocket.stop_connection()
-
-    // Ignore binary for now
-    websocket.BinaryMessage(_) -> websocket.continue_connection(state)
+fn send_or_stop(
+  state: ChatState,
+  connection: websocket.Connection,
+  text: String,
+) -> websocket.Action(ChatState, ChatMessage) {
+  case websocket.send_text(connection, text) {
+    Ok(Nil) -> websocket.continue_connection(state)
+    // The client has gone away
+    Error(_send_error) -> websocket.stop_connection()
   }
 }
 

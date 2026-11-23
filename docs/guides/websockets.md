@@ -304,43 +304,75 @@ The message type is `websocket.Message(custom)`:
 - `CustomMessage(custom)`: value delivered via your `Selector(custom)`.
 - `ConnectionClosed`: Mist or the client closed the connection.
 
-### The on_message handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L80-L108"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+The handler below puts the decision in `reply_to`, a plain function that
+gets no connection and returns a `Reply`. `handle_websocket_message` only
+carries out the reply. A test can call `reply_to`, as
+[Test your code](#test-your-code) shows.
+
+### The on_message handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L80-L136"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
+/// What one message makes the connection do. A plain function with no
+/// connection, so a test can call it.
+pub type Reply {
+  SendText(String)
+  KeepOpen
+  Close
+}
+
+pub fn reply_to(
+  state: ChatState,
+  message: websocket.Message(ChatMessage),
+  dependencies: Dependencies,
+) -> Reply {
+  case message {
+    // Text sent by this client: broadcast to everyone (including sender)
+    websocket.TextMessage(text) -> {
+      let chat_message = ChatMessage(sender: state.user_name, content: text)
+      broadcaster.publish(dependencies.chat_bus, chat_message)
+      KeepOpen
+    }
+
+    // Message broadcast from the server (via broadcaster)
+    websocket.CustomMessage(chat_message) ->
+      SendText(format_chat_message(chat_message))
+
+    // Close frame or server shutdown
+    websocket.ConnectionClosed -> Close
+
+    // Ignore binary for now
+    websocket.BinaryMessage(_) -> KeepOpen
+  }
+}
+
 pub fn handle_websocket_message(
   state: ChatState,
   message: websocket.Message(ChatMessage),
   connection: websocket.Connection,
   dependencies: Dependencies,
 ) -> websocket.Action(ChatState, ChatMessage) {
-  case message {
-    // Text sent by this client
-    websocket.TextMessage(text) -> {
-      let chat_message = ChatMessage(sender: state.user_name, content: text)
-      // Broadcast to everyone (including sender)
-      broadcaster.publish(dependencies.chat_bus, chat_message)
-      websocket.continue_connection(state)
-    }
+  case reply_to(state, message, dependencies) {
+    SendText(text) -> send_or_stop(state, connection, text)
+    KeepOpen -> websocket.continue_connection(state)
+    Close -> websocket.stop_connection()
+  }
+}
 
-    // Message broadcast from the server (via broadcaster)
-    websocket.CustomMessage(chat_message) -> {
-      let payload = format_chat_message(chat_message)
-      let _ = websocket.send_text(connection, payload)
-      websocket.continue_connection(state)
-    }
-
-    // Close frame or server shutdown
-    websocket.ConnectionClosed -> websocket.stop_connection()
-
-    // Ignore binary for now
-    websocket.BinaryMessage(_) -> websocket.continue_connection(state)
+fn send_or_stop(
+  state: ChatState,
+  connection: websocket.Connection,
+  text: String,
+) -> websocket.Action(ChatState, ChatMessage) {
+  case websocket.send_text(connection, text) {
+    Ok(Nil) -> websocket.continue_connection(state)
+    // The client has gone away
+    Error(_send_error) -> websocket.stop_connection()
   }
 }
 ```
 
-If `send_text` fails, it returns `Error(SendError)`: in many simple
-apps you can log this and continue, but you could also decide to stop
-the connection.
+If `send_text` fails, it returns `Error(SendError)`: the client has gone
+away, so `send_or_stop` stops the connection.
 
 ## Step 5: on_close, clean up
 
@@ -351,7 +383,7 @@ the connection.
 - Announce that a user left.
 - Release any other resources you are tracking.
 
-### The on_close handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L110-L120"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The on_close handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L138-L148"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_websocket_close(
@@ -425,7 +457,7 @@ pub fn handle_websocket_init(
 }
 ```
 
-### Publish from anywhere <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L126-L132"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Publish from anywhere <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L154-L160"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn publish_chat_message(
@@ -526,8 +558,190 @@ The other failures happen after the upgrade. When the client goes away, `on_clos
 
 ## Test your code
 
-The `examples/websocket_chat` project includes **full integration tests**
-written in Gherkin (Cucumber). These tests:
+`reply_to` and `on_close` get no connection, so a test calls them like any function. The test process subscribes to the chat bus, so it receives what the handlers publish:
+
+### Test the chat's message handling <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/guide_websockets_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+//// WebSockets guide: a test of the chat's message handling
+////
+//// reply_to and handle_websocket_close are from
+//// test/snippets/websockets_guide_chat.gleam. Neither takes a connection,
+//// so the test needs no server. The test process subscribes to the chat
+//// bus, so it receives what the handlers publish.
+
+import dream/servers/mist/websocket
+import dream/services/broadcaster
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, group, it}
+import gleam/erlang/process
+import snippets/websockets_guide_chat.{
+  type ChatMessage, ChatMessage, ChatState, Close, Dependencies, KeepOpen,
+  SendText,
+}
+
+fn chat_bus() -> broadcaster.Broadcaster(ChatMessage) {
+  let assert Ok(chat_bus) = broadcaster.start_broadcaster()
+  chat_bus
+}
+
+/// Subscribes the test process, then returns what it receives in 100 ms.
+fn published_by(
+  chat_bus: broadcaster.Broadcaster(ChatMessage),
+  action: fn() -> anything,
+) -> Result(ChatMessage, Nil) {
+  let selector =
+    broadcaster.subscribe(chat_bus)
+    |> broadcaster.channel_to_selector
+  let _result = action()
+  process.selector_receive(selector, 100)
+}
+
+pub fn tests() -> TestSuite {
+  let state = ChatState(user_name: "ada")
+
+  describe("chat handlers", [
+    group("reply_to", [
+      it("keeps the connection open after a text message", fn() {
+        // Arrange
+        let dependencies = Dependencies(user_name: "ada", chat_bus: chat_bus())
+
+        // Act
+        let reply =
+          websockets_guide_chat.reply_to(
+            state,
+            websocket.TextMessage("hello"),
+            dependencies,
+          )
+
+        // Assert
+        reply
+        |> should
+        |> be_equal(KeepOpen)
+        |> or_fail_with("a text message should keep the connection open")
+      }),
+      it("publishes a text message with the user's name", fn() {
+        // Arrange
+        let bus = chat_bus()
+        let dependencies = Dependencies(user_name: "ada", chat_bus: bus)
+
+        // Act
+        let published =
+          published_by(bus, fn() {
+            websockets_guide_chat.reply_to(
+              state,
+              websocket.TextMessage("hello"),
+              dependencies,
+            )
+          })
+
+        // Assert
+        published
+        |> should
+        |> be_equal(Ok(ChatMessage(sender: "ada", content: "hello")))
+        |> or_fail_with("every subscriber should get ada's message")
+      }),
+      it("ignores a binary message", fn() {
+        // Arrange
+        let dependencies = Dependencies(user_name: "ada", chat_bus: chat_bus())
+
+        // Act
+        let reply =
+          websockets_guide_chat.reply_to(
+            state,
+            websocket.BinaryMessage(<<1, 2, 3>>),
+            dependencies,
+          )
+
+        // Assert
+        reply
+        |> should
+        |> be_equal(KeepOpen)
+        |> or_fail_with("a binary message should change nothing")
+      }),
+      it("sends a broadcast message to the client as text", fn() {
+        // Arrange
+        let dependencies = Dependencies(user_name: "ada", chat_bus: chat_bus())
+        let message = ChatMessage(sender: "bob", content: "hi")
+
+        // Act
+        let reply =
+          websockets_guide_chat.reply_to(
+            state,
+            websocket.CustomMessage(message),
+            dependencies,
+          )
+
+        // Assert
+        reply
+        |> should
+        |> be_equal(SendText("bob: hi"))
+        |> or_fail_with("bob's message should go to the client as 'bob: hi'")
+      }),
+      it("closes when the connection ends", fn() {
+        // Arrange
+        let dependencies = Dependencies(user_name: "ada", chat_bus: chat_bus())
+
+        // Act
+        let reply =
+          websockets_guide_chat.reply_to(
+            state,
+            websocket.ConnectionClosed,
+            dependencies,
+          )
+
+        // Assert
+        reply
+        |> should
+        |> be_equal(Close)
+        |> or_fail_with("a closed connection should stop the handler")
+      }),
+    ]),
+    group("handle_websocket_close", [
+      it("tells the others that the user left", fn() {
+        // Arrange
+        let bus = chat_bus()
+        let dependencies = Dependencies(user_name: "ada", chat_bus: bus)
+
+        // Act
+        let published =
+          published_by(bus, fn() {
+            websockets_guide_chat.handle_websocket_close(state, dependencies)
+          })
+
+        // Assert
+        published
+        |> should
+        |> be_equal(
+          Ok(ChatMessage(sender: "ada", content: "ada left the chat")),
+        )
+        |> or_fail_with("the others should get the leave message")
+      }),
+    ]),
+  ])
+}
+```
+
+### The report of the test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/outputs/guide_websockets_report.txt"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+chat handlers
+  handle_websocket_close
+    ✓ tells the others that the user left
+  reply_to
+    ✓ closes when the connection ends
+    ✓ ignores a binary message
+    ✓ keeps the connection open after a text message
+    ✓ publishes a text message with the user's name
+    ✓ sends a broadcast message to the client as text
+
+Summary: 6 run, 0 failed, 6 passed in 0ms
+```
+
+A test can't call `on_init` or `on_message` itself. Both get a `websocket.Connection`, an opaque type that only the server makes when a client upgrades, and Dream has no test connection. For the same reason, a test can't see what `send_text` writes. Keep the decisions in functions like `reply_to`, and leave only the calls on the connection in the handlers.
+
+The `examples/websocket_chat` project tests the handlers with a real server. Its integration tests are written in Gherkin (Cucumber), and they:
 
 - Start a real Dream server.
 - Connect with real WebSocket clients.
@@ -541,11 +755,6 @@ To run them:
 ```bash
 (cd examples/websocket_chat && make test-integration)
 ```
-
-For unit tests inside Gleam, prefer to keep your WebSocket handlers
-small and pure by extracting logic into separate functions that do not
-know about WebSockets. You can then test those functions directly
-without opening real connections.
 
 ## Common pitfalls
 

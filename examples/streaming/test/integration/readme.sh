@@ -8,3 +8,7 @@ curl http://localhost:3003/fetch
 
 # Streaming request (processes chunks as they arrive)
 curl http://localhost:3003/stream
+
+# The files of the project structure in README.md
+cd "$EXAMPLE"
+find src -type f | sort

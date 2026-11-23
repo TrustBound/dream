@@ -4,3 +4,7 @@
 # A plain GET to the WebSocket route, with no Upgrade headers
 curl -i "http://localhost:8080/chat?user=Ann"
 echo
+
+# The files of the project structure in README.md
+cd "$EXAMPLE"
+find assets src -type f | sort

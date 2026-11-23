@@ -269,7 +269,7 @@ fn param_tests() -> UnitNode {
       // Assert
       result
       |> should()
-      |> be_equal(Error("Missing id parameter"))
+      |> be_equal(Error("Missing required path parameter: id"))
       |> or_fail_with("A missing id should give the missing message")
     }),
     it("get_string_param reports a missing parameter", fn() {
@@ -282,7 +282,7 @@ fn param_tests() -> UnitNode {
       // Assert
       result
       |> should()
-      |> be_equal(Error("Missing name parameter"))
+      |> be_equal(Error("Missing required path parameter: name"))
       |> or_fail_with("A missing name should give the missing message")
     }),
   ])

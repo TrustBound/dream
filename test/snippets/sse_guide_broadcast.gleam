@@ -32,7 +32,7 @@ pub fn handle_events(
   )
 }
 
-fn handle_init(
+pub fn handle_init(
   _subject: process.Subject(AppEvent),
   dependencies: Dependencies,
 ) -> #(Int, option.Option(process.Selector(AppEvent))) {

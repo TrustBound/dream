@@ -35,9 +35,9 @@
 //// Tree structure:
 //// ```text illustration
 //// root
-////   └─ users
-////      ├─ new (literal - highest priority)
-////      └─ :id (param - lower priority)
+////   ├─ users
+////   │  ├─ new (literal - highest priority)
+////   │  └─ :id (param - lower priority)
 ////   └─ files
 ////      └─ **path (multi-wildcard - lowest priority)
 //// ```

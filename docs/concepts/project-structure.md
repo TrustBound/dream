@@ -37,7 +37,7 @@ your_app/
 │   │
 │   ├── templates/          # HTML templates (optional)
 │   │   ├── components/     # Reusable UI components
-│   │   ├── elements/        # Low-level HTML elements
+│   │   ├── elements/       # Low-level HTML elements
 │   │   ├── layouts/        # Page layouts (nav, footer)
 │   │   └── pages/          # Full page templates
 │   │

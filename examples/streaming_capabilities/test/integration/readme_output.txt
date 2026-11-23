@@ -21,3 +21,8 @@ content-length: 33
 date: (the time of the request)
 
 The upload stopped before its end
+src/controllers/stream_controller.gleam
+src/main.gleam
+src/middleware/transform_middleware.gleam
+src/router.gleam
+src/services.gleam

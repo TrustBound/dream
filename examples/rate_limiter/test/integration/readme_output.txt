@@ -131,3 +131,11 @@ date: (the time of the request)
 connection: keep-alive
 
 Rate limit exceeded. Maximum 10 requests per minute.
+src/controllers/api_controller.gleam
+src/main.gleam
+src/middleware/rate_limit_middleware.gleam
+src/router.gleam
+src/services.gleam
+src/services/rate_limiter_service.gleam
+src/utilities/response_helpers.gleam
+src/views/api_view.gleam

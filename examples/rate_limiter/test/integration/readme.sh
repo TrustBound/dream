@@ -15,3 +15,8 @@ curl -i http://localhost:3000/api
 
 # Check rate limit status
 curl -i http://localhost:3000/api/status
+echo
+
+# The files of the project structure in README.md
+cd "$EXAMPLE"
+find src -type f | sort

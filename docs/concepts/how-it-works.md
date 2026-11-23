@@ -8,11 +8,12 @@ When a request arrives at your Dream server, here's exactly what happens:
 
 ```text illustration
 1. Request arrives
-2. Context created (AppContext with unique request_id)
-3. Router matches path/method → finds controller action
-4. Middleware runs (if any) → can enrich context
-5. Controller action executes with (Request, Context, Services)
-6. Returns Response
+2. Router matches path/method → finds the route, or answers 404
+3. Body read (a buffered body over max_body_size gets 413)
+4. Context: a copy of the context value given to the server
+5. Middleware runs (if any) → can enrich context
+6. Controller action executes with (Request, Context, Services)
+7. Returns Response
 ```
 
 ## Visual Flow
@@ -29,7 +30,7 @@ sequenceDiagram
     participant Controller as Controller Action
     
     Client->>Router: Request
-    Router->>Router: Create Context with request_id
+    Router->>Router: Match the route, read the body
     Router->>Logging: (Request, Context, Services)
     Logging->>Logging: Log incoming request
     Logging->>Auth: (Request, Context, Services)
@@ -55,19 +56,19 @@ The Mist adapter does this work for you. `handler.create` in `dream/servers/mist
 
 The adapter keeps the Mist request in the process dictionary of the request process, so that `upgrade_websocket` and `upgrade_to_sse` can read it later. The functions `put`, `get`, `to_dynamic` and `unsafe_coerce` in `dream/servers/mist/internal` do this. Your application does not call them.
 
-### 2. Context Created
+### 2. Router Matches
 
-Dream creates a default `AppContext` with a unique `request_id`. This context travels through the entire request lifecycle.
-
-The adapter makes the ID with `generate_request_id` from `dream/servers/mist/request`.
-
-### 3. Router Matches
-
-The router looks at the HTTP method (GET, POST, etc.) and path (`/users/123`) to find a matching route. Path parameters like `:id` are extracted automatically.
+The router looks at the HTTP method (GET, POST, etc.) and path (`/users/123`) to find a matching route. Path parameters like `:id` are extracted automatically. When no route matches, the adapter answers `404 Route not found` and reads no body. For a matched `route`, the adapter then reads the body: a body over `max_body_size` gets `413 Content Too Large`, and the controller does not run.
 
 `dream.route_request` does all of the steps from here to the response. It calls `router.find_route`, then `dream.execute_route`. `execute_route` runs a route that is already matched: it sets the path parameters on the request with `request.set_params`, then runs the middleware and the controller.
 
 To match routes quickly, the router keeps them in a trie from `dream/router/trie`. `parser.parse_pattern` in `dream/router/parser` splits a path pattern such as `/users/:id` into segments. `trie.new` makes an empty trie, `trie.insert` adds a route, and `trie.lookup` finds the route for a path.
+
+### 3. Context Created
+
+Each request gets the context value that you gave `server.context`, or `EmptyContext` by default. This context travels through the entire request lifecycle.
+
+The adapter makes a request ID with `generate_request_id` from `dream/servers/mist/request`, but the server does not put it in your context. To give each request its own ID, set it in a middleware.
 
 ### 4. Middleware Runs
 

@@ -146,7 +146,7 @@ Every Gleam code block in the guides, the READMEs, the doc comments and SECURITY
 
 Every other code block is proven too. A shell command is a line of a script that CI or a test runs, such as `scripts/check.sh` or the `test/integration/start.sh` and `readme.sh` of an example. Shown output is a file that a test compares with the real output: the integration run of each example runs the requests of its README against the running server and compares what they print. A Dockerfile, a Compose file, a Makefile, a migration, a query, a template or a script is a copy of the real file that a test or CI uses. The new `examples/deployment` has the Dockerfile and the Compose file of the deployment guide, and `make test-docker` builds and starts them. A block that nothing can run, such as a folder tree, a diagram or a command against your own accounts, is marked as an illustration. Proving the blocks found and fixed wrong commands: `make run` of `streaming_capabilities` did not start, the deployment guide ran migrations with Squirrel and built with Gleam 1.6.2, and several READMEs named ports, scripts and outputs that did not exist.
 
-The snippet check finds 580 Gleam code blocks and 7 diff blocks, proves 47 file blocks, 127 command blocks and 65 output blocks, and counts 52 illustrations, with no problems.
+The snippet check finds 583 Gleam code blocks and 7 diff blocks, proves 47 file blocks, 142 command blocks and 82 output blocks, and counts 39 illustrations, with no problems.
 
 The snippet check moved to the [`dream_snippets`](https://github.com/TrustBound/dream_snippets) package.
 
@@ -215,16 +215,25 @@ The server adapter turned CONNECT, TRACE and every method without its own constr
 
 The `static` directory listing wrote file names and the request path into the HTML as markup. A file named `<img src=x onerror=...>.txt` became an element. Names are now HTML-escaped, and each link is percent-encoded.
 
+### A Body Over the Size Limit Gets 413
+
+A buffered body over `max_body_size` got `400 Bad Request` with an empty body, the same answer as a body that could not be read. It now gets `413 Content Too Large` (RFC 9110, section 15.5.14) with the plain-text body `Request body too large`. A request whose `content-length` is over the limit gets the 413 before the server reads the body. A chunked HTTP/1.1 body had no limit at all: the server read it to its end and gave it to the controller. The adapter now compares its size with the limit after the read, and answers 413. A body that stops early or has malformed chunks still gets `400`, now with the plain-text body `Request body could not be read`, like the `404 Route not found` answer.
+
+### One Message for a Missing Path Parameter
+
+`get_param` gave `Missing required path parameter: id` for a route with no `id` parameter, and `get_int_param` and `get_string_param` gave `Missing id parameter`. All three now give `Missing required path parameter: id`, and so do `require_int` and `require_string` in their `BadRequest` error. The functions of the same names in `dream/http/transaction` give the same message.
+
 ## Known Limits
 
 - A single HTTP/2 connection uploads large bodies at about 89% of Bandit's speed. With 8 connections it is level.
 - The server does not enforce the connection-level receive window. Unread request data on one connection is limited by 100 streams of 1 MiB each.
+- Over HTTP/1.1, the server reads a chunked request body on a `route` to its end before Dream compares its size with `max_body_size`. Use a `stream_route` for uploads that can be very large.
 - The server packages have three new settings (read timeout, send timeout, stream window size). Dream does not expose them yet.
 
 ## Testing
 
-- Dream's own tests use `dream_test` 3.0.0: 1121 run, 0 failed, in about 18 seconds (Apple M1 Max, OTP 29, Gleam 1.19.2)
-- `gleam test` measures the line coverage of `src/` and fails below 100%. It is 1083 of 1084 lines (99.9%)
+- Dream's own tests use `dream_test` 3.0.0: 1129 run, 0 failed, in about 18 seconds (Apple M1 Max, OTP 29, Gleam 1.19.2)
+- `gleam test` measures the line coverage of `src/` and fails below 100%. It is 1087 of 1088 lines (99.9%)
 - `dream_http_server` 1.3.1: 108 passed, on Gleam 1.14.0 with OTP 28. Each of its fixes has a test that fails without the fix
 - `dream_socket_server`: 6 passed
 - Integration tests: eleven examples run, ten of them twice, over HTTP/1.1 and over HTTP/2 with TLS, through `dream_http_client`. Each run also runs the commands of the example's README and compares their output. `make test-tasks` runs the `tasks` example (integration and Cypress tests), and `make test-docker` builds and starts `examples/deployment`
@@ -484,6 +493,8 @@ pub fn create_server() -> Dream(
 - **Binary static files.** `static.serve` sends a file that is not UTF-8 as `Bytes` with status 200. In Dream 2 it answered 404. A UTF-8 file is still `Text`.
 - **Broken streamed uploads.** On a `stream_route`, when a read of the body fails before its end, the stream gives one `Error(MalformedBody)` item and then ends. The controller decides the answer. In Dream 2 the stream ended as if the body was complete.
 - **Methods.** A request with CONNECT, TRACE or another method without its own constructor gets the route of that method, or 404. In Dream 2 it ran the GET route of its path.
+- **Body over the size limit.** A buffered body over `max_body_size` gets `413 Content Too Large` with the body `Request body too large`. In Dream 2 it got `400` with an empty body, and a chunked body over the limit reached the controller. A body that cannot be read still gets `400`, now with the body `Request body could not be read`. A client that checks for `400` on a body that is too big must check for `413`.
+- **Missing path parameter message.** `get_int_param`, `get_string_param`, `require_int` and `require_string` give `Missing required path parameter: id` for a missing parameter, the message of `get_param`. In Dream 2 they gave `Missing id parameter`. Tests or clients that match the old text must match the new one.
 - **Start errors.** `listen()` panics with `Failed to start server: ` and the start error for every start error, for example `Failed to start server: InitFailed("TLS file not found: cert.pem")`. In Dream 2 an `InitFailed` error panicked with its message only. Code or log checks that match the old panic text must match the new form.
 
 #### 6. Your tests follow the Dream 2 testing guide

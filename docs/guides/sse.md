@@ -65,7 +65,7 @@ streams, see the [Streaming Guide](https://github.com/TrustBound/dream/blob/main
 
 Dream's SSE support lives in the Mist server adapter module:
 
-### The SSE module import <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The SSE module import <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/servers/mist/sse
@@ -105,15 +105,17 @@ For SSE we usually create a small `Dependencies` type. The example below
 shows the top of the controller module: the imports that all of the steps
 use, then the type.
 
-### Imports and the Dependencies type <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L6-L15"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Imports and the Dependencies type <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L6-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
+import dream/http/header.{get_header}
 import dream/http/request.{type Request}
 import dream/http/response.{type Response}
+import dream/http/status
 import dream/servers/mist/sse
 import gleam/erlang/process
 import gleam/int
-import gleam/option.{None}
+import gleam/option.{None, Some}
 
 pub type Dependencies {
   Dependencies(counter_start: Int)
@@ -144,7 +146,7 @@ pub fn create_router() {
 
 An SSE controller has the same shape as a regular controller:
 
-### An SSE controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L17-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### An SSE controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L19-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_events(request: Request, _context, _services) -> Response {
@@ -178,7 +180,7 @@ for example events from a broadcaster (see
 [Broadcasting with SSE](#broadcasting-with-sse)). This handler needs no
 other messages, so it returns `None`:
 
-### The on_init handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L28-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The on_init handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L30-L45"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Tick {
@@ -189,7 +191,7 @@ pub type State {
   State(count: Int, self: process.Subject(Tick))
 }
 
-fn handle_init(
+pub fn handle_init(
   subject: process.Subject(Tick),
   dependencies: Dependencies,
 ) -> #(State, option.Option(process.Selector(Tick))) {
@@ -210,7 +212,9 @@ extra 500 response.
 ## Step 4: on_message, handle messages and send events
 
 Every time a message arrives, Dream calls your `on_message` function.
-The handler below sends one event for each tick. When `send_event`
+The handler below sends one event for each tick. `tick_event` builds the
+event in a function of its own, so a test can call it (see
+[Test your code](#test-your-code)). When `send_event`
 returns an error, the client has gone away, so the handler stops the
 actor instead of ticking forever.
 
@@ -221,7 +225,7 @@ actor instead of ticking forever.
   and change the message selector.
 - `sse.stop_connection()`: shut down the actor.
 
-### The on_message handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L45-L65"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The on_message handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L47-L68"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn handle_message(
@@ -230,12 +234,7 @@ fn handle_message(
   connection: sse.SSEConnection,
   _dependencies: Dependencies,
 ) -> sse.Action(State, Tick) {
-  let event =
-    sse.event("{\"count\": " <> int.to_string(state.count) <> "}")
-    |> sse.event_name("tick")
-    |> sse.event_id(int.to_string(state.count))
-
-  case sse.send_event(connection, event) {
+  case sse.send_event(connection, tick_event(state.count)) {
     Ok(Nil) -> {
       // Schedule the next tick
       process.send_after(state.self, 1000, Tick)
@@ -244,6 +243,12 @@ fn handle_message(
     // The client has gone away, so stop the actor
     Error(Nil) -> sse.stop_connection()
   }
+}
+
+pub fn tick_event(count: Int) -> sse.Event {
+  sse.event("{\"count\": " <> int.to_string(count) <> "}")
+  |> sse.event_name("tick")
+  |> sse.event_id(int.to_string(count))
 }
 ```
 
@@ -393,7 +398,7 @@ pub fn handle_events(
   )
 }
 
-fn handle_init(
+pub fn handle_init(
   _subject: process.Subject(AppEvent),
   dependencies: Dependencies,
 ) -> #(Int, option.Option(process.Selector(AppEvent))) {
@@ -522,8 +527,210 @@ When the client goes away (above, `head` closes the connection after a few lines
 
 ## Test your code
 
-The `examples/sse` project includes **full integration tests** written
-in Gherkin (Cucumber). These tests:
+The SSE connection needs a client, but the code around it doesn't. `tick_event` builds the event, `on_init` gets a subject that a test can make, and a controller can decide before the upgrade. This controller refuses a client without the token:
+
+### Decide before the upgrade <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L70-L76"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn handle_private_events(request: Request, context, services) -> Response {
+  // Decide before the upgrade: a refused client gets a normal answer
+  case get_header(request.headers, "Authorization") {
+    Some("Bearer secret-token") -> handle_events(request, context, services)
+    _ -> response.text_response(status.unauthorized, "Unauthorized")
+  }
+}
+```
+
+The test below calls these functions and `on_init` with no server. The `on_init` of the broadcast controller subscribes the test process, so the test publishes an event and receives it:
+
+### Test the code around the connection <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/guide_sse_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+//// SSE guide: a test of the code around the SSE connection
+////
+//// The functions are from test/snippets/sse_guide_controller.gleam and
+//// test/snippets/sse_guide_broadcast.gleam. The test needs no server: it
+//// calls the event builder, the decision before the upgrade, and on_init
+//// with a subject of the test process.
+
+import dream/context.{EmptyContext}
+import dream/http/header.{type Header, Header}
+import dream/http/request.{type Request, Get, Http, Http1, Request, Text}
+import dream/router.{EmptyServices}
+import dream/servers/mist/sse
+import dream/services/broadcaster
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, group, it}
+import gleam/erlang/process
+import gleam/option.{None, Some}
+import snippets/sse_guide_broadcast.{AppEvent}
+import snippets/sse_guide_controller.{Dependencies, Tick}
+
+fn events_request(headers: List(Header)) -> Request {
+  Request(
+    method: Get,
+    protocol: Http,
+    version: Http1,
+    path: "/events/private",
+    query: "",
+    params: [],
+    host: None,
+    port: None,
+    remote_address: None,
+    body: Text(""),
+    headers: headers,
+    cookies: [],
+    content_type: None,
+    content_length: None,
+  )
+}
+
+pub fn tests() -> TestSuite {
+  describe("SSE ticker", [
+    group("tick_event", [
+      it("names the event tick and numbers it with the count", fn() {
+        // Act
+        let event = sse_guide_controller.tick_event(3)
+
+        // Assert
+        event
+        |> should
+        |> be_equal(
+          sse.event("{\"count\": 3}")
+          |> sse.event_name("tick")
+          |> sse.event_id("3"),
+        )
+        |> or_fail_with("tick 3 should carry count 3, name tick and id 3")
+      }),
+    ]),
+    group("handle_private_events", [
+      it("answers 401 when the token is missing", fn() {
+        // Arrange
+        let request = events_request([])
+
+        // Act
+        let response =
+          sse_guide_controller.handle_private_events(
+            request,
+            EmptyContext,
+            EmptyServices,
+          )
+
+        // Assert
+        response.status
+        |> should
+        |> be_equal(401)
+        |> or_fail_with("a request without a token should get 401")
+      }),
+      it("upgrades when the token is right", fn() {
+        // Arrange
+        let request =
+          events_request([Header("Authorization", "Bearer secret-token")])
+
+        // Act
+        let response =
+          sse_guide_controller.handle_private_events(
+            request,
+            EmptyContext,
+            EmptyServices,
+          )
+
+        // Assert
+        response.status
+        |> should
+        |> be_equal(200)
+        |> or_fail_with("200 tells the server to upgrade to SSE")
+      }),
+    ]),
+    group("handle_init", [
+      it("starts the count at counter_start", fn() {
+        // Arrange
+        let subject = process.new_subject()
+
+        // Act
+        let #(state, _selector) =
+          sse_guide_controller.handle_init(
+            subject,
+            Dependencies(counter_start: 5),
+          )
+
+        // Assert
+        state.count
+        |> should
+        |> be_equal(5)
+        |> or_fail_with("the first tick should carry counter_start")
+      }),
+      it("sends the first tick to the actor", fn() {
+        // Arrange
+        let subject = process.new_subject()
+
+        // Act
+        let _started =
+          sse_guide_controller.handle_init(
+            subject,
+            Dependencies(counter_start: 0),
+          )
+
+        // Assert
+        process.receive(subject, 0)
+        |> should
+        |> be_equal(Ok(Tick))
+        |> or_fail_with("on_init should send Tick to its own subject")
+      }),
+      it("subscribes the actor to the event bus", fn() {
+        // Arrange
+        let assert Ok(event_bus) = broadcaster.start_broadcaster()
+        let dependencies = sse_guide_broadcast.Dependencies(event_bus:)
+        let #(_count, selector) =
+          sse_guide_broadcast.handle_init(process.new_subject(), dependencies)
+
+        // Act
+        broadcaster.publish(event_bus, AppEvent("hello"))
+
+        // Assert
+        receive_from(selector)
+        |> should
+        |> be_equal(Ok(AppEvent("hello")))
+        |> or_fail_with("a published event should reach the actor")
+      }),
+    ]),
+  ])
+}
+
+fn receive_from(
+  selector: option.Option(process.Selector(message)),
+) -> Result(message, Nil) {
+  case selector {
+    Some(selector) -> process.selector_receive(selector, 100)
+    None -> Error(Nil)
+  }
+}
+```
+
+### The report of the test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/outputs/guide_sse_report.txt"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+SSE ticker
+  handle_init
+    ✓ sends the first tick to the actor
+    ✓ starts the count at counter_start
+    ✓ subscribes the actor to the event bus
+  handle_private_events
+    ✓ answers 401 when the token is missing
+    ✓ upgrades when the token is right
+  tick_event
+    ✓ names the event tick and numbers it with the count
+
+Summary: 6 run, 0 failed, 6 passed in 0ms
+```
+
+A `200` from the controller tells the server to upgrade. A test can't go further without a client:
+
+- `on_message` gets an `SSEConnection`. It's an opaque type, and only the server makes one, so a test can't call `handle_message`.
+- `Event` and `Action` are opaque too. A test can compare an event with one built the same way, as the `tick_event` test does. It can't read the fields of the event or the text that the client gets.
+
+The `examples/sse` project tests those parts with a real server and a real client. Its integration tests are written in Gherkin (Cucumber), and they:
 
 - Start a real Dream server.
 - Connect with HTTPoison's async streaming mode.
@@ -537,11 +744,6 @@ To run them:
 ```bash
 (cd examples/sse && make test-integration)
 ```
-
-For unit tests, keep your SSE handlers small and pure by extracting
-logic into separate functions. You can test event construction and
-state transitions without opening real connections.
-
 
 ## Common pitfalls
 

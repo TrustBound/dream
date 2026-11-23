@@ -321,25 +321,41 @@ Documentation improvements are always welcome:
 
 ## Project Structure
 
-```text illustration
-dream/
-  src/
-    dream/
-      http/            # Request, Response, headers, cookies, params, validation
-      router/          # The route trie and the path parser
-      controllers/     # The static file controller
-      servers/mist/    # The server adapter (Mist)
-      services/        # The broadcaster
-  test/
-    dream/             # Tests mirror src/ structure
-    snippets/          # The tested code of the docs
-  docs/                # Documentation
-    guides/            # Task guides
-    reference/         # Technical reference
-  examples/            # Working example applications (each is its own Gleam project)
-  integration/         # The runner and HTTP client of the examples' integration tests
-  scripts/             # What CI runs
+The folders of Dream's source. Run the command in the root of the repository:
+
+### List the source folders <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme.sh#L85"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+find src/dream -type d | sort
 ```
+
+### The source folders <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L764-L771"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+src/dream
+src/dream/controllers
+src/dream/http
+src/dream/internal
+src/dream/router
+src/dream/servers
+src/dream/servers/mist
+src/dream/services
+```
+
+- `src/dream/http/`: request, response, headers, cookies, params, validation.
+- `src/dream/router/`: the route trie and the path parser.
+- `src/dream/controllers/`: the static file controller.
+- `src/dream/servers/mist/`: the server adapter.
+- `src/dream/services/`: the broadcaster.
+- `src/dream/internal/`: code that the modules share, not for apps.
+
+The other folders of the root:
+
+- `test/`: `test/dream/` mirrors `src/`, and `test/snippets/` holds the tested code of the docs.
+- `docs/`: the documentation. `docs/guides/` holds the task guides, and `docs/reference/` the technical reference.
+- `examples/`: working example applications. Each is its own Gleam project.
+- `integration/`: the runner and the HTTP client of the examples' integration tests.
+- `scripts/`: what CI runs.
 
 ## Publishing (Maintainers Only)
 

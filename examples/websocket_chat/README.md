@@ -53,7 +53,7 @@ Every request opens a new connection, gets a response, and closes. This is fine 
 ```text illustration
 Browser                    Server
    |                          |
-   |---"Upgrade to WebSocket"-|
+   |---"Upgrade to WebSocket"->|
    |<---"OK, upgraded"---------|
    |                          |
    |====== PERSISTENT ========|  (stays open)
@@ -100,9 +100,9 @@ Here's the complete picture of how everything fits together:
     │                                                │
     │  ┌──────────────────────────────────────────┐ │
     │  │  Router                                  │ │
-    │  │  GET /       → home.show                 │ │
-    │  │  GET /chat   → chat.handle_chat_upgrade  │ │
-    │  │  GET /assets → static_controller.serve   │ │
+    │  │  GET /                  → home.show      │ │
+    │  │  GET /chat              → chat.handle_...│ │
+    │  │  GET /assets/**filepath → serve_assets   │ │
     │  └──────────────┬───────────────────────────┘ │
     │                 │                              │
     │  ┌──────────────▼───────────────────────────┐ │
@@ -143,44 +143,53 @@ Here's the complete picture of how everything fits together:
 
 ## Code Structure
 
-```text illustration
-examples/websocket_chat/
-├── gleam.toml              # Project config
-├── Makefile                # Build and test commands
-├── mix.exs                 # Elixir test dependencies
-├── assets/                 # Frontend assets
-│   ├── scripts/
-│   │   └── chat.js        # WebSocket client logic
-│   └── styles/
-│       └── chat.css       # Chat UI styling
-├── src/
-│   ├── main.gleam         # Application entry point
-│   ├── router.gleam       # Route definitions
-│   ├── services.gleam     # Application services
-│   ├── controllers/
-│   │   ├── chat.gleam     # WebSocket upgrade handler
-│   │   ├── home.gleam     # HTML page controller
-│   │   └── static_controller.gleam  # Asset serving
-│   ├── services/
-│   │   └── chat_service.gleam  # Broadcaster initialization
-│   ├── types/
-│   │   └── chat_message.gleam  # Message type definitions
-│   ├── views/
-│   │   └── chat_view.gleam  # HTML rendering
-│   └── templates/          # Matcha templates
-│       ├── components/
-│       ├── elements/
-│       ├── layouts/
-│       └── pages/
-└── test/
-    └── integration/        # Cucumber tests
-        ├── features/
-        │   ├── websocket_chat.feature
-        │   └── step_definitions/
-        │       ├── http_steps.exs
-        │       └── websocket_steps.exs
-        └── test_helper.exs
+The example has these source files and assets:
+
+### List the files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/test/integration/readme.sh#L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+find assets src -type f | sort
 ```
+
+### The files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/test/integration/readme_output.txt#L7-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+assets/scripts/chat.js
+assets/styles/chat.css
+src/controllers/chat.gleam
+src/controllers/home.gleam
+src/controllers/static_controller.gleam
+src/main.gleam
+src/router.gleam
+src/services.gleam
+src/services/chat_service.gleam
+src/templates/components/chat_header.gleam
+src/templates/components/chat_header.matcha
+src/templates/components/input_area.gleam
+src/templates/components/input_area.matcha
+src/templates/components/messages_container.gleam
+src/templates/components/messages_container.matcha
+src/templates/components/welcome_screen.gleam
+src/templates/components/welcome_screen.matcha
+src/templates/elements/button.gleam
+src/templates/elements/button.matcha
+src/templates/elements/input.gleam
+src/templates/elements/input.matcha
+src/templates/layouts/page.gleam
+src/templates/layouts/page.matcha
+src/templates/pages/chat.gleam
+src/templates/pages/chat.matcha
+src/types/chat_message.gleam
+src/views/chat_view.gleam
+```
+
+- `src/controllers/chat.gleam`: the WebSocket upgrade and its handlers.
+- `src/controllers/home.gleam`: the HTML page. `src/controllers/static_controller.gleam`: the assets.
+- `src/services/chat_service.gleam`: starts the broadcaster.
+- `src/types/chat_message.gleam`: the message type.
+- `src/templates/`: the Matcha templates, and the Gleam modules generated from them.
+- `assets/scripts/chat.js`: the WebSocket client.
+- The integration tests are in `test/integration/`.
 
 ## How It Works: Complete Walkthrough
 
@@ -224,6 +233,7 @@ This sends an HTTP request with special headers. The key is the example of RFC 6
 
 ```http illustration
 GET /chat?user=Alice HTTP/1.1
+Host: localhost:8080
 Connection: Upgrade
 Upgrade: websocket
 Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
@@ -353,9 +363,10 @@ Alice's Browser            Server            Bob's Browser
       |                      |                      |
       |   [each connection gets a CustomMessage]    |
       |   [and sends it to its browser as JSON]     |
-      |<--Alice: Hello!------|                      |
-      |                      |---Alice: Hello!----->|
+      |<--JSON message-------|---JSON message------>|
 ```
+
+Each browser gets the same text frame: `{"type":"message","user":"Alice","text":"Hello!"}`. `chat.js` shows the user name and the text.
 
 ### Step 6: The Broadcaster Service - How Multi-User Chat Works
 
@@ -1409,8 +1420,8 @@ Write integration tests using the Cucumber pattern from this example:
 Feature: My WebSocket Feature
 
 Scenario: User receives real-time updates
-  Given the server is running
-  When user "Alice" connects
+  Given the server is running on port 8080
+  When user "Alice" connects to the chat
   And user "Bob" sends update "status changed"
   Then user "Alice" should receive the update
 ```

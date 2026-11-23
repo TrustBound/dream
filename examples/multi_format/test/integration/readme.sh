@@ -28,3 +28,7 @@ echo
 curl -i http://localhost:3000/products/99.json
 echo
 curl -s -o /dev/null -w "%{http_code} %{content_type}\n" http://localhost:3000/products/1.xml
+
+# The files of the project structure in README.md
+cd "$EXAMPLE"
+find src priv -type f | sort

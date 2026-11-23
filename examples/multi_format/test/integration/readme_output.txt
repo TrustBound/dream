@@ -88,3 +88,26 @@ connection: keep-alive
 
 <h1>404 Not Found</h1><p>Product not found</p>
 200 text/html; charset=utf-8
+priv/migrations/20251106170310-create_products.sql
+src/context.gleam
+src/controllers/products_controller.gleam
+src/database.gleam
+src/main.gleam
+src/models/product.gleam
+src/operations/product_operations.gleam
+src/router.gleam
+src/services.gleam
+src/sql.gleam
+src/sql/get_product.sql
+src/sql/list_products.sql
+src/types/errors.gleam
+src/types/product.gleam
+src/utilities/response_helpers.gleam
+src/views/errors.gleam
+src/views/products/templates/card.gleam
+src/views/products/templates/card.matcha
+src/views/products/templates/index.gleam
+src/views/products/templates/index.matcha
+src/views/products/templates/show.gleam
+src/views/products/templates/show.matcha
+src/views/products/view.gleam

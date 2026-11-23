@@ -54,11 +54,13 @@
 //// Use this for content negotiation without query strings.
 
 import dream/http/request
+import dream/internal/path_parameter
 import gleam/float
 import gleam/http
 import gleam/int
 import gleam/list
 import gleam/option
+import gleam/result
 import gleam/string
 import gleam/uri
 import gleam/yielder
@@ -815,7 +817,8 @@ fn parse_path_param(raw: String) -> PathParam {
 /// Extract a path parameter by name
 ///
 /// Returns a `PathParam` with automatic type conversion and format detection.
-/// If the parameter doesn't exist, returns an error message.
+/// If the parameter doesn't exist, returns
+/// `Error("Missing required path parameter: <name>")`.
 ///
 /// For common cases, use `get_int_param()` or `get_string_param()` instead,
 /// which return `Result(Int, String)` or `Result(String, String)` with
@@ -867,16 +870,15 @@ fn parse_path_param(raw: String) -> PathParam {
 /// }
 /// ```
 pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
-  case list.key_find(request.params, name) {
-    Ok(value) -> Ok(parse_path_param(value))
-    Error(_) -> Error("Missing required path parameter: " <> name)
-  }
+  path_parameter.find(request.params, name)
+  |> result.map(parse_path_param)
 }
 
 /// Extract a path parameter as an integer
 ///
-/// Returns a Result with a custom error message if the parameter is missing
-/// or cannot be converted to an integer.
+/// Returns `Error("Missing required path parameter: <name>")` when the route
+/// has no such parameter, the same message as `get_param`, and
+/// `Error("<name> must be an integer")` when the value is not an integer.
 ///
 /// ## Examples
 ///
@@ -895,7 +897,7 @@ pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
 pub fn get_int_param(request: Request, name: String) -> Result(Int, String) {
   case get_param(request, name) {
     Ok(param) -> param_to_int(param, name)
-    Error(_) -> Error("Missing " <> name <> " parameter")
+    Error(message) -> Error(message)
   }
 }
 
@@ -908,7 +910,8 @@ fn param_to_int(param: PathParam, name: String) -> Result(Int, String) {
 
 /// Extract a path parameter as a string
 ///
-/// Returns a Result with a custom error message if the parameter is missing.
+/// Returns `Error("Missing required path parameter: <name>")` when the route
+/// has no such parameter, the same message as `get_param`.
 ///
 /// ## Examples
 ///
@@ -930,7 +933,7 @@ pub fn get_string_param(
 ) -> Result(String, String) {
   case get_param(request, name) {
     Ok(param) -> param_to_string(param, name)
-    Error(_) -> Error("Missing " <> name <> " parameter")
+    Error(message) -> Error(message)
   }
 }
 

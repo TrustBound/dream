@@ -23,9 +23,11 @@ import snippets/guide_operating_test
 import snippets/guide_request_data_test
 import snippets/guide_responses_test
 import snippets/guide_routing_test
+import snippets/guide_sse_test
 import snippets/guide_streaming_test
 import snippets/guide_templates_test
 import snippets/guide_testing_failing_test
+import snippets/guide_websockets_test
 
 pub fn tests() -> TestSuite {
   describe("Guide reports", [
@@ -40,6 +42,8 @@ pub fn tests() -> TestSuite {
     report_test("guide_api_patterns_report", guide_api_patterns_test.tests),
     report_test("guide_templates_report", guide_templates_test.tests),
     report_test("guide_streaming_report", guide_streaming_test.tests),
+    report_test("guide_sse_report", guide_sse_test.tests),
+    report_test("guide_websockets_report", guide_websockets_test.tests),
     report_test("guide_http2_report", guide_http2_test.tests),
     report_test("guide_deployment_report", guide_deployment_test.tests),
     report_test("guide_operating_report", guide_operating_test.tests),

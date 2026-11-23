@@ -60,21 +60,32 @@ curl -H "Authorization: Bearer user-token" \
 
 ## Code Structure
 
-```text illustration
-examples/custom_context/
-├── gleam.toml          # Project config
-├── Makefile            # Build and run commands
-└── src/
-    ├── main.gleam     # Application entry point
-    ├── router.gleam   # Route definitions with middleware
-    ├── context.gleam  # AuthContext type definition
-    ├── services.gleam  # Service initialization
-    ├── controllers/
-    │   └── posts_controller.gleam
-    └── middleware/
-        ├── auth_middleware.gleam      # Token validation
-        └── admin_middleware.gleam     # Role checking
+The example has these source files:
+
+### List the source files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/custom_context/test/integration/readme.sh#L54"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+find src -type f | sort
 ```
+
+### The source files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/custom_context/test/integration/readme_output.txt#L1240-L1248"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+src/context.gleam
+src/controllers/posts_controller.gleam
+src/main.gleam
+src/middleware/admin_middleware.gleam
+src/middleware/auth_middleware.gleam
+src/router.gleam
+src/services.gleam
+src/utilities/response_helpers.gleam
+src/views/post_view.gleam
+```
+
+- `src/context.gleam`: the `AuthContext` type.
+- `src/middleware/auth_middleware.gleam`: checks the token and puts the user in the context.
+- `src/middleware/admin_middleware.gleam`: checks the role of the user.
+- `src/controllers/posts_controller.gleam`: reads the user from the context.
 
 ## Key Concepts
 

@@ -92,21 +92,30 @@ curl -i http://localhost:3000/api/status
 
 ## Code Structure
 
-```text illustration
-examples/rate_limiter/
-├── gleam.toml          # Project config
-├── Makefile            # Build and run commands
-└── src/
-    ├── main.gleam      # Application entry point
-    ├── router.gleam    # Route definitions
-    ├── services.gleam  # Service initialization
-    ├── controllers/
-    │   └── api_controller.gleam
-    ├── middleware/
-    │   └── rate_limit_middleware.gleam
-    └── services/
-        └── rate_limiter_service.gleam  # ETS-backed rate limiter service
+The example has these source files:
+
+### List the source files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/rate_limiter/test/integration/readme.sh#L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+find src -type f | sort
 ```
+
+### The source files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/rate_limiter/test/integration/readme_output.txt#L134-L141"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+src/controllers/api_controller.gleam
+src/main.gleam
+src/middleware/rate_limit_middleware.gleam
+src/router.gleam
+src/services.gleam
+src/services/rate_limiter_service.gleam
+src/utilities/response_helpers.gleam
+src/views/api_view.gleam
+```
+
+- `src/services/rate_limiter_service.gleam`: the rate limiter, backed by ETS.
+- `src/middleware/rate_limit_middleware.gleam`: counts each request and answers `429` over the limit.
+- `src/controllers/api_controller.gleam`: the API routes.
 
 ## Key Concepts
 

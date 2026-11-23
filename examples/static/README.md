@@ -89,28 +89,44 @@ Static files are served as-is. No server-side execution. No code interpretation.
 
 ## File Structure
 
-```text illustration
-examples/static/
-  src/
-    controllers/
-      static_controller.gleam     # Controller functions for each route
-  public/                          # Main static directory
-    index.html                     # Root page
-    styles.css                     # Stylesheet
-    script.js                      # JavaScript
-    about/
-      index.html                   # Nested page
-    images/
-      cat.svg                      # SVG cat image
-      logo.png                     # PNG placeholder
-      photo.jpg                    # JPG placeholder
-  assets/                          # Alternative static directory
-    data.json                      # JSON data file
-  src/
-    main.gleam                     # Application entry point
-    router.gleam                   # Route definitions
-    services.gleam                 # Empty services
+The files that the example serves are in `public/` (the main folder) and `assets/` (a second folder):
+
+### List the files of public/ <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/static/test/integration/readme.sh#L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+find public -type f | sort
 ```
+
+### The files of public/ <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/static/test/integration/readme_output.txt#L48-L54"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+public/about/index.html
+public/images/cat.svg
+public/images/logo.png
+public/images/photo.jpg
+public/index.html
+public/script.js
+public/styles.css
+```
+
+### List the source files and assets/ <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/static/test/integration/readme.sh#L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+find src assets -type f | sort
+```
+
+### The source files and assets/ <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/static/test/integration/readme_output.txt#L55-L59"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+assets/data.json
+src/controllers/static_controller.gleam
+src/main.gleam
+src/router.gleam
+src/services.gleam
+```
+
+- `src/controllers/static_controller.gleam`: one controller function for each route.
+- `public/images/logo.png` and `public/images/photo.jpg`: small placeholder images.
 
 ## Using in Your Own App
 

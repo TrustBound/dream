@@ -52,3 +52,8 @@ public/images/photo.jpg
 public/index.html
 public/script.js
 public/styles.css
+assets/data.json
+src/controllers/static_controller.gleam
+src/main.gleam
+src/router.gleam
+src/services.gleam

@@ -76,6 +76,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Every code block in the guides, READMEs, doc comments and SECURITY.md
   comes from a tested snippet, with a "tested snippet" badge that links to
   it.
+- The SSE and WebSockets guides test the reader's handlers with no server,
+  and show the real report. The folder trees of the example READMEs and the
+  contributing guides are the real output of `find`, which the integration
+  run compares.
 - Every public function has a tested example in its doc comment: 47
   functions got a new one, so all 134 have one. Every public type and
   constant has a doc comment.
@@ -158,6 +162,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CONNECT, TRACE and every other method keep their name. They used to become `Get`, so `PURGE /` and `TRACE /` ran the `GET /` controller. They now get the route of their method, or `404 Route not found`.
 - `static.serve` sends binary files with their exact bytes. It used to answer 404 for each file that is not UTF-8.
 - The `static` directory listing escapes file names and the request path, and percent-encodes each link.
+- A buffered body over `max_body_size` gets `413 Content Too Large` with the plain-text body `Request body too large` (RFC 9110, section 15.5.14). It used to get `400 Bad Request` with an empty body. A chunked HTTP/1.1 body over the limit used to reach the controller. A body that cannot be read still gets `400`, now with the plain-text body `Request body could not be read`.
+- `get_int_param` and `get_string_param` (in `dream/http/request` and `dream/http/transaction`), and so `require_int` and `require_string`, give `Missing required path parameter: <name>` for a missing parameter, the message of `get_param`. They used to give `Missing <name> parameter`.
 
 ### Testing
 
@@ -167,8 +173,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gleam test` now measures the line coverage of `src/`. The run fails when
   coverage is below 100%. CI checks first that the BEAM supports native
   coverage. The README shows a coverage badge.
-- 1121 tests run, 0 failed, in about 18 seconds (Apple M1 Max, OTP 29, Gleam
-  1.19.2). Line coverage of `src/` is 1083 of 1084 lines (99.9%). The snippet check finds 580 Gleam code blocks and 7 diff blocks, proves 47 file blocks, 127 command blocks and 65 output blocks, and counts 52 illustrations, with no problems. The integration tests run
+- 1129 tests run, 0 failed, in about 18 seconds (Apple M1 Max, OTP 29, Gleam
+  1.19.2). Line coverage of `src/` is 1087 of 1088 lines (99.9%). The snippet check finds 583 Gleam code blocks and 7 diff blocks, proves 47 file blocks, 142 command blocks and 82 output blocks, and counts 39 illustrations, with no problems. The integration tests run
   eleven examples, ten of them over HTTP/1.1 and over HTTP/2 with TLS.
 
 ## [2.4.1] - 2026-03-11

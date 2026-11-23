@@ -275,8 +275,8 @@ fn testing_standards_tests() -> UnitNode {
       response
       |> should()
       |> extract_body_text()
-      |> be_equal("Missing id parameter")
-      |> or_fail_with("Expected \"Missing id parameter\"")
+      |> be_equal("Missing required path parameter: id")
+      |> or_fail_with("Expected \"Missing required path parameter: id\"")
     }),
     it("show_user returns status 400 when the id is missing", fn() {
       // Arrange

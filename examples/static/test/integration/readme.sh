@@ -19,3 +19,7 @@ echo
 # The files that the guide serves, listed from the example's folder
 cd "$EXAMPLE"
 find public -type f | sort
+
+# The files of the project structure in README.md
+cd "$EXAMPLE"
+find src assets -type f | sort

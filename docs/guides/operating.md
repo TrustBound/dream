@@ -109,16 +109,45 @@ head -c 1000001 /dev/zero | tr '\0' 'a' |
   curl -i -X POST --data-binary @- http://localhost:3000/signups
 ```
 
-### The answer to a body over the limit <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L729-L732"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The answer to a body over the limit <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L729-L735"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```text
-HTTP/1.1 400 Bad Request
-content-length: 0
+HTTP/1.1 413 Payload Too Large
+content-type: text/plain; charset=utf-8
+content-length: 22
 date: (the time of the request)
 connection: keep-alive
+
+Request body too large
 ```
 
-The server answers `400 Bad Request` with an empty body before your controller runs. It's not `413 Payload Too Large`, and the same `400` comes back when a body can't be read for another reason. Routes made with `stream_route` aren't limited: the controller reads the body chunk by chunk and decides itself, as [Stream responses and uploads](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) shows.
+The server answers `413 Content Too Large` (RFC 9110, section 15.5.14) and your controller doesn't run. The reason phrase on the status line is the older name, `Payload Too Large`, from the HTTP server underneath Dream. This request declares its size in `content-length`, so the server answers before it reads the body.
+
+A client can also send the body in chunks, with no `content-length`:
+
+### Post a chunked body over the limit <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme.sh#L72-L74"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+head -c 1000001 /dev/zero | tr '\0' 'a' |
+  curl -i -X POST -H "transfer-encoding: chunked" --data-binary @- \
+    http://localhost:3000/signups
+```
+
+### The answer to a chunked body over the limit <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L736-L742"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+HTTP/1.1 413 Payload Too Large
+content-type: text/plain; charset=utf-8
+content-length: 22
+date: (the time of the request)
+connection: keep-alive
+
+Request body too large
+```
+
+The answer is the same, but it comes later. Over HTTP/1.1 the server reads the whole chunked body into memory, then compares its size with the limit. Over HTTP/2 it stops when the body grows over the limit. A body that stops early, or has malformed chunks, gets `400 Bad Request` with the plain-text body `Request body could not be read`.
+
+Routes made with `stream_route` aren't limited: the controller reads the body chunk by chunk and decides itself, as [Stream responses and uploads](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) shows.
 
 ## Step 4: Start and stop a server from code
 
@@ -251,7 +280,7 @@ Summary: 1 run, 0 failed, 1 passed in 0ms
 - **A test server that's never stopped.** The port stays taken, and the next run of the test fails to start. Stop every handle, also when an assertion fails, for example in an `after_each` hook.
 - **Two tests on the same port at the same time.** Give each test its own port, or run those tests one at a time.
 - **`listen` in a test.** It never returns. Use `listen_with_handle`.
-- **Expecting `413` for a big body.** Dream answers `400`. If your clients need `413`, use a stream route for that path and answer `413` yourself.
+- **A chunked body is read before the limit applies.** Over HTTP/1.1 the server holds the whole chunked body in memory before it answers `413`. For uploads that can be very large, use a stream route and count the bytes as they arrive.
 - **Relative paths in production.** Certificate files and the static root are relative to the folder the program starts in.
 
 ## Where to go next

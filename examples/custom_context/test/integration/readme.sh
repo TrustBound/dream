@@ -48,3 +48,7 @@ curl -i -H "Authorization: Bearer user-token" http://localhost:3001/admin
 echo
 curl -i -H "Authorization: Bearer admin-token" http://localhost:3001/admin
 echo
+
+# The files of the project structure in README.md
+cd "$EXAMPLE"
+find src -type f | sort

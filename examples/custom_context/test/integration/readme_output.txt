@@ -1237,3 +1237,12 @@ date: (the time of the request)
 connection: keep-alive
 
 Hello, World!
+src/context.gleam
+src/controllers/posts_controller.gleam
+src/main.gleam
+src/middleware/admin_middleware.gleam
+src/middleware/auth_middleware.gleam
+src/router.gleam
+src/services.gleam
+src/utilities/response_helpers.gleam
+src/views/post_view.gleam

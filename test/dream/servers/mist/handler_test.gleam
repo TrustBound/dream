@@ -17,11 +17,15 @@ import dream_test/suite.{type TestSuite}
 import dream_test/types.{AssertionOk}
 import dream_test/unit.{describe, group, it}
 import fixtures/mist_connection
+import gleam/bit_array
+import gleam/bytes_tree
 import gleam/erlang/process.{type Selector, type Subject}
 import gleam/http
+import gleam/http/response as http_response
 import gleam/option.{type Option, None}
 import gleam/result
 import gleam/yielder
+import mist
 
 const max_body_size = 10
 
@@ -55,12 +59,66 @@ pub fn tests() -> TestSuite {
       }),
     ]),
     group("request body errors", [
-      it("answers 400 when a buffered body is larger than the limit", fn() {
+      it("answers 413 when content-length is over the limit", fn() {
         // Arrange
-        let connection = mist_connection.closed_connection(<<>>)
+        let request = declared_too_large_request()
+
+        // Act
+        let response = test_handler()(request)
+
+        // Assert
+        response.status
+        |> should()
+        |> be_equal(413)
+        |> or_fail_with("A declared body over max_body_size should get 413")
+      }),
+      it("names the cause in the body of a 413", fn() {
+        // Arrange
+        let request = declared_too_large_request()
+
+        // Act
+        let response = test_handler()(request)
+
+        // Assert
+        response_text(response)
+        |> should()
+        |> be_equal("Request body too large")
+        |> or_fail_with("A 413 should say why in plain text")
+      }),
+      it("answers 413 when a chunked body grows over the limit", fn() {
+        // Arrange
+        let request =
+          chunked_request(<<"6\r\nhello \r\n5\r\nworld\r\n0\r\n\r\n">>)
+
+        // Act
+        let response = test_handler()(request)
+
+        // Assert
+        response.status
+        |> should()
+        |> be_equal(413)
+        |> or_fail_with("A chunked body over max_body_size should get 413")
+      }),
+      it("runs the controller for a chunked body at the limit", fn() {
+        // Arrange
+        let request =
+          chunked_request(<<"5\r\nhello\r\n5\r\nworld\r\n0\r\n\r\n">>)
+
+        // Act
+        let response = test_handler()(request)
+
+        // Assert
+        response.status
+        |> should()
+        |> be_equal(200)
+        |> or_fail_with("A chunked body of max_body_size bytes should pass")
+      }),
+      it("answers 400 when a buffered body cannot be read", fn() {
+        // Arrange
+        let connection = mist_connection.closed_connection(<<"hello">>)
         let request =
           mist_connection.request(connection, http.Post, "/buffered", [
-            #("content-length", "100"),
+            #("content-length", "10"),
           ])
 
         // Act
@@ -70,7 +128,41 @@ pub fn tests() -> TestSuite {
         response.status
         |> should()
         |> be_equal(400)
-        |> or_fail_with("A body over max_body_size should get 400")
+        |> or_fail_with("A body that stops early should get 400")
+      }),
+      it("names the cause in the body of a 400", fn() {
+        // Arrange
+        let connection = mist_connection.closed_connection(<<"hello">>)
+        let request =
+          mist_connection.request(connection, http.Post, "/buffered", [
+            #("content-length", "10"),
+          ])
+
+        // Act
+        let response = test_handler()(request)
+
+        // Assert
+        response_text(response)
+        |> should()
+        |> be_equal("Request body could not be read")
+        |> or_fail_with("A 400 should say why in plain text")
+      }),
+      it("names the cause in the content-type of a 400", fn() {
+        // Arrange
+        let connection = mist_connection.closed_connection(<<"hello">>)
+        let request =
+          mist_connection.request(connection, http.Post, "/buffered", [
+            #("content-length", "10"),
+          ])
+
+        // Act
+        let response = test_handler()(request)
+
+        // Assert
+        http_response.get_header(response, "content-type")
+        |> should()
+        |> be_equal(Ok("text/plain; charset=utf-8"))
+        |> or_fail_with("A built-in answer should be plain text")
       }),
       it("answers 400 when a streamed body cannot be read", fn() {
         // Arrange
@@ -192,6 +284,39 @@ pub fn tests() -> TestSuite {
       }),
     ]),
   ])
+}
+
+// ============================================================================
+// Requests and answers
+// ============================================================================
+
+/// A request that declares 100 bytes, over the limit of 10.
+fn declared_too_large_request() {
+  let connection = mist_connection.closed_connection(<<>>)
+  mist_connection.request(connection, http.Post, "/buffered", [
+    #("content-length", "100"),
+  ])
+}
+
+/// A chunked request to `/buffered`. Mist read all of `chunks` with the head.
+fn chunked_request(chunks: BitArray) {
+  let connection = mist_connection.closed_connection(chunks)
+  mist_connection.request(connection, http.Post, "/buffered", [
+    #("transfer-encoding", "chunked"),
+  ])
+}
+
+/// The text of a built-in answer, or "" when the body is not bytes.
+fn response_text(
+  response: http_response.Response(mist.ResponseData),
+) -> String {
+  case response.body {
+    mist.Bytes(tree) ->
+      bytes_tree.to_bit_array(tree)
+      |> bit_array.to_string()
+      |> result.unwrap("")
+    _ -> ""
+  }
 }
 
 // ============================================================================

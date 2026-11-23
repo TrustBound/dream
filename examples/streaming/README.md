@@ -44,17 +44,26 @@ curl http://localhost:3003/stream
 
 ## Code Structure
 
-```text illustration
-examples/streaming/
-├── gleam.toml          # Project config
-├── Makefile            # Build and run commands
-└── src/
-    ├── main.gleam     # Application entry point
-    ├── router.gleam   # Route definitions
-    ├── services.gleam  # Empty services
-    └── controllers/
-        └── stream_controller.gleam  # HTTP client usage
+The example has these source files:
+
+### List the source files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/streaming/test/integration/readme.sh#L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+find src -type f | sort
 ```
+
+### The source files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/streaming/test/integration/readme_output.txt#L20-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+src/controllers/stream_controller.gleam
+src/main.gleam
+src/router.gleam
+src/services.gleam
+src/views/stream_view.gleam
+```
+
+- `src/controllers/stream_controller.gleam`: the HTTP client calls.
+- `src/views/stream_view.gleam`: text formatting.
 
 ## Key Concepts
 

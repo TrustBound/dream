@@ -17,3 +17,8 @@ Chunk 7
 Chunk 8
 Chunk 9
 Chunk 10
+src/controllers/stream_controller.gleam
+src/main.gleam
+src/router.gleam
+src/services.gleam
+src/views/stream_view.gleam

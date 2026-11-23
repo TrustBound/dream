@@ -673,7 +673,9 @@ fn params_tests() -> UnitNode {
       // Assert
       result
       |> should()
-      |> be_equal(Error(error.BadRequest("Missing name parameter")))
+      |> be_equal(
+        Error(error.BadRequest("Missing required path parameter: name")),
+      )
       |> or_fail_with("greeting should report a missing name")
     }),
     it("require_form example reads the title", fn() {

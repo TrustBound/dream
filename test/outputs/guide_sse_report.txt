@@ -1,0 +1,12 @@
+SSE ticker
+  handle_init
+    ✓ sends the first tick to the actor
+    ✓ starts the count at counter_start
+    ✓ subscribes the actor to the event bus
+  handle_private_events
+    ✓ answers 401 when the token is missing
+    ✓ upgrades when the token is right
+  tick_event
+    ✓ names the event tick and numbers it with the count
+
+Summary: 6 run, 0 failed, 6 passed in 0ms

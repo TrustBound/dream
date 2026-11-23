@@ -1,0 +1,11 @@
+chat handlers
+  handle_websocket_close
+    ✓ tells the others that the user left
+  reply_to
+    ✓ closes when the connection ends
+    ✓ ignores a binary message
+    ✓ keeps the connection open after a text message
+    ✓ publishes a text message with the user's name
+    ✓ sends a broadcast message to the client as text
+
+Summary: 6 run, 0 failed, 6 passed in 0ms

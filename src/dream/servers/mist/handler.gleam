@@ -7,14 +7,13 @@ import dream/servers/mist/internal
 import dream/servers/mist/request as mist_request
 import dream/servers/mist/response as mist_response
 import gleam/bit_array
-import gleam/bytes_tree
 import gleam/erlang/atom
 import gleam/http/request as http_request
 import gleam/http/response as http_response
 import gleam/list
 import gleam/option
 import gleam/yielder
-import mist.{type Connection, type ResponseData, Bytes}
+import mist.{type Connection, type ResponseData}
 
 /// Create a request handler that converts Mist requests to Dream requests
 ///
@@ -33,7 +32,9 @@ import mist.{type Connection, type ResponseData, Bytes}
 /// ## Parameters
 ///
 /// - `router`: The application's router with all routes configured
-/// - `max_body_size`: Maximum allowed request body size in bytes
+/// - `max_body_size`: Maximum allowed request body size in bytes. A buffered
+///   body over it gets `413 Content Too Large` with the plain-text body
+///   `Request body too large`, and the controller doesn't run.
 /// - `template_context`: Template context to clone for each request
 /// - `services_instance`: Application services (database, cache, etc.)
 /// - `update_context`: Function to update context with request-specific data
@@ -154,17 +155,7 @@ fn create_request_handler(
       }
 
       // 404 Not Found - Return immediately without reading body
-      option.None -> {
-        let dream_response =
-          Response(
-            status: 404,
-            body: Text("Route not found"),
-            headers: [Header("Content-Type", "text/plain; charset=utf-8")],
-            cookies: [],
-            content_type: option.Some("text/plain; charset=utf-8"),
-          )
-        convert_dream_response(mist_request, dream_response)
-      }
+      option.None -> plain_text_answer(404, "Route not found")
     }
 
     // 6. Check for upgrade response in stash (WebSocket)
@@ -247,7 +238,7 @@ fn prepare_streaming_request(
       let chunks = yielder.unfold(chunk_provider, stream_unfolder)
       Ok(Request(..partial_request, body: request.Stream(chunks)))
     }
-    Error(_) -> Error(bad_request_response())
+    Error(_) -> Error(unreadable_body_answer())
   }
 }
 
@@ -279,11 +270,25 @@ fn prepare_buffered_request(
   max_body_size: Int,
 ) -> Result(Request, http_response.Response(ResponseData)) {
   case mist.read_body(mist_request, max_body_limit: max_body_size) {
-    Ok(request_with_body) -> {
-      let body = buffered_body(request_with_body.body)
-      Ok(Request(..partial_request, body: body))
-    }
-    Error(_) -> Error(bad_request_response())
+    Ok(request_with_body) ->
+      limit_body(partial_request, request_with_body.body, max_body_size)
+    Error(mist.ExcessBody) -> Error(too_large_answer())
+    Error(mist.MalformedBody) -> Error(unreadable_body_answer())
+  }
+}
+
+/// Mist refuses a body whose `content-length` is over the limit before it
+/// reads the body, and an HTTP/2 body when it grows over the limit. Mist
+/// reads a chunked HTTP/1.1 body to its end with no limit, so this size check
+/// refuses that body after the read.
+fn limit_body(
+  partial_request: Request,
+  bytes: BitArray,
+  max_body_size: Int,
+) -> Result(Request, http_response.Response(ResponseData)) {
+  case bit_array.byte_size(bytes) > max_body_size {
+    True -> Error(too_large_answer())
+    False -> Ok(Request(..partial_request, body: buffered_body(bytes)))
   }
 }
 
@@ -314,7 +319,29 @@ fn extract_dream_headers(response: Response) -> List(#(String, String)) {
   })
 }
 
-fn bad_request_response() -> http_response.Response(ResponseData) {
-  http_response.new(400)
-  |> http_response.set_body(Bytes(bytes_tree.new()))
+/// 413 Content Too Large (RFC 9110, section 15.5.14): the buffered body is
+/// over `max_body_size`.
+fn too_large_answer() -> http_response.Response(ResponseData) {
+  plain_text_answer(413, "Request body too large")
+}
+
+/// 400 Bad Request: the body stopped early, or its chunks are malformed.
+fn unreadable_body_answer() -> http_response.Response(ResponseData) {
+  plain_text_answer(400, "Request body could not be read")
+}
+
+/// Every answer that the handler gives itself, with no controller, is a short
+/// plain-text body.
+fn plain_text_answer(
+  status: Int,
+  text: String,
+) -> http_response.Response(ResponseData) {
+  Response(
+    status: status,
+    body: Text(text),
+    headers: [Header("Content-Type", "text/plain; charset=utf-8")],
+    cookies: [],
+    content_type: option.Some("text/plain; charset=utf-8"),
+  )
+  |> mist_response.convert()
 }

@@ -317,18 +317,35 @@ pub fn tests() -> TestSuite {
 
 ### Location
 
-```text illustration
-examples/simple/
-├── test/integration/
-│   ├── features/
-│   │   ├── simple.feature
-│   │   └── step_definitions/
-│   │       └── http_steps.exs
-│   ├── cucumber_test.exs
-│   └── test_helper.exs
-├── mix.exs
-└── Makefile
+The `simple` example has these test files. Run the command in `examples/simple`:
+
+#### List the test files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme.sh#L80"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+find test/integration mix.exs Makefile -type f | sort
 ```
+
+#### The test files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L753-L763"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+Makefile
+mix.exs
+test/integration/cucumber_test.exs
+test/integration/features/simple.feature
+test/integration/features/step_definitions/http_steps.exs
+test/integration/readme.sh
+test/integration/readme_http2.sh
+test/integration/readme_http2_output.txt
+test/integration/readme_output.txt
+test/integration/start.sh
+test/integration/test_helper.exs
+```
+
+- `features/*.feature`: the Gherkin scenarios. `features/step_definitions/http_steps.exs`: the step implementations.
+- `cucumber_test.exs` and `test_helper.exs`: the ExUnit entry point and the Cucumber configuration.
+- `start.sh`: starts the server as the README says.
+- `readme.sh` and `readme_output.txt`: the commands of the README and their expected output. `readme_http2.sh` and `readme_http2_output.txt` do the same over HTTP/2.
+- `mix.exs`: the Elixir test dependencies. `Makefile`: the `test-integration` target.
 
 ### Example Scenario
 

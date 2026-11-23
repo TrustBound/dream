@@ -66,3 +66,20 @@ gleam run -m tls_main 2>&1 | grep "Failed to start server"
 head -c 1000001 /dev/zero | tr '\0' 'a' |
   curl -i -X POST --data-binary @- http://localhost:3000/signups
 echo
+
+# The same body sent in chunks, with no content-length: the server reads the
+# whole body, then refuses it.
+head -c 1000001 /dev/zero | tr '\0' 'a' |
+  curl -i -X POST -H "transfer-encoding: chunked" --data-binary @- \
+    http://localhost:3000/signups
+echo
+
+# The files of the project structure in README.md
+cd "$EXAMPLE"
+find src -type f | sort
+find test/integration mix.exs Makefile -type f | sort
+
+# The folders of Dream's source, as docs/contributing/contributing.md lists
+# them
+cd "$EXAMPLE/../.."
+find src/dream -type d | sort

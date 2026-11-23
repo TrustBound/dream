@@ -397,9 +397,13 @@ pub fn bind(
 
 /// Set maximum request body size in bytes
 ///
-/// Requests with bodies larger than this will be rejected. The default is
-/// 10_000_000 bytes (10MB), which is a safe limit for typical JSON and form
-/// payloads. Streaming routes are not affected by this limit.
+/// A buffered request body larger than this gets `413 Content Too Large` with
+/// the plain-text body `Request body too large`, and the controller doesn't
+/// run. A request whose `content-length` is over the limit gets the 413 before
+/// the server reads the body. A chunked body gets it when the read ends, or on
+/// HTTP/2 when the body grows over the limit. The default is 10_000_000 bytes
+/// (10MB), which is a safe limit for typical JSON and form payloads. Streaming
+/// routes are not affected by this limit.
 ///
 /// ## Example
 ///

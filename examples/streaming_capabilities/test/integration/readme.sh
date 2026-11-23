@@ -25,3 +25,7 @@ exec 3<>/dev/tcp/localhost/3000
 printf 'POST /upload HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n5\r\nhello\r\nzz\r\n' >&3
 cat <&3
 echo
+
+# The files of the project structure in README.md
+cd "$EXAMPLE"
+find src -type f | sort

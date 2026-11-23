@@ -286,7 +286,7 @@ fn get_int_param_tests() -> UnitNode {
       result
       |> should()
       |> be_error()
-      |> be_equal("Missing id parameter")
+      |> be_equal("Missing required path parameter: id")
       |> or_fail_with("Should return missing error")
     }),
     it("returns error for non-integer", fn() {
@@ -334,7 +334,7 @@ fn get_string_param_tests() -> UnitNode {
       result
       |> should()
       |> be_error()
-      |> be_equal("Missing name parameter")
+      |> be_equal("Missing required path parameter: name")
       |> or_fail_with("Should return missing error")
     }),
   ])
