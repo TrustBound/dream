@@ -213,7 +213,7 @@ You'll implement:
 - Custom context that holds the authenticated user
 
 ## Prerequisites
-- [Custom context](../learn/03-adding-auth.md) understanding
+- [Custom context](../guides/routing.md) understanding
 - `gleam add jwt` installed
 
 ## Step 1: Define your context
@@ -472,7 +472,7 @@ This function takes a database connection explicitly as a parameter.
 **Why explicit parameters?** Without them, you'd need globals or 
 process dictionary, neither of which are type-safe in Gleam.
 
-See [Lesson 2: Building an API](../learn/02-building-api.md) for more on Services and [Lesson 3: Adding Auth](../learn/03-adding-auth.md) for custom context.
+See [Build a database-backed JSON API](../guides/database-api.md) for more on Services and [Route requests and add middleware](../guides/routing.md) for custom context.
 ````
 
 ### Headings
@@ -499,12 +499,12 @@ Use consistent heading levels:
 
 **Good:**
 ```markdown
-See [Adding Auth](../learn/03-adding-auth.md) for details.
+See [Route requests and add middleware](../guides/routing.md) for details.
 ```
 
 **Bad:**
 ```markdown
-Click [here](../learn/03-adding-auth.md) for more info.
+Click [here](../guides/routing.md) for more info.
 ```
 
 ---

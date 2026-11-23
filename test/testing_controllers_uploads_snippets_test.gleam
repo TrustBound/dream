@@ -4,10 +4,10 @@
 //// Many testing guide snippets are test modules. These tests run them with
 //// the dream_test runner and check the name and status of each result.
 
-import dream/context.{type AppContext, AppContext}
+import dream/context.{AppContext}
 import dream/http/error
 import dream/http/request.{Get, Post}
-import dream/http/response.{html_response, json_response}
+import dream/http/response.{json_response}
 import dream/http/validation.{ValidationError}
 import dream_http_client/client
 import dream_http_client/recorder
@@ -26,14 +26,7 @@ import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import simplifile
-import snippets/controllers_guide_controller
-import snippets/controllers_guide_multi_format
 import snippets/controllers_guide_response_helpers
-import snippets/controllers_guide_services.{
-  type Services, Connection, Database, Services,
-}
-import snippets/controllers_guide_task.{Task}
-import snippets/controllers_guide_task_view
 import snippets/file_uploads_guide_download
 import snippets/file_uploads_guide_file_type
 import snippets/file_uploads_guide_image
@@ -59,7 +52,7 @@ import snippets/testing_guide_users_controller_test
 pub fn tests() -> TestSuite {
   describe("guide snippets", [
     testing_guide_tests(),
-    controllers_guide_tests(),
+    response_helpers_tests(),
     file_uploads_guide_tests(),
   ])
 }
@@ -377,94 +370,8 @@ fn testing_guide_tests() -> UnitNode {
   ])
 }
 
-fn controllers_guide_tests() -> UnitNode {
-  group("controllers and models guide", [
-    it("show returns the task page", fn() {
-      // Arrange
-      let request = task_request("1")
-
-      // Act
-      let response =
-        controllers_guide_controller.show(
-          request,
-          AppContext("test-id"),
-          task_services(),
-        )
-
-      // Assert
-      response
-      |> should()
-      |> be_equal(html_response(200, "<h1>Write the guide</h1>"))
-      |> or_fail_with("show should return the task page")
-    }),
-    it("show returns 404 JSON for a missing task", fn() {
-      // Arrange
-      let request = task_request("99")
-
-      // Act
-      let response =
-        controllers_guide_controller.show(
-          request,
-          AppContext("test-id"),
-          task_services(),
-        )
-
-      // Assert
-      response
-      |> should()
-      |> be_equal(json_response(404, "{\"error\":\"Task not found\"}"))
-      |> or_fail_with("show should return 404")
-    }),
-    it("show returns 400 JSON for an id that is not a number", fn() {
-      // Arrange
-      let request = task_request("abc")
-
-      // Act
-      let response =
-        controllers_guide_controller.show(
-          request,
-          AppContext("test-id"),
-          task_services(),
-        )
-
-      // Assert
-      response
-      |> should()
-      |> be_equal(json_response(400, "{\"error\":\"id must be an integer\"}"))
-      |> or_fail_with("show should return 400")
-    }),
-    it("show has the Controller type", fn() {
-      // Arrange
-      let controller: controllers_guide_controller.Controller(
-        AppContext,
-        Services,
-      ) = controllers_guide_controller.show
-
-      // Act
-      let response =
-        controller(task_request("1"), AppContext("test-id"), task_services())
-
-      // Assert
-      response.status
-      |> should()
-      |> be_equal(200)
-      |> or_fail_with("The controller should return 200")
-    }),
-    it("to_json writes the task as JSON", fn() {
-      // Arrange
-      let task = Task(id: 1, title: "Write the guide", completed: False)
-
-      // Act
-      let json = controllers_guide_task_view.to_json(task)
-
-      // Assert
-      json
-      |> should()
-      |> be_equal(
-        "{\"id\":1,\"title\":\"Write the guide\",\"completed\":false}",
-      )
-      |> or_fail_with("to_json should write the task")
-    }),
+fn response_helpers_tests() -> UnitNode {
+  group("api patterns guide: response helpers", [
     it("handle_error hides the Unauthorized message", fn() {
       // Arrange
       let err = error.Unauthorized("token expired")
@@ -491,102 +398,7 @@ fn controllers_guide_tests() -> UnitNode {
       |> be_equal(json_response(422, "{\"error\":\"name \\\"x\\\" is taken\"}"))
       |> or_fail_with("handle_error should return valid JSON")
     }),
-    it("multi-format show returns JSON for .json", fn() {
-      // Arrange
-      let request = task_request("1.json")
-
-      // Act
-      let response =
-        controllers_guide_multi_format.show(
-          request,
-          AppContext("test-id"),
-          task_services(),
-        )
-
-      // Assert
-      response
-      |> should()
-      |> be_equal(json_response(
-        200,
-        "{\"id\":1,\"title\":\"Write the guide\",\"completed\":false}",
-      ))
-      |> or_fail_with("show should return JSON")
-    }),
-    it("multi-format show returns the card for .html", fn() {
-      // Arrange
-      let request = task_request("1.html")
-
-      // Act
-      let response =
-        controllers_guide_multi_format.show(
-          request,
-          AppContext("test-id"),
-          task_services(),
-        )
-
-      // Assert
-      response
-      |> should()
-      |> be_equal(html_response(
-        200,
-        "<div class=\"task\">Write the guide</div>",
-      ))
-      |> or_fail_with("show should return the card")
-    }),
-    it("multi-format show returns JSON with no extension", fn() {
-      // Arrange
-      let request = task_request("1")
-
-      // Act
-      let response =
-        controllers_guide_multi_format.show(
-          request,
-          AppContext("test-id"),
-          task_services(),
-        )
-
-      // Assert
-      response
-      |> should()
-      |> be_equal(json_response(
-        200,
-        "{\"id\":1,\"title\":\"Write the guide\",\"completed\":false}",
-      ))
-      |> or_fail_with("show should default to JSON")
-    }),
-    it("multi-format show returns 404 for a missing task", fn() {
-      // Arrange
-      let request = task_request("7.json")
-
-      // Act
-      let response =
-        controllers_guide_multi_format.show(
-          request,
-          AppContext("test-id"),
-          task_services(),
-        )
-
-      // Assert
-      response.status
-      |> should()
-      |> be_equal(404)
-      |> or_fail_with("show should return 404")
-    }),
   ])
-}
-
-fn task_request(id: String) -> request.Request {
-  test_request.create_request_with_params(Get, "/tasks/" <> id, [#("id", id)])
-}
-
-fn task_services() -> Services {
-  Services(
-    database: Database(
-      connection: Connection(tasks: [
-        Task(id: 1, title: "Write the guide", completed: False),
-      ]),
-    ),
-  )
 }
 
 fn file_uploads_guide_tests() -> UnitNode {

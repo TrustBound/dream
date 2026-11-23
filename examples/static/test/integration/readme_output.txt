@@ -25,3 +25,30 @@
   </ul>
 </body>
 </html>
+HTTP/1.1 200 OK
+content-type: text/css
+content-length: 760
+date: (the time of the request)
+connection: keep-alive
+
+HTTP/1.1 404 Not Found
+content-type: text/html; charset=utf-8
+content-length: 22
+date: (the time of the request)
+connection: keep-alive
+
+<h1>404 Not Found</h1>
+HTTP/1.1 404 Not Found
+content-type: text/html; charset=utf-8
+content-length: 60
+date: (the time of the request)
+connection: keep-alive
+
+<h1>Custom 404</h1><p>The requested file does not exist.</p>
+public/about/index.html
+public/images/cat.svg
+public/images/logo.png
+public/images/photo.jpg
+public/index.html
+public/script.js
+public/styles.css

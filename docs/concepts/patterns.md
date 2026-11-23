@@ -27,8 +27,8 @@ where to learn more about each.
 
 **Learn more**
 
-- [Hello World](../learn/01-hello-world.md)
-- [Controllers & Models Guide](../guides/controllers-and-models.md)
+- [Build your first Dream server](../guides/getting-started.md)
+- [Build a database-backed JSON API](../guides/database-api.md)
 
 
 ## 2. Context & Services
@@ -51,7 +51,7 @@ where to learn more about each.
 
 **Learn more**
 
-- [Building an API](../learn/02-building-api.md)
+- [Build a database-backed JSON API](../guides/database-api.md)
 - [Architecture Reference – Context & Services](../reference/architecture.md#4-context-system)
 
 
@@ -73,8 +73,8 @@ where to learn more about each.
 
 **Learn more**
 
-- [Adding Auth](../learn/03-adding-auth.md)
-- [Authentication Guide](../guides/authentication.md)
+- [Route requests and add middleware](../guides/routing.md)
+- [Route requests and add middleware](../guides/routing.md)
 
 
 ## 4. MVC: Controllers, Models, Views
@@ -96,8 +96,8 @@ where to learn more about each.
 
 **Learn more**
 
-- [Controllers & Models Guide](../guides/controllers-and-models.md)
-- [Multiple Formats Guide](../guides/multiple-formats.md)
+- [Build a database-backed JSON API](../guides/database-api.md)
+- [Render HTML and other formats](../guides/templates.md)
 
 
 ## 5. Operations (Business Logic)
@@ -123,8 +123,8 @@ where to learn more about each.
 
 **Learn more**
 
-- [Advanced Patterns](../learn/04-advanced-patterns.md)
-- [Operations Guide](../guides/operations.md)
+- [Move a workflow into an operation](../guides/database-api.md#step-13-move-a-workflow-into-an-operation)
+- [Move a workflow into an operation](../guides/database-api.md#step-13-move-a-workflow-into-an-operation)
 
 
 ## 6. Multi-Format Responses (JSON, HTML, HTMX, CSV)
@@ -143,7 +143,7 @@ where to learn more about each.
 
 **Learn more**
 
-- [Multiple Formats Guide](../guides/multiple-formats.md)
+- [Render HTML and other formats](../guides/templates.md)
 - [multi_format example](../examples.md#multi_format)
 
 
@@ -164,8 +164,8 @@ where to learn more about each.
 
 **Learn more**
 
-- [Lesson 3: Adding Auth](../learn/03-adding-auth.md)
-- [Authentication Guide](../guides/authentication.md)
+- [Route requests and add middleware](../guides/routing.md)
+- [Route requests and add middleware](../guides/routing.md)
 - [custom_context example](../examples.md#4-custom_context)
 
 
@@ -191,7 +191,7 @@ where to learn more about each.
 **Learn more**
 
 - [Streaming Guide](../guides/streaming.md)
-- [Streaming Quick Reference](../guides/streaming-quick-reference.md)
+- [Streaming API reference](../reference/streaming-api.md)
 - [streaming_capabilities example](../examples.md#streaming_capabilities)
 
 
@@ -258,7 +258,7 @@ where to learn more about each.
 **Learn more**
 
 - [Testing Guide](../guides/testing.md)
-- [REST API Guide – Error Handling](../guides/rest-api.md#error-handling)
+- [Grow a JSON API: errors](../guides/api-patterns.md#step-3-give-errors-a-status-and-a-body)
 
 
 ## Next Steps

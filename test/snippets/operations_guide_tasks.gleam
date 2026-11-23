@@ -1,6 +1,6 @@
 //// Operations guide: an operation and the controller that calls it
 ////
-//// Shown in excerpts in docs/guides/operations.md.
+//// Shown in excerpts in docs/guides/database-api.md.
 
 import dream/context.{type EmptyContext}
 import dream/http.{

@@ -1,12 +1,61 @@
-# Guide: Testing
+# Test your controllers and your app
 
-**How to test your Dream application.**
+You want to change your app without fear: know that each route still answers what it should, that the middleware still refuses what it should, and that a failure tells you exactly what broke. Dream apps are plain functions and records, so most of that needs no server at all. This guide tests a Dream app with [Dream Test](https://hexdocs.pm/dream_test/), the framework that Dream's own tests use: controllers, middleware and models alone, the whole router with `dream.route_request`, and a real server when you need one. The reports shown are the real output of the tests shown.
 
-Dream uses [dream_test](https://hexdocs.pm/dream_test/), a testing framework
-designed for clarity and maintainability. Tests live in `test/`, mirror your
-`src/` structure, and use a BDD-style `describe`/`it` pattern.
+## Table of Contents
 
-## Quick Start <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_quick_start.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+- [What you'll build](#what-youll-build)
+- [Before you start](#before-you-start)
+- [Which kind of test to write](#which-kind-of-test-to-write)
+- [Quick Start](#quick-start)
+- [Step 1: Set up the test runner](#step-1-set-up-the-test-runner)
+- [Step 2: Assert with matchers](#step-2-assert-with-matchers)
+- [Step 3: Build requests with fixtures](#step-3-build-requests-with-fixtures)
+- [Step 4: Test a controller](#step-4-test-a-controller)
+- [Step 5: Test a middleware](#step-5-test-a-middleware)
+- [Step 6: Test a model](#step-6-test-a-model)
+- [Step 7: Set up and tear down](#step-7-set-up-and-tear-down)
+- [Step 8: Test against real services](#step-8-test-against-real-services)
+- [Step 9: Test the whole app through its routes](#step-9-test-the-whole-app-through-its-routes)
+- [When a test fails](#when-a-test-fails)
+- [How to write a good test](#how-to-write-a-good-test)
+- [What to Test](#what-to-test)
+- [Run the tests](#run-the-tests)
+- [Common pitfalls](#common-pitfalls)
+- [Where to go next](#where-to-go-next)
+
+## What you'll build
+
+- A test entry point that `gleam test` runs, and test modules that mirror `src/`.
+- Tests of a controller, a middleware and a model, with requests built by a fixture.
+- A test of the whole app through its routes, with no server.
+- A test that starts a real server on a port and stops it.
+- The report of a passing run and of a failing test.
+
+## Before you start
+
+Add Dream Test as a dev dependency:
+
+```sh
+gleam add --dev dream_test
+```
+
+[Build your first Dream server](https://github.com/TrustBound/dream/blob/main/docs/guides/getting-started.md) ends with a first test of this kind. Each guide has a "Test your code" section for its own topic.
+
+## Which kind of test to write
+
+| What you check | Test | Needs |
+|:---|:---|:---|
+| A controller's answer for a request | Call the controller with a request you build | Nothing but the function |
+| A middleware refuses or lets through | Call it with a `next` that records what it got | Nothing but the function |
+| A controller that takes Dream's `AppContext` | Build the context with `context.new_context("test-id")` | Nothing but the function |
+| A route, its middleware and its controller together | `dream.route_request(router, request, context, services)` | Your router and test services |
+| Business logic of a model or operation | Call it with test data or test services | Nothing, or a stub in services |
+| SQL, files, HTTP clients, the real server | An integration test, or `server.listen_with_handle` | The real service, and clean-up |
+
+## Quick Start
+
+### A first test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_quick_start.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_test/matchers.{be_ok, or_fail_with, should}
@@ -28,28 +77,15 @@ pub fn tests() -> TestSuite {
 
 Run the tests with `gleam test`.
 
-## Test Structure
+## Step 1: Set up the test runner
 
 ### Directory Layout
 
-Tests mirror your source structure:
+Tests live in `test/` and mirror your source structure:
 
-```text illustration
-src/
-  your_app/
-    controllers/
-      users_controller.gleam
-    models/
-      user.gleam
-
-test/
-  your_app/
-    controllers/
-      users_controller_test.gleam
-    models/
-      user_test.gleam
-  your_app_test.gleam  # Entry point
-```
+- `src/your_app/controllers/users_controller.gleam` is tested by `test/your_app/controllers/users_controller_test.gleam`.
+- `src/your_app/models/user.gleam` is tested by `test/your_app/models/user_test.gleam`.
+- `test/your_app_test.gleam` is the entry point that `gleam test` runs.
 
 ### Entry Point
 
@@ -107,7 +143,7 @@ pub fn tests() -> TestSuite {
 }
 ```
 
-## Assertions
+## Step 2: Assert with matchers
 
 ### Basic Matchers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_matchers.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -290,10 +326,10 @@ pub fn custom_matcher_tests() -> UnitNode {
 - One matcher per file in `test/matchers/`
 - First parameter is always `MatchResult(a)`
 - Additional parameters come after (works with pipes)
-- No nested `case` statements—extract to helper functions
+- No nested `case` statements: extract to helper functions
 - Return `MatchResult(b)` for chaining
 
-## Fixtures
+## Step 3: Build requests with fixtures
 
 Create reusable test data in `test/fixtures/`:
 
@@ -359,7 +395,122 @@ pub fn tests() -> TestSuite {
 }
 ```
 
-## Lifecycle Hooks
+## Step 4: Test a controller
+
+Controllers receive `Request`, `Context`, and `Services`:
+
+#### A controller test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_users_controller_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+import dream/context.{AppContext}
+import dream/http/request.{Get}
+import dream/router.{EmptyServices}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, group, it}
+import fixtures/request as test_request
+import snippets/testing_guide_users_controller as users_controller
+
+pub fn tests() -> TestSuite {
+  describe("users_controller", [
+    group("index", [
+      it("returns 200 for valid request", fn() {
+        let request = test_request.create_request(Get, "/users")
+        let context = AppContext("test-id")
+
+        users_controller.index(request, context, EmptyServices).status
+        |> should()
+        |> be_equal(200)
+        |> or_fail_with("Should return 200")
+      }),
+    ]),
+  ])
+}
+```
+
+## Step 5: Test a middleware
+
+Test middleware with mock `next` functions:
+
+#### A middleware test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_auth_middleware_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+import dream/context.{AppContext}
+import dream/http/header.{Header}
+import dream/http/request.{Get, Request}
+import dream/http/response.{Response, Text}
+import dream/router.{EmptyServices}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, it}
+import fixtures/request as test_request
+import gleam/option
+import snippets/testing_guide_auth_middleware as auth
+
+fn success_handler(_request, _context, _services) {
+  Response(200, Text("Success"), [], [], option.None)
+}
+
+pub fn tests() -> TestSuite {
+  describe("auth middleware", [
+    it("returns 401 without token", fn() {
+      let request = test_request.create_request(Get, "/protected")
+      let context = AppContext("test-id")
+
+      auth.middleware(request, context, EmptyServices, success_handler).status
+      |> should()
+      |> be_equal(401)
+      |> or_fail_with("Should reject without token")
+    }),
+    it("calls next with valid token", fn() {
+      let request =
+        Request(..test_request.create_request(Get, "/protected"), headers: [
+          Header("Authorization", "Bearer valid"),
+        ])
+      let context = AppContext("test-id")
+
+      auth.middleware(request, context, EmptyServices, success_handler).status
+      |> should()
+      |> be_equal(200)
+      |> or_fail_with("Should pass with valid token")
+    }),
+  ])
+}
+```
+
+## Step 6: Test a model
+
+Test business logic without HTTP:
+
+#### A model test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_user_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+import dream_test/matchers.{be_error, be_ok, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, group, it}
+import snippets/testing_guide_user as user
+
+pub fn tests() -> TestSuite {
+  describe("user", [
+    group("validate_email", [
+      it("accepts valid email", fn() {
+        user.validate_email("alice@example.com")
+        |> should()
+        |> be_ok()
+        |> or_fail_with("Should accept valid email")
+      }),
+      it("rejects empty email", fn() {
+        user.validate_email("")
+        |> should()
+        |> be_error()
+        |> or_fail_with("Should reject empty email")
+      }),
+    ]),
+  ])
+}
+```
+
+## Step 7: Set up and tear down
 
 ### before_each / after_each
 
@@ -446,122 +597,7 @@ pub fn tests() -> TestSuite {
 }
 ```
 
-## Testing Controllers
-
-Controllers receive `Request`, `Context`, and `Services`:
-
-#### A controller test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_users_controller_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
-
-```gleam
-import dream/context.{AppContext}
-import dream/http/request.{Get}
-import dream/router.{EmptyServices}
-import dream_test/matchers.{be_equal, or_fail_with, should}
-import dream_test/suite.{type TestSuite}
-import dream_test/unit.{describe, group, it}
-import fixtures/request as test_request
-import snippets/testing_guide_users_controller as users_controller
-
-pub fn tests() -> TestSuite {
-  describe("users_controller", [
-    group("index", [
-      it("returns 200 for valid request", fn() {
-        let request = test_request.create_request(Get, "/users")
-        let context = AppContext("test-id")
-
-        users_controller.index(request, context, EmptyServices).status
-        |> should()
-        |> be_equal(200)
-        |> or_fail_with("Should return 200")
-      }),
-    ]),
-  ])
-}
-```
-
-## Testing Middleware
-
-Test middleware with mock `next` functions:
-
-#### A middleware test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_auth_middleware_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
-
-```gleam
-import dream/context.{AppContext}
-import dream/http/header.{Header}
-import dream/http/request.{Get, Request}
-import dream/http/response.{Response, Text}
-import dream/router.{EmptyServices}
-import dream_test/matchers.{be_equal, or_fail_with, should}
-import dream_test/suite.{type TestSuite}
-import dream_test/unit.{describe, it}
-import fixtures/request as test_request
-import gleam/option
-import snippets/testing_guide_auth_middleware as auth
-
-fn success_handler(_request, _context, _services) {
-  Response(200, Text("Success"), [], [], option.None)
-}
-
-pub fn tests() -> TestSuite {
-  describe("auth middleware", [
-    it("returns 401 without token", fn() {
-      let request = test_request.create_request(Get, "/protected")
-      let context = AppContext("test-id")
-
-      auth.middleware(request, context, EmptyServices, success_handler).status
-      |> should()
-      |> be_equal(401)
-      |> or_fail_with("Should reject without token")
-    }),
-    it("calls next with valid token", fn() {
-      let request =
-        Request(..test_request.create_request(Get, "/protected"), headers: [
-          Header("Authorization", "Bearer valid"),
-        ])
-      let context = AppContext("test-id")
-
-      auth.middleware(request, context, EmptyServices, success_handler).status
-      |> should()
-      |> be_equal(200)
-      |> or_fail_with("Should pass with valid token")
-    }),
-  ])
-}
-```
-
-## Testing Models
-
-Test business logic without HTTP:
-
-#### A model test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/testing_guide_user_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
-
-```gleam
-import dream_test/matchers.{be_error, be_ok, or_fail_with, should}
-import dream_test/suite.{type TestSuite}
-import dream_test/unit.{describe, group, it}
-import snippets/testing_guide_user as user
-
-pub fn tests() -> TestSuite {
-  describe("user", [
-    group("validate_email", [
-      it("accepts valid email", fn() {
-        user.validate_email("alice@example.com")
-        |> should()
-        |> be_ok()
-        |> or_fail_with("Should accept valid email")
-      }),
-      it("rejects empty email", fn() {
-        user.validate_email("")
-        |> should()
-        |> be_error()
-        |> or_fail_with("Should reject empty email")
-      }),
-    ]),
-  ])
-}
-```
-
-## Unit vs Integration Tests
+## Step 8: Test against real services
 
 ### Unit Tests
 
@@ -611,7 +647,183 @@ pub fn tests() -> TestSuite {
 }
 ```
 
-## Test Philosophy
+
+## Step 9: Test the whole app through its routes
+
+`dream.route_request` does what the server does with a request: it finds the route by method and path, runs its middleware and its controller, and returns the response. Give it your router and the context and services for the test. This is the test from [Build your first Dream server](https://github.com/TrustBound/dream/blob/main/docs/guides/getting-started.md):
+
+### Test the routes of an app <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/guide_getting_started_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+//// Getting started guide: the test of the app
+////
+//// In your project this is test/hello_dream_test.gleam, and the import of
+//// the app is `import hello_dream as app`.
+
+import dream/context.{EmptyContext}
+import dream/dream
+import dream/http/request.{type Request, Get, Http, Http1, Post, Request}
+import dream/http/response.{Text}
+import dream/router.{EmptyServices}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/reporters/bdd
+import dream_test/runner
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, it}
+import gleam/option
+import snippets/guide_getting_started_app as app
+
+// gleam test runs this: it runs the tests and prints the report
+pub fn main() {
+  runner.new([tests()])
+  |> runner.results_reporters([bdd.new()])
+  |> runner.exit_on_failure()
+  |> runner.run()
+}
+
+// A request with no body, headers or cookies
+fn request_to(method: request.Method, path: String) -> Request {
+  Request(
+    method: method,
+    protocol: Http,
+    version: Http1,
+    path: path,
+    query: "",
+    params: [],
+    host: option.None,
+    port: option.None,
+    remote_address: option.None,
+    body: request.Text(""),
+    headers: [],
+    cookies: [],
+    content_type: option.None,
+    content_length: option.None,
+  )
+}
+
+// Sends the request through the routes of the app, as the server does
+fn send(request: Request) -> response.Response {
+  dream.route_request(app.app_router(), request, EmptyContext, EmptyServices)
+}
+
+pub fn tests() -> TestSuite {
+  describe("hello app", [
+    it("answers GET / with 200", fn() {
+      // Arrange
+      let request = request_to(Get, "/")
+
+      // Act
+      let response = send(request)
+
+      // Assert
+      response.status
+      |> should
+      |> be_equal(200)
+      |> or_fail_with("GET / should answer 200")
+    }),
+    it("answers GET / with Hello, World!", fn() {
+      // Arrange
+      let request = request_to(Get, "/")
+
+      // Act
+      let response = send(request)
+
+      // Assert
+      response.body
+      |> should
+      |> be_equal(Text("Hello, World!"))
+      |> or_fail_with("GET / should answer Hello, World!")
+    }),
+    it("answers an unknown path with 404", fn() {
+      // Arrange
+      let request = request_to(Get, "/missing")
+
+      // Act
+      let response = send(request)
+
+      // Assert
+      response.status
+      |> should
+      |> be_equal(404)
+      |> or_fail_with("GET /missing should answer 404")
+    }),
+    it("answers POST / with 404", fn() {
+      // Arrange
+      let request = request_to(Post, "/")
+
+      // Act
+      let response = send(request)
+
+      // Assert
+      response.status
+      |> should
+      |> be_equal(404)
+      |> or_fail_with("POST / should answer 404")
+    }),
+  ])
+}
+```
+
+### The report of the passing run <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/outputs/guide_getting_started_report.txt"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+hello app
+  ✓ answers GET / with 200
+  ✓ answers GET / with Hello, World!
+  ✓ answers POST / with 404
+  ✓ answers an unknown path with 404
+
+Summary: 4 run, 0 failed, 4 passed in 0ms
+```
+
+## When a test fails
+
+A test that expects `200` from a path with no route fails. Each failure names the test, the matcher, your message, and both values:
+
+### A failing test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/guide_testing_failing_test.gleam#L35-L57"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn tests() -> TestSuite {
+  describe("hello app", [
+    it("answers GET /about with 200", fn() {
+      // Arrange
+      let request = get("/about")
+
+      // Act
+      let response =
+        dream.route_request(
+          app.app_router(),
+          request,
+          EmptyContext,
+          EmptyServices,
+        )
+
+      // Assert
+      response.status
+      |> should
+      |> be_equal(200)
+      |> or_fail_with("GET /about should answer 200")
+    }),
+  ])
+}
+```
+
+### The report of the failure <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/outputs/guide_testing_failing_report.txt"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+hello app
+  ✗ answers GET /about with 200
+    be_equal
+      Message: GET /about should answer 200
+      Expected: 200
+      Actual:   404
+
+Summary: 1 run, 1 failed, 0 passed in 0ms
+```
+
+With `runner.exit_on_failure()` in the entry point, the run then ends with status 1, so `gleam test` and CI fail too.
+
+## How to write a good test
 
 ### Black Box Testing
 
@@ -721,7 +933,7 @@ pub fn arrange_act_assert_test() -> UnitNode {
 
 ## What to Test
 
-### ✅ Do Test
+### Do test
 
 - Public API functions
 - Business logic
@@ -729,19 +941,14 @@ pub fn arrange_act_assert_test() -> UnitNode {
 - Edge cases (empty strings, zero, None)
 - Integration points
 
-### ❌ Don't Test
+### Don't test
 
 - Private functions directly
 - Third-party libraries
 - Simple getters/setters
 - Configuration objects (unless validation logic)
 
-## Coverage Requirements
-
-All functions in `src/dream/` must have test coverage. If a private function
-isn't reachable through public functions, it's dead code—delete it.
-
-## Running Tests
+## Run the tests
 
 In your app, run `gleam test`. Dream's own unit tests run with this line of `scripts/check.sh`, which CI runs. It also measures the line coverage:
 
@@ -751,7 +958,12 @@ In your app, run `gleam test`. Dream's own unit tests run with this line of `scr
 make test-unit
 ```
 
-## Tips
+### Coverage
+
+All functions in `src/dream/` must have test coverage. If a private function
+isn't reachable through public functions, it's dead code: delete it.
+
+### Tips
 
 1. **Write tests first** (TDD) or immediately after
 2. **One assertion per test** for clear failures
@@ -760,10 +972,18 @@ make test-unit
 5. **Keep tests fast**: slow tests don't get run
 6. **Use fixtures**: don't repeat test data setup
 
----
 
-**See Also:**
+## Common pitfalls
 
-- [dream_test documentation](https://hexdocs.pm/dream_test/)
-- [Deployment](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md)
-- [REST API](https://github.com/TrustBound/dream/blob/main/docs/guides/rest-api.md)
+- **Two assertions in one test.** `let _ =` on the first matcher throws its result away, so the test can pass while the first check fails. One assertion per test.
+- **A test server left running.** Stop every handle of `listen_with_handle`, or the next run can't take the port.
+- **Testing private functions.** Test through the public function that uses them. A private function no public function reaches is dead code.
+- **Tests that depend on order.** Each test builds its own request and services. Don't share state between tests through a database row or a file without resetting it in a hook.
+- **A slow unit test.** If a unit test needs a database or the network, it's an integration test. Move it, so the fast tests stay fast.
+
+## Where to go next
+
+- [Dream Test on HexDocs](https://hexdocs.pm/dream_test/).
+- [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md): a middleware test through the routes.
+- [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md): an operation test with test services, and Cucumber scenarios against PostgreSQL.
+- [Start, stop and troubleshoot the server](https://github.com/TrustBound/dream/blob/main/docs/guides/operating.md): a real server in a test.

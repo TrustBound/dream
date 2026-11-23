@@ -1,7 +1,7 @@
 //// REST API guide: map errors to HTTP status codes
 ////
 //// A create controller that turns each `Error` into a JSON response with
-//// the matching status code, as shown in docs/guides/rest-api.md.
+//// the matching status code, as shown in docs/guides/request-data.md.
 
 import dream/context.{type AppContext}
 import dream/http.{type Request, type Response, created, json_response}

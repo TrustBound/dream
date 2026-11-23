@@ -1,7 +1,7 @@
 //// REST API guide: cursor-based pagination
 ////
 //// One page of products after an opaque cursor, as shown in
-//// docs/guides/rest-api.md. A real app runs the same logic in SQL with
+//// docs/guides/api-patterns.md. A real app runs the same logic in SQL with
 //// `WHERE id > $1 ORDER BY id LIMIT $2`.
 
 import dream/http/error.{type Error, BadRequest}

@@ -34,4 +34,5 @@ packages = [
 dream = { path = "../.." }
 dream_http_client = { git = "https://github.com/TrustBound/dream_http_client.git", ref = "af661517f46417b72b67e84545ba6dcfc04fc59d" }
 gleam_http = { version = ">= 4.0.0 and < 5.0.0" }
+gleam_json = { version = ">= 2.2.0 and < 4.0.0" }
 gleam_stdlib = { version = ">= 0.44.0 and < 2.0.0" }

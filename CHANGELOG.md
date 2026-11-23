@@ -60,6 +60,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rest get HTTP/1.1. A missing certificate or key file is a start error.
   Server adapters read the setting with `dream.get_tls`.
 - New guide: `docs/guides/http2.md`.
+- The guides are rewritten as task guides: 14 guides in `docs/guides/`, each
+  with numbered steps, the real answers of an example server, failure
+  cases, a test with its real report, and common pitfalls. New:
+  `getting-started.md`, `routing.md`, `request-data.md`, `responses.md`,
+  `database-api.md`, `api-patterns.md` and `operating.md`. The quickstart,
+  the four `docs/learn/` lessons and the authentication, controllers and
+  models, file uploads, multiple formats, operations, REST API and
+  streaming quick reference pages are folded into them; the streaming
+  recipes are in `docs/reference/streaming-api.md`.
+- The `simple` example shows path parameters, the query string, JSON
+  validation that reports every error, forms, cookies, redirects, a CSV
+  download, a `PURGE` route and a body limit. The example READMEs' request
+  scripts also run the failure cases that the guides show.
 - Every code block in the guides, READMEs, doc comments and SECURITY.md
   comes from a tested snippet, with a "tested snippet" badge that links to
   it.
@@ -76,7 +89,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   README. New `examples/deployment` (Dockerfile and Compose file of the
   deployment guide, built by `make test-docker`), `scripts/check.sh`,
   `scripts/ci-integration.sh`, `scripts/test-integration.sh`,
-  `scripts/check-templates.sh` and `scripts/test-tasks.sh`.
+  `scripts/check-templates.sh`, `scripts/test-tasks.sh` and
+  `scripts/install-matcha.sh`. CI runs them: the unit job runs
+  `scripts/check.sh`, the integration job `scripts/ci-integration.sh`, and
+  new jobs run `make check-templates`, `make test-docker` and
+  `make test-tasks`.
 - The snippet check moved to the [`dream_snippets`](https://github.com/TrustBound/dream_snippets) package.
 - Each example in the README has a "read guide" badge that links to the
   docs section that shows the same example. The guides in `docs/guides/`
@@ -150,8 +167,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gleam test` now measures the line coverage of `src/`. The run fails when
   coverage is below 100%. CI checks first that the BEAM supports native
   coverage. The README shows a coverage badge.
-- 1125 tests run, 0 failed, in about 17 seconds (Apple M1 Max, OTP 29, Gleam
-  1.19.2). Line coverage of `src/` is 1083 of 1084 lines (99.9%). The snippet check finds 565 Gleam code blocks and 7 diff blocks, proves 46 file blocks, 75 command blocks and 10 output blocks, and counts 59 illustrations, with no problems. The integration tests run
+- 1121 tests run, 0 failed, in about 18 seconds (Apple M1 Max, OTP 29, Gleam
+  1.19.2). Line coverage of `src/` is 1083 of 1084 lines (99.9%). The snippet check finds 580 Gleam code blocks and 7 diff blocks, proves 47 file blocks, 127 command blocks and 65 output blocks, and counts 52 illustrations, with no problems. The integration tests run
   eleven examples, ten of them over HTTP/1.1 and over HTTP/2 with TLS.
 
 ## [2.4.1] - 2026-03-11

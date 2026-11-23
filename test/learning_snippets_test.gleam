@@ -1,5 +1,5 @@
-//// Tests for the snippets in the quickstart, the learning path and the
-//// concepts page (docs/quickstart.md, docs/learn/*.md, docs/concepts.md).
+//// Tests for the snippets of the database API guide and the concepts page
+//// (docs/guides/database-api.md, docs/concepts.md).
 ////
 //// Each snippet in test/snippets/ is shown, line for line, in one of those
 //// docs. If a snippet breaks, these tests fail.
@@ -25,111 +25,14 @@ import snippets/concepts_middleware
 import snippets/concepts_signatures
 import snippets/concepts_user_view
 import snippets/concepts_validation
-import snippets/learn_adding_auth_context
-import snippets/learn_adding_auth_middleware
 import snippets/learn_building_api_show_user
 import snippets/learn_building_api_user.{User}
 import snippets/learn_building_api_user_view
-import snippets/learn_hello_world_app
-import snippets/quickstart_hello_server
 
 pub fn tests() -> TestSuite {
   describe("learning snippets", [
-    hello_world_tests(),
-    quickstart_tests(),
     building_api_tests(),
-    adding_auth_tests(),
     concepts_tests(),
-  ])
-}
-
-fn hello_world_tests() -> UnitNode {
-  group("learn hello world", [
-    it("GET / returns status 200", fn() {
-      // Arrange
-      let request = test_request.create_request(Get, "/")
-
-      // Act
-      let response =
-        dream.route_request(
-          learn_hello_world_app.create_app_router(),
-          request,
-          EmptyContext,
-          EmptyServices,
-        )
-
-      // Assert
-      response
-      |> should()
-      |> extract_response_status()
-      |> be_equal(200)
-      |> or_fail_with("GET / should return 200")
-    }),
-    it("GET / returns Hello, World!", fn() {
-      // Arrange
-      let request = test_request.create_request(Get, "/")
-
-      // Act
-      let response =
-        dream.route_request(
-          learn_hello_world_app.create_app_router(),
-          request,
-          EmptyContext,
-          EmptyServices,
-        )
-
-      // Assert
-      response
-      |> should()
-      |> extract_body_text()
-      |> be_equal("Hello, World!")
-      |> or_fail_with("GET / should return 'Hello, World!'")
-    }),
-  ])
-}
-
-fn quickstart_tests() -> UnitNode {
-  group("quickstart", [
-    it("GET / returns status 200", fn() {
-      // Arrange
-      let request = test_request.create_request(Get, "/")
-
-      // Act
-      let response =
-        dream.route_request(
-          quickstart_hello_server.create_app_router(),
-          request,
-          EmptyContext,
-          EmptyServices,
-        )
-
-      // Assert
-      response
-      |> should()
-      |> extract_response_status()
-      |> be_equal(200)
-      |> or_fail_with("GET / should return 200")
-    }),
-    it("GET / returns Hello, World!", fn() {
-      // Arrange
-      let request = test_request.create_request(Get, "/")
-
-      // Act
-      let response =
-        dream.route_request(
-          quickstart_hello_server.create_app_router(),
-          request,
-          EmptyContext,
-          EmptyServices,
-        )
-
-      // Assert
-      response
-      |> should()
-      |> extract_body_text()
-      |> be_equal("Hello, World!")
-      |> or_fail_with("GET / should return 'Hello, World!'")
-    }),
   ])
 }
 
@@ -207,80 +110,6 @@ fn building_api_tests() -> UnitNode {
       |> extract_response_status()
       |> be_equal(400)
       |> or_fail_with("show should return 400")
-    }),
-  ])
-}
-
-fn adding_auth_tests() -> UnitNode {
-  group("learn adding auth", [
-    it("context starts with no user", fn() {
-      // Arrange
-      let context = learn_adding_auth_context.context
-
-      // Act
-      let user = context.user
-
-      // Assert
-      user
-      |> should()
-      |> be_equal(None)
-      |> or_fail_with("context should have no user")
-    }),
-    it("auth_middleware without a header returns status 401", fn() {
-      // Arrange
-      let request = test_request.create_request(Post, "/users")
-
-      // Act
-      let response = run_lesson_auth_middleware(request)
-
-      // Assert
-      response
-      |> should()
-      |> extract_response_status()
-      |> be_equal(401)
-      |> or_fail_with("a request with no header should get 401")
-    }),
-    it("auth_middleware without a header names the missing header", fn() {
-      // Arrange
-      let request = test_request.create_request(Post, "/users")
-
-      // Act
-      let response = run_lesson_auth_middleware(request)
-
-      // Assert
-      response
-      |> should()
-      |> extract_body_text()
-      |> be_equal("Missing Authorization header")
-      |> or_fail_with("the body should name the missing header")
-    }),
-    it("auth_middleware with an unknown token returns Invalid token", fn() {
-      // Arrange
-      let request = add_authorization(Post, "/users", "Bearer wrong-token")
-
-      // Act
-      let response = run_lesson_auth_middleware(request)
-
-      // Assert
-      response
-      |> should()
-      |> extract_body_text()
-      |> be_equal("Invalid token")
-      |> or_fail_with("an unknown token should be rejected")
-    }),
-    it("auth_middleware with the admin token passes the admin user on", fn() {
-      // Arrange
-      let request = add_authorization(Post, "/users", "Bearer admin-token")
-
-      // Act
-      let response = run_lesson_auth_middleware(request)
-
-      // Assert
-      response
-      |> should()
-      |> extract_body_text()
-      |> be_equal("admin@example.com")
-      |> or_fail_with("the controller should get the admin user")
     }),
   ])
 }
@@ -601,27 +430,6 @@ fn add_authorization(
   Request(..test_request.create_request(method, path), headers: [
     Header("Authorization", value),
   ])
-}
-
-fn run_lesson_auth_middleware(request: Request) -> Response {
-  learn_adding_auth_middleware.auth_middleware(
-    request,
-    learn_adding_auth_context.context,
-    EmptyServices,
-    show_user_email,
-  )
-}
-
-fn show_user_email(
-  _request: Request,
-  context: learn_adding_auth_context.AuthContext,
-  _services: services,
-) -> Response {
-  let email = case context.user {
-    Some(user) -> user.email
-    None -> "no user"
-  }
-  response.text_response(200, email)
 }
 
 fn route_concepts_request(request: Request) -> Response {

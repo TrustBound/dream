@@ -1,7 +1,7 @@
 //// REST API guide: CORS
 ////
 //// A middleware that adds CORS headers to every response, as shown in
-//// docs/guides/rest-api.md.
+//// docs/guides/api-patterns.md.
 
 import dream/context.{type AppContext}
 import dream/http/header.{Header}

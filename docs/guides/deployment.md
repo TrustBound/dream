@@ -1,18 +1,57 @@
-# Guide: Deployment
+# Deploy with Docker
 
-**Running Dream in production. Because localhost:3000 won't cut it forever.**
+Your app works on your machine. Now it has to run somewhere else: in a container, with its settings from the environment, its database next to it, its migrations run before it starts, and a health check that tells the platform when to restart it. This guide does that with the real `Dockerfile` and `docker-compose.yml` of `examples/deployment`, which Dream's CI builds and starts on every change.
 
-Dream apps compile to native Erlang BEAM bytecode. They run on the same battle-tested runtime that powers WhatsApp, Discord, and other services handling millions of concurrent connections.
+## Table of Contents
 
-This guide covers common deployment patterns. You do not need all of them on day one: start with a simple container-based deploy (see **Docker** below), then come back later for Docker Compose, migrations, health checks, and platform-specific tips as your app grows.
+- [What you'll build](#what-youll-build)
+- [Before you start](#before-you-start)
+- [Which way to run it](#which-way-to-run-it)
+- [Step 1: Read the settings from the environment](#step-1-read-the-settings-from-the-environment)
+- [Step 2: Add a health check](#step-2-add-a-health-check)
+- [Step 3: Build the image](#step-3-build-the-image)
+- [Step 4: Run it with its database in Docker Compose](#step-4-run-it-with-its-database-in-docker-compose)
+- [Step 5: Log to standard output](#step-5-log-to-standard-output)
+- [When the app is unhealthy or won't start](#when-the-app-is-unhealthy-or-wont-start)
+- [Where to run it](#where-to-run-it)
+- [Performance](#performance)
+- [Security checklist](#security-checklist)
+- [Test your code](#test-your-code)
+- [Common pitfalls](#common-pitfalls)
+- [Where to go next](#where-to-go-next)
 
-## Building for Production
+## What you'll build
 
-Build your release with `gleam build`. Erlang is the default target, so it is the same as `gleam build --target erlang`.
+- A config module that reads the port and the database URL from the environment.
+- A `/health` route that answers `503` when the database is down.
+- A Docker image built from the `deployment` example's `Dockerfile`.
+- A Compose file that starts PostgreSQL, runs the migrations, then starts the app and waits for its health check.
+- JSON log lines on standard output.
 
-This generates BEAM bytecode in `build/dev/erlang/`. For production, you want an optimized build—but Gleam doesn't have a `--prod` flag yet. The dev build works fine for production. The BEAM is already optimized.
+## Before you start
 
-## Environment Variables
+You need Docker with Compose v2. Dream apps compile to BEAM bytecode and run on the Erlang runtime, so the image needs Erlang and Gleam, and the official Gleam image has both. Read [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md) for the database side. In the Dream repository, `make test-docker` builds the example's image and starts it with Compose:
+
+### The Docker test of the repository <a href="https://github.com/TrustBound/dream/blob/3.0.0/Makefile#L59-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```makefile
+
+# Build the Docker image of examples/deployment and start it with Docker
+# Compose (needs Docker and the port 3000 free)
+test-docker:
+```
+
+The example depends on the Dream of the repository, so `scripts/test-docker.sh` copies the example and Dream into one folder before it runs the example's `test/docker.sh` there. Your app depends on Dream from Hex, so you run the same commands in your project folder.
+
+## Which way to run it
+
+| Your situation | Run it with | Why |
+|:---|:---|:---|
+| One server, a container platform (Fly.io, Render, Railway, ECS, Kubernetes) | The image from Step 3 | The platform restarts it and routes traffic to it. |
+| Local development with a database, or a small server | Docker Compose, Step 4 | One command starts the database, the migrations and the app. |
+| No containers | `gleam run` under your process manager | The app is a normal program that reads its settings from the environment. |
+
+## Step 1: Read the settings from the environment
 
 Dream apps should read configuration from environment variables (12-factor app style):
 
@@ -74,7 +113,56 @@ pub fn start_server(services: Services, port: Int) {
 }
 ```
 
-## Docker
+## Step 2: Add a health check
+
+Add a health endpoint. `check_database` is a function in `Services`, so a test can give a stub. In production, make it run `SELECT 1` through dream_postgres:
+
+### The health check controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_app.gleam#L13-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub type Services {
+  Services(check_database: fn() -> Result(Nil, String))
+}
+
+pub fn health_check(
+  _request: Request,
+  _context: EmptyContext,
+  services: Services,
+) -> Response {
+  case services.check_database() {
+    Ok(Nil) -> text_response(ok, "OK")
+    Error(_reason) -> text_response(service_unavailable, "Database unavailable")
+  }
+}
+```
+
+Add to router:
+
+### The health route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_app.gleam#L28-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn create_router() -> Router(EmptyContext, Services) {
+  router()
+  |> route(
+    method: Get,
+    path: "/health",
+    controller: health_check,
+    middleware: [],
+  )
+}
+```
+
+Configure Docker healthcheck. The Alpine image has `wget`, not `curl`:
+
+#### The health check of the Dockerfile <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/Dockerfile#L14-L16"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```dockerfile
+# Mark the container unhealthy when /health does not answer 200
+HEALTHCHECK --interval=5s --timeout=3s \
+  CMD wget -q -O /dev/null http://localhost:3000/health || exit 1
+```
+
+## Step 3: Build the image
 
 Create `Dockerfile`. This is the Dockerfile of the `deployment` example, which `make test-docker` builds and starts:
 
@@ -112,6 +200,13 @@ Build the image:
 docker build -t your-app .
 ```
 
+### Build for production
+
+Build your release with `gleam build`. Erlang is the default target, so it is the same as `gleam build --target erlang`.
+
+This generates BEAM bytecode in `build/dev/erlang/`. For production, you want an optimized build, but Gleam doesn't have a `--prod` flag yet. The dev build works fine for production. The BEAM is already optimized.
+
+
 To run the image on its own, give it the settings of your environment:
 
 ```bash illustration
@@ -121,7 +216,7 @@ docker run -p 3000:3000 \
   your-app
 ```
 
-## Docker Compose
+## Step 4: Run it with its database in Docker Compose
 
 For local development with database. This is the `docker-compose.yml` of the `deployment` example:
 
@@ -176,11 +271,11 @@ curl -f http://localhost:3000/health
 docker compose down -v
 ```
 
-## Database Migrations
+### The migrations run first
 
 Run migrations before starting your app. Cigogne applies them with `gleam run -m cigogne all`. In Docker Compose, a separate service runs them, and the app starts when that service has finished:
 
-### The migration service <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/docker-compose.yml#L13-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The migration service <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/docker-compose.yml#L13-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```yaml
   migrate:
@@ -193,7 +288,7 @@ Run migrations before starting your app. Cigogne applies them with `gleam run -m
         condition: service_healthy
 ```
 
-## Logging
+## Step 5: Log to standard output
 
 Log to stdout/stderr. Let your infrastructure handle log aggregation:
 
@@ -228,93 +323,69 @@ pub fn format_info_line(
 
 Docker/Kubernetes will capture stdout and route it to your log aggregator.
 
-## Health Checks
+### Monitoring
 
-Add a health endpoint. `check_database` is a function in `Services`, so a test can give a stub. In production, make it run `SELECT 1` through dream_postgres:
+#### Application Metrics
 
-### The health check controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_app.gleam#L13-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+Log key metrics:
 
-```gleam
-pub type Services {
-  Services(check_database: fn() -> Result(Nil, String))
-}
-
-pub fn health_check(
-  _request: Request,
-  _context: EmptyContext,
-  services: Services,
-) -> Response {
-  case services.check_database() {
-    Ok(Nil) -> text_response(ok, "OK")
-    Error(_reason) -> text_response(service_unavailable, "Database unavailable")
-  }
-}
-```
-
-Add to router:
-
-### The health route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_app.gleam#L28-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+##### Request log lines <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_request_log.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn create_router() -> Router(EmptyContext, Services) {
-  router()
-  |> route(
-    method: Get,
-    path: "/health",
-    controller: health_check,
-    middleware: [],
-  )
+import dream/http.{type Request, type Response, method_to_string}
+import gleam/io
+import gleam/json
+
+pub fn log_request(request: Request, response: Response, duration_ms: Int) {
+  format_request_line(request, response, duration_ms)
+  |> io.println
+}
+
+pub fn format_request_line(
+  request: Request,
+  response: Response,
+  duration_ms: Int,
+) -> String {
+  json.object([
+    #("type", json.string("request")),
+    #("method", json.string(method_to_string(request.method))),
+    #("path", json.string(request.path)),
+    #("status", json.int(response.status)),
+    #("duration_ms", json.int(duration_ms)),
+  ])
+  |> json.to_string
 }
 ```
 
-Configure Docker healthcheck. The Alpine image has `wget`, not `curl`:
+Send to your monitoring service (Datadog, New Relic, etc.).
 
-#### The health check of the Dockerfile <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/Dockerfile#L14-L16"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-```dockerfile
-# Mark the container unhealthy when /health does not answer 200
-HEALTHCHECK --interval=5s --timeout=3s \
-  CMD wget -q -O /dev/null http://localhost:3000/health || exit 1
-```
+## When the app is unhealthy or won't start
 
-## Process Management
+### App Won't Start
 
-The BEAM handles process management. You don't need systemd or supervisord. Just run `gleam run` and the BEAM keeps your app running.
+Check:
+- ✅ All environment variables set
+- ✅ Database accessible from app
+- ✅ Port not already in use
+- ✅ Migrations ran successfully
 
-For containerized deployments, your orchestrator (Kubernetes, ECS, etc.) handles restarts.
+### High Memory Usage
 
-## Performance Considerations
+The BEAM allocates memory generously. 1-2GB is normal for production. If it's growing unbounded:
+- Check for memory leaks in your code
+- Monitor process count (are processes dying?)
+- Review query result sizes (loading too much data?)
 
-### Connection Pooling
+### Slow Responses
 
-Pog (PostgreSQL client) includes connection pooling:
+Profile with Erlang tools:
+- Add logging/timing to controllers
+- Check database query performance
+- Review N+1 query patterns
+- Consider caching
 
-#### Pool size <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_postgres.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
-
-```gleam
-import gleam/erlang/process
-import pog
-
-pub fn create_database_config() -> pog.Config {
-  pog.default_config(pool_name: process.new_name("app_database"))
-  // Adjust based on load
-  |> pog.pool_size(15)
-}
-```
-
-Start with 15, increase if you see connection exhaustion. The BEAM handles pooling efficiently.
-
-### Concurrency
-
-The BEAM handles thousands of concurrent connections per core. You don't need to tune much. Each request runs in its own lightweight process.
-
-### Static Assets
-
-Serve static assets from CDN or object storage (S3, Cloudflare, etc.). Don't serve them from your Dream app. Use Dream for dynamic content only.
-
-In development, or for a small number of files, `dream/controllers/static` can serve files from a directory. `static.serve` sends a file, and stops paths that try to leave the root directory. It takes a `Config`. `static.default_config` serves `index.html` for a directory and does not list directories. `static.with_directory_listing` turns on the directory listing, `static.without_index` turns off `index.html`, and `static.with_custom_404` sets your own controller for a file that is not there. Each function has an example in its doc comment on [HexDocs](https://hexdocs.pm/dream/dream/controllers/static.html).
-
-## Deployment Platforms
+## Where to run it
 
 ### Fly.io
 
@@ -371,114 +442,38 @@ Standard container deployment:
 4. Set environment variables
 5. Deploy
 
-## Environment-Specific Configuration
+## Performance
 
-Use environment variables, not config files:
+### Connection Pooling
 
-```bash illustration
-# Development
-export DATABASE_URL=postgres://localhost:5432/dev_db
-export SECRET_KEY=dev-secret-not-for-production
+Pog (PostgreSQL client) includes connection pooling:
 
-# Production (set in your deployment platform)
-DATABASE_URL=postgres://prod-host/db
-SECRET_KEY=actual-secret-from-vault
-```
-
-Never commit secrets to Git. Use secret management:
-- AWS Secrets Manager
-- HashiCorp Vault
-- Platform-specific secrets (Fly.io, Render, etc.)
-
-## Monitoring
-
-### Application Metrics
-
-Log key metrics:
-
-#### Request log lines <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_request_log.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Pool size <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_postgres.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{type Request, type Response, method_to_string}
-import gleam/io
-import gleam/json
+import gleam/erlang/process
+import pog
 
-pub fn log_request(request: Request, response: Response, duration_ms: Int) {
-  format_request_line(request, response, duration_ms)
-  |> io.println
-}
-
-pub fn format_request_line(
-  request: Request,
-  response: Response,
-  duration_ms: Int,
-) -> String {
-  json.object([
-    #("type", json.string("request")),
-    #("method", json.string(method_to_string(request.method))),
-    #("path", json.string(request.path)),
-    #("status", json.int(response.status)),
-    #("duration_ms", json.int(duration_ms)),
-  ])
-  |> json.to_string
+pub fn create_database_config() -> pog.Config {
+  pog.default_config(pool_name: process.new_name("app_database"))
+  // Adjust based on load
+  |> pog.pool_size(15)
 }
 ```
 
-Send to your monitoring service (Datadog, New Relic, etc.).
+Start with 15, increase if you see connection exhaustion. The BEAM handles pooling efficiently.
 
-### BEAM Metrics
+### Concurrency
 
-The BEAM provides runtime metrics:
-- Process count
-- Memory usage
-- Scheduler utilization
+The BEAM handles thousands of concurrent connections per core. You don't need to tune much. Each request runs in its own lightweight process.
 
-Use Erlang observer in development:
+### Static Assets
 
-```bash illustration
-gleam run
-# In another terminal:
-erl -remsh yourapp@hostname
-```
+Serve static assets from CDN or object storage (S3, Cloudflare, etc.). Don't serve them from your Dream app. Use Dream for dynamic content only.
 
-For production, export metrics to Prometheus/Grafana.
+In development, or for a small number of files, `dream/controllers/static` can serve files from a directory. `static.serve` sends a file, and stops paths that try to leave the root directory. It takes a `Config`. `static.default_config` serves `index.html` for a directory and does not list directories. `static.with_directory_listing` turns on the directory listing, `static.without_index` turns off `index.html`, and `static.with_custom_404` sets your own controller for a file that is not there. Each function has an example in its doc comment on [HexDocs](https://hexdocs.pm/dream/dream/controllers/static.html).
 
-## Graceful Shutdown
-
-The BEAM handles shutdown gracefully. On SIGTERM:
-1. Stops accepting new connections
-2. Finishes existing requests
-3. Closes database connections
-4. Exits
-
-No special handling needed. The BEAM runtime does this for you.
-
-## Troubleshooting
-
-### App Won't Start
-
-Check:
-- ✅ All environment variables set
-- ✅ Database accessible from app
-- ✅ Port not already in use
-- ✅ Migrations ran successfully
-
-### High Memory Usage
-
-The BEAM allocates memory generously. 1-2GB is normal for production. If it's growing unbounded:
-- Check for memory leaks in your code
-- Monitor process count (are processes dying?)
-- Review query result sizes (loading too much data?)
-
-### Slow Responses
-
-Profile with Erlang tools:
-- Add logging/timing to controllers
-- Check database query performance
-- Review N+1 query patterns
-- Consider caching
-
-## Security Checklist
+## Security checklist
 
 Production security basics:
 - ✅ Use HTTPS (Let's Encrypt via reverse proxy)
@@ -489,22 +484,117 @@ Production security basics:
 - ✅ Don't log secrets
 - ✅ Keep dependencies updated
 
-## Summary
+## Test your code
 
-Deploying Dream:
-- ✅ Compiles to BEAM bytecode
-- ✅ Configure via environment variables
-- ✅ Docker-friendly
-- ✅ Health checks for orchestrators
-- ✅ BEAM handles concurrency and pooling
-- ✅ Log to stdout, let infrastructure aggregate
-- ✅ Deploy to Fly.io, Render, Railway, or any container platform
+The health check gets its database check from `Services`, so a test gives it a stub and checks both answers without a database:
 
-The BEAM is production-ready out of the box. You just need to point it at the right database and set your environment variables.
+### Test the health check <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/guide_deployment_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
----
+```gleam
+//// Deployment guide: a test of the health check, with a stub database
+////
+//// health_check is from test/snippets/deployment_guide_app.gleam. Its
+//// database check is a function in Services, so a test gives a stub.
 
-**See Also:**
-- [Testing](https://github.com/TrustBound/dream/blob/main/docs/guides/testing.md) - Testing your deployment
-- [REST API](https://github.com/TrustBound/dream/blob/main/docs/guides/rest-api.md) - Production API patterns
+import dream/context.{EmptyContext}
+import dream/dream
+import dream/http/request.{type Request, Get, Http, Http1, Request}
+import dream/http/response.{Text}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, it}
+import gleam/option
+import snippets/deployment_guide_app.{Services}
 
+fn health_request() -> Request {
+  Request(
+    method: Get,
+    protocol: Http,
+    version: Http1,
+    path: "/health",
+    query: "",
+    params: [],
+    host: option.None,
+    port: option.None,
+    remote_address: option.None,
+    body: request.Text(""),
+    headers: [],
+    cookies: [],
+    content_type: option.None,
+    content_length: option.None,
+  )
+}
+
+fn ask_health(
+  check_database: fn() -> Result(Nil, String),
+) -> response.Response {
+  dream.route_request(
+    deployment_guide_app.create_router(),
+    health_request(),
+    EmptyContext,
+    Services(check_database: check_database),
+  )
+}
+
+pub fn tests() -> TestSuite {
+  describe("GET /health", [
+    it("answers 200 when the database answers", fn() {
+      // Act
+      let response = ask_health(fn() { Ok(Nil) })
+
+      // Assert
+      response.status
+      |> should
+      |> be_equal(200)
+      |> or_fail_with("a healthy database should give 200")
+    }),
+    it("answers 503 when the database is down", fn() {
+      // Act
+      let response = ask_health(fn() { Error("connection refused") })
+
+      // Assert
+      response.status
+      |> should
+      |> be_equal(503)
+      |> or_fail_with("a database that is down should give 503")
+    }),
+    it("says why it is unhealthy", fn() {
+      // Act
+      let response = ask_health(fn() { Error("connection refused") })
+
+      // Assert
+      response.body
+      |> should
+      |> be_equal(Text("Database unavailable"))
+      |> or_fail_with("the body should say the database is unavailable")
+    }),
+  ])
+}
+```
+
+### The report of the test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/outputs/guide_deployment_report.txt"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+GET /health
+  ✓ answers 200 when the database answers
+  ✓ answers 503 when the database is down
+  ✓ says why it is unhealthy
+
+Summary: 3 run, 0 failed, 3 passed in 0ms
+```
+
+The image itself is tested by running it: `make test-docker` builds it, starts it with Compose, and fails when `curl -f` gets no `200` from `/health`.
+
+## Common pitfalls
+
+- **The app listens on `localhost` in the container.** Nothing outside the container can reach it. Bind to `0.0.0.0`, as `create_server` does.
+- **The local `build` folder is copied into the image.** It holds your machine's build. Add `build` to `.dockerignore`.
+- **`curl` in a health check of an Alpine image.** Alpine has `wget`, not `curl`. The example's `HEALTHCHECK` uses `wget`.
+- **The app starts before the migrations finish.** Make the app depend on the migration service with `condition: service_completed_successfully`, as the Compose file does.
+- **Secrets in the image or in Git.** Pass them as environment variables from your platform's secret store.
+
+## Where to go next
+
+- [Start, stop and troubleshoot the server](https://github.com/TrustBound/dream/blob/main/docs/guides/operating.md): start errors, ports and stopping the server.
+- [Serve HTTPS and HTTP/2](https://github.com/TrustBound/dream/blob/main/docs/guides/http2.md): TLS in Dream or at a proxy.
+- [Why the BEAM?](https://github.com/TrustBound/dream/blob/main/docs/reference/why-beam.md)

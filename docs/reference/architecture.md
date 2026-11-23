@@ -499,7 +499,7 @@ For example, publishing a post might require:
 3. Send notifications (Service)
 4. Broadcast event (Service)
 
-This coordination belongs in an Operation, not a Controller. See [Operations Guide](../guides/operations.md) and [Advanced Patterns](../learn/04-advanced-patterns.md) for details.
+This coordination belongs in an Operation, not a Controller. See [Move a workflow into an operation](../guides/database-api.md#step-13-move-a-workflow-into-an-operation) and [Move a workflow into an operation](../guides/database-api.md#step-13-move-a-workflow-into-an-operation) for details.
 
 ### Best Practices
 
@@ -522,9 +522,9 @@ This coordination belongs in an Operation, not a Controller. See [Operations Gui
 - Compose templates for reusable HTML components
 
 For detailed patterns and examples, see:
-- [Controllers & Models Guide](../guides/controllers-and-models.md) - Detailed MVC patterns
-- [Operations Guide](../guides/operations.md) - Complex business logic
-- [Multiple Formats Guide](../guides/multiple-formats.md) - Content negotiation
+- [Build a database-backed JSON API](../guides/database-api.md) - Detailed MVC patterns
+- [Move a workflow into an operation](../guides/database-api.md#step-13-move-a-workflow-into-an-operation) - Complex business logic
+- [Render HTML and other formats](../guides/templates.md) - Content negotiation
 
 ## Design Decisions
 
@@ -852,8 +852,8 @@ We aim to minimize breaking changes, but during pre-1.0 development, we prioriti
 ## Further Reading
 
 - [Design Principles](design-principles.md) - The "why" behind decisions
-- [Lesson 2: Building an API](../learn/02-building-api.md) - Models, views, controllers in practice
-- [Lesson 3: Adding Auth](../learn/03-adding-auth.md) - Middleware in depth
+- [Build a database-backed JSON API](../guides/database-api.md) - Models, views, controllers in practice
+- [Route requests and add middleware](../guides/routing.md) - Middleware in depth
 
 ---
 

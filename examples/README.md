@@ -101,7 +101,7 @@ examples/simple/
 
 Integration tests run automatically on all pull requests. The `integration-tests` job of `.github/workflows/ci.yml` starts PostgreSQL for the database examples:
 
-### The PostgreSQL service of CI <a href="https://github.com/TrustBound/dream/blob/3.0.0/.github/workflows/ci.yml#L146-L157"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The PostgreSQL service of CI <a href="https://github.com/TrustBound/dream/blob/3.0.0/.github/workflows/ci.yml#L137-L148"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```yaml
   integration-tests:
@@ -118,7 +118,7 @@ Integration tests run automatically on all pull requests. The `integration-tests
           - 5435:5432
 ```
 
-See [Integration Tests CI Documentation](../.github/workflows/integration-tests.md) for details.
+The `tasks` job runs `make test-tasks` with its own PostgreSQL service on port 5437, and the `docker` job runs `make test-docker` for `examples/deployment`.
 
 ## Test Coverage
 
@@ -203,6 +203,6 @@ gleam build
 ## Resources
 
 - [Dream Documentation](../docs)
-- [Quickstart Guide](../docs/quickstart.md)
+- [Build your first Dream server](../docs/guides/getting-started.md)
 - [Testing Guide](../docs/guides/testing.md)
-- [CI Documentation](../.github/workflows/integration-tests.md)
+- [The CI workflow](../.github/workflows/ci.yml)

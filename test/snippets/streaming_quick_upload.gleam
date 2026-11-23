@@ -1,7 +1,7 @@
 //// Streaming quick reference: Upload File (Ingress)
 ////
 //// A streaming route and a controller that counts the uploaded bytes, as
-//// shown in docs/guides/streaming-quick-reference.md.
+//// shown in the Recipes section of docs/reference/streaming-api.md.
 
 import dream/http/request.{type BodyReadError, type Request, Post, Stream}
 import dream/http/response.{type Response, text_response}

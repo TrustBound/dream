@@ -16,3 +16,12 @@ curl -X POST -d "hello world" http://localhost:3000/echo_transform
 echo
 
 curl http://localhost:3000/proxy
+echo
+
+# The broken upload of docs/guides/streaming.md: a chunked body whose second
+# chunk size is not a hex number. The server reads the first chunk, then
+# fails the read, and the controller answers 400.
+exec 3<>/dev/tcp/localhost/3000
+printf 'POST /upload HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n5\r\nhello\r\nzz\r\n' >&3
+cat <&3
+echo

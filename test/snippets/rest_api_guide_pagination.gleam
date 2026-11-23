@@ -1,7 +1,7 @@
 //// REST API guide: offset-based pagination
 ////
 //// A products controller that reads `offset` and `limit` from the query
-//// string, as shown in docs/guides/rest-api.md.
+//// string, as shown in docs/guides/api-patterns.md.
 
 import dream/context.{type AppContext}
 import dream/http.{

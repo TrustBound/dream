@@ -1209,3 +1209,31 @@ HTTPS Response:
     "body": "cupiditate quo est a modi nesciunt soluta\nipsa voluptas error itaque dicta in\nautem qui minus magnam et distinctio eum\naccusamus ratione error aut"
   }
 ]Forbidden: Admin access required. Your role: userHello, World!
+HTTP/1.1 401 Unauthorized
+content-type: text/plain; charset=utf-8
+content-length: 42
+date: (the time of the request)
+connection: keep-alive
+
+Unauthorized: Missing Authorization header
+HTTP/1.1 401 Unauthorized
+content-type: text/plain; charset=utf-8
+content-length: 27
+date: (the time of the request)
+connection: keep-alive
+
+Unauthorized: Invalid token
+HTTP/1.1 403 Forbidden
+content-type: text/plain; charset=utf-8
+content-length: 49
+date: (the time of the request)
+connection: keep-alive
+
+Forbidden: Admin access required. Your role: user
+HTTP/1.1 200 OK
+content-type: text/plain; charset=utf-8
+content-length: 13
+date: (the time of the request)
+connection: keep-alive
+
+Hello, World!

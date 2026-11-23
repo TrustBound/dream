@@ -1,7 +1,7 @@
 //// REST API guide: header-based versioning
 ////
 //// A controller that picks the API version from the `API-Version` header,
-//// as shown in docs/guides/rest-api.md.
+//// as shown in docs/guides/api-patterns.md.
 
 import dream/context.{type AppContext}
 import dream/http.{

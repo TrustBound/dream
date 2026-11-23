@@ -65,3 +65,26 @@
 2,Mouse,29.99,50
 3,Keyboard,79.99,30
 4,Monitor,299.99,20
+
+HTTP/1.1 200 OK
+content-type: application/json; charset=utf-8
+content-length: 50
+date: (the time of the request)
+connection: keep-alive
+
+{"id":1,"name":"Laptop","price":999.99,"stock":15}
+HTTP/1.1 200 OK
+content-type: text/plain; charset=utf-8
+content-length: 18
+date: (the time of the request)
+connection: keep-alive
+
+1,Laptop,999.99,15
+HTTP/1.1 404 Not Found
+content-type: text/html; charset=utf-8
+content-length: 46
+date: (the time of the request)
+connection: keep-alive
+
+<h1>404 Not Found</h1><p>Product not found</p>
+200 text/html; charset=utf-8

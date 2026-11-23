@@ -1,34 +1,58 @@
-# WebSockets in Dream
+# Build a chat with WebSockets
 
-Build real-time features like chat, notifications, and live dashboards using typed WebSockets in Gleam.
+You want a live feature where both sides talk at any time: a chat, a multiplayer cursor, a dashboard that also takes commands. HTTP requests can't do that, and server-sent events only go one way. A WebSocket keeps one connection open in both directions. This guide builds the WebSocket handlers of a chat room with Dream's typed WebSocket actors and its broadcaster, using `examples/websocket_chat`. The frames and answers shown are what that server really sends.
 
-This guide assumes you:
+## Table of Contents
 
-- Know a little HTTP (requests, responses, status codes).
-- May be **new to Gleam** – examples are small and include imports and types.
+- [What you'll build](#what-youll-build)
+- [Before you start](#before-you-start)
+- [WebSockets, SSE or streaming](#websockets-sse-or-streaming)
+- [Overview: How Dream WebSockets Work](#overview-how-dream-websockets-work)
+- [A Small Example](#a-small-example)
+- [Step 1: Define a Dependencies type](#step-1-define-a-dependencies-type)
+- [Step 2: Define a WebSocket route and controller](#step-2-define-a-websocket-route-and-controller)
+- [Step 3: on_init, run when the connection opens](#step-3-on_init-run-when-the-connection-opens)
+- [Step 4: on_message, handle incoming and custom messages](#step-4-on_message-handle-incoming-and-custom-messages)
+- [Step 5: on_close, clean up](#step-5-on_close-clean-up)
+- [Step 6: Broadcast to every user](#step-6-broadcast-to-every-user)
+- [Step 7: See the frames of a chat](#step-7-see-the-frames-of-a-chat)
+- [Authentication at Upgrade Time](#authentication-at-upgrade-time)
+- [When the upgrade fails](#when-the-upgrade-fails)
+- [Test your code](#test-your-code)
+- [Common pitfalls](#common-pitfalls)
+- [Where to go next](#where-to-go-next)
 
-We will cover:
+## What you'll build
 
-- When to use WebSockets vs HTTP streaming or SSE.
-- How Dream upgrades an HTTP request to a WebSocket.
-- Writing `on_init`, `on_message`, and `on_close` handlers.
-- Broadcasting messages with the `broadcaster` service.
-- Authentication at upgrade time.
-- Where to look for a full example and tests.
+- A `/chat` route that upgrades the request to a WebSocket run by its own actor.
+- Handlers for the open, each message, and the close of a connection.
+- A chat room where every user gets every message, through the broadcaster service.
+- The JSON frames a user sees while another joins, talks and leaves.
+- A check of the user's token before the upgrade, and the answer to a request that isn't an upgrade.
 
-## WebSockets vs Streaming and SSE
+## Before you start
+
+You need Dream and `gleam_erlang`:
+
+```sh
+gleam add dream gleam_erlang
+```
+
+Read [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md) first. The examples on this page are small and include their imports. The full app runs from the Dream repository with `make run` in `examples/websocket_chat`, on port 8080, and its [README](https://github.com/TrustBound/dream/blob/main/examples/websocket_chat/README.md) walks through the browser side and the templates.
+
+## WebSockets, SSE or streaming
 
 Dream already supports:
 
-- **Streaming responses** – send large responses in chunks.
-- **Streaming requests** – read large uploads without buffering.
-- **Server-Sent Events (SSE)** – one-way event stream from server to browser.
+- **Streaming responses**: send large responses in chunks.
+- **Streaming requests**: read large uploads without buffering.
+- **Server-Sent Events (SSE)**: one-way event stream from server to browser.
 
 WebSockets are different:
 
-- **Bi-directional** – both client and server can send messages at any time.
-- **Long-lived** – a single connection can stay open for hours.
-- **Stateful** – each connection has its own state on the server.
+- **Bi-directional**: both client and server can send messages at any time.
+- **Long-lived**: a single connection can stay open for hours.
+- **Stateful**: each connection has its own state on the server.
 
 Use WebSockets when:
 
@@ -51,10 +75,10 @@ import dream/servers/mist/websocket
 
 From your application’s point of view, you work with:
 
-- `websocket.Connection` – an opaque handle to a WebSocket connection.
-- `websocket.Message(custom)` – messages received for this connection.
-- `websocket.Action(state, custom)` – what to do after handling a message.
-- `websocket.upgrade_websocket` – called from a controller to upgrade HTTP → WebSocket.
+- `websocket.Connection`: an opaque handle to a WebSocket connection.
+- `websocket.Message(custom)`: messages received for this connection.
+- `websocket.Action(state, custom)`: what to do after handling a message.
+- `websocket.upgrade_websocket`: called from a controller to upgrade HTTP to a WebSocket.
 
 The high-level flow is:
 
@@ -225,7 +249,7 @@ Instead of returning a `Response` directly, the controller calls
 `upgrade_websocket`. Dream returns a dummy HTTP response to satisfy the
 controller type, but the real work happens in the WebSocket handlers.
 
-## Step 3: `on_init` – run when the connection opens
+## Step 3: on_init, run when the connection opens
 
 `on_init` runs **once**, right after the WebSocket is established. It
 lets you:
@@ -263,22 +287,22 @@ Dream stores `state` internally and passes it back to `on_message` for
 this connection. The selector tells Dream to also listen for custom
 messages (for example, from other users via the broadcaster).
 
-## Step 4: `on_message` – handle incoming and custom messages
+## Step 4: on_message, handle incoming and custom messages
 
 Every time a message arrives, Dream calls your `on_message` function.
 It must return an `Action(state, custom)` value created by one of:
 
-- `websocket.continue_connection(state)` – keep the connection open.
-- `websocket.continue_connection_with_selector(state, selector)` – keep
+- `websocket.continue_connection(state)`: keep the connection open.
+- `websocket.continue_connection_with_selector(state, selector)`: keep
   connection open and update which selector to use.
-- `websocket.stop_connection()` – close the connection.
+- `websocket.stop_connection()`: close the connection.
 
 The message type is `websocket.Message(custom)`:
 
-- `TextMessage(String)` – text frame from the client.
-- `BinaryMessage(BitArray)` – binary frame from the client.
-- `CustomMessage(custom)` – value delivered via your `Selector(custom)`.
-- `ConnectionClosed` – Mist or the client closed the connection.
+- `TextMessage(String)`: text frame from the client.
+- `BinaryMessage(BitArray)`: binary frame from the client.
+- `CustomMessage(custom)`: value delivered via your `Selector(custom)`.
+- `ConnectionClosed`: Mist or the client closed the connection.
 
 ### The on_message handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L80-L108"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -314,11 +338,11 @@ pub fn handle_websocket_message(
 }
 ```
 
-If `send_text` fails, it returns `Error(SendError)` – in many simple
+If `send_text` fails, it returns `Error(SendError)`: in many simple
 apps you can log this and continue, but you could also decide to stop
 the connection.
 
-## Step 5: `on_close` – clean up
+## Step 5: on_close, clean up
 
 `on_close` runs once when the connection is closed. It receives the
 *last* state value and your dependencies. Typical uses:
@@ -347,7 +371,7 @@ pub fn handle_websocket_close(
 > subscriptions are cleaned up automatically when processes die, but it
 > is still a good habit to handle any explicit cleanup you need here.
 
-## Broadcasting with the `broadcaster` service
+## Step 6: Broadcast to every user
 
 Most non-trivial WebSocket apps need to **send messages to more than one
 connection** at a time. Dream provides a tiny `broadcaster` module under
@@ -416,6 +440,33 @@ pub fn publish_chat_message(
 The `websocket_chat` example in this repository shows a larger version
 of this pattern with more message types and integration tests.
 
+
+## Step 7: See the frames of a chat
+
+The chat app turns each `ChatMessage` into a JSON frame. These are the frames that Bob's browser gets when he joins, Alice joins, Alice says "Hello everyone!", and Alice leaves. An integration scenario of the example connects two real WebSocket clients and compares what Bob receives with this file:
+
+### The frames Bob receives <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/test/integration/chat_frames.txt#L1-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+{"type":"joined","user":"Bob"}
+{"type":"joined","user":"Alice"}
+{"type":"message","user":"Alice","text":"Hello everyone!"}
+{"type":"left","user":"Alice"}
+```
+
+### The scenario that checks them <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/test/integration/features/websocket_chat.feature#L54-L61"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gherkin
+    Scenario: The JSON frames of the README
+        Given user "Bob" connects to the chat
+        And user "Alice" connects to the chat
+        When user "Alice" sends message "Hello everyone!"
+        Then user "Bob" should receive message from "Alice" saying "Hello everyone!"
+        When user "Alice" disconnects
+        Then user "Bob" should receive "left" notification for "Alice"
+        And the frames that user "Bob" received should be the lines of "test/integration/chat_frames.txt"
+```
+
 ## Authentication at Upgrade Time
 
 WebSocket frames do not carry HTTP headers, so **authenticate at the
@@ -451,7 +502,29 @@ pub fn handle_upgrade(request, _context, services: Services) -> Response {
 
 This way only authenticated clients are allowed to upgrade to WebSockets.
 
-## Testing WebSocket Apps
+
+## When the upgrade fails
+
+A WebSocket starts as an HTTP `GET` with `Upgrade: websocket` and a few more headers. A plain request to the same route isn't an upgrade, and the server refuses it before your handlers run:
+
+### Send a plain GET to /chat <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/test/integration/readme.sh#L5"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+curl -i "http://localhost:8080/chat?user=Ann"
+```
+
+### A 400 with no body <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/test/integration/readme_output.txt#L1-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+HTTP/1.1 400 Bad Request
+content-length: 0
+date: (the time of the request)
+connection: keep-alive
+```
+
+The other failures happen after the upgrade. When the client goes away, `on_close` runs, even when the connection dies without a close frame. A `send_text` to a connection that has closed returns an error. Check it, and return `websocket.stop_connection()` when sending fails.
+
+## Test your code
 
 The `examples/websocket_chat` project includes **full integration tests**
 written in Gherkin (Cucumber). These tests:
@@ -474,7 +547,14 @@ small and pure by extracting logic into separate functions that do not
 know about WebSockets. You can then test those functions directly
 without opening real connections.
 
-## Where to Go Next
+## Common pitfalls
+
+- **Authenticating after the upgrade.** Frames carry no headers. Check the token in the controller, before `upgrade_websocket`, and answer `401` there.
+- **Blocking work in `on_message`.** Each connection is one actor. A slow call in `on_message` delays every later frame of that connection. Hand slow work to another process and send the result back as a custom message.
+- **Unsubscribing by hand on close.** The broadcaster removes a connection's channel when its process ends, so `on_close` only needs to tell the others.
+- **A proxy that drops idle connections.** Load balancers often close a connection with no traffic after a minute or so. Send a ping, or a small message, more often than that.
+
+## Where to go next
 
 - Read the source for `src/dream/servers/mist/websocket.gleam` to see the
   full API (`Message`, `Action`, `send_text`, `send_binary`, etc.).

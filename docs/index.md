@@ -10,37 +10,31 @@ Dream is a web toolkit that gets out of your way. It provides type-safe routing,
 
 If you are new to Dream or Gleam, follow this path the first time through:
 
-1. [Quickstart](quickstart.md) – run a tiny app in a few minutes.
-2. [Learning Path](learn/) – work through the four short lessons.
-3. [Guides](guides/) – look up a specific task (auth, templates, streaming, WebSockets, etc.).
-4. [Examples](examples.md) – open a full app that matches what you are trying to build.
-5. [Core Patterns](concepts/patterns.md) – skim the pattern catalog to see what Dream provides.
+1. [Build your first Dream server](guides/getting-started.md) – from an empty folder to a tested route.
+2. [Guides](guides/index.md) – one guide for each task: routing, request data, a database API, streaming, WebSockets, deployment and more.
+3. [Examples](examples.md) – open a full app that matches what you are trying to build.
+4. [Core Patterns](concepts/patterns.md) – skim the pattern catalog to see what Dream provides.
 
 After that, dip into the sections below whenever you need more detail.
 
 ## Explore the System
 
-### 🚀 [Quickstart](quickstart.md)
-**New to Dream?** Get a server running quickly. Copy-paste ready code to get you started immediately.
-
-### 🎓 [Learning Path](learn/)
-**Want to understand the system?** A structured 2-hour course taking you from "Hello World" to advanced production patterns.
-- [Hello World](learn/01-hello-world.md)
-- [Building an API](learn/02-building-api.md)
-- [Adding Auth](learn/03-adding-auth.md)
-- [Advanced Patterns](learn/04-advanced-patterns.md)
-
-### 🛠️ [Guides](guides/)
-**Building something specific?** Task-based guides for common requirements.
-- [Authentication](guides/authentication.md) - JWT, Sessions, Context
-- [Controllers & Models](guides/controllers-and-models.md) - MVC Patterns
-- [Multiple Formats](guides/multiple-formats.md) - JSON, HTML, HTMX
-- [Streaming](guides/streaming.md) - File uploads, SSE, large responses
-- [Operations](guides/operations.md) - Complex Business Logic
-- [Testing](guides/testing.md) - Unit and Integration Testing
-- [REST API](guides/rest-api.md) - Production API patterns
-- [Deployment](guides/deployment.md) - Production deployment
-- [HTTP/2](guides/http2.md) - HTTPS and HTTP/2
+### 🛠️ [Guides](guides/index.md)
+**Building something specific?** Each guide walks through one task with real code and the real answers of a running server.
+- [Build your first Dream server](guides/getting-started.md)
+- [Route requests and add middleware](guides/routing.md)
+- [Read request data safely](guides/request-data.md)
+- [Send responses, cookies and files](guides/responses.md)
+- [Build a database-backed JSON API](guides/database-api.md)
+- [Grow a JSON API](guides/api-patterns.md)
+- [Render HTML and other formats](guides/templates.md)
+- [Stream responses and uploads](guides/streaming.md)
+- [Push live updates with server-sent events](guides/sse.md)
+- [Build a chat with WebSockets](guides/websockets.md)
+- [Serve HTTPS and HTTP/2](guides/http2.md)
+- [Test your controllers and your app](guides/testing.md)
+- [Deploy with Docker](guides/deployment.md)
+- [Start, stop and troubleshoot the server](guides/operating.md)
 
 ### 📖 [Concepts](concepts.md)
 **Core concepts explained.** Understanding how Dream works.

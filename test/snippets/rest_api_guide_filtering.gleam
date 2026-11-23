@@ -1,7 +1,7 @@
 //// REST API guide: filtering and sorting
 ////
 //// A products controller that filters and sorts with query parameters, as
-//// shown in docs/guides/rest-api.md.
+//// shown in docs/guides/api-patterns.md.
 
 import dream/context.{type AppContext}
 import dream/http.{

@@ -1,7 +1,7 @@
 //// Streaming quick reference: saving and checking uploads
 ////
 //// Controllers that save a streamed upload to a file and check its first
-//// chunk, as shown in docs/guides/streaming-quick-reference.md.
+//// chunk, as shown in the Recipes section of docs/reference/streaming-api.md.
 
 import dream/http/request.{type BodyReadError, type Request, Stream}
 import dream/http/response.{type Response, text_response}

@@ -1,7 +1,7 @@
 //// REST API guide: URL-based versioning
 ////
 //// A router that sends each API version to its own controller, as shown in
-//// docs/guides/rest-api.md.
+//// docs/guides/api-patterns.md.
 
 import dream/context.{type AppContext}
 import dream/http.{type Request, type Response, json_response, ok}

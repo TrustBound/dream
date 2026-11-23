@@ -528,13 +528,16 @@ functions are dead code—delete them.
 
 ### GitHub Actions
 
-Two jobs on every PR:
-1. **unit-tests**: Format check, build, unit tests
-2. **integration-tests**: Integration tests with PostgreSQL
+Five jobs on every PR:
+1. **unit-tests**: `scripts/check.sh`: the format check, the build, the unit tests with line coverage and the check of the code blocks of the docs
+2. **integration-tests**: `scripts/ci-integration.sh`: the integration tests of the examples, with PostgreSQL
+3. **templates**: `make check-templates`, with the matcha binary that `scripts/install-matcha.sh` installs
+4. **docker**: `make test-docker`: builds and starts `examples/deployment`
+5. **tasks**: `make test-tasks`: the integration and Cypress tests of `examples/tasks`, with PostgreSQL on port 5437
 
 ### PostgreSQL Service
 
-#### The PostgreSQL service <a href="https://github.com/TrustBound/dream/blob/3.0.0/.github/workflows/ci.yml#L149-L160"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The PostgreSQL service <a href="https://github.com/TrustBound/dream/blob/3.0.0/.github/workflows/ci.yml#L140-L151"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```yaml
     services:
@@ -553,11 +556,12 @@ Two jobs on every PR:
 
 ### Environment
 
-#### The environment of the integration job <a href="https://github.com/TrustBound/dream/blob/3.0.0/.github/workflows/ci.yml#L210-L213"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The environment of the integration job <a href="https://github.com/TrustBound/dream/blob/3.0.0/.github/workflows/ci.yml#L192-L196"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```yaml
         env:
           CI: "true"
+          PGPASSWORD: postgres
           DATABASE_URL: postgres://postgres:postgres@localhost:5435/dream_example_database_db
           POSTGRES_PORT: "5435"
 ```

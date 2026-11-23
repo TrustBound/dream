@@ -1,7 +1,7 @@
 //// Streaming quick reference: stream middleware
 ////
 //// Middleware that transforms the incoming and the outgoing stream, as shown
-//// in docs/guides/streaming-quick-reference.md.
+//// in the Recipes section of docs/reference/streaming-api.md.
 
 import dream/http/request.{type BodyReadError, type Request, Request}
 import dream/http/response.{type Response, Response, Stream}

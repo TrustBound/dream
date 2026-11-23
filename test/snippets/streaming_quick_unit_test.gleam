@@ -1,7 +1,7 @@
 //// Streaming quick reference: Testing Streaming
 ////
 //// A dream_test unit test for a streaming response, as shown in
-//// docs/guides/streaming-quick-reference.md. The streaming snippet tests run it.
+//// the Recipes section of docs/reference/streaming-api.md. The streaming snippet tests run it.
 
 import dream/http/response.{Stream, stream_response}
 import dream/http/status

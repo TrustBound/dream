@@ -605,3 +605,130 @@ HTTPS Response:
   }
 ]
 2
+HTTP/1.1 200 OK
+content-type: text/plain; charset=utf-8
+content-length: 7
+date: (the time of the request)
+connection: keep-alive
+
+User 42
+HTTP/1.1 400 Bad Request
+content-type: text/plain; charset=utf-8
+content-length: 34
+date: (the time of the request)
+connection: keep-alive
+
+Bad Request: id must be an integer
+HTTP/1.1 200 OK
+content-type: text/plain; charset=utf-8
+content-length: 21
+date: (the time of the request)
+connection: keep-alive
+
+Results for gleam web
+HTTP/1.1 400 Bad Request
+content-type: text/plain; charset=utf-8
+content-length: 39
+date: (the time of the request)
+connection: keep-alive
+
+Bad Request: the q parameter is missing
+HTTP/1.1 201 Created
+content-type: application/json; charset=utf-8
+content-length: 49
+date: (the time of the request)
+connection: keep-alive
+
+{"name":"Ada","email":"ada@example.com","age":36}
+HTTP/1.1 400 Bad Request
+content-type: application/json; charset=utf-8
+content-length: 216
+date: (the time of the request)
+connection: keep-alive
+
+{"errors":[{"field":"name","message":"Expected String but found Int at name"},{"field":"email","message":"Expected Field but found Nothing at email"},{"field":"age","message":"Expected Int but found String at age"}]}
+HTTP/1.1 400 Bad Request
+content-type: application/json; charset=utf-8
+content-length: 68
+date: (the time of the request)
+connection: keep-alive
+
+{"errors":[{"field":null,"message":"Unexpected end of JSON input"}]}
+HTTP/1.1 200 OK
+content-type: text/plain; charset=utf-8
+content-length: 39
+date: (the time of the request)
+connection: keep-alive
+
+Thanks, ada@example.com. Topic: billing
+HTTP/1.1 400 Bad Request
+content-type: text/plain; charset=utf-8
+content-length: 42
+date: (the time of the request)
+connection: keep-alive
+
+Bad Request: Missing required field: email
+HTTP/1.1 200 OK
+set-cookie: visits=1
+content-type: text/plain; charset=utf-8
+content-length: 14
+date: (the time of the request)
+connection: keep-alive
+
+Visit number 1
+HTTP/1.1 200 OK
+set-cookie: visits=5
+content-type: text/plain; charset=utf-8
+content-length: 14
+date: (the time of the request)
+connection: keep-alive
+
+Visit number 5
+HTTP/1.1 301 Moved Permanently
+location: /
+content-length: 0
+date: (the time of the request)
+connection: keep-alive
+
+HTTP/1.1 204 No Content
+date: (the time of the request)
+connection: keep-alive
+
+HTTP/1.1 200 OK
+content-disposition: attachment; filename="report.csv"
+content-type: text/csv
+content-length: 22
+date: (the time of the request)
+connection: keep-alive
+
+id,name
+1,Ada
+2,Grace
+HTTP/1.1 200 OK
+content-type: text/plain; charset=utf-8
+content-length: 12
+date: (the time of the request)
+connection: keep-alive
+
+Cache purged
+HTTP/1.1 404 Not Found
+content-type: text/plain; charset=utf-8
+content-length: 15
+date: (the time of the request)
+connection: keep-alive
+
+Route not found
+HTTP/1.1 404 Not Found
+content-type: text/plain; charset=utf-8
+content-length: 15
+date: (the time of the request)
+connection: keep-alive
+
+Route not found
+Failed to start server: InitFailed("TLS file not found: build/test_tls/cert.pem")
+HTTP/1.1 400 Bad Request
+content-length: 0
+date: (the time of the request)
+connection: keep-alive
+
+

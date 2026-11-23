@@ -1,0 +1,7 @@
+hello app
+  ✓ answers GET / with 200
+  ✓ answers GET / with Hello, World!
+  ✓ answers POST / with 404
+  ✓ answers an unknown path with 404
+
+Summary: 4 run, 0 failed, 4 passed in 0ms

@@ -1,4 +1,4 @@
-# The requests of the README and of docs/learn/03-adding-auth.md.
+# The requests of the README and of docs/guides/routing.md.
 # integration/run-scenarios.sh runs them against the server and compares the
 # output with readme_output.txt.
 # Public endpoint (no auth needed)
@@ -36,3 +36,15 @@ curl http://localhost:3001/admin \
 # Admin token on the admin route - succeeds
 curl http://localhost:3001/admin \
   -H "Authorization: Bearer admin-token"
+
+# The requests of docs/guides/routing.md. "echo" ends the response above,
+# which has no line break at its end.
+echo
+curl -i http://localhost:3001/admin
+echo
+curl -i -H "Authorization: Bearer not-a-token" http://localhost:3001/admin
+echo
+curl -i -H "Authorization: Bearer user-token" http://localhost:3001/admin
+echo
+curl -i -H "Authorization: Bearer admin-token" http://localhost:3001/admin
+echo

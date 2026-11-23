@@ -16,7 +16,8 @@
 # - test/integration/start.sh, when the example has one, starts the server
 #   in place of "gleam run -m MODULE". It runs from the repository root.
 # - test/integration/readme.sh, when the example has one, runs once the
-#   server answers, with bash, in an empty folder. Its standard output must
+#   server answers, with bash, in an empty folder. EXAMPLE holds the path of
+#   the example's folder, for commands that run there. Its standard output must
 #   be the same as test/integration/readme_output.txt. In the http2 run,
 #   test/integration/readme_http2.sh and readme_http2_output.txt do the same
 #   against the HTTPS server. The comparison makes three changes that
@@ -43,6 +44,9 @@ fi
 
 SCHEME=http
 CA_FILE=""
+# The HTTP/1.1 run has no test certificate: a README command can show what
+# a server with a missing certificate does.
+rm -rf build/test_tls
 if [ "$PROTOCOL" = "http2" ]; then
   SCHEME=https
   CA_FILE="$PWD/build/test_tls/ca.pem"
@@ -51,6 +55,7 @@ if [ "$PROTOCOL" = "http2" ]; then
 fi
 
 EXAMPLE=$PWD
+export EXAMPLE
 START="$EXAMPLE/test/integration/start.sh"
 COMMANDS="$EXAMPLE/test/integration/readme.sh"
 EXPECTED="$EXAMPLE/test/integration/readme_output.txt"

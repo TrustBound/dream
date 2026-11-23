@@ -13,3 +13,11 @@ Chunk 7
 Chunk 8
 Chunk 9
 Chunk 10
+
+HTTP/1.1 400 Bad Request
+content-type: text/plain; charset=utf-8
+connection: close
+content-length: 33
+date: (the time of the request)
+
+The upload stopped before its end

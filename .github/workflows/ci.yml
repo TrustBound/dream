@@ -66,22 +66,13 @@ jobs:
           false -> io:format("No native coverage support: use Erlang/OTP 27+ with the JIT~n"), halt(1)
           end.'
 
-      - name: Check code format
-        run: gleam format --check
-
-      - name: Build project
-        run: gleam build
-
-      # Fails when line coverage of src/ is below 100%.
-      - name: Run all unit tests
+      # The format check, the build, the unit tests with line coverage (they
+      # fail below 100%) and the check of the code blocks of the docs: what
+      # "make check" runs. See docs/contributing/contributing.md.
+      - name: Run the checks
         env:
           CI: "true"
-        run: make test-unit
-
-      # Every Gleam code block in the docs must match the tested snippet
-      # that its badge links to. See docs/contributing/contributing.md.
-      - name: Check docs code blocks against tested snippets
-        run: make check-snippets
+        run: sh scripts/check.sh
 
       - name: Read coverage for the badge
         # Runs on every event, so a pull request also shows that the JSON
@@ -194,24 +185,145 @@ jobs:
       - name: Build project
         run: gleam build
 
-      - name: Setup database examples
-        env:
-          PGPASSWORD: postgres
-          DATABASE_URL: postgres://postgres:postgres@localhost:5435/dream_example_database_db
-        run: |
-          psql -h localhost -p 5435 -U postgres -c "CREATE DATABASE dream_example_multi_format_db;" || true
-          cd examples/database
-          gleam run -m cigogne all
-          cd ../multi_format
-          export DATABASE_URL=postgres://postgres:postgres@localhost:5435/dream_example_multi_format_db
-          gleam run -m cigogne all
-
+      # Makes the second database and runs the migrations of the database
+      # and multi_format examples, then the integration tests of every
+      # example except tasks.
       - name: Run all integration tests
         env:
           CI: "true"
+          PGPASSWORD: postgres
           DATABASE_URL: postgres://postgres:postgres@localhost:5435/dream_example_database_db
           POSTGRES_PORT: "5435"
-        run: make test-integration
+        run: sh scripts/ci-integration.sh
+
+      # Gleam writes a path dependency fingerprint before it asks Hex to
+      # resolve, and build/packages/packages.toml only after all downloads. A
+      # fingerprint newer than packages.toml (or with no packages.toml) means
+      # that resolution did not finish: drop it, so the next run resolves again.
+      - name: Drop fingerprints of unfinished resolutions
+        if: always()
+        shell: bash
+        run: |
+          for dir in build/packages examples/*/build/packages; do
+            for fp in "$dir"/*.config_fingerprint; do
+              [ -f "$fp" ] || continue
+              if [ ! -f "$dir/packages.toml" ] || [ "$fp" -nt "$dir/packages.toml" ]; then
+                echo "Dropping $fp"
+                rm -f "$fp"
+              fi
+            done
+          done
+
+      # Save even when the job fails, so the next run keeps what this run
+      # resolved and downloaded.
+      - name: Save Gleam packages
+        if: always() && steps.gleam-packages.outputs.cache-primary-key != ''
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build/packages
+            examples/*/build/packages
+          key: ${{ steps.gleam-packages.outputs.cache-primary-key }}
+
+  templates:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Erlang and Gleam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ env.OTP_VERSION }}
+          gleam-version: ${{ env.GLEAM_VERSION }}
+          rebar3-version: ${{ env.REBAR3_VERSION }}
+
+      - name: Install Matcha
+        run: |
+          sh scripts/install-matcha.sh "$RUNNER_TEMP/matcha"
+          echo "$RUNNER_TEMP/matcha" >> "$GITHUB_PATH"
+
+      # Each generated template module of the docs and the examples must be
+      # what Matcha makes from its template.
+      - name: Check the generated template modules
+        run: make check-templates
+
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Builds the image of examples/deployment, starts it with Docker
+      # Compose (PostgreSQL, the migrations and the app) and asks /health.
+      - name: Build and start the deployment example
+        run: make test-docker
+
+  tasks:
+    runs-on: ubuntu-latest
+
+    # The PostgreSQL of examples/tasks/docker-compose.yml, as a service.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tasks_db
+        ports:
+          - 5437:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Keep downloaded packages and path dependency fingerprints between runs,
+      # so gleam does not ask the Hex API to resolve versions on every run.
+      # The key is unique per run; the save step at the end of the job reuses it.
+      - name: Restore Gleam packages
+        id: gleam-packages
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/packages
+            examples/*/build/packages
+          key: gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-tasks-${{ hashFiles('gleam.toml', 'manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-tasks-${{ hashFiles('gleam.toml', 'manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-
+            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-tasks-
+
+      - name: Install Erlang and Gleam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ env.OTP_VERSION }}
+          gleam-version: ${{ env.GLEAM_VERSION }}
+          rebar3-version: ${{ env.REBAR3_VERSION }}
+          elixir-version: "1.18"
+
+      - name: Install Matcha
+        run: |
+          sh scripts/install-matcha.sh "$RUNNER_TEMP/matcha"
+          echo "$RUNNER_TEMP/matcha" >> "$GITHUB_PATH"
+
+      # For the Cypress end-to-end tests.
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # The integration tests of the example over HTTP/1.1 and HTTP/2, then
+      # the Cypress end-to-end tests.
+      - name: Run the tests of the tasks example
+        env:
+          CI: "true"
+        run: make test-tasks
 
       # Gleam writes a path dependency fingerprint before it asks Hex to
       # resolve, and build/packages/packages.toml only after all downloads. A

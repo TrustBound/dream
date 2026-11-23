@@ -1,7 +1,7 @@
 //// Streaming quick reference: Server Configuration
 ////
 //// A server with a larger body limit for buffered routes, as shown in
-//// docs/guides/streaming-quick-reference.md.
+//// the Recipes section of docs/reference/streaming-api.md.
 
 import dream/context.{type EmptyContext}
 import dream/http/request.{type Request, Get}

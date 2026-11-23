@@ -146,11 +146,13 @@ Every Gleam code block in the guides, the READMEs, the doc comments and SECURITY
 
 Every other code block is proven too. A shell command is a line of a script that CI or a test runs, such as `scripts/check.sh` or the `test/integration/start.sh` and `readme.sh` of an example. Shown output is a file that a test compares with the real output: the integration run of each example runs the requests of its README against the running server and compares what they print. A Dockerfile, a Compose file, a Makefile, a migration, a query, a template or a script is a copy of the real file that a test or CI uses. The new `examples/deployment` has the Dockerfile and the Compose file of the deployment guide, and `make test-docker` builds and starts them. A block that nothing can run, such as a folder tree, a diagram or a command against your own accounts, is marked as an illustration. Proving the blocks found and fixed wrong commands: `make run` of `streaming_capabilities` did not start, the deployment guide ran migrations with Squirrel and built with Gleam 1.6.2, and several READMEs named ports, scripts and outputs that did not exist.
 
-The snippet check finds 565 Gleam code blocks and 7 diff blocks, proves 46 file blocks, 75 command blocks and 10 output blocks, and counts 59 illustrations, with no problems.
+The snippet check finds 580 Gleam code blocks and 7 diff blocks, proves 47 file blocks, 127 command blocks and 65 output blocks, and counts 52 illustrations, with no problems.
 
 The snippet check moved to the [`dream_snippets`](https://github.com/TrustBound/dream_snippets) package.
 
 The testing guide and the contributor testing guide show tests for `dream_test` 3.0.0. Dream's own test run now measures line coverage and fails when coverage of `src/` is below 100%.
+
+The guides are rewritten as task guides. Each of the 14 guides in `docs/guides/` walks through one task, from building your first server to deploying with Docker, with numbered steps, the real answers of an example server, the failure cases (a 404, a 400 that lists every validation error, a broken upload, a port in use, a missing certificate), a test of your own code with its real report, and the common pitfalls. The quickstart, the `docs/learn/` lessons and the older topic pages are folded into them.
 
 Each example in the README has a "read guide" badge next to its "tested snippet" badge. The guide badge links to the docs section that shows the same example. The guides in `docs/guides/` are also pages on HexDocs.
 
@@ -221,7 +223,7 @@ The `static` directory listing wrote file names and the request path into the HT
 
 ## Testing
 
-- Dream's own tests use `dream_test` 3.0.0: 1125 run, 0 failed, in about 17 seconds (Apple M1 Max, OTP 29, Gleam 1.19.2)
+- Dream's own tests use `dream_test` 3.0.0: 1121 run, 0 failed, in about 18 seconds (Apple M1 Max, OTP 29, Gleam 1.19.2)
 - `gleam test` measures the line coverage of `src/` and fails below 100%. It is 1083 of 1084 lines (99.9%)
 - `dream_http_server` 1.3.1: 108 passed, on Gleam 1.14.0 with OTP 28. Each of its fixes has a test that fails without the fix
 - `dream_socket_server`: 6 passed
@@ -560,6 +562,7 @@ To Alex Manning and the contributors to mist and glisten. Problems with the HTTP
 - [dream_http_server](https://hexdocs.pm/dream_http_server) - v1.3.1
 - [dream_socket_server](https://hexdocs.pm/dream_socket_server) - v1.0.0
 - [Dream's HTTP server packages](https://github.com/TrustBound/dream/blob/main/docs/contributing/http-server-packages.md)
+- [Guides](https://github.com/TrustBound/dream/blob/main/docs/guides/index.md) - Build your first Dream server, then one guide for each task
 - [HTTP/2 guide](https://github.com/TrustBound/dream/blob/main/docs/guides/http2.md)
 - [Streaming API Reference](https://github.com/TrustBound/dream/blob/main/docs/reference/streaming-api.md)
 

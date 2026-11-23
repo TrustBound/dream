@@ -1,0 +1,7 @@
+reorder_task
+  ✓ gives BadRequest for a position past the end
+  ✓ gives NotFound for an unknown task
+  ✓ keeps every task when it moves one
+  ✓ moves task 3 to the first place
+
+Summary: 4 run, 0 failed, 4 passed in 0ms

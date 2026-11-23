@@ -4,7 +4,7 @@
 # "make check" runs this script.
 set -eu
 
-gleam format --check src test
+gleam format --check
 gleam build
 make test-unit
 make check-snippets

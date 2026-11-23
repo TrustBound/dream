@@ -28,7 +28,7 @@ Run `gleam format` before committing. CI checks the format with this line of `sc
 ### Check the format <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/check.sh#L7"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
-gleam format --check src test
+gleam format --check
 ```
 
 ## Testing
@@ -147,7 +147,7 @@ Use the full GitHub URL, not a relative path. HexDocs and Hex show the README wi
 Each example in the root `README.md` has a second badge, the guide badge. It links to the docs section that shows the same example, so a reader can go from the short README example to its full explanation. Put the tested snippet badge first, then one space, then the guide badge, all on the heading line:
 
 ```markdown
-### JSON APIs <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_json_api.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a> <a href="https://github.com/TrustBound/dream/blob/3.0.0/docs/guides/rest-api.md#return-a-user-as-json-"><img align="right" alt="Guide" src="https://img.shields.io/badge/%F0%9F%93%96_read-guide-blue.svg?style=flat-square"></a>
+### JSON APIs <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_json_api.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a> <a href="https://github.com/TrustBound/dream/blob/3.0.0/docs/guides/api-patterns.md#return-a-user-as-json-"><img align="right" alt="Guide" src="https://img.shields.io/badge/%F0%9F%93%96_read-guide-blue.svg?style=flat-square"></a>
 ```
 
 The check makes sure of these things for a guide badge:
@@ -258,7 +258,7 @@ For writing or improving user-facing documentation (guides, tutorials, examples)
    ### The checks of CI <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/check.sh#L7-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
    ```bash
-   gleam format --check src test
+   gleam format --check
    gleam build
    make test-unit
    make check-snippets
@@ -334,8 +334,7 @@ dream/
     dream/             # Tests mirror src/ structure
     snippets/          # The tested code of the docs
   docs/                # Documentation
-    learn/             # Step-by-step lessons
-    guides/            # Topic-focused how-tos
+    guides/            # Task guides
     reference/         # Technical reference
   examples/            # Working example applications (each is its own Gleam project)
   integration/         # The runner and HTTP client of the examples' integration tests

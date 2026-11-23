@@ -40,6 +40,7 @@ import dream_test/coverage
 import dream_test/reporters/bdd
 import dream_test/runner
 import fixtures/port_ffi_test
+import guide_reports_test
 import guides_deployment_templates_snippets_test
 import guides_sse_websockets_rest_snippets_test
 import learning_snippets_test
@@ -104,6 +105,7 @@ pub fn main() {
     contributing_snippets_test.tests(),
     websocket_chat_readme_snippets_test.tests(),
     docs_snippet_pages_test.tests(),
+    guide_reports_test.tests(),
   ])
   |> runner.results_reporters([bdd.new()])
   |> runner.coverage(

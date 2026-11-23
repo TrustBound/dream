@@ -28,7 +28,7 @@ Dream is a web toolkit for building servers. It's not a framework—you control 
 
 Here is the smallest useful Dream server. It responds with `"Hello, world!"`.
 
-### Hello, world <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_hello_server.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a> <a href="https://github.com/TrustBound/dream/blob/3.0.0/docs/quickstart.md#hello-world-"><img align="right" alt="Guide" src="https://img.shields.io/badge/%F0%9F%93%96_read-guide-blue.svg?style=flat-square"></a>
+### Hello, world <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_hello_server.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a> <a href="https://github.com/TrustBound/dream/blob/3.0.0/docs/guides/getting-started.md#hello-world-"><img align="right" alt="Guide" src="https://img.shields.io/badge/%F0%9F%93%96_read-guide-blue.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http.{ok, text_response}
@@ -64,8 +64,8 @@ In words:
 - `server.new() |> ... |> server.listen(3000)` configures and starts a
   Mist-based HTTP server using a builder pattern.
 
-Types are omitted here for brevity – Gleam can infer them. The
-[quickstart](https://github.com/TrustBound/dream/blob/main/docs/quickstart.md)
+Types are omitted here for brevity – Gleam can infer them.
+[Build your first Dream server](https://github.com/TrustBound/dream/blob/main/docs/guides/getting-started.md)
 walks through a fully-typed version line by line.
 
 Dream also includes **named HTTP status constants** (like `ok`, `not_found`, and `teapot`) so you can avoid magic numbers in responses.
@@ -75,7 +75,7 @@ Dream also includes **named HTTP status constants** (like `ok`, `not_found`, and
 Dream is more than "Hello, world". Here are a few small examples of
 what it helps you build.
 
-### JSON APIs <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_json_api.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a> <a href="https://github.com/TrustBound/dream/blob/3.0.0/docs/guides/rest-api.md#return-a-user-as-json-"><img align="right" alt="Guide" src="https://img.shields.io/badge/%F0%9F%93%96_read-guide-blue.svg?style=flat-square"></a>
+### JSON APIs <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_json_api.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a> <a href="https://github.com/TrustBound/dream/blob/3.0.0/docs/guides/api-patterns.md#return-a-user-as-json-"><img align="right" alt="Guide" src="https://img.shields.io/badge/%F0%9F%93%96_read-guide-blue.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http.{json_response, not_found, ok}
@@ -211,11 +211,28 @@ for complete examples of JSON APIs, streaming, and WebSockets.
 
 **Composable, not opinionated.** Use Dream's patterns, or build your own. It's just functions and data.
 
+## Guides
+
+- [Build your first Dream server](https://github.com/TrustBound/dream/blob/main/docs/guides/getting-started.md) - From an empty folder to a tested route.
+- [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md) - Path parameters, custom methods, context and middleware.
+- [Read request data safely](https://github.com/TrustBound/dream/blob/main/docs/guides/request-data.md) - Query strings, JSON that reports every error, and forms.
+- [Send responses, cookies and files](https://github.com/TrustBound/dream/blob/main/docs/guides/responses.md) - Redirects, downloads, cookies and static files.
+- [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md) - PostgreSQL with Squirrel, migrations and operations.
+- [Grow a JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/api-patterns.md) - Pagination, errors, versioning, filtering and CORS.
+- [Render HTML and other formats](https://github.com/TrustBound/dream/blob/main/docs/guides/templates.md) - Matcha templates, and one route in many formats.
+- [Stream responses and uploads](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) - Streamed downloads and uploads, and a broken upload.
+- [Push live updates with server-sent events](https://github.com/TrustBound/dream/blob/main/docs/guides/sse.md) - Typed SSE actors and a broadcaster.
+- [Build a chat with WebSockets](https://github.com/TrustBound/dream/blob/main/docs/guides/websockets.md) - Typed WebSocket actors and a chat room.
+- [Serve HTTPS and HTTP/2](https://github.com/TrustBound/dream/blob/main/docs/guides/http2.md) - TLS, ALPN and prior knowledge.
+- [Test your controllers and your app](https://github.com/TrustBound/dream/blob/main/docs/guides/testing.md) - Dream Test for controllers, middleware, routes and servers.
+- [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md) - The image, Compose, migrations and health checks.
+- [Start, stop and troubleshoot the server](https://github.com/TrustBound/dream/blob/main/docs/guides/operating.md) - Start errors, body limits and stopping.
+
 ## Learn More
 
 - 📚 [Complete Documentation](https://github.com/TrustBound/dream/blob/main/docs/index.md) - Guides, tutorials, and concepts
 - 📖 [API Reference](https://hexdocs.pm/dream) - Complete API documentation on HexDocs
-- 🚀 [Quickstart](https://github.com/TrustBound/dream/blob/main/docs/quickstart.md) - Get a server running
+- 🚀 [Build your first Dream server](https://github.com/TrustBound/dream/blob/main/docs/guides/getting-started.md) - Get a server running
 - 💡 [Examples](https://github.com/TrustBound/dream/tree/main/examples) - Working code you can run
 
 ## Why Gleam? Why the BEAM?

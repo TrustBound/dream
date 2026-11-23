@@ -1,0 +1,7 @@
+auth middleware
+  ✓ answers 401 for /profile with an unknown token
+  ✓ answers 401 for /profile with no token
+  ✓ gives the signed-in user to the controller
+  ✓ lets a request with no token reach the public route
+
+Summary: 4 run, 0 failed, 4 passed in 0ms

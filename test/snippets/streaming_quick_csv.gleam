@@ -1,7 +1,7 @@
 //// Streaming quick reference: Download/Export CSV (Egress)
 ////
 //// A controller that streams products as CSV rows, as shown in
-//// docs/guides/streaming-quick-reference.md.
+//// the Recipes section of docs/reference/streaming-api.md.
 
 import dream/http/request.{type Request}
 import dream/http/response.{type Response, stream_response, text_response}

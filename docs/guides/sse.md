@@ -1,31 +1,54 @@
-# Server-Sent Events in Dream
+# Push live updates with server-sent events
 
-Push real-time updates from server to client using typed SSE connections backed by dedicated OTP actors.
+You want the browser to see new data the moment the server has it: a counter, a progress bar, a feed of notifications. The browser doesn't need to send anything back on the same connection. That's what server-sent events (SSE) are for: one long HTTP response that carries events, which the browser's `EventSource` reads and reconnects on its own. This guide builds an SSE endpoint with Dream's typed SSE actors, using `examples/sse`, and every output is what that server answers.
 
-This guide assumes you:
+## Table of Contents
 
-- Know a little HTTP (requests, responses, status codes).
-- May be **new to Gleam** – examples are small and include imports and types.
+- [What you'll build](#what-youll-build)
+- [Before you start](#before-you-start)
+- [SSE, WebSockets or streaming](#sse-websockets-or-streaming)
+- [Overview: How Dream SSE Works](#overview-how-dream-sse-works)
+- [Step 1: Define a Dependencies type](#step-1-define-a-dependencies-type)
+- [Step 2: Define an SSE route and controller](#step-2-define-an-sse-route-and-controller)
+- [Step 3: on_init, run when the actor starts](#step-3-on_init-run-when-the-actor-starts)
+- [Step 4: on_message, handle messages and send events](#step-4-on_message-handle-messages-and-send-events)
+- [Step 5: Event builders](#step-5-event-builders)
+- [Step 6: See the stream](#step-6-see-the-stream)
+- [Broadcasting with SSE](#broadcasting-with-sse)
+- [Client-side: EventSource](#client-side-eventsource)
+- [Using Middleware with SSE](#using-middleware-with-sse)
+- [When a connection is refused or ends](#when-a-connection-is-refused-or-ends)
+- [Test your code](#test-your-code)
+- [Common pitfalls](#common-pitfalls)
+- [Where to go next](#where-to-go-next)
 
-We will cover:
+## What you'll build
 
-- When to use SSE vs WebSockets vs HTTP streaming.
-- How Dream upgrades an HTTP request to an SSE connection.
-- Writing `on_init` and `on_message` handlers.
-- Building and sending events.
-- Broadcasting events from external code.
-- Connecting from JavaScript with `EventSource`.
-- Where to look for a full example and tests.
+- An `/events` route that upgrades the request to an SSE connection run by its own actor.
+- A counter that sends `data: {"count": N}` every second.
+- Named events, event ids and a retry time.
+- Events pushed from other code through a broadcaster.
+- A browser client with `EventSource`, and a route that middleware refuses.
 
-## SSE vs WebSockets vs Streaming
+## Before you start
+
+You need Dream and `gleam_erlang`, for the actor's process types:
+
+```sh
+gleam add dream gleam_erlang
+```
+
+Read [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md) first. The examples on this page are small and include their imports. The example runs from the Dream repository with `make run` in `examples/sse`, on port 8081.
+
+## SSE, WebSockets or streaming
 
 Dream supports three real-time patterns:
 
-- **Server-Sent Events (SSE)** – one-way event stream from server to browser.
+- **Server-Sent Events (SSE)**: one-way event stream from server to browser.
   Simple, automatic reconnection, works over plain HTTP.
-- **WebSockets** – bi-directional, long-lived connections. Both client and
+- **WebSockets**: bi-directional, long-lived connections. Both client and
   server can send messages at any time.
-- **Streaming responses** – send large responses in chunks (files, CSV exports).
+- **Streaming responses**: send large responses in chunks (files, CSV exports).
 
 Use SSE when:
 
@@ -50,11 +73,11 @@ import dream/servers/mist/sse
 
 From your application's point of view, you work with:
 
-- `sse.SSEConnection` – an opaque handle to the SSE connection.
-- `sse.Event` – a structured SSE event built with `event`, `event_name`,
+- `sse.SSEConnection`: an opaque handle to the SSE connection.
+- `sse.Event`: a structured SSE event built with `event`, `event_name`,
   `event_id`, and `event_retry`.
-- `sse.Action(state, message)` – what to do after handling a message.
-- `sse.upgrade_to_sse` – called from a controller to upgrade HTTP to SSE.
+- `sse.Action(state, message)`: what to do after handling a message.
+- `sse.upgrade_to_sse`: called from a controller to upgrade HTTP to SSE.
 
 The high-level flow is:
 
@@ -65,7 +88,7 @@ The high-level flow is:
    HTTP response.
 4. Dream and Mist spawn a **dedicated OTP actor** for this connection.
 5. Dream calls your handler functions:
-   - `on_init` (once, when the actor starts — receives a `Subject(message)`).
+   - `on_init` (once, when the actor starts, and receives a `Subject(message)`).
    - `on_message` (every time a message is received by the actor).
 
 Unlike the old `sse_response` function which used chunked encoding and
@@ -140,11 +163,11 @@ Instead of returning a `Response` directly, the controller calls
 `upgrade_to_sse`. Dream returns a dummy HTTP response to satisfy the
 controller type, but the real work happens in the SSE actor.
 
-## Step 3: `on_init` – run when the actor starts
+## Step 3: on_init, run when the actor starts
 
 `on_init` runs **once**, right after the SSE actor is created. It receives:
 
-- A `Subject(message)` – the actor's mailbox address. External code can
+- A `Subject(message)`: the actor's mailbox address. External code can
   `process.send(subject, message)` to push messages into the actor.
 - Your `Dependencies`.
 
@@ -184,7 +207,7 @@ that makes `on_message` return `stop_connection()` at once). If the actor
 stops before the connection is handed over to it, the server writes an
 extra 500 response.
 
-## Step 4: `on_message` – handle messages and send events
+## Step 4: on_message, handle messages and send events
 
 Every time a message arrives, Dream calls your `on_message` function.
 The handler below sends one event for each tick. When `send_event`
@@ -193,10 +216,10 @@ actor instead of ticking forever.
 
 `on_message` must return an `Action(state, message)` created by one of:
 
-- `sse.continue_connection(state)` – keep the actor running.
-- `sse.continue_connection_with_selector(state, selector)` – keep running
+- `sse.continue_connection(state)`: keep the actor running.
+- `sse.continue_connection_with_selector(state, selector)`: keep running
   and change the message selector.
-- `sse.stop_connection()` – shut down the actor.
+- `sse.stop_connection()`: shut down the actor.
 
 ### The on_message handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/sse_guide_controller.gleam#L45-L65"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -248,12 +271,12 @@ pub fn build_full_event() -> sse.Event {
 }
 ```
 
-- `event(data)` – creates an event. The only required field.
-- `event_name(event, name)` – sets the event type. Clients filter on this
+- `event(data)`: creates an event. The only required field.
+- `event_name(event, name)`: sets the event type. Clients filter on this
   with `EventSource.addEventListener("name", ...)`.
-- `event_id(event, id)` – sets the event ID. The browser sends
+- `event_id(event, id)`: sets the event ID. The browser sends
   `Last-Event-ID` on reconnection so you can resume.
-- `event_retry(event, ms)` – tells the client how long to wait before
+- `event_retry(event, ms)`: tells the client how long to wait before
   reconnecting after a connection loss.
 
 To stop the actor when the client has gone away, check the result of
@@ -272,6 +295,49 @@ pub fn send_event_or_stop(
     Error(Nil) -> sse.stop_connection()
   }
 }
+```
+
+
+## Step 6: See the stream
+
+The example's `/events` route runs the counter of the steps above. Ask for it with `-N`, so curl prints each event as it arrives, and stop after the first event:
+
+### Read the headers and the first event <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/sse/test/integration/readme.sh#L6"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+curl -s -i -N http://localhost:8081/events | head -n 8
+```
+
+### The headers and the first event <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/sse/test/integration/readme_output.txt#L7-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+HTTP/1.1 200 OK
+transfer-encoding: chunked
+content-type: text/event-stream
+cache-control: no-cache
+connection: keep-alive
+
+data: {"count": 0}
+
+```
+
+`content-type: text/event-stream` and `cache-control: no-cache` come from Dream. Each event is its `data:` line and a blank line. The README of the example reads three events:
+
+### Read three events <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/sse/test/integration/readme.sh#L3"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+curl -N http://localhost:8081/events | head -n 6
+```
+
+### Three events <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/sse/test/integration/readme_output.txt#L1-L6"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+data: {"count": 0}
+
+data: {"count": 1}
+
+data: {"count": 2}
+
 ```
 
 ## Broadcasting with SSE
@@ -427,7 +493,34 @@ If middleware returns a non-200 response (for example, a 401 from an
 authentication check), the SSE upgrade is not performed and the error
 response is returned to the client instead.
 
-## Testing SSE Apps
+
+## When a connection is refused or ends
+
+Middleware runs before the upgrade, so it can refuse the connection with a normal answer. The example's `/events/rejected` route has a middleware that always does:
+
+### Ask the refused route <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/sse/test/integration/readme.sh#L7"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+curl -i http://localhost:8081/events/rejected
+```
+
+### A 401 before any event <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/sse/test/integration/readme_output.txt#L15-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+HTTP/1.1 401 Unauthorized
+content-type: text/plain; charset=utf-8
+content-length: 12
+date: (the time of the request)
+connection: keep-alive
+
+Unauthorized
+```
+
+`EventSource` treats a non-200 answer as fatal and stops reconnecting, so refuse with a status only when the client must not retry.
+
+When the client goes away (above, `head` closes the connection after a few lines), the next `send_event` returns `Error(Nil)`. Return `sse.stop_connection()` then, as `send_event_or_stop` in Step 5 does, and the actor ends. If you ignore the error, the actor keeps running and sends into a closed connection.
+
+## Test your code
 
 The `examples/sse` project includes **full integration tests** written
 in Gherkin (Cucumber). These tests:
@@ -449,7 +542,15 @@ For unit tests, keep your SSE handlers small and pure by extracting
 logic into separate functions. You can test event construction and
 state transitions without opening real connections.
 
-## Where to Go Next
+
+## Common pitfalls
+
+- **The actor keeps running after the client left.** Check the result of `send_event` and return `sse.stop_connection()` on `Error(Nil)`.
+- **A proxy buffers the stream.** Some proxies hold a response until it ends. Turn buffering off for the SSE path (for nginx, `proxy_buffering off`), or the browser sees nothing.
+- **Work in the controller.** The controller only upgrades. Start timers and subscriptions in `on_init`, which runs in the actor.
+- **Browser connection limits.** Over HTTP/1.1 a browser opens few connections to one host, and each SSE stream holds one. Serve over HTTP/2, see [Serve HTTPS and HTTP/2](https://github.com/TrustBound/dream/blob/main/docs/guides/http2.md), or share one stream between tabs.
+
+## Where to go next
 
 - Read the source for `src/dream/servers/mist/sse.gleam` to see the full
   API (`SSEConnection`, `Event`, `Action`, `send_event`, etc.).
