@@ -191,6 +191,19 @@ pub fn update_field(
             position: task.position,
             project_id: task.project_id,
           )
+        "due_date" ->
+          task.TaskData(
+            title: task.title,
+            description: task.description,
+            completed: task.completed,
+            priority: task.priority,
+            due_date: case value {
+              "" -> option.None
+              _ -> option.Some(value)
+            },
+            position: task.position,
+            project_id: task.project_id,
+          )
         _ ->
           task.TaskData(
             title: task.title,

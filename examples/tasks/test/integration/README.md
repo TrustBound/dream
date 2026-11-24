@@ -10,7 +10,7 @@ The integration tests use Elixir and Cucumber. Dependencies are managed via `mix
 
 From the repository root. `make test-tasks` runs this line of `scripts/test-tasks.sh`, with the E2E tests after it:
 
-### Run the integration tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/test-tasks.sh#L7"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Run the integration tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/test-tasks.sh#L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
 (cd examples/tasks && make test-integration)

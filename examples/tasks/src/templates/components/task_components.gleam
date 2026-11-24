@@ -174,6 +174,8 @@ pub fn task_editor(task: Task, _tags: List(Tag)) -> String {
       htmx_attribute("trigger", "input changed delay:500ms"),
       htmx_vals("{\"field\": \"title\"}"),
       htmx_attribute("swap", "none"),
+      // htmx focuses it after the swap, so the title can be typed at once
+      "autofocus",
     ])
 
   let title_input_html =

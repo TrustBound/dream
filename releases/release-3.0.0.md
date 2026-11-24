@@ -236,7 +236,7 @@ A buffered body over `max_body_size` got `400 Bad Request` with an empty body, t
 - `gleam test` measures the line coverage of `src/` and fails below 100%. It is 1087 of 1088 lines (99.9%)
 - `dream_http_server` 1.3.1: 108 passed, on Gleam 1.14.0 with OTP 28. Each of its fixes has a test that fails without the fix
 - `dream_socket_server`: 6 passed
-- Integration tests: eleven examples run, ten of them twice, over HTTP/1.1 and over HTTP/2 with TLS, through `dream_http_client`. Each run also runs the commands of the example's README and compares their output. `make test-tasks` runs the `tasks` example (integration and Cypress tests), and `make test-docker` builds and starts `examples/deployment`
+- Integration tests: eleven examples run, ten of them twice, over HTTP/1.1 and over HTTP/2 with TLS, through `dream_http_client`. Each run also runs the commands of the example's README and compares their output. `make test-tasks` runs the `tasks` example: 26 scenarios over each protocol and 26 Cypress tests pass, in about 90 seconds. `make test-docker` builds and starts `examples/deployment` in about 24 seconds with the image layers in the Docker cache, and about 31 seconds when the dependency and build layers must run again (Apple M1 Max)
 
 ## Upgrading
 

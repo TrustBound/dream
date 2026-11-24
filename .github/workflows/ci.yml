@@ -318,8 +318,19 @@ jobs:
         with:
           node-version: "22"
 
+      # npm install downloads the Cypress binary (about 500 MB) to
+      # ~/.cache/Cypress. The example has no package-lock.json, so the key is
+      # its package.json.
+      - name: Restore the Cypress binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-${{ hashFiles('examples/tasks/package.json') }}
+
       # The integration tests of the example over HTTP/1.1 and HTTP/2, then
-      # the Cypress end-to-end tests.
+      # the Cypress end-to-end tests. With CI set, the Makefile of the example
+      # uses the PostgreSQL service above, and the Cypress tests empty its
+      # tables with psql, which the runner has.
       - name: Run the tests of the tasks example
         env:
           CI: "true"

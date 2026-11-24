@@ -32,13 +32,13 @@ Your app works on your machine. Now it has to run somewhere else: in a container
 
 You need Docker with Compose v2. Dream apps compile to BEAM bytecode and run on the Erlang runtime, so the image needs Erlang and Gleam, and the official Gleam image has both. Read [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md) for the database side. In the Dream repository, `make test-docker` builds the example's image and starts it with Compose:
 
-### The Docker test of the repository <a href="https://github.com/TrustBound/dream/blob/3.0.0/Makefile#L59-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The Docker test of the repository <a href="https://github.com/TrustBound/dream/blob/3.0.0/Makefile#L60-L63"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```makefile
-
 # Build the Docker image of examples/deployment and start it with Docker
 # Compose (needs Docker and the port 3000 free)
 test-docker:
+	@sh scripts/test-docker.sh
 ```
 
 The example depends on the Dream of the repository, so `scripts/test-docker.sh` copies the example and Dream into one folder before it runs the example's `test/docker.sh` there. Your app depends on Dream from Hex, so you run the same commands in your project folder.

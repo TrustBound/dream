@@ -26,9 +26,13 @@ make e2e-open
 
 ## Prerequisites
 
-- **Node.js 16+** - For Cypress
-- **Docker Desktop** - For PostgreSQL database
+- **Node.js 18 or later** - For Cypress 13 (CI uses Node.js 22)
 - **npm** - Package manager
+- **Docker Desktop** - For PostgreSQL database
+- **psql**, the PostgreSQL client - Before each test, `make db-clear` empties the tables with it
+- **Gleam, Erlang and the matcha binary** - `make e2e-test` builds the app and its templates
+
+The first `make e2e-install` downloads the Cypress binary, about 560 MB, to the Cypress cache (`~/Library/Caches/Cypress` on macOS, `~/.cache/Cypress` on Linux). Git ignores `node_modules` and `package-lock.json`, and the cache is outside the repository.
 
 ## Setup
 
@@ -137,13 +141,13 @@ Cypress configuration is in `cypress.config.ts`:
 
 - **Base URL**: `http://localhost:3000`
 - **Viewport**: 1920x1080
-- **Video**: Enabled (disabled in headless mode)
+- **Video**: Off. The `video` setting of the `e2e` block wins over `--config video=...` on the command line, so set it there to record a run
 - **Screenshots**: Taken after each test (pass or fail)
 
 ## Screenshots and Videos
 
 - **Screenshots**: `cypress/screenshots/` - Full page screenshots after each test
-- **Videos**: `cypress/videos/` - Video recordings (only in headed mode)
+- **Videos**: `cypress/videos/` - Video recordings of `cypress run`, when `video` is `true` in `cypress.config.ts`
 
 Clean artifacts with:
 ### Clean the artifacts <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/e2e.sh#L7"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>

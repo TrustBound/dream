@@ -164,6 +164,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `static` directory listing escapes file names and the request path, and percent-encodes each link.
 - A buffered body over `max_body_size` gets `413 Content Too Large` with the plain-text body `Request body too large` (RFC 9110, section 15.5.14). It used to get `400 Bad Request` with an empty body. A chunked HTTP/1.1 body over the limit used to reach the controller. A body that cannot be read still gets `400`, now with the plain-text body `Request body could not be read`.
 - `get_int_param` and `get_string_param` (in `dream/http/request` and `dream/http/transaction`), and so `require_int` and `require_string`, give `Missing required path parameter: <name>` for a missing parameter, the message of `get_param`. They used to give `Missing <name> parameter`.
+- The `tasks` example: Enter in a task title saves the title and opens a new editor (htmx 2 refused the save, which had no target). The due date of the editor is saved. A Delete button removes the task or the project from the page (htmx 2 does not swap a `204` answer by default). The title of a new task has the focus. `make e2e-test` stops its server; it used to leave it running on port 3000. The Cypress tests empty the tables with `make db-clear` before each test, and match the editor of the app; 26 of them pass.
+- `make test-docker` removes the images that it builds. Each run used to leave two images named after its temporary folder.
 
 ### Testing
 
@@ -176,6 +178,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 1129 tests run, 0 failed, in about 18 seconds (Apple M1 Max, OTP 29, Gleam
   1.19.2). Line coverage of `src/` is 1087 of 1088 lines (99.9%). The snippet check finds 583 Gleam code blocks and 7 diff blocks, proves 47 file blocks, 142 command blocks and 82 output blocks, and counts 39 illustrations, with no problems. The integration tests run
   eleven examples, ten of them over HTTP/1.1 and over HTTP/2 with TLS.
+  `make test-tasks` passes 26 scenarios over each protocol and 26 Cypress
+  tests in about 90 seconds; `make test-docker` takes about 24 seconds with
+  the image layers in the Docker cache.
 
 ## [2.4.1] - 2026-03-11
 
