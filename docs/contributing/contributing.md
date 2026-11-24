@@ -147,7 +147,7 @@ Use the full GitHub URL, not a relative path. HexDocs and Hex show the README wi
 Each example in the root `README.md` has a second badge, the guide badge. It links to the docs section that shows the same example, so a reader can go from the short README example to its full explanation. Put the tested snippet badge first, then one space, then the guide badge, all on the heading line:
 
 ```markdown
-### JSON APIs <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_json_api.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a> <a href="https://github.com/TrustBound/dream/blob/3.0.0/docs/guides/api-patterns.md#return-a-user-as-json-"><img align="right" alt="Guide" src="https://img.shields.io/badge/%F0%9F%93%96_read-guide-blue.svg?style=flat-square"></a>
+### JSON APIs <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_json_api.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a> <a href="https://github.com/TrustBound/dream/blob/3.0.0/docs/guides/api-patterns.md#return-a-user-as-json-"><img align="right" alt="Guide: Grow a JSON API" title="Guide: Grow a JSON API" src="https://img.shields.io/badge/%F0%9F%93%96_read-guide-blue.svg?style=flat-square"></a>
 ```
 
 The check makes sure of these things for a guide badge:

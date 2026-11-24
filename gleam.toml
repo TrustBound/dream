@@ -57,7 +57,7 @@ dream_opensearch = { git = "https://github.com/TrustBound/dream_opensearch.git",
 # Hex. Then use the Hex version range ">= 2.0.0 and < 3.0.0".
 dream_postgres = { git = "https://github.com/TrustBound/dream_postgres.git", ref = "6653fd483ea6317a7ed20d176a1641cfea0dff29" }
 # Pinned to the module's move branch until it is on Hex.
-dream_snippets = { git = "https://github.com/TrustBound/dream_snippets.git", ref = "6c2bf3e4d19bf023b09822def9cf04c72037b7e4" }
+dream_snippets = { git = "https://github.com/TrustBound/dream_snippets.git", ref = "96cf9a146a608e5cf82afab23600eec852de3d6b" }
 envoy = ">= 1.0.0 and < 2.0.0"
 dream_postgres_client = ">= 1.0.0 and < 2.0.0"
 
