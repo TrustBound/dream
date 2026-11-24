@@ -8,7 +8,7 @@ import dream/http.{type Request, type Response}
 import dream/http/error.{type Error, InternalServerError}
 import dream/http/response.{json_response}
 import dream/http/status
-import pog
+import dream_postgres_client
 import services.{type Services}
 
 /// Report whether the app and its database are healthy
@@ -24,8 +24,10 @@ pub fn show(
   }
 }
 
-fn check_database(db: pog.Connection) -> Result(Nil, Error) {
-  case pog.query("SELECT 1") |> pog.execute(db) {
+fn check_database(db: dream_postgres_client.Connection) -> Result(Nil, Error) {
+  case
+    dream_postgres_client.query("SELECT 1") |> dream_postgres_client.execute(db)
+  {
     Ok(_) -> Ok(Nil)
     Error(_) -> Error(InternalServerError("Database connection failed"))
   }

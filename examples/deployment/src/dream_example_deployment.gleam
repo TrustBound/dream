@@ -12,13 +12,13 @@ import dream/http.{
 import dream/http/request.{Get}
 import dream/router.{type Router, route, router}
 import dream/servers/mist/server
+import dream_postgres_client
 import envoy
 import gleam/erlang/process
 import gleam/int
 import gleam/io
 import gleam/otp/actor
 import gleam/result
-import pog
 
 pub type Services {
   Services(check_database: fn() -> Result(Nil, String))
@@ -58,21 +58,27 @@ fn read_port() -> Result(Int, String) {
   }
 }
 
-fn connect(database_url: String) -> Result(pog.Connection, String) {
+fn connect(
+  database_url: String,
+) -> Result(dream_postgres_client.Connection, String) {
   let pool_name = process.new_name("app_database")
   use config <- result.try(
-    pog.url_config(pool_name, database_url)
+    dream_postgres_client.url_config(pool_name, database_url)
     |> result.replace_error("DATABASE_URL is not a PostgreSQL URL"),
   )
-  case pog.start(config |> pog.pool_size(5)) {
+  case
+    dream_postgres_client.start(config |> dream_postgres_client.pool_size(5))
+  {
     Ok(actor.Started(_pid, connection)) -> Ok(connection)
     Error(_start_error) -> Error("the PostgreSQL pool did not start")
   }
 }
 
-fn check_database(connection: pog.Connection) -> Result(Nil, String) {
-  pog.query("SELECT 1")
-  |> pog.execute(on: connection)
+fn check_database(
+  connection: dream_postgres_client.Connection,
+) -> Result(Nil, String) {
+  dream_postgres_client.query("SELECT 1")
+  |> dream_postgres_client.execute(on: connection)
   |> result.replace(Nil)
   |> result.replace_error("Database unavailable")
 }

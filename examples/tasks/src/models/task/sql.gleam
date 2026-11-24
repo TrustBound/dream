@@ -1,20 +1,22 @@
 //// This module contains the code to run the sql queries defined in
 //// `./src/models/task/sql`.
-//// > 🐿️ This module was generated automatically using v4.6.0 of
-//// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+//// > 🐿️ This module was generated automatically using v1.0.0 of
+//// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+//// > a fork of Squirrel.
 ////
 
+import dream_postgres_client as pog
 import gleam/dynamic/decode
 import gleam/option.{type Option}
 import gleam/time/calendar.{type Date}
 import gleam/time/timestamp.{type Timestamp}
-import pog
 
 /// A row you get from running the `create_task` query
 /// defined in `./src/models/task/sql/create_task.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This type definition was generated automatically using v1.0.0 of the
+/// > [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub type CreateTaskRow {
   CreateTaskRow(
@@ -34,11 +36,12 @@ pub type CreateTaskRow {
 /// name: create_task
 /// Create a new task
 ///
-/// > 🐿️ This function was generated automatically using v4.6.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn create_task(
-  db: pog.Connection,
+  connection: pog.Connection,
   arg_1: String,
   arg_2: String,
   arg_3: Bool,
@@ -109,17 +112,18 @@ RETURNING
   |> pog.parameter(pog.int(arg_6))
   |> pog.parameter(pog.int(arg_7))
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }
 
 /// name: delete_task
 /// Delete a task by ID
 ///
-/// > 🐿️ This function was generated automatically using v4.6.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn delete_task(
-  db: pog.Connection,
+  connection: pog.Connection,
   arg_1: Int,
 ) -> Result(pog.Returned(Nil), pog.QueryError) {
   let decoder = decode.map(decode.dynamic, fn(_) { Nil })
@@ -133,14 +137,15 @@ WHERE id = $1;
   |> pog.query
   |> pog.parameter(pog.int(arg_1))
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }
 
 /// A row you get from running the `get_task` query
 /// defined in `./src/models/task/sql/get_task.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This type definition was generated automatically using v1.0.0 of the
+/// > [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub type GetTaskRow {
   GetTaskRow(
@@ -160,11 +165,12 @@ pub type GetTaskRow {
 /// name: get_task
 /// Get a single task by ID
 ///
-/// > 🐿️ This function was generated automatically using v4.6.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn get_task(
-  db: pog.Connection,
+  connection: pog.Connection,
   arg_1: Int,
 ) -> Result(pog.Returned(GetTaskRow), pog.QueryError) {
   let decoder = {
@@ -215,14 +221,15 @@ WHERE id = $1;
   |> pog.query
   |> pog.parameter(pog.int(arg_1))
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }
 
 /// A row you get from running the `list_by_project` query
 /// defined in `./src/models/task/sql/list_by_project.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This type definition was generated automatically using v1.0.0 of the
+/// > [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub type ListByProjectRow {
   ListByProjectRow(
@@ -242,12 +249,13 @@ pub type ListByProjectRow {
 /// name: list_by_project
 /// List all tasks for a specific project
 ///
-/// > 🐿️ This function was generated automatically using v4.6.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn list_by_project(
-  db: pog.Connection,
-  arg_1: Int,
+  connection: pog.Connection,
+  project_id: Int,
 ) -> Result(pog.Returned(ListByProjectRow), pog.QueryError) {
   let decoder = {
     use id <- decode.field(0, decode.int)
@@ -296,16 +304,17 @@ ORDER BY position ASC, created_at DESC;
 
 "
   |> pog.query
-  |> pog.parameter(pog.int(arg_1))
+  |> pog.parameter(pog.int(project_id))
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }
 
 /// A row you get from running the `list_tasks` query
 /// defined in `./src/models/task/sql/list_tasks.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This type definition was generated automatically using v1.0.0 of the
+/// > [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub type ListTasksRow {
   ListTasksRow(
@@ -325,11 +334,12 @@ pub type ListTasksRow {
 /// name: list_tasks
 /// List all tasks ordered by position
 ///
-/// > 🐿️ This function was generated automatically using v4.6.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn list_tasks(
-  db: pog.Connection,
+  connection: pog.Connection,
 ) -> Result(pog.Returned(ListTasksRow), pog.QueryError) {
   let decoder = {
     use id <- decode.field(0, decode.int)
@@ -378,14 +388,15 @@ ORDER BY position ASC, created_at DESC;
 "
   |> pog.query
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }
 
 /// A row you get from running the `toggle_completed` query
 /// defined in `./src/models/task/sql/toggle_completed.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This type definition was generated automatically using v1.0.0 of the
+/// > [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub type ToggleCompletedRow {
   ToggleCompletedRow(
@@ -405,12 +416,13 @@ pub type ToggleCompletedRow {
 /// name: toggle_completed
 /// Toggle the completed status of a task
 ///
-/// > 🐿️ This function was generated automatically using v4.6.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn toggle_completed(
-  db: pog.Connection,
-  arg_1: Int,
+  connection: pog.Connection,
+  id: Int,
 ) -> Result(pog.Returned(ToggleCompletedRow), pog.QueryError) {
   let decoder = {
     use id <- decode.field(0, decode.int)
@@ -461,16 +473,17 @@ RETURNING
 
 "
   |> pog.query
-  |> pog.parameter(pog.int(arg_1))
+  |> pog.parameter(pog.int(id))
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }
 
 /// A row you get from running the `update_position` query
 /// defined in `./src/models/task/sql/update_position.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This type definition was generated automatically using v1.0.0 of the
+/// > [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub type UpdatePositionRow {
   UpdatePositionRow(
@@ -490,13 +503,14 @@ pub type UpdatePositionRow {
 /// name: update_position
 /// Update the position of a task for drag-and-drop reordering
 ///
-/// > 🐿️ This function was generated automatically using v4.6.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn update_position(
-  db: pog.Connection,
-  arg_1: Int,
-  arg_2: Int,
+  connection: pog.Connection,
+  id: Int,
+  position: Int,
 ) -> Result(pog.Returned(UpdatePositionRow), pog.QueryError) {
   let decoder = {
     use id <- decode.field(0, decode.int)
@@ -545,17 +559,18 @@ RETURNING
 
 "
   |> pog.query
-  |> pog.parameter(pog.int(arg_1))
-  |> pog.parameter(pog.int(arg_2))
+  |> pog.parameter(pog.int(id))
+  |> pog.parameter(pog.int(position))
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }
 
 /// A row you get from running the `update_task` query
 /// defined in `./src/models/task/sql/update_task.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.6.0 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This type definition was generated automatically using v1.0.0 of the
+/// > [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub type UpdateTaskRow {
   UpdateTaskRow(
@@ -575,12 +590,13 @@ pub type UpdateTaskRow {
 /// name: update_task
 /// Update a task
 ///
-/// > 🐿️ This function was generated automatically using v4.6.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn update_task(
-  db: pog.Connection,
-  arg_1: Int,
+  connection: pog.Connection,
+  id: Int,
   arg_2: String,
   arg_3: String,
   arg_4: Bool,
@@ -642,7 +658,7 @@ RETURNING
 
 "
   |> pog.query
-  |> pog.parameter(pog.int(arg_1))
+  |> pog.parameter(pog.int(id))
   |> pog.parameter(pog.text(arg_2))
   |> pog.parameter(pog.text(arg_3))
   |> pog.parameter(pog.bool(arg_4))
@@ -650,5 +666,5 @@ RETURNING
   |> pog.parameter(pog.calendar_date(arg_6))
   |> pog.parameter(pog.int(arg_7))
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }

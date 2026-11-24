@@ -68,7 +68,7 @@ The basic Matcha mental model is:
 
 In practice you will usually add a small Makefile target. These are the targets of the `websocket_chat` example. `gleam format` makes the generated modules the same as the ones in the repository:
 
-### The Matcha targets <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/Makefile#L25-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The Matcha targets <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/Makefile#L22-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```makefile
 matcha:

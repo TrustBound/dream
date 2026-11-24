@@ -8,7 +8,7 @@ Demonstrates Dream's elegant pattern for serving the same data in multiple forma
 - **Matcha templates** - Semantic HTML with Pico CSS (classless styling)
 - **Flat controller pattern** - No nested cases, all named helper functions
 - **Streaming responses** - CSV export as a stream of bytes
-- **Type-safe SQL** - Squirrel-generated queries
+- **Type-safe SQL** - `dream_sql_generator` generates the queries
 - **Multiple formats per endpoint** - Same controller serves JSON, HTML, HTMX, CSV
 
 ## Running the Example
@@ -142,7 +142,7 @@ src/views/products/templates/show.matcha
 src/views/products/view.gleam
 ```
 
-- `src/sql/`: the SQL queries. Squirrel generates `src/sql.gleam` from them.
+- `src/sql/`: the SQL queries. `dream_sql_generator` generates `src/sql.gleam` from them.
 - `src/views/products/templates/`: the Matcha templates (`.matcha`) and the Gleam modules generated from them.
 - `src/views/products/view.gleam`: a product as JSON, HTML, CSV or HTMX partial.
 - `src/controllers/products_controller.gleam`: picks the format from the path extension.

@@ -102,6 +102,7 @@ pub opaque type Dream(server, context, services, router) {
     max_body_size: Int,
     bind_interface: option.Option(String),
     tls: option.Option(Tls),
+    shutdown_timeout: Int,
   )
 }
 
@@ -175,6 +176,7 @@ pub fn create(
     max_body_size: max_body_size,
     bind_interface: bind_interface,
     tls: option.None,
+    shutdown_timeout: 30_000,
   )
 }
 
@@ -400,6 +402,57 @@ pub fn get_tls(
   dream: Dream(server, context, services, router),
 ) -> option.Option(Tls) {
   dream.tls
+}
+
+/// Set how long, in milliseconds, a stopping server waits for running requests
+///
+/// This is a low-level function for server adapters. Use
+/// `dream/servers/mist/server.shutdown_timeout()` in your application.
+///
+/// ## Example
+///
+/// ### Set the shutdown timeout <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_set_shutdown_timeout.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/dream.{get_shutdown_timeout, set_shutdown_timeout}
+/// import dream/servers/mist/server
+///
+/// pub fn ten_seconds() -> Int {
+///   let app =
+///     server.new()
+///     |> set_shutdown_timeout(10_000)
+///   // 10_000
+///   get_shutdown_timeout(app)
+/// }
+/// ```
+pub fn set_shutdown_timeout(
+  dream: Dream(server, context, services, router),
+  milliseconds: Int,
+) -> Dream(server, context, services, router) {
+  Dream(..dream, shutdown_timeout: milliseconds)
+}
+
+/// Get how long, in milliseconds, a stopping server waits for running requests
+///
+/// The default is 30_000 (30 seconds).
+///
+/// ## Example
+///
+/// ### Read the shutdown timeout <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_get_shutdown_timeout.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/dream.{get_shutdown_timeout}
+/// import dream/servers/mist/server
+///
+/// pub fn default_shutdown_timeout() -> Int {
+///   // A new server waits at most 30 seconds: 30_000
+///   get_shutdown_timeout(server.new())
+/// }
+/// ```
+pub fn get_shutdown_timeout(
+  dream: Dream(server, context, services, router),
+) -> Int {
+  dream.shutdown_timeout
 }
 
 /// Route a request through the router

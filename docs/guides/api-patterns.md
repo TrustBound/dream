@@ -84,13 +84,13 @@ fn user_to_json(user: User) -> String {
 
 ### Offset-based Pagination
 
-A database model wraps a Squirrel query and returns domain types. This model from the database example lists all users:
+A database model wraps a `dream_sql_generator` query and returns domain types. This model from the database example lists all users:
 
 #### Users model <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L15-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// List all users
-pub fn list(db: pog.Connection) -> Result(List(User), Error) {
+pub fn list(db: dream_postgres_client.Connection) -> Result(List(User), Error) {
   case sql.list_users(db) {
     Ok(returned) -> Ok(extract_all_users(returned))
     Error(_) -> Error(InternalServerError("Database error"))

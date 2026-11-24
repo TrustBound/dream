@@ -53,7 +53,7 @@ make run
 | You want to see the smallest working app | `examples/simplest` (this guide) | One file: a controller, a router and the server. |
 | You need path parameters, request bodies, cookies | `examples/simple`, with [Read request data safely](https://github.com/TrustBound/dream/blob/main/docs/guides/request-data.md) | Several controllers in their own modules. |
 | You need middleware and a per-request context | `examples/custom_context`, with [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md) | Shows the context type and auth middleware. |
-| You need a database | `examples/database`, with [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md) | PostgreSQL, Squirrel and migrations. |
+| You need a database | `examples/database`, with [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md) | PostgreSQL, `dream_sql_generator` and migrations. |
 
 ## Step 1: Write the server
 

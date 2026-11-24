@@ -8,7 +8,7 @@ Start with the first one, then pick the task you have:
 - [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md) - Path parameters, custom methods, context and middleware.
 - [Read request data safely](https://github.com/TrustBound/dream/blob/main/docs/guides/request-data.md) - Query strings, JSON that reports every error, and forms.
 - [Send responses, cookies and files](https://github.com/TrustBound/dream/blob/main/docs/guides/responses.md) - Redirects, downloads, cookies and static files.
-- [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md) - PostgreSQL with Squirrel, migrations and operations.
+- [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md) - PostgreSQL with `dream_sql_generator`, migrations and operations.
 - [Grow a JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/api-patterns.md) - Pagination, errors, versioning, filtering and CORS.
 - [Render HTML and other formats](https://github.com/TrustBound/dream/blob/main/docs/guides/templates.md) - Matcha templates, and one route in many formats.
 - [Stream responses and uploads](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) - Streamed downloads and uploads, and a broken upload.

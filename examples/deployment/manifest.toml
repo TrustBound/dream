@@ -11,7 +11,9 @@ packages = [
   { name = "backoff", version = "1.1.6", build_tools = ["rebar3"], requirements = [], otp_app = "backoff", source = "hex", outer_checksum = "CF0CFFF8995FB20562F822E5CC47D8CCF664C5ECDC26A684CBE85C225F9D7C39" },
   { name = "cigogne", version = "5.0.6", build_tools = ["gleam"], requirements = ["argv", "envoy", "gleam_crypto", "gleam_erlang", "gleam_otp", "gleam_stdlib", "gleam_time", "pog", "simplifile", "splitter", "tom"], otp_app = "cigogne", source = "hex", outer_checksum = "10F52CBDB395F102719662651FA2676AD588F11920D8915AA7350655CEAFE795" },
   { name = "dream", version = "3.0.0", build_tools = ["gleam"], requirements = ["dream_http_server", "gleam_erlang", "gleam_http", "gleam_json", "gleam_otp", "gleam_stdlib", "gleam_time", "gleam_yielder", "marceau", "simplifile"], source = "local", path = "../.." },
-  { name = "dream_http_server", version = "2.0.0", build_tools = ["gleam"], requirements = ["dream_socket_server", "exception", "gleam_erlang", "gleam_http", "gleam_otp", "gleam_stdlib", "gramps", "hpack_erl", "logging"], otp_app = "dream_http_server", source = "hex", outer_checksum = "32F201728D98E1C645CCE1072E4CF3DA990FE37484AE6B7AF854A2086DA3A8DC" },
+  { name = "dream_http_server", version = "2.1.0", build_tools = ["gleam"], requirements = ["dream_socket_server", "exception", "gleam_erlang", "gleam_http", "gleam_otp", "gleam_stdlib", "gramps", "hpack_erl", "logging"], otp_app = "dream_http_server", source = "hex", outer_checksum = "7A097F8550EDC9B78E556EFC89638694D88A2ADBD86314E6860911036E98E551" },
+  { name = "dream_postgres_client", version = "1.0.0", build_tools = ["gleam"], requirements = ["dream_postgres_driver", "exception", "gleam_erlang", "gleam_otp", "gleam_stdlib", "gleam_time"], otp_app = "dream_postgres_client", source = "hex", outer_checksum = "16CE7491A75ADF84123177C3B8BA952B6C43FE71E559D30C4C77E24B18B77746" },
+  { name = "dream_postgres_driver", version = "1.0.0", build_tools = ["rebar3"], requirements = ["backoff", "opentelemetry_api", "pg_types"], otp_app = "dream_postgres_driver", source = "hex", outer_checksum = "82654A54A629A4D018F8B163502AE189753884715639DEC63134E010C3FA0751" },
   { name = "dream_socket_server", version = "1.0.1", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_otp", "gleam_stdlib", "logging"], otp_app = "dream_socket_server", source = "hex", outer_checksum = "9043F4BAA79086C48BB6A7DC1E0BB8B5E4A555E3CE9E95805489743D2B331D91" },
   { name = "envoy", version = "1.2.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "envoy", source = "hex", outer_checksum = "9C6FBB6BFA02A52798BEEC5977A738CAD6E4A057F4B67FD0C8061AD2502C191A" },
   { name = "exception", version = "2.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "exception", source = "hex", outer_checksum = "329D269D5C2A314F7364BD2711372B6F2C58FA6F39981572E5CA68624D291F8C" },
@@ -40,8 +42,8 @@ packages = [
 [requirements]
 cigogne = { version = ">= 5.0.0 and < 6.0.0" }
 dream = { path = "../.." }
+dream_postgres_client = { version = ">= 1.0.0 and < 2.0.0" }
 envoy = { version = ">= 1.0.0 and < 2.0.0" }
 gleam_erlang = { version = ">= 1.0.0 and < 2.0.0" }
 gleam_otp = { version = ">= 1.2.0 and < 2.0.0" }
 gleam_stdlib = { version = ">= 0.44.0 and < 2.0.0" }
-pog = { version = ">= 4.0.0 and < 5.0.0" }

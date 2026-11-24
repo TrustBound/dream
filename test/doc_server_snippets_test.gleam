@@ -47,6 +47,7 @@ import snippets/doc_server_request_id
 import snippets/doc_server_response_convert
 import snippets/doc_server_router
 import snippets/doc_server_services
+import snippets/doc_server_shutdown_timeout
 import snippets/doc_server_sse_events
 import snippets/doc_server_sse_selector
 import snippets/doc_server_sse_send
@@ -54,6 +55,7 @@ import snippets/doc_server_sse_stop
 import snippets/doc_server_sse_ticker
 import snippets/doc_server_sse_upgrade
 import snippets/doc_server_stop
+import snippets/doc_server_stop_gracefully
 import snippets/doc_server_websocket_chat
 import snippets/doc_server_websocket_selector
 import snippets/doc_server_websocket_send
@@ -311,6 +313,30 @@ fn server_module_tests() -> UnitNode {
       |> should()
       |> be_equal(Ok(Nil))
       |> or_fail_with("test_server should return Ok(Nil)")
+    }),
+    it("stop_gracefully example starts and stops a server", fn() {
+      // Arrange
+      let port = free_port()
+
+      // Act
+      let result = doc_server_stop_gracefully.serve_then_stop(port)
+
+      // Assert
+      result
+      |> should()
+      |> be_equal(Ok(Nil))
+      |> or_fail_with("serve_then_stop should return Ok(Nil)")
+    }),
+    it("shutdown_timeout example waits at most 8 seconds", fn() {
+      // Act
+      let timeout =
+        dream.get_shutdown_timeout(doc_server_shutdown_timeout.app())
+
+      // Assert
+      timeout
+      |> should()
+      |> be_equal(8000)
+      |> or_fail_with("the app should wait at most 8000 ms")
     }),
   ])
 }

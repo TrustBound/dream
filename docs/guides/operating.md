@@ -192,13 +192,62 @@ pub fn test_server(port: Int) -> Result(String, String) {
 }
 ```
 
+`stop` doesn't wait for running requests: a request that runs when you call it gets no response. To let running requests finish, call `stop_gracefully` with the longest time to wait, in milliseconds:
+
+### Stop a server gracefully <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_stop_gracefully.gleam#L3-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+import dream/http.{ok, text_response}
+import dream/http/request.{Get}
+import dream/router.{route, router}
+import dream/servers/mist/server
+import gleam/otp/actor
+import gleam/result
+
+pub fn serve_then_stop(port: Int) -> Result(Nil, actor.StartError) {
+  let started =
+    server.new()
+    |> server.router(app_router())
+    |> server.listen_with_handle(port)
+
+  // Let running requests finish, but wait at most 30 seconds
+  result.map(started, server.stop_gracefully(_, within: 30_000))
+}
+```
+
+`stop_gracefully` closes the listening socket at once, so a new connection is refused. It closes each idle keep-alive connection at once. Each running request gets its full response, with `connection: close`. When the requests are done, or when the time ends, it closes the connections that remain and returns. The tests of `stop_gracefully` check each of these steps with a real server.
+
 ## Stopping in production
 
 In production, start the app with the `entrypoint.sh` of `gleam export erlang-shipment`, as the image of [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md) does. It runs your `main` in the Erlang VM, and `listen` keeps it running. Each request runs in its own process, so a crash in one request doesn't stop the server. Your platform, or Docker, restarts the whole program when it stops.
 
 When the platform stops a copy of your app, it sends `SIGTERM`, and the Erlang VM shuts down: `entrypoint.sh` replaces itself with the VM, so the VM is the process that gets the signal. In the Docker test of the `deployment` example, `docker compose stop` takes about 0.2 seconds, and the app's exit status is `0`. Don't start the app with `gleam run` in production: `gleam run` doesn't pass `SIGTERM` on to the VM, so the platform waits for its grace period, 10 seconds in Docker, and then kills the app.
 
-Dream has no drain step: it doesn't wait for requests that are still running. To deploy without cutting requests off, let the platform stop sending traffic to the old copy first. Most platforms do that with the health check of [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md) and a grace period before `SIGTERM`.
+On `SIGTERM`, a server that `listen` started drains before the VM stops, as `stop_gracefully` does. Each running request gets its full response, with `connection: close`. Then the VM logs `SIGTERM received - shutting down` and stops. The server waits at most 30 seconds, the time that Kubernetes waits after `SIGTERM` before it kills the app. Set a time that is shorter than the grace period of your platform with `shutdown_timeout`. Docker waits 10 seconds:
+
+### Wait at most 8 seconds on SIGTERM <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_shutdown_timeout.gleam#L3-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+import dream/http.{ok, text_response}
+import dream/http/request.{Get}
+import dream/router.{route, router}
+import dream/servers/mist/server
+
+pub fn main() {
+  server.listen(app(), 3000)
+}
+
+pub fn app() {
+  server.new()
+  |> server.router(my_router())
+  // Docker waits 10 seconds after SIGTERM before it kills the app
+  |> server.shutdown_timeout(8000)
+}
+```
+
+When the time ends, the server closes the requests that still run. After a `connection: close` response, the server waits for the client to close the connection, at most 5 seconds. `curl` closes it at once.
+
+The drain closes the listening socket, so the copy refuses new connections while it drains. To deploy without refused connections, let the platform stop sending traffic to the old copy first. Most platforms do that with the health check of [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md) and a grace period before `SIGTERM`.
 
 To look inside a running VM (process count, memory, scheduler use), start it as a named node and connect a remote shell, or export the VM's metrics to your monitoring. Neither `gleam run` nor `entrypoint.sh run` starts a named node by itself.
 

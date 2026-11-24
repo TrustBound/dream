@@ -387,11 +387,14 @@ Use operations when you coordinate 2 or more models, when an action has steps th
 
 Models handle data access. They take a database connection (explicit dependency, no globals), run queries, and convert database rows into your domain types. Controller actions call models, not SQL directly.
 
-### Model functions <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L23-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Model functions <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L23-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Get a single user by ID
-pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
+pub fn get(
+  db: dream_postgres_client.Connection,
+  id: Int,
+) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
     Error(_) -> Error(InternalServerError("Database error"))
@@ -400,7 +403,7 @@ pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
 
 /// Create a new user
 pub fn create(
-  db: pog.Connection,
+  db: dream_postgres_client.Connection,
   name: String,
   email: String,
 ) -> Result(User, Error) {
@@ -411,9 +414,9 @@ pub fn create(
 }
 ```
 
-A private function converts each Squirrel row to the domain type:
+A private function converts each `dream_sql_generator` row to the domain type:
 
-### Converting a row to a domain type <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L107-L114"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Converting a row to a domain type <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L115-L122"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn row_to_user(row: sql.GetUserRow) -> User {

@@ -25,6 +25,7 @@ import dream/router/trie_test
 import dream/router_test
 import dream/servers/mist/builder_order_test
 import dream/servers/mist/chunked_stream_test
+import dream/servers/mist/graceful_stop_test
 import dream/servers/mist/h2c_test
 import dream/servers/mist/handler_test
 import dream/servers/mist/listen_test
@@ -82,6 +83,7 @@ pub fn main() {
     request_body_test.tests(),
     mist_response_test.tests(),
     server_test.tests(),
+    graceful_stop_test.tests(),
     listen_test.tests(),
     websocket_test.tests(),
     tls_test.tests(),

@@ -65,13 +65,17 @@ if [ "$PROTOCOL" = "http2" ]; then
 fi
 
 echo "=== $NAME: $PROTOCOL over $SCHEME ==="
+# build/server.pid records the server, so that the run stops only this
+# server (see example-server.sh).
+SERVER="$ROOT/integration/example-server.sh"
+PIDFILE="$EXAMPLE/build/server.pid"
 if [ "$PROTOCOL" = "http1" ] && [ -f "$START" ]; then
-  (cd "$ROOT" && exec sh "$START") > "$LOG" 2>&1 &
+  "$SERVER" start "$PIDFILE" "$LOG" "$PORT" \
+    sh -c 'cd "$1" && exec sh "$2"' sh "$ROOT" "$START" || exit 1
 else
-  gleam run -m "$MODULE" > "$LOG" 2>&1 &
+  "$SERVER" start "$PIDFILE" "$LOG" "$PORT" gleam run -m "$MODULE" || exit 1
 fi
-SERVER_PID=$!
-trap 'kill $SERVER_PID 2>/dev/null; sleep 1; kill -9 $SERVER_PID 2>/dev/null; lsof -ti:'"$PORT"' 2>/dev/null | xargs kill -9 2>/dev/null' EXIT
+trap '"$SERVER" stop "$PIDFILE"' EXIT
 
 for i in $(seq 1 30); do
   if curl -sk "$SCHEME://localhost:$PORT/" > /dev/null 2>&1; then

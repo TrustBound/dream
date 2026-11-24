@@ -237,12 +237,15 @@ docker run -p 3000:3000 \
 
 For local development with database. This is the `docker-compose.yml` of the `deployment` example:
 
-### docker-compose.yml <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/docker-compose.yml#L1-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### docker-compose.yml <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/docker-compose.yml#L1-L42"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```yaml
 services:
   app:
     build: .
+    # Longer than the 30 second shutdown timeout of the server, so that
+    # running requests finish before Docker kills the app
+    stop_grace_period: 35s
     ports:
       - "3000:3000"
     environment:
@@ -300,6 +303,8 @@ docker compose stop app
 
 Docker sends `SIGTERM` to the first process of the container. The Erlang VM logs `SIGTERM received - shutting down` and stops, with exit status `0`, in about 0.2 seconds. The test checks the log line, the exit status and that the stop takes less than 5 seconds. With `gleam run` as the first process, the same stop takes 10 seconds and ends with exit status `137`, because Docker kills the container.
 
+A request that runs when the app gets `SIGTERM` finishes before the VM stops. The server waits at most 30 seconds for running requests. Docker waits 10 seconds before it kills a container, so `docker-compose.yml` sets `stop_grace_period: 35s` for the app. With a plain `docker stop`, give the same time with `docker stop -t 35`, or give the server a shorter time with `server.shutdown_timeout`, as [Start, stop and troubleshoot the server](https://github.com/TrustBound/dream/blob/main/docs/guides/operating.md#stopping-in-production) shows.
+
 Stop everything, and remove the database volume:
 
 ### Stop everything <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/test/docker.sh#L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
@@ -312,7 +317,7 @@ docker compose down -v
 
 Run migrations before starting your app. Cigogne applies them with `gleam run -m cigogne all`. In Docker Compose, a separate service runs them, and the app starts when that service has finished. The migrations need Gleam and the source, which the run stage doesn't have, so the service uses the build stage of the Dockerfile (`target: build`):
 
-#### The migration service <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/docker-compose.yml#L13-L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The migration service <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/docker-compose.yml#L16-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```yaml
   migrate:
@@ -486,18 +491,20 @@ Standard container deployment:
 
 ### Connection Pooling
 
-Pog (PostgreSQL client) includes connection pooling:
+`dream_postgres_client` (the PostgreSQL client, a fork of `pog`) includes connection pooling:
 
 #### Pool size <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_postgres.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
+import dream_postgres_client
 import gleam/erlang/process
-import pog
 
-pub fn create_database_config() -> pog.Config {
-  pog.default_config(pool_name: process.new_name("app_database"))
+pub fn create_database_config() -> dream_postgres_client.Config {
+  dream_postgres_client.default_config(pool_name: process.new_name(
+    "app_database",
+  ))
   // Adjust based on load
-  |> pog.pool_size(15)
+  |> dream_postgres_client.pool_size(15)
 }
 ```
 
@@ -518,7 +525,7 @@ In development, or for a small number of files, `dream/controllers/static` can s
 Production security basics:
 - ✅ Use HTTPS (Let's Encrypt via reverse proxy)
 - ✅ Validate all input
-- ✅ Use parameterized SQL queries (Squirrel does this)
+- ✅ Use parameterized SQL queries (`dream_sql_generator` does this)
 - ✅ Set secure headers (via middleware)
 - ✅ Rate limit APIs (via middleware)
 - ✅ Don't log secrets
@@ -630,6 +637,7 @@ The image itself is tested by running it: `make test-docker` builds it, starts i
 - **The app listens on `localhost` in the container.** Nothing outside the container can reach it. Bind to `0.0.0.0`, as `create_server` does.
 - **The local `build` folder is copied into the image.** It holds your machine's build. Add `build` to `.dockerignore`, as the example does.
 - **`gleam run` as the start command of the image.** `gleam run` doesn't pass `SIGTERM` on to the Erlang VM, so every stop waits 10 seconds and kills the app. Start the `entrypoint.sh` of the shipment, as the example's `CMD` does.
+- **A shutdown timeout longer than the grace period of the platform.** The platform kills the app before its running requests finish. Docker waits 10 seconds, and the default shutdown timeout is 30 seconds. Give the platform a longer grace period (`stop_grace_period` in Compose, as this example does), or set a shorter timeout with `server.shutdown_timeout`.
 - **`curl` in a health check of an Alpine image.** Alpine has `wget`, not `curl`. The example's `HEALTHCHECK` uses `wget`.
 - **The app starts before the migrations finish.** Make the app depend on the migration service with `condition: service_completed_successfully`, as the Compose file does.
 - **Secrets in the image or in Git.** Pass them as environment variables from your platform's secret store.

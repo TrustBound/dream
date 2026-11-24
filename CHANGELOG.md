@@ -59,6 +59,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `server.stop_gracefully(handle, within: milliseconds)` stops a server and
+  lets its running requests finish first. The server refuses new
+  connections and closes idle keep-alive connections at once. Each running
+  request gets its full response with `connection: close`. When the time
+  ends, the server closes the requests that still run.
+- A server that `listen` started drains on `SIGTERM` before the Erlang VM
+  stops, so a deploy no longer cuts off running requests. Before this, the
+  VM closed the running requests at once.
+- `server.shutdown_timeout(app, milliseconds)` sets how long the drain on
+  `SIGTERM` waits. The default is 30 seconds, the time that Kubernetes waits
+  after `SIGTERM`. `dream.set_shutdown_timeout` and
+  `dream.get_shutdown_timeout` are for server adapters.
 - `router.allowed_methods(router, request)` gives the methods of the routes
   that match the path of a request, in alphabetical order.
 
@@ -94,8 +106,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and show the real report. The folder trees of the example READMEs and the
   contributing guides are the real output of `find`, which the integration
   run compares.
-- Every public function has a tested example in its doc comment: 47
-  functions got a new one, so all 134 have one. Every public type and
+- Every public function has a tested example in its doc comment: 51
+  functions got a new one, so all 138 have one. Every public type and
   constant has a doc comment.
 - `make check-snippets` checks that every Gleam code block in the docs has
   a heading with the badge and matches its snippet file. It runs in the
@@ -129,7 +141,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a project must not depend on both Dream and the `mist` or `glisten` Hex
   packages; run `gleam deps update dream` once if an existing lock file
   still lists them. See `docs/contributing/http-server-packages.md`.
-- Dream requires `dream_http_server` `>= 2.0.0 and < 3.0.0`, and so
+- Dream requires `dream_http_server` `>= 2.1.0 and < 3.0.0`, and so
   `dream_socket_server` 1.0.1.
 - The Dockerfile of `examples/deployment` has two stages: the Gleam image
   runs `gleam export erlang-shipment`, and `erlang:29.1.1-alpine` runs the
@@ -212,8 +224,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gleam test` now measures the line coverage of `src/`. The run fails when
   coverage is below 100%. CI checks first that the BEAM supports native
   coverage. The README shows a coverage badge.
-- 1148 tests run, 0 failed, in about 16 seconds (Apple M1 Max, OTP 29, Gleam
-  1.19.2). Line coverage of `src/` is 1105 of 1105 lines (100%). The snippet check finds 584 Gleam code blocks and 7 diff blocks, proves 47 file blocks, 144 command blocks and 83 output blocks, and counts 39 illustrations, with no problems. The integration tests run
+- 1162 tests run, 0 failed, in about 22 seconds (Apple M1 Max, OTP 29, Gleam
+  1.19.2, with other tests running on the machine). Line coverage of `src/` is 1138 of 1138 lines (100%). The snippet check finds 590 Gleam code blocks and 7 diff blocks, proves 47 file blocks, 144 command blocks and 83 output blocks, and counts 39 illustrations, with no problems. The integration tests run
   eleven examples, ten of them over HTTP/1.1 and over HTTP/2 with TLS.
   `make test-tasks` passes 26 scenarios over each protocol and 26 Cypress
   tests in about 90 seconds; `make test-docker` takes about 29 seconds, and

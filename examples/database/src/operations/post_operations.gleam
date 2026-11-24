@@ -4,8 +4,8 @@
 //// It returns Result types with dream.Error.
 
 import dream/http/error.{type Error}
+import dream_postgres_client.{type Connection}
 import models/post as post_model
-import pog.{type Connection}
 import types/post.{type Post}
 
 /// Get a post by ID

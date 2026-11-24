@@ -7,10 +7,10 @@ import dream_postgres/client.{
   type Config, type Connection, type QueryError, type Returned,
 }
 import dream_postgres/query
+import dream_postgres_client
 import gleam/dynamic/decode
 import gleam/erlang/process
 import gleam/otp/actor
-import pog
 
 pub fn create_database_config() -> Config {
   client.new(process.new_name("app_database"))
@@ -25,10 +25,10 @@ pub fn connect_database() -> Result(Connection, actor.StartError) {
 }
 
 pub fn find_user_name(db: Connection, id: Int) -> String {
-  pog.query("SELECT name FROM users WHERE id = $1")
-  |> pog.parameter(pog.int(id))
-  |> pog.returning(decode.at([0], decode.string))
-  |> pog.execute(db)
+  dream_postgres_client.query("SELECT name FROM users WHERE id = $1")
+  |> dream_postgres_client.parameter(dream_postgres_client.int(id))
+  |> dream_postgres_client.returning(decode.at([0], decode.string))
+  |> dream_postgres_client.execute(db)
   |> describe_user_name()
 }
 

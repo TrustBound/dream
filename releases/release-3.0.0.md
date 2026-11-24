@@ -19,6 +19,7 @@ It is a major version because a request body now has one type, `RequestBody`, fo
 - **405 for a known path with another method (breaking)**: `DELETE /` on a router with only `GET /` gets `405 Method Not Allowed` with `Allow: GET`. A path that no route matches still gets `404`
 - **A body the server did not read is never read as a request**: after an answer to a request whose body it did not read, the server closes the connection, so a body that holds a second request is never answered
 - **Every validation error (breaking)**: `validate_json` returns a list with one `ValidationError` for each field that failed
+- **Requests finish when the app stops**: on `SIGTERM`, the server refuses new connections and lets running requests finish, for at most 30 seconds. `server.stop_gracefully(handle, within: 30_000)` does the same from code
 - **Tested docs**: every code block in the guides, READMEs and doc comments comes from a snippet that the tests compile and run
 
 ## What's New
@@ -92,6 +93,12 @@ Measured with `h2load -D 10 -t 32 -c 256` against a small test application, on a
 | Linux | 139 MB | about 70 MB |
 
 The large memory gain is mostly a macOS effect. Linux gets a smaller one, about half.
+
+### Requests Finish When the App Stops
+
+In Dream 2, a deploy cut off every running request: on `SIGTERM`, the Erlang VM closed the connections at once. Now a server that `listen` started drains first. It closes the listening socket and the idle keep-alive connections at once. Each running request gets its full response, with `connection: close`. Then the VM stops. The server waits at most 30 seconds, the time that Kubernetes waits after `SIGTERM`. Set a time below the grace period of your platform with `server.shutdown_timeout`. Docker waits 10 seconds.
+
+In code, `server.stop_gracefully(handle, within: 30_000)` drains the same way and returns when the server is down. `server.stop(handle)` still stops at once. See [Start, stop and troubleshoot the server](https://github.com/TrustBound/dream/blob/main/docs/guides/operating.md#stopping-in-production).
 
 ### Dream's HTTP Server Packages
 
@@ -241,9 +248,9 @@ Over HTTP/1.1, when Dream answered without reading the request body (a `404`, a 
 
 ## Testing
 
-- Dream's own tests use `dream_test` 3.0.0: 1148 run, 0 failed, in about 16 seconds (Apple M1 Max, OTP 29, Gleam 1.19.2)
-- `gleam test` measures the line coverage of `src/` and fails below 100%. It is 1105 of 1105 lines (100%)
-- `dream_http_server` 2.0.0: 124 run, 0 failed, on Gleam 1.19.2 with OTP 29. Each of its fixes has a test that fails without the fix
+- Dream's own tests use `dream_test` 3.0.0: 1162 run, 0 failed, in about 22 seconds (Apple M1 Max, OTP 29, Gleam 1.19.2, with other tests running on the machine)
+- `gleam test` measures the line coverage of `src/` and fails below 100%. It is 1138 of 1138 lines (100%)
+- `dream_http_server` 2.1.0: 134 run, 0 failed, on Gleam 1.19.2 with OTP 29. Each of its fixes has a test that fails without the fix
 - `dream_socket_server` 1.0.1: 7 run, 0 failed
 - Through a real Dream server, a request whose body holds a second request gets exactly one answer, and then the server closes the connection: after a `404`, a `405`, a `413` for a `content-length` over the limit, a `413` for a chunked body over the limit, and a `stream_route` controller that does not read the body. A body that the controller reads, and then a real second request, get two answers on one connection
 - Integration tests: eleven examples run, ten of them twice, over HTTP/1.1 and over HTTP/2 with TLS, through `dream_http_client`. Each run also runs the commands of the example's README and compares their output. `make test-tasks` runs the `tasks` example: 26 scenarios over each protocol and 26 Cypress tests pass, in about 90 seconds. `make test-docker` builds the image of `examples/deployment` with no network, so it asks Hex for nothing, starts it, and checks that the app stops on `SIGTERM` with exit status 0 (about 0.2 seconds). It takes about 29 seconds (Apple M1 Max)
@@ -265,7 +272,7 @@ gleam deps update dream
 
 ### Migration Guide
 
-Most projects need only the request body change in step 3. Steps 1, 2, 4, 6, 7, 8 and 9 apply only in the cases they name.
+Most projects need only the request body change in step 3. Steps 1, 2, 4, 6, 7, 8, 9 and 10 apply only in the cases they name.
 
 Each "before and after" below is a diff of a real file in this repository, from Dream 2.4.1 to Dream 3.0.0. The badge on a diff links to that file in GitHub's compare view.
 
@@ -284,7 +291,7 @@ Dream's server packages define the same modules, and Gleam stops the build with 
 +gleam_stdlib = ">= 1.0.0 and < 2.0.0"
 +# dream's HTTP server: a fork of mist 6.0.3 with HTTP/2 fixes, published under
 +# its own name with mist's module names.
-+dream_http_server = ">= 2.0.0 and < 3.0.0"
++dream_http_server = ">= 2.1.0 and < 3.0.0"
 ```
 
 Replace `glisten` with `dream_socket_server = ">= 1.0.0 and < 2.0.0"` in the same way. Your `import mist` and `import glisten` lines stay as they are, because the module names are the same.
@@ -581,6 +588,18 @@ The testing guide now shows tests for `dream_test` 3.0.0. Dream 3.0.0 does not n
 
 **What to do.** Delete the `ConnectionClosed` branch of your `on_message` handler. Do the work of that branch in `on_close`, which runs once when the connection closes.
 
+#### 10. Your app uses `pog`, `squirrel` or `dream_postgres`
+
+**What changed.** The guides and the examples use [`dream_postgres_client`](https://hex.pm/packages/dream_postgres_client) in place of `pog`, and [`dream_sql_generator`](https://hex.pm/packages/dream_sql_generator) in place of `squirrel`. Both are forks, maintained for Dream. `dream_postgres` 2.0.0 uses `dream_postgres_client`.
+
+**What to do.**
+
+1. In `[dependencies]`, replace `pog` with `dream_postgres_client = ">= 1.0.0 and < 2.0.0"`.
+2. In `[dev-dependencies]`, replace `squirrel` with `dream_sql_generator = ">= 1.0.0 and < 2.0.0"`.
+3. Add a `[tools.dream_sql_generator]` table with `client_module = "dream_postgres_client"`.
+4. In your code, replace `import pog` with `import dream_postgres_client`, and `pog.` with `dream_postgres_client.`.
+5. Run `gleam run -m dream_sql_generator` in place of `gleam run -m squirrel`. The generated code then uses `dream_postgres_client`.
+
 ## Acknowledgements
 
 To Alex Manning and the contributors to mist and glisten. Problems with the HTTP server in this release belong to us: report them at [TrustBound/mist](https://github.com/TrustBound/mist/issues) or [TrustBound/dream](https://github.com/TrustBound/dream/issues), not to the mist or glisten maintainers.
@@ -588,7 +607,7 @@ To Alex Manning and the contributors to mist and glisten. Problems with the HTTP
 ## Documentation
 
 - [dream](https://hexdocs.pm/dream) - v3.0.0
-- [dream_http_server](https://hexdocs.pm/dream_http_server) - v2.0.0
+- [dream_http_server](https://hexdocs.pm/dream_http_server) - v2.1.0
 - [dream_socket_server](https://hexdocs.pm/dream_socket_server) - v1.0.1
 - [Dream's HTTP server packages](https://github.com/TrustBound/dream/blob/main/docs/contributing/http-server-packages.md)
 - [Guides](https://github.com/TrustBound/dream/blob/main/docs/guides/index.md) - Build your first Dream server, then one guide for each task

@@ -1,19 +1,21 @@
 //// This module contains the code to run the sql queries defined in
 //// `./src/sql`.
-//// > 🐿️ This module was generated automatically using v4.7.0 of
-//// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+//// > 🐿️ This module was generated automatically using v1.0.0 of
+//// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+//// > a fork of Squirrel.
 ////
 
+import dream_postgres_client as pog
 import gleam/dynamic/decode
 import gleam/option.{type Option}
 import gleam/time/timestamp.{type Timestamp}
-import pog
 
 /// A row you get from running the `create_post` query
 /// defined in `./src/sql/create_post.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This type definition was generated automatically using v1.0.0 of the
+/// > [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub type CreatePostRow {
   CreatePostRow(
@@ -27,11 +29,12 @@ pub type CreatePostRow {
 
 /// Create a new post for a user
 ///
-/// > 🐿️ This function was generated automatically using v4.7.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn create_post(
-  db: pog.Connection,
+  connection: pog.Connection,
   arg_1: Int,
   arg_2: String,
   arg_3: String,
@@ -58,14 +61,15 @@ INSERT INTO posts (user_id, title, content) VALUES ($1, $2, $3) RETURNING id, us
   |> pog.parameter(pog.text(arg_2))
   |> pog.parameter(pog.text(arg_3))
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }
 
 /// A row you get from running the `create_user` query
 /// defined in `./src/sql/create_user.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This type definition was generated automatically using v1.0.0 of the
+/// > [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub type CreateUserRow {
   CreateUserRow(
@@ -78,11 +82,12 @@ pub type CreateUserRow {
 
 /// Create a new user
 ///
-/// > 🐿️ This function was generated automatically using v4.7.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn create_user(
-  db: pog.Connection,
+  connection: pog.Connection,
   arg_1: String,
   arg_2: String,
 ) -> Result(pog.Returned(CreateUserRow), pog.QueryError) {
@@ -106,16 +111,17 @@ INSERT INTO users (name, email) VALUES ($1, $2) RETURNING id, name, email, creat
   |> pog.parameter(pog.text(arg_1))
   |> pog.parameter(pog.text(arg_2))
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }
 
 /// Delete a user
 ///
-/// > 🐿️ This function was generated automatically using v4.7.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn delete_user(
-  db: pog.Connection,
+  connection: pog.Connection,
   id: Int,
 ) -> Result(pog.Returned(Nil), pog.QueryError) {
   let decoder = decode.map(decode.dynamic, fn(_) { Nil })
@@ -131,14 +137,15 @@ DELETE FROM users WHERE id = $1
   |> pog.query
   |> pog.parameter(pog.int(id))
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }
 
 /// A row you get from running the `get_post` query
 /// defined in `./src/sql/get_post.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This type definition was generated automatically using v1.0.0 of the
+/// > [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub type GetPostRow {
   GetPostRow(
@@ -152,11 +159,12 @@ pub type GetPostRow {
 
 /// Get a single post by ID
 ///
-/// > 🐿️ This function was generated automatically using v4.7.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn get_post(
-  db: pog.Connection,
+  connection: pog.Connection,
   id: Int,
 ) -> Result(pog.Returned(GetPostRow), pog.QueryError) {
   let decoder = {
@@ -179,14 +187,15 @@ SELECT id, user_id, title, content, created_at FROM posts WHERE id = $1
   |> pog.query
   |> pog.parameter(pog.int(id))
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }
 
 /// A row you get from running the `get_user` query
 /// defined in `./src/sql/get_user.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This type definition was generated automatically using v1.0.0 of the
+/// > [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub type GetUserRow {
   GetUserRow(
@@ -199,11 +208,12 @@ pub type GetUserRow {
 
 /// Get a single user by ID
 ///
-/// > 🐿️ This function was generated automatically using v4.7.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn get_user(
-  db: pog.Connection,
+  connection: pog.Connection,
   id: Int,
 ) -> Result(pog.Returned(GetUserRow), pog.QueryError) {
   let decoder = {
@@ -225,14 +235,15 @@ SELECT id, name, email, created_at FROM users WHERE id = $1
   |> pog.query
   |> pog.parameter(pog.int(id))
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }
 
 /// A row you get from running the `list_posts` query
 /// defined in `./src/sql/list_posts.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This type definition was generated automatically using v1.0.0 of the
+/// > [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub type ListPostsRow {
   ListPostsRow(
@@ -246,11 +257,12 @@ pub type ListPostsRow {
 
 /// List all posts for a user
 ///
-/// > 🐿️ This function was generated automatically using v4.7.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn list_posts(
-  db: pog.Connection,
+  connection: pog.Connection,
   user_id: Int,
 ) -> Result(pog.Returned(ListPostsRow), pog.QueryError) {
   let decoder = {
@@ -273,14 +285,15 @@ SELECT id, user_id, title, content, created_at FROM posts WHERE user_id = $1 ORD
   |> pog.query
   |> pog.parameter(pog.int(user_id))
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }
 
 /// A row you get from running the `list_users` query
 /// defined in `./src/sql/list_users.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This type definition was generated automatically using v1.0.0 of the
+/// > [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub type ListUsersRow {
   ListUsersRow(
@@ -293,11 +306,12 @@ pub type ListUsersRow {
 
 /// List all users
 ///
-/// > 🐿️ This function was generated automatically using v4.7.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn list_users(
-  db: pog.Connection,
+  connection: pog.Connection,
 ) -> Result(pog.Returned(ListUsersRow), pog.QueryError) {
   let decoder = {
     use id <- decode.field(0, decode.int)
@@ -317,14 +331,15 @@ SELECT id, name, email, created_at FROM users ORDER BY id
 "
   |> pog.query
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }
 
 /// A row you get from running the `update_user` query
 /// defined in `./src/sql/update_user.sql`.
 ///
-/// > 🐿️ This type definition was generated automatically using v4.7.0 of the
-/// > [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This type definition was generated automatically using v1.0.0 of the
+/// > [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub type UpdateUserRow {
   UpdateUserRow(
@@ -337,11 +352,12 @@ pub type UpdateUserRow {
 
 /// Update a user
 ///
-/// > 🐿️ This function was generated automatically using v4.7.0 of
-/// > the [squirrel package](https://github.com/giacomocavalieri/squirrel).
+/// > 🐿️ This function was generated automatically using v1.0.0 of
+/// > the [dream_sql_generator package](https://github.com/TrustBound/squirrel/tree/dream-sql-generator),
+/// > a fork of Squirrel.
 ///
 pub fn update_user(
-  db: pog.Connection,
+  connection: pog.Connection,
   arg_1: String,
   email: String,
   id: Int,
@@ -367,5 +383,5 @@ UPDATE users SET name = $1, email = $2 WHERE id = $3 RETURNING id, name, email, 
   |> pog.parameter(pog.text(email))
   |> pog.parameter(pog.int(id))
   |> pog.returning(decoder)
-  |> pog.execute(db)
+  |> pog.execute(connection)
 }

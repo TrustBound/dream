@@ -27,7 +27,9 @@ import snippets/doc_core_context_new_context
 import snippets/doc_core_dream
 import snippets/doc_core_dream_builder
 import snippets/doc_core_dream_execute_route
+import snippets/doc_core_dream_get_shutdown_timeout
 import snippets/doc_core_dream_get_tls
+import snippets/doc_core_dream_set_shutdown_timeout
 import snippets/doc_core_dream_set_tls
 import snippets/doc_core_dream_type
 import snippets/doc_core_parser
@@ -297,6 +299,27 @@ fn dream_module_tests() -> UnitNode {
       |> should()
       |> be_equal(None)
       |> or_fail_with("a new server should have no TLS files")
+    }),
+    it("set_shutdown_timeout example reads back 10 seconds", fn() {
+      // Act
+      let timeout = doc_core_dream_set_shutdown_timeout.ten_seconds()
+
+      // Assert
+      timeout
+      |> should()
+      |> be_equal(10_000)
+      |> or_fail_with("the shutdown timeout should be 10_000")
+    }),
+    it("get_shutdown_timeout example returns the 30 second default", fn() {
+      // Act
+      let timeout =
+        doc_core_dream_get_shutdown_timeout.default_shutdown_timeout()
+
+      // Assert
+      timeout
+      |> should()
+      |> be_equal(30_000)
+      |> or_fail_with("a new server should wait at most 30_000 ms")
     }),
     it("execute_route example runs the matched controller", fn() {
       // Arrange

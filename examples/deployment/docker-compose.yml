@@ -1,6 +1,9 @@
 services:
   app:
     build: .
+    # Longer than the 30 second shutdown timeout of the server, so that
+    # running requests finish before Docker kills the app
+    stop_grace_period: 35s
     ports:
       - "3000:3000"
     environment:

@@ -10,6 +10,7 @@
 //// that the pool starts, and how query results become values.
 
 import dream_opensearch/client as opensearch_client
+import dream_postgres_client
 import dream_test/matchers.{be_equal, or_fail_with, should}
 import dream_test/suite.{type TestSuite}
 import dream_test/unit.{type UnitNode, describe, group, it}
@@ -17,7 +18,6 @@ import fixtures/environment.{with_environment}
 import fixtures/one_shot_http_server
 import gleam/option.{None, Some}
 import gleam/result
-import pog
 import snippets/architecture_config.{AppConfig}
 import snippets/architecture_json.{Profile}
 import snippets/architecture_opensearch
@@ -251,7 +251,7 @@ fn architecture_postgres_tests() -> UnitNode {
     }),
     it("describe_user_name returns the name when the result has a row", fn() {
       // Arrange
-      let result = Ok(pog.Returned(count: 1, rows: ["Ada"]))
+      let result = Ok(dream_postgres_client.Returned(count: 1, rows: ["Ada"]))
 
       // Act
       let description = architecture_postgres.describe_user_name(result)
@@ -266,7 +266,7 @@ fn architecture_postgres_tests() -> UnitNode {
       "describe_user_name returns No such user when the result has no rows",
       fn() {
         // Arrange
-        let result = Ok(pog.Returned(count: 0, rows: []))
+        let result = Ok(dream_postgres_client.Returned(count: 0, rows: []))
 
         // Act
         let description = architecture_postgres.describe_user_name(result)
@@ -282,7 +282,7 @@ fn architecture_postgres_tests() -> UnitNode {
       "describe_user_name returns a failure message when the query failed",
       fn() {
         // Arrange
-        let result = Error(pog.ConnectionUnavailable)
+        let result = Error(dream_postgres_client.ConnectionUnavailable)
 
         // Act
         let description = architecture_postgres.describe_user_name(result)

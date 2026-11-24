@@ -23,7 +23,7 @@ your_app/
 │   ├── models/             # Data access layer
 │   │   ├── user/
 │   │   │   ├── user_model.gleam
-│   │   │   └── sql.gleam   # Squirrel-generated SQL queries
+│   │   │   └── sql.gleam   # SQL queries from dream_sql_generator
 │   │   └── task/
 │   │       ├── task_model.gleam
 │   │       └── sql.gleam

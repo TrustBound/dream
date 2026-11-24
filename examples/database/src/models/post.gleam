@@ -4,16 +4,19 @@
 //// Presentation logic (JSON encoding) lives in views/post_view.
 
 import dream/http/error.{type Error, InternalServerError, NotFound}
+import dream_postgres_client
 import gleam/dynamic/decode
 import gleam/list
 import gleam/option
 import gleam/time/timestamp
-import pog
 import sql
 import types/post.{type Post, Post}
 
 /// List all posts for a user
-pub fn list(db: pog.Connection, user_id: Int) -> Result(List(Post), Error) {
+pub fn list(
+  db: dream_postgres_client.Connection,
+  user_id: Int,
+) -> Result(List(Post), Error) {
   case sql.list_posts(db, user_id) {
     Ok(returned) -> Ok(extract_all_posts(returned))
     Error(_) -> Error(InternalServerError("Database error"))
@@ -21,7 +24,10 @@ pub fn list(db: pog.Connection, user_id: Int) -> Result(List(Post), Error) {
 }
 
 /// Get a single post by ID
-pub fn get(db: pog.Connection, id: Int) -> Result(Post, Error) {
+pub fn get(
+  db: dream_postgres_client.Connection,
+  id: Int,
+) -> Result(Post, Error) {
   case sql.get_post(db, id) {
     Ok(returned) -> extract_first_post(returned)
     Error(_) -> Error(InternalServerError("Database error"))
@@ -30,7 +36,7 @@ pub fn get(db: pog.Connection, id: Int) -> Result(Post, Error) {
 
 /// Create a new post
 pub fn create(
-  db: pog.Connection,
+  db: dream_postgres_client.Connection,
   user_id: Int,
   title: String,
   content: String,
@@ -51,7 +57,7 @@ pub fn decoder() -> decode.Decoder(#(String, String)) {
 // Private helpers - all named functions
 
 fn extract_first_post(
-  returned: pog.Returned(sql.GetPostRow),
+  returned: dream_postgres_client.Returned(sql.GetPostRow),
 ) -> Result(Post, Error) {
   case returned.rows {
     [row] -> Ok(row_to_post(row))
@@ -60,12 +66,14 @@ fn extract_first_post(
   }
 }
 
-fn extract_all_posts(returned: pog.Returned(sql.ListPostsRow)) -> List(Post) {
+fn extract_all_posts(
+  returned: dream_postgres_client.Returned(sql.ListPostsRow),
+) -> List(Post) {
   list.map(returned.rows, row_to_post_list)
 }
 
 fn extract_created_post(
-  returned: pog.Returned(sql.CreatePostRow),
+  returned: dream_postgres_client.Returned(sql.CreatePostRow),
 ) -> Result(Post, Error) {
   case returned.rows {
     [row] -> Ok(row_to_post_create(row))

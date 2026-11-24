@@ -115,7 +115,7 @@ Open `http://localhost:3000` in your browser to:
 5. ✅ **No raw HTML in code** - All HTML from matcha templates
 6. ✅ **Format detection** - PathParam.format for `.htmx` partials
 7. ✅ **Clean architecture** - Models, Controllers, Views, Operations
-8. ✅ **Type-safe SQL** - Squirrel-generated queries
+8. ✅ **Type-safe SQL** - `dream_sql_generator` generates the queries
 
 ## Code Structure
 

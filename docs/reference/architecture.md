@@ -332,7 +332,7 @@ Dream encourages a clean separation of concerns using the Model-View-Controller 
 - Return `Response` objects
 
 **Models** handle data access:
-- Execute database queries (using `dream_postgres` and `squirrel`)
+- Execute database queries (using `dream_postgres` and `dream_sql_generator`)
 - Convert database rows to domain types
 - Return `Result(domain_type, Error)`, with `Error` from `dream/http/error`
 - Know nothing about HTTP, views, or business logic
@@ -360,7 +360,7 @@ Here's how a typical request flows through the MVC layers:
 
 Let's trace through a complete example showing all three layers working together:
 
-All three layers share the type `Task(id: Int, title: String, completed: Bool)`. The model reads from a list so that the example runs anywhere. A real model runs a Squirrel query through `dream_postgres`.
+All three layers share the type `Task(id: Int, title: String, completed: Bool)`. The model reads from a list so that the example runs anywhere. A real model runs a `dream_sql_generator` query through `dream_postgres`.
 
 #### Model: find a task <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_task_model.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -513,7 +513,7 @@ This coordination belongs in an Operation, not a Controller. See [Move a workflo
 - Return domain types, not SQL row types
 - Convert database errors to `Error` from `dream/http/error`
 - Keep database logic isolated from business logic
-- Use type-safe SQL with `squirrel`
+- Use type-safe SQL with `dream_sql_generator`
 
 **Views:**
 - Pure functions with no side effects
@@ -583,7 +583,7 @@ Dream runs on the BEAM. Performance characteristics:
 - **Concurrent connections** - Thousands per core (BEAM is excellent at this)
 - **Memory usage** - 1-2GB is normal for production apps
 - **Response time** - Microseconds for routing, milliseconds for full request
-- **Connection pooling** - Pog handles this efficiently
+- **Connection pooling** - `dream_postgres_client` handles this efficiently
 
 The BEAM is battle-tested. It scales.
 
@@ -608,7 +608,7 @@ The core `dream` package provides:
 - Query result helpers (first_row, all_rows)
 - Type-safe error handling
 - Connection pooling support
-- Works with Squirrel-generated SQL queries
+- Works with SQL queries that `dream_sql_generator` generates
 
 #### Connect and query with dream_postgres <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_postgres.gleam#L6-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -617,10 +617,10 @@ import dream_postgres/client.{
   type Config, type Connection, type QueryError, type Returned,
 }
 import dream_postgres/query
+import dream_postgres_client
 import gleam/dynamic/decode
 import gleam/erlang/process
 import gleam/otp/actor
-import pog
 
 pub fn create_database_config() -> Config {
   client.new(process.new_name("app_database"))
@@ -635,10 +635,10 @@ pub fn connect_database() -> Result(Connection, actor.StartError) {
 }
 
 pub fn find_user_name(db: Connection, id: Int) -> String {
-  pog.query("SELECT name FROM users WHERE id = $1")
-  |> pog.parameter(pog.int(id))
-  |> pog.returning(decode.at([0], decode.string))
-  |> pog.execute(db)
+  dream_postgres_client.query("SELECT name FROM users WHERE id = $1")
+  |> dream_postgres_client.parameter(dream_postgres_client.int(id))
+  |> dream_postgres_client.returning(decode.at([0], decode.string))
+  |> dream_postgres_client.execute(db)
   |> describe_user_name()
 }
 
@@ -777,13 +777,13 @@ Modules are independent Gleam packages on Hex. Add the ones you need next to `dr
 dream = ">= 3.0.0 and < 4.0.0"
 ```
 
-The `database` example adds `dream_postgres` this way. Until the modules are on Hex, the examples pin each one to a commit of its repository:
+The `database` example adds `dream_postgres` and `dream_postgres_client` this way. Until `dream_postgres` 2.0.0 is on Hex, the example gets it from a local path:
 
 #### dream_postgres in the database example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L10-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```toml
-# Pinned to the module's move branch until it is on Hex.
-dream_postgres = { git = "https://github.com/TrustBound/dream_postgres.git", ref = "bfdd3435c173947b3aef6c5d5ae280449338ed76" }
+dream_postgres = { path = "../../../modules-breakout/dream_postgres" }
+dream_postgres_client = ">= 1.0.0 and < 2.0.0"
 ```
 
 Each module has its own repository, with a README that has detailed usage examples: [dream_config](https://github.com/TrustBound/dream_config), [dream_ets](https://github.com/TrustBound/dream_ets), [dream_http_client](https://github.com/TrustBound/dream_http_client), [dream_json](https://github.com/TrustBound/dream_json), [dream_mock_server](https://github.com/TrustBound/dream_mock_server), [dream_opensearch](https://github.com/TrustBound/dream_opensearch) and [dream_postgres](https://github.com/TrustBound/dream_postgres).

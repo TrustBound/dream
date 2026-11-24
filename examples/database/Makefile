@@ -7,7 +7,7 @@ run:
 	@gleam run -m main
 
 test:
-	@gleam test
+	@make test-integration
 
 test-integration:
 	@echo "=== Running integration tests ==="
@@ -17,11 +17,8 @@ test-integration:
 			echo "ERROR: Docker is not running. Please start Docker Desktop and try again."; \
 			exit 1; \
 		fi; \
-		echo "Killing any existing servers..."; \
-		pkill -9 -f "gleam run.*main" 2>/dev/null || true; \
-		pkill -9 -f "dream_example_database" 2>/dev/null || true; \
-		lsof -ti:3002 | xargs kill -9 2>/dev/null || true; \
-		sleep 2; \
+		echo "Stopping the server of an earlier run..."; \
+		../../integration/example-server.sh stop build/server.pid; \
 		echo "Setting up database..."; \
 		docker-compose down -v > /dev/null 2>&1 || true; \
 		sleep 1; \
@@ -54,7 +51,7 @@ test-integration:
 	echo "Building Gleam application..."; \
 	rm -rf build/dev build/prod; \
 	output=$$(gleam build 2>&1) || { echo "$$output"; exit 1; }; \
-	echo "Checking that src/sql.gleam is the code that Squirrel generates..."; \
+	echo "Checking that src/sql.gleam is the code that dream_sql_generator generates..."; \
 	sh test/integration/sql.sh || exit 1; \
 	echo "Starting server in background..."; \
 	../../integration/run-scenarios.sh database 3002 main http1; \
@@ -111,6 +108,6 @@ migrate-down:
 migrate-new:
 	@gleam run -m cigogne new --name $(name)
 
-# Generate src/sql.gleam from the queries in src/sql/ with Squirrel
+# Generate src/sql.gleam from the queries in src/sql/ with dream_sql_generator
 squirrel:
-	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m squirrel
+	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m dream_sql_generator

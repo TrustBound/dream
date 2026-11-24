@@ -147,10 +147,13 @@ Step 3: Create the Model
 
 In `src/models/user.gleam`, add a function that gets one user:
 
-### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
+pub fn get(
+  db: dream_postgres_client.Connection,
+  id: Int,
+) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
     Error(_) -> Error(InternalServerError("Database error"))
@@ -456,10 +459,13 @@ This code does X by doing Y.
 **Example:**
 
 ````markdown
-### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
+pub fn get(
+  db: dream_postgres_client.Connection,
+  id: Int,
+) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
     Error(_) -> Error(InternalServerError("Database error"))
@@ -582,10 +588,13 @@ Here's an example:
 
 Here's a typical model:
 
-### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
+pub fn get(
+  db: dream_postgres_client.Connection,
+  id: Int,
+) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
     Error(_) -> Error(InternalServerError("Database error"))

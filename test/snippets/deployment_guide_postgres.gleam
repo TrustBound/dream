@@ -1,8 +1,10 @@
+import dream_postgres_client
 import gleam/erlang/process
-import pog
 
-pub fn create_database_config() -> pog.Config {
-  pog.default_config(pool_name: process.new_name("app_database"))
+pub fn create_database_config() -> dream_postgres_client.Config {
+  dream_postgres_client.default_config(pool_name: process.new_name(
+    "app_database",
+  ))
   // Adjust based on load
-  |> pog.pool_size(15)
+  |> dream_postgres_client.pool_size(15)
 }

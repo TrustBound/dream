@@ -7,14 +7,14 @@ build:
 	@gleam build
 
 test:
-	@gleam test
+	@make test-integration
 
 # Starts the server with test/integration/start.sh and runs the request of
 # the README (test/integration/readme.sh) against it.
 test-integration:
 	@echo "=== Running integration tests ==="
 	@if [ -z "$$CI" ]; then \
-		lsof -ti:3000 | xargs kill -9 2>/dev/null || true; \
+		../../integration/example-server.sh stop build/server.pid; \
 	fi
 	@echo "Building Gleam application..."
 	@output=$$(gleam build 2>&1) || { echo "$$output"; exit 1; }

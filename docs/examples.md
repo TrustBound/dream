@@ -46,7 +46,7 @@ Complete REST API with type-safe SQL, migrations, and validation.
 - Services pattern (database connection)
 - Models (data access)
 - Views (JSON formatting)
-- Squirrel (type-safe SQL)
+- `dream_sql_generator` (type-safe SQL)
 - Cigogne (migrations)
 - Makefile automation
 

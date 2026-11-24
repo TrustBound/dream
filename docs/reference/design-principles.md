@@ -221,7 +221,7 @@ You won't find YAML files that magically configure routes. You won't find decora
 
 ### No ORM
 
-We use Squirrel to generate type-safe SQL functions. You write SQL. Squirrel makes it type-safe.
+We use `dream_sql_generator` to generate type-safe SQL functions. You write SQL. `dream_sql_generator` makes it type-safe.
 
 **Why no ORM?** ORMs abstract SQL until they don't. Then you're debugging query generation at 2am. Just write SQL.
 

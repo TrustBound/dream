@@ -217,6 +217,7 @@ pub fn context(
     bind_interface: dream.get_bind_interface(dream_instance),
   )
   |> dream.set_tls(dream.get_tls(dream_instance))
+  |> dream.set_shutdown_timeout(dream.get_shutdown_timeout(dream_instance))
 }
 
 /// Provide your application's services
@@ -278,6 +279,7 @@ pub fn services(
     bind_interface: dream.get_bind_interface(dream_instance),
   )
   |> dream.set_tls(dream.get_tls(dream_instance))
+  |> dream.set_shutdown_timeout(dream.get_shutdown_timeout(dream_instance))
 }
 
 /// Provide your application's router
@@ -341,6 +343,7 @@ pub fn router(
     bind_interface: dream.get_bind_interface(dream_instance),
   )
   |> dream.set_tls(dream.get_tls(dream_instance))
+  |> dream.set_shutdown_timeout(dream.get_shutdown_timeout(dream_instance))
 }
 
 /// Set the network interface to bind to
@@ -393,6 +396,7 @@ pub fn bind(
     bind_interface: option.Some(interface),
   )
   |> dream.set_tls(dream.get_tls(dream_instance))
+  |> dream.set_shutdown_timeout(dream.get_shutdown_timeout(dream_instance))
 }
 
 /// Set maximum request body size in bytes
@@ -447,6 +451,58 @@ pub fn max_body_size(
     bind_interface: dream.get_bind_interface(dream_instance),
   )
   |> dream.set_tls(dream.get_tls(dream_instance))
+  |> dream.set_shutdown_timeout(dream.get_shutdown_timeout(dream_instance))
+}
+
+/// Set how long, in milliseconds, a stopping server waits for running requests
+///
+/// When the platform stops the app with `SIGTERM`, a server that `listen()`
+/// started drains before the Erlang VM stops. It closes the listening socket
+/// and the idle keep-alive connections at once. Each running request gets its
+/// full response, with `connection: close`. When the time ends, the server
+/// closes the connections that remain. The default is 30_000 (30 seconds),
+/// the time that Kubernetes waits after `SIGTERM` before it kills the app.
+/// Set a time that is shorter than the grace period of your platform:
+/// Docker waits 10 seconds.
+///
+/// `stop_gracefully()` takes its own time, and `stop()` does not wait.
+///
+/// ## Example
+///
+/// ### Wait at most 8 seconds on SIGTERM <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_shutdown_timeout.gleam#L3-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http.{ok, text_response}
+/// import dream/http/request.{Get}
+/// import dream/router.{route, router}
+/// import dream/servers/mist/server
+///
+/// pub fn main() {
+///   server.listen(app(), 3000)
+/// }
+///
+/// pub fn app() {
+///   server.new()
+///   |> server.router(my_router())
+///   // Docker waits 10 seconds after SIGTERM before it kills the app
+///   |> server.shutdown_timeout(8000)
+/// }
+/// ```
+pub fn shutdown_timeout(
+  dream_instance: dream.Dream(
+    mist.Builder(Connection, ResponseData),
+    context,
+    services,
+    router_state,
+  ),
+  milliseconds: Int,
+) -> dream.Dream(
+  mist.Builder(Connection, ResponseData),
+  context,
+  services,
+  router_state,
+) {
+  dream.set_shutdown_timeout(dream_instance, milliseconds)
 }
 
 /// Serve HTTPS with a certificate and key
@@ -507,7 +563,8 @@ pub fn tls(
 /// Start the server and listen for requests
 ///
 /// Starts the server on the specified port and blocks forever. This is what you call
-/// in your `main()` function. If the server fails to start, it panics with
+/// in your `main()` function. On `SIGTERM`, the server drains before the
+/// Erlang VM stops: see `shutdown_timeout()`. If the server fails to start, it panics with
 /// `Failed to start server: ` and the start error, for example
 /// `Failed to start server: InitFailed("Port 3000 already in use on 0.0.0.0. ...")`.
 ///
@@ -542,7 +599,10 @@ pub fn listen(
   port: Int,
 ) -> Nil {
   case listen_internal(dream_instance, port) {
-    Ok(_started) -> process.sleep_forever()
+    Ok(started) -> {
+      drain_on_sigterm(started.pid)
+      process.sleep_forever()
+    }
     Error(start_error) -> panic_with_start_error(start_error)
   }
 }
@@ -614,10 +674,12 @@ pub fn listen_with_handle(
 /// server when `stop` returns. You can call it from any process, not only from
 /// the process that started the server.
 ///
-/// The server supervisor stops each of its children with the shutdown time that
-/// the child specification gives, then exits with reason `normal`. The process
-/// that started the server keeps running. A request that is in progress when
-/// `stop` is called does not get a response: its connection closes.
+/// `stop` does not wait for running requests. The server closes the listening
+/// socket and every connection at once, then its supervisor exits with reason
+/// `normal`. The process that started the server keeps running. A request
+/// that is in progress when `stop` is called does not get a response: its
+/// connection closes. To let running requests finish, use
+/// `stop_gracefully()`.
 ///
 /// `stop` is idempotent. If the server is already down, `stop` returns `Nil`
 /// and does not crash the caller.
@@ -650,8 +712,53 @@ pub fn listen_with_handle(
 /// }
 /// ```
 pub fn stop(handle: ServerHandle) -> Nil {
+  stop_gracefully(handle, within: 0)
+}
+
+/// Stop a server, and let its running requests finish first
+///
+/// The server closes the listening socket at once, so a new connection is
+/// refused. It closes each idle keep-alive connection at once. Each running
+/// request gets its full response, with `connection: close`. When the
+/// running requests are done, or when `within` milliseconds end, the server
+/// closes the connections that remain and stops. `stop_gracefully` returns
+/// when the server is down.
+///
+/// After a response with `connection: close`, the server waits for the client
+/// to close the connection, at most 5 seconds. A client such as `curl` closes
+/// it at once.
+///
+/// `stop_gracefully(handle, within: 0)` is the same as `stop(handle)`. Like
+/// `stop`, it is idempotent.
+///
+/// ## Example
+///
+/// ### Stop a server gracefully <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_stop_gracefully.gleam#L3-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http.{ok, text_response}
+/// import dream/http/request.{Get}
+/// import dream/router.{route, router}
+/// import dream/servers/mist/server
+/// import gleam/otp/actor
+/// import gleam/result
+///
+/// pub fn serve_then_stop(port: Int) -> Result(Nil, actor.StartError) {
+///   let started =
+///     server.new()
+///     |> server.router(app_router())
+///     |> server.listen_with_handle(port)
+///
+///   // Let running requests finish, but wait at most 30 seconds
+///   result.map(started, server.stop_gracefully(_, within: 30_000))
+/// }
+/// ```
+pub fn stop_gracefully(handle: ServerHandle, within timeout: Int) -> Nil {
   case handle {
-    ServerHandle(process_pid) -> stop_supervisor(process_pid)
+    ServerHandle(process_pid) -> {
+      mist.drain(process_pid, within: timeout)
+      stop_supervisor(process_pid)
+    }
   }
 }
 
@@ -659,6 +766,11 @@ pub fn stop(handle: ServerHandle) -> Nil {
 /// See `dream_mist_server_ffi.erl` for why this works from any process.
 @external(erlang, "dream_mist_server_ffi", "stop_supervisor")
 fn stop_supervisor(supervisor_pid: process.Pid) -> Nil
+
+/// Makes `SIGTERM` stop the server before the Erlang VM stops, so that the
+/// server drains. See `dream_mist_sigterm.erl`.
+@external(erlang, "dream_mist_sigterm", "install")
+fn drain_on_sigterm(supervisor_pid: process.Pid) -> Nil
 
 /// Helper function to update context with request_id
 /// This is a simple implementation that just returns the template context
@@ -726,7 +838,9 @@ fn build_server(
       mist.with_tls(server_with_interface, certfile:, keyfile:)
     option.None -> server_with_interface
   }
-  mist.port(server_with_tls, port)
+  server_with_tls
+  |> mist.with_shutdown_timeout(dream.get_shutdown_timeout(dream_instance))
+  |> mist.port(port)
 }
 
 fn check_tls_files(
