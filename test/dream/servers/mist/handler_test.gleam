@@ -221,7 +221,7 @@ pub fn tests() -> TestSuite {
       ),
     ]),
     group("methods", [
-      it("answers PURGE / with 404 when only GET / has a route", fn() {
+      it("answers PURGE / with 405 when only GET / has a route", fn() {
         // Arrange
         let connection = mist_connection.closed_connection(<<>>)
         let request =
@@ -233,10 +233,10 @@ pub fn tests() -> TestSuite {
         // Assert
         response.status
         |> should()
-        |> be_equal(404)
+        |> be_equal(405)
         |> or_fail_with("PURGE / should not run the GET controller")
       }),
-      it("answers TRACE / with 404 when only GET / has a route", fn() {
+      it("answers TRACE / with 405 when only GET / has a route", fn() {
         // Arrange
         let connection = mist_connection.closed_connection(<<>>)
         let request = mist_connection.request(connection, http.Trace, "/", [])
@@ -247,7 +247,7 @@ pub fn tests() -> TestSuite {
         // Assert
         response.status
         |> should()
-        |> be_equal(404)
+        |> be_equal(405)
         |> or_fail_with("TRACE / should not run the GET controller")
       }),
       it("runs the PURGE route for PURGE /cache", fn() {

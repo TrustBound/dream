@@ -30,7 +30,7 @@ Your app works on your machine. Now it has to run somewhere else: in a container
 
 ## Before you start
 
-You need Docker with Compose v2. Dream apps compile to BEAM bytecode and run on the Erlang runtime, so the image needs Erlang and Gleam, and the official Gleam image has both. Read [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md) for the database side. In the Dream repository, `make test-docker` builds the example's image and starts it with Compose:
+You need Docker with Compose v2. Dream apps compile to BEAM bytecode and run on the Erlang runtime. The image is built in two stages: the official Gleam image compiles the app, and a plain Erlang image of the same OTP version runs it. Read [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md) for the database side. In the Dream repository, `make test-docker` builds the example's image and starts it with Compose:
 
 ### The Docker test of the repository <a href="https://github.com/TrustBound/dream/blob/3.0.0/Makefile#L60-L63"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -41,7 +41,7 @@ test-docker:
 	@sh scripts/test-docker.sh
 ```
 
-The example depends on the Dream of the repository, so `scripts/test-docker.sh` copies the example and Dream into one folder before it runs the example's `test/docker.sh` there. Your app depends on Dream from Hex, so you run the same commands in your project folder.
+The example depends on the Dream of the repository, so `scripts/test-docker.sh` copies the example and Dream into one folder before it runs the example's `test/docker.sh` there. Your app depends on Dream from Hex, so you run the same commands in your project folder. The script also runs `gleam deps download` in that folder first, and builds the image once with `docker build --network none`: that build fails if it asks Hex for anything.
 
 ## Which way to run it
 
@@ -49,7 +49,7 @@ The example depends on the Dream of the repository, so `scripts/test-docker.sh` 
 |:---|:---|:---|
 | One server, a container platform (Fly.io, Render, Railway, ECS, Kubernetes) | The image from Step 3 | The platform restarts it and routes traffic to it. |
 | Local development with a database, or a small server | Docker Compose, Step 4 | One command starts the database, the migrations and the app. |
-| No containers | `gleam run` under your process manager | The app is a normal program that reads its settings from the environment. |
+| No containers | `build/erlang-shipment/entrypoint.sh run` under your process manager | The app is a normal program that reads its settings from the environment. `gleam export erlang-shipment` builds it, as in Step 3. |
 
 ## Step 1: Read the settings from the environment
 
@@ -152,9 +152,9 @@ pub fn create_router() -> Router(EmptyContext, Services) {
 }
 ```
 
-Configure Docker healthcheck. The Alpine image has `wget`, not `curl`:
+Configure Docker healthcheck. The Alpine Erlang image has `wget`, not `curl`:
 
-#### The health check of the Dockerfile <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/Dockerfile#L14-L16"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The health check of the Dockerfile <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/Dockerfile#L22-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```dockerfile
 # Mark the container unhealthy when /health does not answer 200
@@ -166,18 +166,26 @@ HEALTHCHECK --interval=5s --timeout=3s \
 
 Create `Dockerfile`. This is the Dockerfile of the `deployment` example, which `make test-docker` builds and starts:
 
-### Dockerfile <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/Dockerfile#L1-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Dockerfile <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/Dockerfile#L1-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```dockerfile
-FROM ghcr.io/gleam-lang/gleam:v1.19.2-erlang-alpine
+# Build stage: the Gleam image compiles the app into an Erlang shipment
+FROM ghcr.io/gleam-lang/gleam:v1.19.2-erlang-alpine AS build
 
 # Copy source
 WORKDIR /app
 COPY . .
 
-# Install dependencies and build
-RUN gleam deps download
-RUN gleam build
+# Download the dependencies of manifest.toml, and compile the app and its
+# dependencies into build/erlang-shipment
+RUN gleam export erlang-shipment
+
+# Run stage: the Erlang runtime of the Gleam image (OTP 29.1.1, Alpine), with
+# no Gleam and no source
+FROM erlang:29.1.1-alpine
+
+WORKDIR /app
+COPY --from=build /app/build/erlang-shipment .
 
 # Expose port
 EXPOSE 3000
@@ -186,11 +194,27 @@ EXPOSE 3000
 HEALTHCHECK --interval=5s --timeout=3s \
   CMD wget -q -O /dev/null http://localhost:3000/health || exit 1
 
-# Run
-CMD ["gleam", "run"]
+# Run: entrypoint.sh replaces itself with the Erlang VM, so the VM is the
+# first process of the container and gets the SIGTERM of docker stop
+CMD ["./entrypoint.sh", "run"]
 ```
 
-Add a `.dockerignore` file with the line `build`, so that your local build folder stays out of the image.
+The build stage runs `gleam export erlang-shipment`. It downloads the packages of `manifest.toml`, compiles the app and its dependencies, and writes them with an `entrypoint.sh` script to `build/erlang-shipment`. `gleam export --help` describes the shipment as "Precompiled Erlang, suitable for deployment". The run stage copies only the shipment into the Erlang image that the Gleam image is built on, `erlang:29.1.1-alpine`, so the image has no Gleam and no source. The image of the example is 89.6 MB for arm64, and was 128 MB with Gleam and the source in one stage.
+
+`entrypoint.sh run` replaces itself with the Erlang VM (`exec erl`), so the VM is the first process of the container and gets the `SIGTERM` of `docker stop`. Do not start the app with `gleam run` in the image: `gleam run` is then the first process, it doesn't pass `SIGTERM` on to the VM, and Docker kills the container after 10 seconds.
+
+Add a `.dockerignore` file. Your local build stays out of the image, but the packages that `gleam` has downloaded go in, so the image build does not download them again:
+
+### .dockerignore <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/.dockerignore#L1-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+# Your local build stays out of the image. The packages that gleam has
+# downloaded go in, so the image build does not download them again.
+build
+!build/packages
+```
+
+Commit `manifest.toml`. With it, `gleam` takes the exact versions of the manifest and doesn't resolve versions against Hex again.
 
 Build the image:
 
@@ -199,13 +223,6 @@ Build the image:
 ```bash
 docker build -t your-app .
 ```
-
-### Build for production
-
-Build your release with `gleam build`. Erlang is the default target, so it is the same as `gleam build --target erlang`.
-
-This generates BEAM bytecode in `build/dev/erlang/`. For production, you want an optimized build, but Gleam doesn't have a `--prod` flag yet. The dev build works fine for production. The BEAM is already optimized.
-
 
 To run the image on its own, give it the settings of your environment:
 
@@ -220,7 +237,7 @@ docker run -p 3000:3000 \
 
 For local development with database. This is the `docker-compose.yml` of the `deployment` example:
 
-### docker-compose.yml <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/docker-compose.yml#L1-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### docker-compose.yml <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/docker-compose.yml#L1-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```yaml
 services:
@@ -236,7 +253,10 @@ services:
         condition: service_completed_successfully
 
   migrate:
-    build: .
+    # The build stage has Gleam and the source, which the migrations need
+    build:
+      context: .
+      target: build
     command: gleam run -m cigogne all
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/yourapp
@@ -261,25 +281,45 @@ volumes:
   postgres_data:
 ```
 
-Start it in the background, and wait until the health check of the app passes. Then ask the app for `/health`, and stop everything:
+Start it in the background, and wait until the health check of the app passes. Then ask the app for `/health`:
 
-### Start, check and stop <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/test/docker.sh#L6-L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Start and check <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/test/docker.sh#L6-L7"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
 docker compose up -d --wait app
 curl -f http://localhost:3000/health
+```
+
+Stop the app as a platform does when it deploys a new version:
+
+### Stop the app <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/test/docker.sh#L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+docker compose stop app
+```
+
+Docker sends `SIGTERM` to the first process of the container. The Erlang VM logs `SIGTERM received - shutting down` and stops, with exit status `0`, in about 0.2 seconds. The test checks the log line, the exit status and that the stop takes less than 5 seconds. With `gleam run` as the first process, the same stop takes 10 seconds and ends with exit status `137`, because Docker kills the container.
+
+Stop everything, and remove the database volume:
+
+### Stop everything <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/test/docker.sh#L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
 docker compose down -v
 ```
 
 ### The migrations run first
 
-Run migrations before starting your app. Cigogne applies them with `gleam run -m cigogne all`. In Docker Compose, a separate service runs them, and the app starts when that service has finished:
+Run migrations before starting your app. Cigogne applies them with `gleam run -m cigogne all`. In Docker Compose, a separate service runs them, and the app starts when that service has finished. The migrations need Gleam and the source, which the run stage doesn't have, so the service uses the build stage of the Dockerfile (`target: build`):
 
-#### The migration service <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/docker-compose.yml#L13-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The migration service <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/deployment/docker-compose.yml#L13-L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```yaml
   migrate:
-    build: .
+    # The build stage has Gleam and the source, which the migrations need
+    build:
+      context: .
+      target: build
     command: gleam run -m cigogne all
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/yourapp
@@ -422,8 +462,8 @@ fly deploy
 
 1. Connect your Git repository
 2. Select "Web Service"
-3. Build command: `gleam build`
-4. Start command: `gleam run`
+3. Build command: `gleam export erlang-shipment`
+4. Start command: `build/erlang-shipment/entrypoint.sh run`
 5. Add environment variables in dashboard
 
 ### Railway
@@ -583,12 +623,13 @@ GET /health
 Summary: 3 run, 0 failed, 3 passed in 0ms
 ```
 
-The image itself is tested by running it: `make test-docker` builds it, starts it with Compose, and fails when `curl -f` gets no `200` from `/health`.
+The image itself is tested by running it: `make test-docker` builds it, starts it with Compose, and fails when `curl -f` gets no `200` from `/health`, or when the app does not stop by itself on `SIGTERM`.
 
 ## Common pitfalls
 
 - **The app listens on `localhost` in the container.** Nothing outside the container can reach it. Bind to `0.0.0.0`, as `create_server` does.
-- **The local `build` folder is copied into the image.** It holds your machine's build. Add `build` to `.dockerignore`.
+- **The local `build` folder is copied into the image.** It holds your machine's build. Add `build` to `.dockerignore`, as the example does.
+- **`gleam run` as the start command of the image.** `gleam run` doesn't pass `SIGTERM` on to the Erlang VM, so every stop waits 10 seconds and kills the app. Start the `entrypoint.sh` of the shipment, as the example's `CMD` does.
 - **`curl` in a health check of an Alpine image.** Alpine has `wget`, not `curl`. The example's `HEALTHCHECK` uses `wget`.
 - **The app starts before the migrations finish.** Make the app depend on the migration service with `condition: service_completed_successfully`, as the Compose file does.
 - **Secrets in the image or in Git.** Pass them as environment variables from your platform's secret store.

@@ -1,7 +1,8 @@
 import dream/dream
 import dream/http/header.{Header}
 import dream/http/request.{type Request, Request}
-import dream/http/response.{type Response, Response, Stream, Text}
+import dream/http/response.{type Response, Stream}
+import dream/internal/built_in_answer
 import dream/router.{type Route, type Router, find_route}
 import dream/servers/mist/internal
 import dream/servers/mist/request as mist_request
@@ -154,8 +155,10 @@ fn create_request_handler(
         )
       }
 
-      // 404 Not Found - Return immediately without reading body
-      option.None -> plain_text_answer(404, "Route not found")
+      // 405 or 404: answer at once, without reading the body
+      option.None ->
+        built_in_answer.no_route(router, partial_request)
+        |> mist_response.convert()
     }
 
     // 6. Check for upgrade response in stash (WebSocket)
@@ -264,6 +267,9 @@ fn body_ended(_size: Int) -> Result(mist.Chunk, mist.ReadError) {
   Ok(mist.Done)
 }
 
+/// The HTTP server refuses a body over the limit with `ExcessBody`: a body
+/// whose `content-length` is over it before the read, and a chunked or HTTP/2
+/// body when it grows over it.
 fn prepare_buffered_request(
   mist_request: http_request.Request(Connection),
   partial_request: Request,
@@ -271,24 +277,11 @@ fn prepare_buffered_request(
 ) -> Result(Request, http_response.Response(ResponseData)) {
   case mist.read_body(mist_request, max_body_limit: max_body_size) {
     Ok(request_with_body) ->
-      limit_body(partial_request, request_with_body.body, max_body_size)
+      Ok(
+        Request(..partial_request, body: buffered_body(request_with_body.body)),
+      )
     Error(mist.ExcessBody) -> Error(too_large_answer())
     Error(mist.MalformedBody) -> Error(unreadable_body_answer())
-  }
-}
-
-/// Mist refuses a body whose `content-length` is over the limit before it
-/// reads the body, and an HTTP/2 body when it grows over the limit. Mist
-/// reads a chunked HTTP/1.1 body to its end with no limit, so this size check
-/// refuses that body after the read.
-fn limit_body(
-  partial_request: Request,
-  bytes: BitArray,
-  max_body_size: Int,
-) -> Result(Request, http_response.Response(ResponseData)) {
-  case bit_array.byte_size(bytes) > max_body_size {
-    True -> Error(too_large_answer())
-    False -> Ok(Request(..partial_request, body: buffered_body(bytes)))
   }
 }
 
@@ -336,12 +329,6 @@ fn plain_text_answer(
   status: Int,
   text: String,
 ) -> http_response.Response(ResponseData) {
-  Response(
-    status: status,
-    body: Text(text),
-    headers: [Header("Content-Type", "text/plain; charset=utf-8")],
-    cookies: [],
-    content_type: option.Some("text/plain; charset=utf-8"),
-  )
+  built_in_answer.plain_text(status, text)
   |> mist_response.convert()
 }

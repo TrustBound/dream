@@ -11,7 +11,10 @@ services:
         condition: service_completed_successfully
 
   migrate:
-    build: .
+    # The build stage has Gleam and the source, which the migrations need
+    build:
+      context: .
+      target: build
     command: gleam run -m cigogne all
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/yourapp

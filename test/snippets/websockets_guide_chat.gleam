@@ -82,7 +82,6 @@ pub fn handle_websocket_init(
 pub type Reply {
   SendText(String)
   KeepOpen
-  Close
 }
 
 pub fn reply_to(
@@ -102,9 +101,6 @@ pub fn reply_to(
     websocket.CustomMessage(chat_message) ->
       SendText(format_chat_message(chat_message))
 
-    // Close frame or server shutdown
-    websocket.ConnectionClosed -> Close
-
     // Ignore binary for now
     websocket.BinaryMessage(_) -> KeepOpen
   }
@@ -119,7 +115,6 @@ pub fn handle_websocket_message(
   case reply_to(state, message, dependencies) {
     SendText(text) -> send_or_stop(state, connection, text)
     KeepOpen -> websocket.continue_connection(state)
-    Close -> websocket.stop_connection()
   }
 }
 

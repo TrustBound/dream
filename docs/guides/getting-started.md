@@ -152,7 +152,7 @@ connection: keep-alive
 Route not found
 ```
 
-A known path with another method gets the same answer. The route is for `GET`, so a `POST /` matches nothing:
+A known path with another method gets `405 Method Not Allowed`. The route is for `GET`, so a `POST /` gets `405`, and the `allow` header names the method that the path has:
 
 ### Send POST to the root path <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simplest/test/integration/readme.sh#L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -160,19 +160,20 @@ A known path with another method gets the same answer. The route is for `GET`, s
 curl -i -X POST http://localhost:3000/
 ```
 
-### The answer to POST / <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simplest/test/integration/readme_output.txt#L16-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The answer to POST / <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simplest/test/integration/readme_output.txt#L16-L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```text
-HTTP/1.1 404 Not Found
+HTTP/1.1 405 Method Not Allowed
 content-type: text/plain; charset=utf-8
-content-length: 15
+allow: GET
+content-length: 18
 date: (the time of the request)
 connection: keep-alive
 
-Route not found
+Method not allowed
 ```
 
-Dream answers `404 Route not found` for both. It doesn't answer `405 Method Not Allowed` when only the method is wrong. If your clients need to tell the two apart, add a route for the other method that answers `405` itself.
+Dream answers `404 Route not found` for a path that no route matches, and `405 Method not allowed` for a known path with a method that it has no route for. A client can tell the two apart.
 
 ## How the pieces fit
 
@@ -315,7 +316,7 @@ pub fn tests() -> TestSuite {
       |> be_equal(404)
       |> or_fail_with("GET /missing should answer 404")
     }),
-    it("answers POST / with 404", fn() {
+    it("answers POST / with 405", fn() {
       // Arrange
       let request = request_to(Post, "/")
 
@@ -325,8 +326,8 @@ pub fn tests() -> TestSuite {
       // Assert
       response.status
       |> should
-      |> be_equal(404)
-      |> or_fail_with("POST / should answer 404")
+      |> be_equal(405)
+      |> or_fail_with("POST / should answer 405")
     }),
   ])
 }
@@ -342,7 +343,7 @@ Run `gleam test`. The report lists each test:
 hello app
   ✓ answers GET / with 200
   ✓ answers GET / with Hello, World!
-  ✓ answers POST / with 404
+  ✓ answers POST / with 405
   ✓ answers an unknown path with 404
 
 Summary: 4 run, 0 failed, 4 passed in 0ms
@@ -354,7 +355,7 @@ The report sorts the tests by name, so `answers POST /` comes before `answers an
 
 - **The port is taken.** A second `gleam run` while the first one still runs stops with `Port 3000 already in use on localhost`. Stop the other process or pick another port.
 - **The server isn't reachable from another machine or a container.** `bind("localhost")` listens on your machine only. Use `bind("0.0.0.0")` when something else must reach it, as in [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md).
-- **A `405` was expected but a `404` came back.** Dream answers `404` for a method that has no route. See Step 3.
+- **A `405` where you expected `404`.** A route of another method matches the path. The `allow` header names its methods. See Step 3.
 - **The compiler complains about the router's type after you add a context.** Call `server.context` and `server.services` before `server.router`.
 
 ## Where to go next

@@ -51,7 +51,7 @@ curl -i http://localhost:3000/report.csv
 # The requests of docs/guides/routing.md
 curl -i -X PURGE http://localhost:3000/cache
 echo
-curl -i -X PURGE http://localhost:3000/
+curl -i -X PURGE http://localhost:3000/missing
 echo
 curl -i -X DELETE http://localhost:3000/cache
 echo
@@ -67,8 +67,8 @@ head -c 1000001 /dev/zero | tr '\0' 'a' |
   curl -i -X POST --data-binary @- http://localhost:3000/signups
 echo
 
-# The same body sent in chunks, with no content-length: the server reads the
-# whole body, then refuses it.
+# The same body sent in chunks, with no content-length: the server stops
+# reading when the body grows over the limit, and refuses it.
 head -c 1000001 /dev/zero | tr '\0' 'a' |
   curl -i -X POST -H "transfer-encoding: chunked" --data-binary @- \
     http://localhost:3000/signups

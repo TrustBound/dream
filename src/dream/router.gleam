@@ -170,6 +170,7 @@ import dream/router/parser
 import dream/router/trie.{type Segment} as trie_module
 import gleam/list
 import gleam/option
+import gleam/order
 import gleam/string
 
 // ============================================================================
@@ -208,7 +209,12 @@ pub type Route(context, services) {
 /// making it performant even with hundreds of routes. It's generic over context
 /// and services types so the type system can verify your whole app.
 pub opaque type Router(context, services) {
-  Router(trie: trie_module.RadixTrie(RouteHandler(context, services)))
+  Router(
+    trie: trie_module.RadixTrie(RouteHandler(context, services)),
+    /// Each method that a route has, once. `allowed_methods` tries them when
+    /// no route matches a request.
+    methods: List(Method),
+  )
 }
 
 /// Internal route handler stored in the trie
@@ -260,7 +266,7 @@ pub type EmptyServices {
 /// }
 /// ```
 pub fn router() -> Router(context, services) {
-  Router(trie: trie_module.new())
+  Router(trie: trie_module.new(), methods: [])
 }
 
 /// Add a route to the router
@@ -343,7 +349,10 @@ pub fn route(
   let updated_trie =
     trie_module.insert(router_value.trie, method_string, segments, handler)
 
-  Router(trie: updated_trie)
+  Router(
+    trie: updated_trie,
+    methods: add_method(router_value.methods, method_value),
+  )
 }
 
 /// Add a streaming route to the router
@@ -414,7 +423,10 @@ pub fn stream_route(
   let updated_trie =
     trie_module.insert(router_value.trie, method_string, segments, handler)
 
-  Router(trie: updated_trie)
+  Router(
+    trie: updated_trie,
+    methods: add_method(router_value.methods, method_value),
+  )
 }
 
 // ============================================================================
@@ -490,6 +502,74 @@ pub fn find_route(
       option.Some(#(route, remapped_params))
     }
     option.None -> option.None
+  }
+}
+
+/// The methods of the routes that match the request's path
+///
+/// Gives each method for which a route matches the path of the request, in
+/// alphabetical order of the method names, so `["DELETE", "GET", "POST"]`
+/// for routes of `GET`, `POST` and `DELETE`. Gives `[]` when no route
+/// matches the path. The method of the request does not matter. A path can
+/// match more than one route pattern: a `GET` route of `/users/new` and a
+/// `POST` route of `/users/:id` both match `/users/new`, so it gets `GET`
+/// and `POST`.
+///
+/// Dream answers a request whose path matches a route, but not with the
+/// request's method, with `405 Method Not Allowed` and these methods in the
+/// `Allow` header. A request whose path matches no route gets `404`.
+///
+/// It runs one route lookup for each method of the router, so call it only
+/// when `find_route` found no route.
+///
+/// ## Example
+///
+/// ### Find the methods of a path <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router.gleam#L125-L138"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// pub fn item_methods(request) {
+///   let app_router =
+///     router()
+///     |> route(method: Get, path: "/items/:id", controller: home, middleware: [])
+///     |> route(
+///       method: Delete,
+///       path: "/items/:id",
+///       controller: home,
+///       middleware: [],
+///     )
+///
+///   // POST /items/7 gives [Delete, Get], and POST /users gives []
+///   allowed_methods(app_router, request)
+/// }
+/// ```
+pub fn allowed_methods(
+  router_value: Router(context, services),
+  request: Request,
+) -> List(Method) {
+  let path_segments = split_path(request.path)
+  router_value.methods
+  |> list.filter(fn(method) {
+    option.is_some(trie_module.lookup(
+      router_value.trie,
+      method_key(method),
+      path_segments,
+    ))
+  })
+  |> list.sort(compare_method_names)
+}
+
+fn compare_method_names(first: Method, second: Method) -> order.Order {
+  string.compare(
+    request.method_to_string(first),
+    request.method_to_string(second),
+  )
+}
+
+/// Adds a method to the list of the router's methods when it is not there yet
+fn add_method(methods: List(Method), method: Method) -> List(Method) {
+  case list.contains(methods, method) {
+    True -> methods
+    False -> [method, ..methods]
   }
 }
 

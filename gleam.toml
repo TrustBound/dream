@@ -32,7 +32,7 @@ pages = [
 gleam_stdlib = ">= 1.0.0 and < 2.0.0"
 # dream's HTTP server: a fork of mist 6.0.3 with HTTP/2 fixes, published under
 # its own name with mist's module names.
-dream_http_server = ">= 1.3.1 and < 2.0.0"
+dream_http_server = ">= 2.0.0 and < 3.0.0"
 gleam_http = ">= 4.3.0 and < 5.0.0"
 gleam_otp = ">= 1.2.0 and < 2.0.0"
 gleam_erlang = ">= 1.0.0 and < 2.0.0"
@@ -98,6 +98,7 @@ tested_files = [
   "examples/tasks/test",
   "examples/deployment/test",
   "examples/deployment/Dockerfile",
+  "examples/deployment/.dockerignore",
   "examples/deployment/docker-compose.yml",
   "examples/tasks/Makefile",
   "examples/tasks/src/templates",

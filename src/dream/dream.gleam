@@ -8,9 +8,10 @@
 //// that the server implementations build upon.
 
 import dream/http/cookie.{type Cookie, simple_cookie}
-import dream/http/header.{type Header, Header, header_name, header_value}
+import dream/http/header.{type Header, header_name, header_value}
 import dream/http/request.{type Request, set_params}
-import dream/http/response.{type Response, Response, Text}
+import dream/http/response.{type Response}
+import dream/internal/built_in_answer
 import dream/router.{type Route, type Router, build_controller_chain, find_route}
 import gleam/list
 import gleam/option
@@ -414,7 +415,10 @@ pub fn get_tls(
 /// 4. Executes middleware and controller
 /// 5. Returns the response
 ///
-/// If no route matches, returns a 404 response.
+/// If a route matches the path but none has the request's method, returns
+/// `405 Method Not Allowed` with an `Allow` header that lists the methods of
+/// the path (see `router.allowed_methods`). If no route matches the path,
+/// returns `404 Not Found`.
 ///
 /// ## Parameters
 ///
@@ -425,7 +429,7 @@ pub fn get_tls(
 ///
 /// ## Returns
 ///
-/// HTTP response from the controller or 404 if no route matches
+/// HTTP response from the controller, or the 405 or 404 answer
 ///
 /// ## Example
 ///
@@ -453,16 +457,7 @@ pub fn route_request(
   case find_route(router_instance, request) {
     option.Some(#(route, params)) ->
       execute_route(route, request, params, context, services)
-    option.None ->
-      Response(
-        status: 404,
-        body: Text("Route not found"),
-        headers: [
-          Header("Content-Type", "text/plain; charset=utf-8"),
-        ],
-        cookies: [],
-        content_type: option.Some("text/plain; charset=utf-8"),
-      )
+    option.None -> built_in_answer.no_route(router_instance, request)
   }
 }
 

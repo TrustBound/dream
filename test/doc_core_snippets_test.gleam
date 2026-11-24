@@ -8,7 +8,7 @@ import dream/controllers/static
 import dream/dream
 import dream/http/cookie.{simple_cookie}
 import dream/http/header.{type Header, Header}
-import dream/http/request.{type Method, type Request, Get, Post, Request}
+import dream/http/request.{type Method, type Request, Delete, Get, Post, Request}
 import dream/http/response.{type Response, text_response}
 import dream/router.{find_route, router}
 import dream/router/trie.{ExtensionPattern, Literal, Match, MultiWildcard, Param}
@@ -574,6 +574,32 @@ fn router_module_tests() -> UnitNode {
       |> should()
       |> be_equal([#("id", "123")])
       |> or_fail_with("params should be [#(\"id\", \"123\")]")
+    }),
+    it("allowed_methods example gives the methods of the path", fn() {
+      // Arrange
+      let request = test_request.create_request(Post, "/items/7")
+
+      // Act
+      let methods = doc_core_router.item_methods(request)
+
+      // Assert
+      methods
+      |> should()
+      |> be_equal([Delete, Get])
+      |> or_fail_with("POST /items/7 should give [Delete, Get]")
+    }),
+    it("allowed_methods example gives no methods for an unknown path", fn() {
+      // Arrange
+      let request = test_request.create_request(Post, "/users")
+
+      // Act
+      let methods = doc_core_router.item_methods(request)
+
+      // Assert
+      methods
+      |> should()
+      |> be_equal([])
+      |> or_fail_with("POST /users should give []")
     }),
     it(
       "build_controller_chain example runs the first middleware outermost",

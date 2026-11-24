@@ -144,7 +144,6 @@ fn handle_message(
       let _ = websocket.send_text(connection, deps.user_name <> ": " <> text)
       websocket.continue_connection(state)
     }
-    websocket.ConnectionClosed -> websocket.stop_connection()
     _ -> websocket.continue_connection(state)
   }
 }
@@ -302,14 +301,16 @@ The message type is `websocket.Message(custom)`:
 - `TextMessage(String)`: text frame from the client.
 - `BinaryMessage(BitArray)`: binary frame from the client.
 - `CustomMessage(custom)`: value delivered via your `Selector(custom)`.
-- `ConnectionClosed`: Mist or the client closed the connection.
+
+A close is not a message. When the client or the server closes the
+connection, Dream calls your `on_close` function, as Step 5 shows.
 
 The handler below puts the decision in `reply_to`, a plain function that
 gets no connection and returns a `Reply`. `handle_websocket_message` only
 carries out the reply. A test can call `reply_to`, as
 [Test your code](#test-your-code) shows.
 
-### The on_message handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L80-L136"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The on_message handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L80-L131"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// What one message makes the connection do. A plain function with no
@@ -317,7 +318,6 @@ carries out the reply. A test can call `reply_to`, as
 pub type Reply {
   SendText(String)
   KeepOpen
-  Close
 }
 
 pub fn reply_to(
@@ -337,9 +337,6 @@ pub fn reply_to(
     websocket.CustomMessage(chat_message) ->
       SendText(format_chat_message(chat_message))
 
-    // Close frame or server shutdown
-    websocket.ConnectionClosed -> Close
-
     // Ignore binary for now
     websocket.BinaryMessage(_) -> KeepOpen
   }
@@ -354,7 +351,6 @@ pub fn handle_websocket_message(
   case reply_to(state, message, dependencies) {
     SendText(text) -> send_or_stop(state, connection, text)
     KeepOpen -> websocket.continue_connection(state)
-    Close -> websocket.stop_connection()
   }
 }
 
@@ -383,7 +379,7 @@ away, so `send_or_stop` stops the connection.
 - Announce that a user left.
 - Release any other resources you are tracking.
 
-### The on_close handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L138-L148"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The on_close handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L133-L143"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_websocket_close(
@@ -457,7 +453,7 @@ pub fn handle_websocket_init(
 }
 ```
 
-### Publish from anywhere <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L154-L160"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Publish from anywhere <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websockets_guide_chat.gleam#L149-L155"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn publish_chat_message(
@@ -577,8 +573,7 @@ import dream_test/suite.{type TestSuite}
 import dream_test/unit.{describe, group, it}
 import gleam/erlang/process
 import snippets/websockets_guide_chat.{
-  type ChatMessage, ChatMessage, ChatState, Close, Dependencies, KeepOpen,
-  SendText,
+  type ChatMessage, ChatMessage, ChatState, Dependencies, KeepOpen, SendText,
 }
 
 fn chat_bus() -> broadcaster.Broadcaster(ChatMessage) {
@@ -679,24 +674,6 @@ pub fn tests() -> TestSuite {
         |> be_equal(SendText("bob: hi"))
         |> or_fail_with("bob's message should go to the client as 'bob: hi'")
       }),
-      it("closes when the connection ends", fn() {
-        // Arrange
-        let dependencies = Dependencies(user_name: "ada", chat_bus: chat_bus())
-
-        // Act
-        let reply =
-          websockets_guide_chat.reply_to(
-            state,
-            websocket.ConnectionClosed,
-            dependencies,
-          )
-
-        // Assert
-        reply
-        |> should
-        |> be_equal(Close)
-        |> or_fail_with("a closed connection should stop the handler")
-      }),
     ]),
     group("handle_websocket_close", [
       it("tells the others that the user left", fn() {
@@ -730,13 +707,12 @@ chat handlers
   handle_websocket_close
     ✓ tells the others that the user left
   reply_to
-    ✓ closes when the connection ends
     ✓ ignores a binary message
     ✓ keeps the connection open after a text message
     ✓ publishes a text message with the user's name
     ✓ sends a broadcast message to the client as text
 
-Summary: 6 run, 0 failed, 6 passed in 0ms
+Summary: 5 run, 0 failed, 5 passed in 0ms
 ```
 
 A test can't call `on_init` or `on_message` itself. Both get a `websocket.Connection`, an opaque type that only the server makes when a client upgrades, and Dream has no test connection. For the same reason, a test can't see what `send_text` writes. Keep the decisions in functions like `reply_to`, and leave only the calls on the connection in the handlers.

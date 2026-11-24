@@ -64,7 +64,6 @@ fn handle_greeting_message(
 ) -> websocket.Action(Nil, Nil) {
   case message {
     websocket.TextMessage(_text) -> send_greeting(state, connection)
-    websocket.ConnectionClosed -> websocket.stop_connection()
     _ -> websocket.continue_connection(state)
   }
 }
@@ -78,7 +77,6 @@ fn handle_data_message(
   case message {
     websocket.TextMessage(text) ->
       send_data(state, connection, bit_array.from_string(text))
-    websocket.ConnectionClosed -> websocket.stop_connection()
     _ -> websocket.continue_connection(state)
   }
 }

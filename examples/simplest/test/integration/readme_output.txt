@@ -13,11 +13,12 @@ date: (the time of the request)
 connection: keep-alive
 
 Route not found
-HTTP/1.1 404 Not Found
+HTTP/1.1 405 Method Not Allowed
 content-type: text/plain; charset=utf-8
-content-length: 15
+allow: GET
+content-length: 18
 date: (the time of the request)
 connection: keep-alive
 
-Route not found
+Method not allowed
 Failed to start server: InitFailed("Port 3000 already in use on localhost. Stop the process using that port or choose a different one.")

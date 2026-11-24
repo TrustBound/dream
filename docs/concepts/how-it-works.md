@@ -8,7 +8,7 @@ When a request arrives at your Dream server, here's exactly what happens:
 
 ```text illustration
 1. Request arrives
-2. Router matches path/method → finds the route, or answers 404
+2. Router matches path/method → finds the route, or answers 405 (known path, other method) or 404
 3. Body read (a buffered body over max_body_size gets 413)
 4. Context: a copy of the context value given to the server
 5. Middleware runs (if any) → can enrich context
@@ -58,7 +58,7 @@ The adapter keeps the Mist request in the process dictionary of the request proc
 
 ### 2. Router Matches
 
-The router looks at the HTTP method (GET, POST, etc.) and path (`/users/123`) to find a matching route. Path parameters like `:id` are extracted automatically. When no route matches, the adapter answers `404 Route not found` and reads no body. For a matched `route`, the adapter then reads the body: a body over `max_body_size` gets `413 Content Too Large`, and the controller does not run.
+The router looks at the HTTP method (GET, POST, etc.) and path (`/users/123`) to find a matching route. Path parameters like `:id` are extracted automatically. When no route matches, the adapter reads no body. It answers `405 Method not allowed`, with an `Allow` header that lists the methods of the path, when a route matches the path with another method, and `404 Route not found` when no route matches the path. A request whose body the server did not read gets `connection: close`, and the server closes the connection after the answer. For a matched `route`, the adapter then reads the body: a body over `max_body_size` gets `413 Content Too Large`, and the controller does not run.
 
 `dream.route_request` does all of the steps from here to the response. It calls `router.find_route`, then `dream.execute_route`. `execute_route` runs a route that is already matched: it sets the path parameters on the request with `request.set_params`, then runs the middleware and the controller.
 

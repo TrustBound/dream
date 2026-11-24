@@ -19,6 +19,7 @@ import dream/http/response_test
 import dream/http/status_test
 import dream/http/transaction_test
 import dream/http/validation_test
+import dream/method_not_allowed_test
 import dream/router/parser_test
 import dream/router/trie_test
 import dream/router_test
@@ -33,6 +34,7 @@ import dream/servers/mist/response_test as mist_response_test
 import dream/servers/mist/server_test
 import dream/servers/mist/sse_test
 import dream/servers/mist/tls_test
+import dream/servers/mist/unread_body_test
 import dream/servers/mist/websocket_test
 import dream/services/broadcaster_test
 import dream/streaming_test
@@ -69,6 +71,7 @@ pub fn main() {
     transaction_test.tests(),
     static_test.tests(),
     router_test.tests(),
+    method_not_allowed_test.tests(),
     parser_test.tests(),
     trie_test.tests(),
     builder_order_test.tests(),
@@ -82,6 +85,7 @@ pub fn main() {
     listen_test.tests(),
     websocket_test.tests(),
     tls_test.tests(),
+    unread_body_test.tests(),
     port_ffi_test.tests(),
     sse_test.tests(),
     broadcaster_test.tests(),

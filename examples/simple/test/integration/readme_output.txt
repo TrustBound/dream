@@ -718,26 +718,27 @@ date: (the time of the request)
 connection: keep-alive
 
 Route not found
-HTTP/1.1 404 Not Found
+HTTP/1.1 405 Method Not Allowed
 content-type: text/plain; charset=utf-8
-content-length: 15
+allow: PURGE
+content-length: 18
 date: (the time of the request)
 connection: keep-alive
 
-Route not found
+Method not allowed
 Failed to start server: InitFailed("TLS file not found: build/test_tls/cert.pem")
 HTTP/1.1 413 Payload Too Large
 content-type: text/plain; charset=utf-8
+connection: close
 content-length: 22
 date: (the time of the request)
-connection: keep-alive
 
 Request body too large
 HTTP/1.1 413 Payload Too Large
 content-type: text/plain; charset=utf-8
+connection: close
 content-length: 22
 date: (the time of the request)
-connection: keep-alive
 
 Request body too large
 src/controllers/cache_controller.gleam

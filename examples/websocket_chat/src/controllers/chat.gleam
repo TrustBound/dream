@@ -84,8 +84,7 @@ fn handle_websocket_message(
       let _ = websocket.send_text(connection, json.to_string(json_message))
       websocket.continue_connection(state)
     }
-    websocket.BinaryMessage(_) | websocket.ConnectionClosed ->
-      websocket.continue_connection(state)
+    websocket.BinaryMessage(_) -> websocket.continue_connection(state)
   }
 }
 

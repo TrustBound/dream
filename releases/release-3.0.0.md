@@ -4,7 +4,7 @@
 
 This release makes HTTP/2 work end to end in Dream's Mist server adapter, for browsers over HTTPS and for clients over plain HTTP. To ship the fixes, the adapter now uses two packages that we publish, `dream_http_server` and `dream_socket_server`.
 
-It is a major version because a request body now has one type, `RequestBody`, for text, bytes and streams, a streamed body gives a failed read as a value, `Method` holds every HTTP method, and `validate_json` returns every decode error. Read the Migration Guide before you upgrade. Every code example in the docs, the READMEs and the doc comments is now a tested snippet.
+It is a major version because a request body now has one type, `RequestBody`, for text, bytes and streams, a streamed body gives a failed read as a value, `Method` holds every HTTP method, `validate_json` returns every decode error, a known path with another method gets `405`, and the WebSocket message `ConnectionClosed` is gone. Read the Migration Guide before you upgrade. Every code example in the docs, the READMEs and the doc comments is now a tested snippet.
 
 ## Key Highlights
 
@@ -16,6 +16,8 @@ It is a major version because a request body now has one type, `RequestBody`, fo
 - **One request body type (breaking)**: `Request.body` is a `RequestBody`: `Text`, `Bytes` or `Stream`. Binary uploads no longer arrive as `""`. New `require_json` reads and decodes a JSON body in one step
 - **A failed read is a value (breaking)**: each item of a `Stream` body is a `Result`. When the connection breaks, the controller gets an `Error` item and decides the answer
 - **Every method keeps its name (breaking)**: `Method` has `Connect`, `Trace` and `Other(String)`. `PURGE /` no longer runs the `GET /` controller
+- **405 for a known path with another method (breaking)**: `DELETE /` on a router with only `GET /` gets `405 Method Not Allowed` with `Allow: GET`. A path that no route matches still gets `404`
+- **A body the server did not read is never read as a request**: after an answer to a request whose body it did not read, the server closes the connection, so a body that holds a second request is never answered
 - **Every validation error (breaking)**: `validate_json` returns a list with one `ValidationError` for each field that failed
 - **Tested docs**: every code block in the guides, READMEs and doc comments comes from a snippet that the tests compile and run
 
@@ -205,7 +207,7 @@ On a `stream_route`, when the client sent part of the body and the connection br
 
 ### Every Method Keeps Its Name
 
-The server adapter turned CONNECT, TRACE and every method without its own constructor into `Get`, so `PURGE /` and `TRACE /` ran the `GET /` controller and got `200`. `Method` now has `Connect`, `Trace` and `Other(String)`, and no method becomes another one. `PURGE /` and `TRACE /` now get `404 Route not found` when no route has that method, as `DELETE /` did. A route with `method: Other("PURGE")` gets `PURGE` requests. Method names are case-sensitive (RFC 9110, section 9.1): `Other` keeps the name exactly as the client sent it, so a lower-case `purge` request does not match an `Other("PURGE")` route.
+The server adapter turned CONNECT, TRACE and every method without its own constructor into `Get`, so `PURGE /` and `TRACE /` ran the `GET /` controller and got `200`. `Method` now has `Connect`, `Trace` and `Other(String)`, and no method becomes another one. `PURGE /` and `TRACE /` now get `405 Method Not Allowed` with `Allow: GET` when `/` has only a `GET` route, as `DELETE /` does. A route with `method: Other("PURGE")` gets `PURGE` requests. Method names are case-sensitive (RFC 9110, section 9.1): `Other` keeps the name exactly as the client sent it, so a lower-case `purge` request does not match an `Other("PURGE")` route.
 
 ### Binary Static Files
 
@@ -217,7 +219,15 @@ The `static` directory listing wrote file names and the request path into the HT
 
 ### A Body Over the Size Limit Gets 413
 
-A buffered body over `max_body_size` got `400 Bad Request` with an empty body, the same answer as a body that could not be read. It now gets `413 Content Too Large` (RFC 9110, section 15.5.14) with the plain-text body `Request body too large`. A request whose `content-length` is over the limit gets the 413 before the server reads the body. A chunked HTTP/1.1 body had no limit at all: the server read it to its end and gave it to the controller. The adapter now compares its size with the limit after the read, and answers 413. A body that stops early or has malformed chunks still gets `400`, now with the plain-text body `Request body could not be read`, like the `404 Route not found` answer.
+A buffered body over `max_body_size` got `400 Bad Request` with an empty body, the same answer as a body that could not be read. It now gets `413 Content Too Large` (RFC 9110, section 15.5.14) with the plain-text body `Request body too large`. A request whose `content-length` is over the limit gets the 413 before the server reads the body. A chunked HTTP/1.1 body had no limit at all: the server read it to its end and gave it to the controller. The server now stops reading it when it grows over the limit, and Dream answers 413. A body that stops early or has malformed chunks still gets `400`, now with the plain-text body `Request body could not be read`, like the `404 Route not found` answer.
+
+### A Known Path With Another Method Gets 405
+
+A request whose path matches a route, but with a method that no route of that path has, got `404 Route not found`, the same answer as a path with no route. It now gets `405 Method Not Allowed` with an `Allow` header that lists the methods of the routes that match the path, in alphabetical order, and the plain-text body `Method not allowed` (RFC 9110, sections 15.5.6 and 10.2.1). `DELETE /` on a router with `GET /` and `POST /` gets `Allow: GET, POST`. A path that no route matches still gets `404`. `HEAD` and `OPTIONS` are methods like any other: a path with only a `GET` route gets `405` for them, as it got `404` before. The server and `dream.route_request` give the same answer, and the new `router.allowed_methods` gives the list. A route lookup that finds a route costs the same as before: the methods are looked up only when no route matched.
+
+### A Body the Server Did Not Read Is Never Read as a Request
+
+Over HTTP/1.1, when Dream answered without reading the request body (a `404`, a `413` for a body over the limit, or a `stream_route` controller that did not read the stream), the server kept the connection and read the body as the next request. A client could hide a second request in the body, and the server answered it (request smuggling). `dream_http_server` 2.0.0 closes the connection after such an answer and sends `connection: close`. A request with no body, and a body that Dream read to its end, keep the connection as before.
 
 ### One Message for a Missing Path Parameter
 
@@ -227,16 +237,16 @@ A buffered body over `max_body_size` got `400 Bad Request` with an empty body, t
 
 - A single HTTP/2 connection uploads large bodies at about 89% of Bandit's speed. With 8 connections it is level.
 - The server does not enforce the connection-level receive window. Unread request data on one connection is limited by 100 streams of 1 MiB each.
-- Over HTTP/1.1, the server reads a chunked request body on a `route` to its end before Dream compares its size with `max_body_size`. Use a `stream_route` for uploads that can be very large.
 - The server packages have three new settings (read timeout, send timeout, stream window size). Dream does not expose them yet.
 
 ## Testing
 
-- Dream's own tests use `dream_test` 3.0.0: 1129 run, 0 failed, in about 18 seconds (Apple M1 Max, OTP 29, Gleam 1.19.2)
-- `gleam test` measures the line coverage of `src/` and fails below 100%. It is 1087 of 1088 lines (99.9%)
-- `dream_http_server` 1.3.1: 108 passed, on Gleam 1.14.0 with OTP 28. Each of its fixes has a test that fails without the fix
-- `dream_socket_server`: 6 passed
-- Integration tests: eleven examples run, ten of them twice, over HTTP/1.1 and over HTTP/2 with TLS, through `dream_http_client`. Each run also runs the commands of the example's README and compares their output. `make test-tasks` runs the `tasks` example: 26 scenarios over each protocol and 26 Cypress tests pass, in about 90 seconds. `make test-docker` builds and starts `examples/deployment` in about 24 seconds with the image layers in the Docker cache, and about 31 seconds when the dependency and build layers must run again (Apple M1 Max)
+- Dream's own tests use `dream_test` 3.0.0: 1148 run, 0 failed, in about 16 seconds (Apple M1 Max, OTP 29, Gleam 1.19.2)
+- `gleam test` measures the line coverage of `src/` and fails below 100%. It is 1105 of 1105 lines (100%)
+- `dream_http_server` 2.0.0: 124 run, 0 failed, on Gleam 1.19.2 with OTP 29. Each of its fixes has a test that fails without the fix
+- `dream_socket_server` 1.0.1: 7 run, 0 failed
+- Through a real Dream server, a request whose body holds a second request gets exactly one answer, and then the server closes the connection: after a `404`, a `405`, a `413` for a `content-length` over the limit, a `413` for a chunked body over the limit, and a `stream_route` controller that does not read the body. A body that the controller reads, and then a real second request, get two answers on one connection
+- Integration tests: eleven examples run, ten of them twice, over HTTP/1.1 and over HTTP/2 with TLS, through `dream_http_client`. Each run also runs the commands of the example's README and compares their output. `make test-tasks` runs the `tasks` example: 26 scenarios over each protocol and 26 Cypress tests pass, in about 90 seconds. `make test-docker` builds the image of `examples/deployment` with no network, so it asks Hex for nothing, starts it, and checks that the app stops on `SIGTERM` with exit status 0 (about 0.2 seconds). It takes about 29 seconds (Apple M1 Max)
 
 ## Upgrading
 
@@ -255,7 +265,7 @@ gleam deps update dream
 
 ### Migration Guide
 
-Most projects need only the request body change in step 3. Steps 1, 2, 4, 6, 7 and 8 apply only in the cases they name.
+Most projects need only the request body change in step 3. Steps 1, 2, 4, 6, 7, 8 and 9 apply only in the cases they name.
 
 Each "before and after" below is a diff of a real file in this repository, from Dream 2.4.1 to Dream 3.0.0. The badge on a diff links to that file in GitHub's compare view.
 
@@ -274,7 +284,7 @@ Dream's server packages define the same modules, and Gleam stops the build with 
 +gleam_stdlib = ">= 1.0.0 and < 2.0.0"
 +# dream's HTTP server: a fork of mist 6.0.3 with HTTP/2 fixes, published under
 +# its own name with mist's module names.
-+dream_http_server = ">= 1.3.1 and < 2.0.0"
++dream_http_server = ">= 2.0.0 and < 3.0.0"
 ```
 
 Replace `glisten` with `dream_socket_server = ">= 1.0.0 and < 2.0.0"` in the same way. Your `import mist` and `import glisten` lines stay as they are, because the module names are the same.
@@ -492,7 +502,9 @@ pub fn create_server() -> Dream(
 - **IPv6 `remote_address`.** An IPv6 client gives its real address, such as `2601:282:a00:b38::421d`. In Dream 2 every IPv6 client was `::1`. Code that compares `remote_address` with `"::1"` now sees the real address.
 - **Binary static files.** `static.serve` sends a file that is not UTF-8 as `Bytes` with status 200. In Dream 2 it answered 404. A UTF-8 file is still `Text`.
 - **Broken streamed uploads.** On a `stream_route`, when a read of the body fails before its end, the stream gives one `Error(MalformedBody)` item and then ends. The controller decides the answer. In Dream 2 the stream ended as if the body was complete.
-- **Methods.** A request with CONNECT, TRACE or another method without its own constructor gets the route of that method, or 404. In Dream 2 it ran the GET route of its path.
+- **Methods.** A request with CONNECT, TRACE or another method without its own constructor gets the route of that method, or the 405 or 404 below. In Dream 2 it ran the GET route of its path.
+- **405 for a known path with another method.** A request whose path matches a route, with a method that no route of the path has, gets `405 Method Not Allowed` with an `Allow` header and the body `Method not allowed`. In Dream 2 it got `404 Route not found`. A client or a test that expects `404` for a wrong method must expect `405`. A path that no route matches still gets `404`.
+- **Connection after an unread body.** Over HTTP/1.1, the server closes the connection after it answers a request whose body it did not read to its end, and sends `connection: close`. A client that sends a body Dream refuses (`404`, `405`, `413`) opens a new connection for its next request; HTTP clients do that by themselves.
 - **Body over the size limit.** A buffered body over `max_body_size` gets `413 Content Too Large` with the body `Request body too large`. In Dream 2 it got `400` with an empty body, and a chunked body over the limit reached the controller. A body that cannot be read still gets `400`, now with the body `Request body could not be read`. A client that checks for `400` on a body that is too big must check for `413`.
 - **Missing path parameter message.** `get_int_param`, `get_string_param`, `require_int` and `require_string` give `Missing required path parameter: id` for a missing parameter, the message of `get_param`. In Dream 2 they gave `Missing id parameter`. Tests or clients that match the old text must match the new one.
 - **Start errors.** `listen()` panics with `Failed to start server: ` and the start error for every start error, for example `Failed to start server: InitFailed("TLS file not found: cert.pem")`. In Dream 2 an `InitFailed` error panicked with its message only. Code or log checks that match the old panic text must match the new form.
@@ -563,6 +575,12 @@ The testing guide now shows tests for `dream_test` 3.0.0. Dream 3.0.0 does not n
 +//// }
 ```
 
+#### 9. Your WebSocket handler matches `ConnectionClosed`
+
+**What changed.** The `websocket.Message` type has no `ConnectionClosed` any more. It never arrived: a close frame from the client and a dropped connection call `on_close`, and the server sends no message to `on_message`. `dream_http_server` 2.0.0 removed `Closed` and `Shutdown` from `mist.WebsocketMessage`, which `ConnectionClosed` came from. A `case` that names `websocket.ConnectionClosed` does not compile.
+
+**What to do.** Delete the `ConnectionClosed` branch of your `on_message` handler. Do the work of that branch in `on_close`, which runs once when the connection closes.
+
 ## Acknowledgements
 
 To Alex Manning and the contributors to mist and glisten. Problems with the HTTP server in this release belong to us: report them at [TrustBound/mist](https://github.com/TrustBound/mist/issues) or [TrustBound/dream](https://github.com/TrustBound/dream/issues), not to the mist or glisten maintainers.
@@ -570,8 +588,8 @@ To Alex Manning and the contributors to mist and glisten. Problems with the HTTP
 ## Documentation
 
 - [dream](https://hexdocs.pm/dream) - v3.0.0
-- [dream_http_server](https://hexdocs.pm/dream_http_server) - v1.3.1
-- [dream_socket_server](https://hexdocs.pm/dream_socket_server) - v1.0.0
+- [dream_http_server](https://hexdocs.pm/dream_http_server) - v2.0.0
+- [dream_socket_server](https://hexdocs.pm/dream_socket_server) - v1.0.1
 - [Dream's HTTP server packages](https://github.com/TrustBound/dream/blob/main/docs/contributing/http-server-packages.md)
 - [Guides](https://github.com/TrustBound/dream/blob/main/docs/guides/index.md) - Build your first Dream server, then one guide for each task
 - [HTTP/2 guide](https://github.com/TrustBound/dream/blob/main/docs/guides/http2.md)

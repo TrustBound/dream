@@ -747,7 +747,7 @@ pub fn tests() -> TestSuite {
       |> be_equal(404)
       |> or_fail_with("GET /missing should answer 404")
     }),
-    it("answers POST / with 404", fn() {
+    it("answers POST / with 405", fn() {
       // Arrange
       let request = request_to(Post, "/")
 
@@ -757,8 +757,8 @@ pub fn tests() -> TestSuite {
       // Assert
       response.status
       |> should
-      |> be_equal(404)
-      |> or_fail_with("POST / should answer 404")
+      |> be_equal(405)
+      |> or_fail_with("POST / should answer 405")
     }),
   ])
 }
@@ -770,7 +770,7 @@ pub fn tests() -> TestSuite {
 hello app
   ✓ answers GET / with 200
   ✓ answers GET / with Hello, World!
-  ✓ answers POST / with 404
+  ✓ answers POST / with 405
   ✓ answers an unknown path with 404
 
 Summary: 4 run, 0 failed, 4 passed in 0ms

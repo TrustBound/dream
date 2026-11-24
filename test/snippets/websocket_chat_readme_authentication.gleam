@@ -66,7 +66,6 @@ fn handle_message(
       let _ = websocket.send_text(connection, state <> ": " <> text)
       websocket.continue_connection(state)
     }
-    websocket.ConnectionClosed -> websocket.stop_connection()
     websocket.BinaryMessage(_) | websocket.CustomMessage(_) ->
       websocket.continue_connection(state)
   }

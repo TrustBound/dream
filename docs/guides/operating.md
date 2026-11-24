@@ -56,7 +56,7 @@ Before Dream opens the port it checks two things: that the certificate files of 
 gleam run -m main 2>&1 | grep "Failed to start server"
 ```
 
-### The start error for a port in use <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simplest/test/integration/readme_output.txt#L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The start error for a port in use <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simplest/test/integration/readme_output.txt#L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```text
 Failed to start server: InitFailed("Port 3000 already in use on localhost. Stop the process using that port or choose a different one.")
@@ -72,7 +72,7 @@ A missing certificate fails the same way, before the port check. The `simple` ex
 gleam run -m tls_main 2>&1 | grep "Failed to start server"
 ```
 
-### The start error for a missing certificate <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L728"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The start error for a missing certificate <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L729"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```text
 Failed to start server: InitFailed("TLS file not found: build/test_tls/cert.pem")
@@ -109,19 +109,19 @@ head -c 1000001 /dev/zero | tr '\0' 'a' |
   curl -i -X POST --data-binary @- http://localhost:3000/signups
 ```
 
-### The answer to a body over the limit <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L729-L735"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The answer to a body over the limit <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L730-L736"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```text
 HTTP/1.1 413 Payload Too Large
 content-type: text/plain; charset=utf-8
+connection: close
 content-length: 22
 date: (the time of the request)
-connection: keep-alive
 
 Request body too large
 ```
 
-The server answers `413 Content Too Large` (RFC 9110, section 15.5.14) and your controller doesn't run. The reason phrase on the status line is the older name, `Payload Too Large`, from the HTTP server underneath Dream. This request declares its size in `content-length`, so the server answers before it reads the body.
+The server answers `413 Content Too Large` (RFC 9110, section 15.5.14) and your controller doesn't run. The reason phrase on the status line is the older name, `Payload Too Large`, from the HTTP server underneath Dream. This request declares its size in `content-length`, so the server answers before it reads the body. Then it closes the connection, and says so with `connection: close`: the body that it did not read can never be read as the next request on the connection. The server does the same after every answer to a request whose body was not read to its end, for example a `404` or `405` for a request with a body.
 
 A client can also send the body in chunks, with no `content-length`:
 
@@ -133,19 +133,19 @@ head -c 1000001 /dev/zero | tr '\0' 'a' |
     http://localhost:3000/signups
 ```
 
-### The answer to a chunked body over the limit <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L736-L742"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The answer to a chunked body over the limit <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L737-L743"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```text
 HTTP/1.1 413 Payload Too Large
 content-type: text/plain; charset=utf-8
+connection: close
 content-length: 22
 date: (the time of the request)
-connection: keep-alive
 
 Request body too large
 ```
 
-The answer is the same, but it comes later. Over HTTP/1.1 the server reads the whole chunked body into memory, then compares its size with the limit. Over HTTP/2 it stops when the body grows over the limit. A body that stops early, or has malformed chunks, gets `400 Bad Request` with the plain-text body `Request body could not be read`.
+The answer is the same. The server reads the chunks until the body grows over the limit, then stops, answers `413` and closes the connection. It never holds more of the body than the limit. A body that stops early, or has malformed chunks, gets `400 Bad Request` with the plain-text body `Request body could not be read`.
 
 Routes made with `stream_route` aren't limited: the controller reads the body chunk by chunk and decides itself, as [Stream responses and uploads](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) shows.
 
@@ -194,11 +194,13 @@ pub fn test_server(port: Int) -> Result(String, String) {
 
 ## Stopping in production
 
-`gleam run` runs your `main` in the Erlang VM, and `listen` keeps it running. Each request runs in its own process, so a crash in one request doesn't stop the server. Your platform, or Docker, restarts the whole program when it stops.
+In production, start the app with the `entrypoint.sh` of `gleam export erlang-shipment`, as the image of [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md) does. It runs your `main` in the Erlang VM, and `listen` keeps it running. Each request runs in its own process, so a crash in one request doesn't stop the server. Your platform, or Docker, restarts the whole program when it stops.
 
-When the platform stops a copy of your app, it sends `SIGTERM`, and the Erlang VM shuts down. Dream has no drain step: it doesn't wait for requests that are still running. To deploy without cutting requests off, let the platform stop sending traffic to the old copy first. Most platforms do that with the health check of [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md) and a grace period before `SIGTERM`.
+When the platform stops a copy of your app, it sends `SIGTERM`, and the Erlang VM shuts down: `entrypoint.sh` replaces itself with the VM, so the VM is the process that gets the signal. In the Docker test of the `deployment` example, `docker compose stop` takes about 0.2 seconds, and the app's exit status is `0`. Don't start the app with `gleam run` in production: `gleam run` doesn't pass `SIGTERM` on to the VM, so the platform waits for its grace period, 10 seconds in Docker, and then kills the app.
 
-To look inside a running VM (process count, memory, scheduler use), start it as a named node and connect a remote shell, or export the VM's metrics to your monitoring. `gleam run` doesn't start a named node by itself.
+Dream has no drain step: it doesn't wait for requests that are still running. To deploy without cutting requests off, let the platform stop sending traffic to the old copy first. Most platforms do that with the health check of [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md) and a grace period before `SIGTERM`.
+
+To look inside a running VM (process count, memory, scheduler use), start it as a named node and connect a remote shell, or export the VM's metrics to your monitoring. Neither `gleam run` nor `entrypoint.sh run` starts a named node by itself.
 
 ## Test your code
 
@@ -280,7 +282,7 @@ Summary: 1 run, 0 failed, 1 passed in 0ms
 - **A test server that's never stopped.** The port stays taken, and the next run of the test fails to start. Stop every handle, also when an assertion fails, for example in an `after_each` hook.
 - **Two tests on the same port at the same time.** Give each test its own port, or run those tests one at a time.
 - **`listen` in a test.** It never returns. Use `listen_with_handle`.
-- **A chunked body is read before the limit applies.** Over HTTP/1.1 the server holds the whole chunked body in memory before it answers `413`. For uploads that can be very large, use a stream route and count the bytes as they arrive.
+- **A limit that is too large for your memory.** The server can hold a body of up to the limit in memory for each request at the same time. For uploads that can be very large, use a stream route and count the bytes as they arrive.
 - **Relative paths in production.** Certificate files and the static root are relative to the folder the program starts in.
 
 ## Where to go next

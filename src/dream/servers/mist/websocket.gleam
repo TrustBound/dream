@@ -17,7 +17,8 @@
 //// - `Connection` – opaque handle to the WebSocket. Use it to send messages
 ////   back to the client.
 //// - `Message(custom)` – messages received from the client or from your
-////   application via a `Selector(custom)` (text, binary, custom, closed).
+////   application via a `Selector(custom)` (text, binary, custom).
+////   A close is not a message: `on_close` runs for it.
 //// - `Action(state, custom)` – the next step in the WebSocket state machine,
 ////   returned from your `on_message` handler.
 ////
@@ -82,7 +83,6 @@
 ////       let _ = websocket.send_text(connection, reply)
 ////       websocket.continue_connection(state)
 ////     }
-////     websocket.ConnectionClosed -> websocket.stop_connection()
 ////     _ -> websocket.continue_connection(state)
 ////   }
 //// }
@@ -109,6 +109,8 @@ pub opaque type Connection {
 }
 
 /// Messages that can be received over a WebSocket connection.
+///
+/// A close is not a message: when the connection closes, `on_close` runs.
 pub type Message(custom) {
   /// A text frame received from the client
   TextMessage(String)
@@ -116,8 +118,6 @@ pub type Message(custom) {
   BinaryMessage(BitArray)
   /// A custom message from the application (via selector)
   CustomMessage(custom)
-  /// The connection was closed
-  ConnectionClosed
 }
 
 /// Errors that can occur when sending WebSocket messages.
@@ -150,7 +150,7 @@ pub opaque type Action(state, custom) {
 ///
 /// ## Example
 ///
-/// ### Upgrade to a WebSocket <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_websocket_upgrade.gleam#L6-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Upgrade to a WebSocket <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_websocket_upgrade.gleam#L6-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn connect(request, _context, services) {
@@ -179,7 +179,6 @@ pub opaque type Action(state, custom) {
 ///       let _ = websocket.send_text(connection, custom_message)
 ///       websocket.continue_connection(state)
 ///     }
-///     websocket.ConnectionClosed -> websocket.stop_connection()
 ///     _ -> websocket.continue_connection(state)
 ///   }
 /// }
@@ -279,7 +278,6 @@ pub fn upgrade_websocket(
 ///       let _ = websocket.send_text(connection, custom_message)
 ///       websocket.continue_connection(state)
 ///     }
-///     websocket.ConnectionClosed -> websocket.stop_connection()
 ///     _ -> websocket.continue_connection(state)
 ///   }
 /// }
@@ -482,7 +480,6 @@ fn convert_mist_message_to_dream(
     mist.Text(text) -> TextMessage(text)
     mist.Binary(data) -> BinaryMessage(data)
     mist.Custom(custom) -> CustomMessage(custom)
-    mist.Closed | mist.Shutdown -> ConnectionClosed
   }
 }
 

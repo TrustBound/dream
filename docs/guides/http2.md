@@ -148,7 +148,7 @@ Dream checks that both files exist before it opens the port. `listen` stops the 
 gleam run -m tls_main 2>&1 | grep "Failed to start server"
 ```
 
-### The start error <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L728"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The start error <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L729"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```text
 Failed to start server: InitFailed("TLS file not found: build/test_tls/cert.pem")

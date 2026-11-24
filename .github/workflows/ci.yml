@@ -256,8 +256,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Builds the image of examples/deployment, starts it with Docker
-      # Compose (PostgreSQL, the migrations and the app) and asks /health.
+      # scripts/test-docker.sh downloads the packages with gleam, with the
+      # Hex key of the workflow, so the image build asks Hex for nothing.
+      - name: Install Erlang and Gleam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ env.OTP_VERSION }}
+          gleam-version: ${{ env.GLEAM_VERSION }}
+          rebar3-version: ${{ env.REBAR3_VERSION }}
+
+      # Builds the image of examples/deployment with no network, starts it
+      # with Docker Compose (PostgreSQL, the migrations and the app), asks
+      # /health, and checks that the app stops on SIGTERM.
       - name: Build and start the deployment example
         run: make test-docker
 

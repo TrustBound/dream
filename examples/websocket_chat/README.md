@@ -323,7 +323,7 @@ fn handle_websocket_init(
 
 When the JavaScript calls `ws.send("Hello!")`, Dream receives it and calls `handle_websocket_message`. The handler has two jobs. A `TextMessage` from the browser is published to the broadcaster as `TextMessage(state, text)`. A `CustomMessage` from the broadcaster is changed to JSON and sent to this connection's browser:
 
-#### `on_message` handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L67-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### `on_message` handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L67-L89"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn handle_websocket_message(
@@ -346,8 +346,7 @@ fn handle_websocket_message(
       let _ = websocket.send_text(connection, json.to_string(json_message))
       websocket.continue_connection(state)
     }
-    websocket.BinaryMessage(_) | websocket.ConnectionClosed ->
-      websocket.continue_connection(state)
+    websocket.BinaryMessage(_) -> websocket.continue_connection(state)
   }
 }
 ```
@@ -461,7 +460,7 @@ pub fn leave(
 
 When a user closes their browser tab or disconnects, Dream calls `handle_websocket_close`:
 
-#### `on_close` handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L117-L123"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### `on_close` handler <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L116-L122"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn handle_websocket_close(
@@ -785,7 +784,7 @@ Dream has a strict rule: **no closures in controller code**. This might seem res
 
 The controller below works, but it is the pattern to avoid. Each handler is a closure that captures `user` and `services` from the controller. The `dependencies` value is `Nil`, so no type shows what the handlers need. You cannot name a handler, test it alone, or reuse it in a different controller.
 
-#### Closures that capture dependencies (avoid this) <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websocket_chat_readme_closure.gleam#L16-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Closures that capture dependencies (avoid this) <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/websocket_chat_readme_closure.gleam#L16-L48"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_upgrade(
@@ -813,8 +812,7 @@ pub fn handle_upgrade(
           let _ = websocket.send_text(connection, chat_line)
           websocket.continue_connection(state)
         }
-        websocket.BinaryMessage(_) | websocket.ConnectionClosed ->
-          websocket.continue_connection(state)
+        websocket.BinaryMessage(_) -> websocket.continue_connection(state)
       }
     },
     on_close: fn(_state, _dependencies) {
@@ -884,7 +882,7 @@ Dream abstracts the underlying WebSocket server (Mist) so your application isn't
 
 `on_message` matches Dream's message types and returns Dream's actions. `websocket.stop_connection()` closes a connection; this example does not use it:
 
-#### Dream message types in `on_message` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L75-L89"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Dream message types in `on_message` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L75-L88"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   case message {
@@ -899,8 +897,7 @@ Dream abstracts the underlying WebSocket server (Mist) so your application isn't
       let _ = websocket.send_text(connection, json.to_string(json_message))
       websocket.continue_connection(state)
     }
-    websocket.BinaryMessage(_) | websocket.ConnectionClosed ->
-      websocket.continue_connection(state)
+    websocket.BinaryMessage(_) -> websocket.continue_connection(state)
   }
 ```
 
@@ -1321,7 +1318,7 @@ fn handle_websocket_init(
 }
 ```
 
-#### `on_message` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L64-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### `on_message` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L64-L89"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Handle WebSocket messages
@@ -1347,13 +1344,12 @@ fn handle_websocket_message(
       let _ = websocket.send_text(connection, json.to_string(json_message))
       websocket.continue_connection(state)
     }
-    websocket.BinaryMessage(_) | websocket.ConnectionClosed ->
-      websocket.continue_connection(state)
+    websocket.BinaryMessage(_) -> websocket.continue_connection(state)
   }
 }
 ```
 
-#### `on_close` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L114-L123"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### `on_close` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/src/controllers/chat.gleam#L113-L122"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Handle WebSocket close

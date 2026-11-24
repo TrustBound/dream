@@ -12,8 +12,7 @@ import dream_test/suite.{type TestSuite}
 import dream_test/unit.{describe, group, it}
 import gleam/erlang/process
 import snippets/websockets_guide_chat.{
-  type ChatMessage, ChatMessage, ChatState, Close, Dependencies, KeepOpen,
-  SendText,
+  type ChatMessage, ChatMessage, ChatState, Dependencies, KeepOpen, SendText,
 }
 
 fn chat_bus() -> broadcaster.Broadcaster(ChatMessage) {
@@ -113,24 +112,6 @@ pub fn tests() -> TestSuite {
         |> should
         |> be_equal(SendText("bob: hi"))
         |> or_fail_with("bob's message should go to the client as 'bob: hi'")
-      }),
-      it("closes when the connection ends", fn() {
-        // Arrange
-        let dependencies = Dependencies(user_name: "ada", chat_bus: chat_bus())
-
-        // Act
-        let reply =
-          websockets_guide_chat.reply_to(
-            state,
-            websocket.ConnectionClosed,
-            dependencies,
-          )
-
-        // Assert
-        reply
-        |> should
-        |> be_equal(Close)
-        |> or_fail_with("a closed connection should stop the handler")
       }),
     ]),
     group("handle_websocket_close", [

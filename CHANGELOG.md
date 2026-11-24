@@ -45,8 +45,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `dream.get_router` and `dream.get_services` no longer return an `Option`,
   and `dream.create` takes the router state and the services without an
   `Option`. See the Migration Guide in `releases/release-3.0.0.md`.
+- A request whose path matches a route, with a method that no route of that
+  path has, gets `405 Method Not Allowed` with an `Allow` header that lists
+  the methods of the path in alphabetical order, and the plain-text body
+  `Method not allowed`. It used to get `404 Route not found`. A path that no
+  route matches still gets `404`. `HEAD` and `OPTIONS` to a path with only
+  a `GET` route get `405` too. `dream.route_request` gives the same answer.
+  See the Migration Guide, step 5.
+- The WebSocket message `ConnectionClosed` is gone: it never arrived, and a
+  close calls `on_close`. `dream_http_server` 2.0.0 removed the `Closed`
+  and `Shutdown` messages that it came from. Delete the `ConnectionClosed`
+  branch, and do its work in `on_close`. See the Migration Guide, step 9.
 
 ### Added
+
+- `router.allowed_methods(router, request)` gives the methods of the routes
+  that match the path of a request, in alphabetical order.
 
 - `require_json(request, decoder)` reads a JSON body, decodes it and returns
   `BadRequest` with the reason when a step fails.
@@ -115,6 +129,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a project must not depend on both Dream and the `mist` or `glisten` Hex
   packages; run `gleam deps update dream` once if an existing lock file
   still lists them. See `docs/contributing/http-server-packages.md`.
+- Dream requires `dream_http_server` `>= 2.0.0 and < 3.0.0`, and so
+  `dream_socket_server` 1.0.1.
+- The Dockerfile of `examples/deployment` has two stages: the Gleam image
+  runs `gleam export erlang-shipment`, and `erlang:29.1.1-alpine` runs the
+  shipment's `entrypoint.sh`. The image is 89.6 MB for arm64, down from 128 MB. The
+  migration service of its Compose file uses the build stage. Its
+  `.dockerignore` lets `build/packages` into the image.
 - Updated mist streaming adapter to use actor-based `mist.chunked()` API
   instead of the removed `mist.Streaming` response variant. Dream's public
   streaming API (`stream_response`, `sse_response`, `ResponseBody.Stream`)
@@ -159,12 +180,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A cookie `Expires` is written as an HTTP date (`Tue, 14 Nov 2023 22:13:20 GMT`), not as a number of seconds.
 - `remote_address` gives the real IPv6 client address in RFC 5952 form. It used to be `::1` for every IPv6 client.
 - A streamed request body that breaks before its end gives the controller one `Error(MalformedBody)` item, and then the stream ends. It used to end like a complete body.
-- CONNECT, TRACE and every other method keep their name. They used to become `Get`, so `PURGE /` and `TRACE /` ran the `GET /` controller. They now get the route of their method, or `404 Route not found`.
+- CONNECT, TRACE and every other method keep their name. They used to become `Get`, so `PURGE /` and `TRACE /` ran the `GET /` controller. They now get the route of their method, `405 Method Not Allowed` when the path has routes of other methods, or `404 Route not found`.
 - `static.serve` sends binary files with their exact bytes. It used to answer 404 for each file that is not UTF-8.
 - The `static` directory listing escapes file names and the request path, and percent-encodes each link.
-- A buffered body over `max_body_size` gets `413 Content Too Large` with the plain-text body `Request body too large` (RFC 9110, section 15.5.14). It used to get `400 Bad Request` with an empty body. A chunked HTTP/1.1 body over the limit used to reach the controller. A body that cannot be read still gets `400`, now with the plain-text body `Request body could not be read`.
+- A buffered body over `max_body_size` gets `413 Content Too Large` with the plain-text body `Request body too large` (RFC 9110, section 15.5.14). It used to get `400 Bad Request` with an empty body. A chunked HTTP/1.1 body over the limit used to reach the controller; the server now stops reading it at the limit. A body that cannot be read still gets `400`, now with the plain-text body `Request body could not be read`.
 - `get_int_param` and `get_string_param` (in `dream/http/request` and `dream/http/transaction`), and so `require_int` and `require_string`, give `Missing required path parameter: <name>` for a missing parameter, the message of `get_param`. They used to give `Missing <name> parameter`.
 - The `tasks` example: Enter in a task title saves the title and opens a new editor (htmx 2 refused the save, which had no target). The due date of the editor is saved. A Delete button removes the task or the project from the page (htmx 2 does not swap a `204` answer by default). The title of a new task has the focus. `make e2e-test` stops its server; it used to leave it running on port 3000. The Cypress tests empty the tables with `make db-clear` before each test, and match the editor of the app; 26 of them pass.
+- Over HTTP/1.1, after an answer to a request whose body Dream did not read
+  to its end (`404`, `405`, `413`, or a `stream_route` controller that did
+  not read the stream), the server sends `connection: close` and closes the
+  connection. It used to read the body as the next request, so a body that
+  held a second request got an answer (request smuggling). The fix is in
+  `dream_http_server` 2.0.0; Dream's tests send the attack through a real
+  server.
+- `examples/deployment` stops on `SIGTERM`: the Erlang VM is the first
+  process of the container. Under `CMD ["gleam", "run"]`, `docker stop`
+  waited 10 seconds and killed the container (exit status 137). Now it
+  takes about 0.2 seconds, with exit status 0.
+- `make test-docker` asks Hex for nothing in the image build. The test copy
+  of the manifest pointed only one of its two `dream` lines at the copy of
+  Dream, and had no fingerprint of Dream's `gleam.toml`, so each cold build
+  resolved versions against the Hex API with no key. The script now
+  downloads the packages on the host and builds the image with no network.
 - `make test-docker` removes the images that it builds. Each run used to leave two images named after its temporary folder.
 
 ### Testing
@@ -175,12 +212,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gleam test` now measures the line coverage of `src/`. The run fails when
   coverage is below 100%. CI checks first that the BEAM supports native
   coverage. The README shows a coverage badge.
-- 1129 tests run, 0 failed, in about 18 seconds (Apple M1 Max, OTP 29, Gleam
-  1.19.2). Line coverage of `src/` is 1087 of 1088 lines (99.9%). The snippet check finds 583 Gleam code blocks and 7 diff blocks, proves 47 file blocks, 142 command blocks and 82 output blocks, and counts 39 illustrations, with no problems. The integration tests run
+- 1148 tests run, 0 failed, in about 16 seconds (Apple M1 Max, OTP 29, Gleam
+  1.19.2). Line coverage of `src/` is 1105 of 1105 lines (100%). The snippet check finds 584 Gleam code blocks and 7 diff blocks, proves 47 file blocks, 144 command blocks and 83 output blocks, and counts 39 illustrations, with no problems. The integration tests run
   eleven examples, ten of them over HTTP/1.1 and over HTTP/2 with TLS.
   `make test-tasks` passes 26 scenarios over each protocol and 26 Cypress
-  tests in about 90 seconds; `make test-docker` takes about 24 seconds with
-  the image layers in the Docker cache.
+  tests in about 90 seconds; `make test-docker` takes about 29 seconds, and
+  checks that the app stops on `SIGTERM` with exit status 0.
 
 ## [2.4.1] - 2026-03-11
 

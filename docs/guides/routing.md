@@ -132,17 +132,17 @@ connection: keep-alive
 Cache purged
 ```
 
-The route matches only `PURGE` on `/cache`. The same method on another path, and another method on the same path, both get `404 Route not found`:
+The route matches only `PURGE` on `/cache`. A path that no route matches gets `404 Route not found`. A path that a route matches, with a method that no route of that path has, gets `405 Method Not Allowed` (RFC 9110, section 15.5.6). Its `allow` header lists the methods that the path has:
 
-### Send PURGE to / and DELETE to /cache <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme.sh#L54-L56"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Send PURGE to /missing and DELETE to /cache <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme.sh#L54-L56"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
-curl -i -X PURGE http://localhost:3000/
+curl -i -X PURGE http://localhost:3000/missing
 echo
 curl -i -X DELETE http://localhost:3000/cache
 ```
 
-### The answers to PURGE / and DELETE /cache <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L714-L727"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The answers to PURGE /missing and DELETE /cache <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L714-L728"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```text
 HTTP/1.1 404 Not Found
@@ -152,14 +152,17 @@ date: (the time of the request)
 connection: keep-alive
 
 Route not found
-HTTP/1.1 404 Not Found
+HTTP/1.1 405 Method Not Allowed
 content-type: text/plain; charset=utf-8
-content-length: 15
+allow: PURGE
+content-length: 18
 date: (the time of the request)
 connection: keep-alive
 
-Route not found
+Method not allowed
 ```
+
+The `allow` header names the methods in alphabetical order. A path can match more than one route: a `GET` route of `/users/new` and a `POST` route of `/users/:id` both match `/users/new`, so a `DELETE` to it gets `allow: GET, POST`. `HEAD` and `OPTIONS` are methods like the others: a path with only a `GET` route answers them with `405` and `allow: GET`, unless you add a route for them. `router.allowed_methods` gives the same list for your own code.
 
 ## Step 3: Give each request a context
 
@@ -509,7 +512,8 @@ If the counter table fails, this middleware lets the request through. That's a c
 
 | What happened | What the client gets | Where it's decided |
 |:---|:---|:---|
-| No route for the method and path | `404 Route not found` | The router |
+| No route for the path | `404 Route not found` | The router |
+| A route for the path, but not for the method | `405 Method not allowed`, with `Allow` | The router |
 | A path parameter has the wrong type | `400 Bad Request: id must be an integer` | `require_int` in the controller |
 | No token, or an unknown token | `401` | `auth_middleware` |
 | A known user without the admin role | `403` | `admin_middleware` |
@@ -775,7 +779,7 @@ Summary: 4 run, 0 failed, 4 passed in 0ms
 - **Middleware in the wrong order.** A middleware that reads the user must come after the one that sets it. With `[admin_middleware, auth_middleware]`, every admin request gets `401 Unauthorized: Not authenticated`.
 - **Business logic in middleware.** Middleware is for checks that many routes share. Logic that belongs to one action goes in the controller, or in an operation (see [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md)).
 - **Per-request data in services.** Services are shared by every request at the same time. Put the user in the context, never in services.
-- **Expecting `405` for a wrong method.** Dream answers `404` when no route has the method and path.
+- **A `405` where you expected `404`.** A route of another method matches the path, for example a `GET` route of `/users/:id` matches `/users/new`. The `allow` header of the answer names the methods that match.
 
 ## Where to go next
 

@@ -29,7 +29,6 @@ fn message_handler(state, message, connection, _services) {
       let _ = websocket.send_text(connection, custom_message)
       websocket.continue_connection(state)
     }
-    websocket.ConnectionClosed -> websocket.stop_connection()
     _ -> websocket.continue_connection(state)
   }
 }
