@@ -10,10 +10,12 @@ are licensed under Apache-2.0.
 The Mist adapter does not use the `mist` and `glisten` Hex packages
 directly. It uses two forks that we publish:
 
-| Package | What it is | Fork and branch |
-|---------|------------|-----------------|
-| `dream_http_server` | mist 6.0.3 plus 47 fixes, most of them for HTTP/2 | [TrustBound/mist](https://github.com/TrustBound/mist), `dream-http-server` |
-| `dream_socket_server` | glisten 9.0.1 plus a socket buffer fix | [TrustBound/glisten](https://github.com/TrustBound/glisten), `dream-socket-server` |
+| Package | Version | What it is | Fork and branch |
+|---------|---------|------------|-----------------|
+| `dream_http_server` | 2.1.0 | mist 6.0.3 plus 57 changes, most of them HTTP/2 fixes. 2.0.0 changes the API: it removes `Closed` and `Shutdown` from `WebsocketMessage`. 2.1.0 lets running requests finish when the server stops (`drain`, `with_shutdown_timeout`) | [TrustBound/mist](https://github.com/TrustBound/mist), `dream-http-server` |
+| `dream_socket_server` | 1.0.1 | glisten 9.0.1 plus a socket buffer fix (`with_buffer_size`). 1.0.1 also starts the connection factory before the listener, so a connection that arrives while the server starts or stops gets an answer | [TrustBound/glisten](https://github.com/TrustBound/glisten), `dream-socket-server` |
+
+The changelog of each fork lists every change.
 
 The `dream` package depends on `dream_http_server`, because the adapter is
 part of the package, and `dream_http_server` depends on
@@ -58,22 +60,24 @@ contain the fixes, the adapter goes back to `mist` and `glisten`.
 
 ## How to update a fork
 
-1. Commit the fix on the fork's fix branch (`http2-review-fixes` for mist,
-   `socket-buffer-9.0.1` for glisten), in the upstream style, with a test.
-   Never rename, reformat or restyle the upstream source: what we publish is
-   what we send upstream.
-2. Bring the fix into the release branch (`dream-http-server` or
-   `dream-socket-server`), raise the version in its `gleam.toml`, and add a
+1. Commit the fix on the fork's release branch, in the upstream style, with
+   a test. The release branch is `dream-http-server` on TrustBound/mist and
+   `dream-socket-server` on TrustBound/glisten. The published code lives
+   there. Never rename, reformat or restyle the upstream source: what we
+   publish is what we send upstream.
+2. On the same branch, raise the version in `gleam.toml` and add a
    changelog entry.
 3. Publish the fork. `dream_socket_server` goes first when both change.
 4. In Dream, raise the range in `gleam.toml` if needed and regenerate the
    lock files. Resolve one project at a time with a pause between projects,
    because every resolution asks the Hex API about every package and Hex
    limits those calls. `scripts/after-fork-publish.sh` does this.
-5. Run `make test-unit`. Then run the tests of
-   [dream_http_client](https://github.com/TrustBound/dream_http_client)
-   against this Dream. They drive a real HTTP/2 client against the mock
-   server, which serves its requests through the HTTP server package.
+5. Run `make test-unit` and `make test-integration`. The integration tests
+   start the examples, so they send real requests through the new server
+   package. Then, in
+   [dream_mock_server](https://github.com/TrustBound/dream_mock_server),
+   raise the `dream_http_server` range if needed and run its tests. The mock
+   server serves its requests through the HTTP server package.
 
 ## How to go back to mist and glisten
 

@@ -777,12 +777,11 @@ Modules are independent Gleam packages on Hex. Add the ones you need next to `dr
 dream = ">= 3.0.0 and < 4.0.0"
 ```
 
-The `database` example adds `dream_postgres` and `dream_postgres_client` this way. Until `dream_postgres` 2.0.0 is on Hex, the example gets it from a local path:
+The `database` example adds `dream_postgres` and `dream_postgres_client` next to `dream`. This is its `dream_postgres_client` line:
 
-#### dream_postgres in the database example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L10-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### dream_postgres_client in the database example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```toml
-dream_postgres = { path = "../../../modules-breakout/dream_postgres" }
 dream_postgres_client = ">= 1.0.0 and < 2.0.0"
 ```
 
