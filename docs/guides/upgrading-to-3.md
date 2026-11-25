@@ -22,8 +22,11 @@ Dream 3.0.0 has breaking changes. A request body is one `RequestBody` value, the
 - [Step 11: Answer the Conflict error](#step-11-answer-the-conflict-error)
 - [Step 12: Check the behavior changes](#step-12-check-the-behavior-changes)
 - [Step 13: Update your tests to dream_test 3](#step-13-update-your-tests-to-dream_test-3)
+- [Step 14: Replace path dependencies on the Dream modules](#step-14-replace-path-dependencies-on-the-dream-modules)
+- [Step 15: Upgrade the Dream modules to their new major versions](#step-15-upgrade-the-dream-modules-to-their-new-major-versions)
 - [Test your code](#test-your-code)
 - [Common pitfalls](#common-pitfalls)
+- [What is new in Dream 3](#what-is-new-in-dream-3)
 - [Where to go next](#where-to-go-next)
 
 ## What you'll build
@@ -44,7 +47,7 @@ Each Dream 2 example on this page has the label **Code at 2.4.1**: the code is a
 
 ## Which steps you need
 
-Do the steps in order. Steps 1 and 3 apply to most projects. The other steps apply only when your code uses what the table names.
+Do the steps in order. Steps 1 and 3 apply to most projects. The other steps apply only when your code uses what the table names. If your `gleam.toml` has a `path =` dependency on a Dream module, do Steps 14 and 15 directly after Step 1.
 
 | Your code uses | What changed | Step |
 |:---|:---|:---|
@@ -61,6 +64,8 @@ Do the steps in order. Steps 1 and 3 apply to most projects. The other steps app
 | A `case` over every `Error` | `Error` has `Conflict(String)`, which gives 409. | [Step 11](#step-11-answer-the-conflict-error) |
 | Tests or clients that check status codes or error texts | Some answers and messages changed. | [Step 12](#step-12-check-the-behavior-changes) |
 | Tests from the Dream 2 testing guide | No change is necessary. The new guide uses `dream_test` 3. | [Step 13](#step-13-update-your-tests-to-dream_test-3) |
+| A `path =` dependency on a module folder of Dream, such as `deps/dream/modules/http_client` | The modules left the Dream repository. Each one is a Hex package. | [Step 14](#step-14-replace-path-dependencies-on-the-dream-modules) |
+| `dream_http_client`, `dream_mock_server`, `dream_postgres`, `dream_config`, `dream_ets`, `dream_json`, `dream_opensearch` or `dream_test` | Each module has a new major version with breaking changes. | [Step 15](#step-15-upgrade-the-dream-modules-to-their-new-major-versions) |
 
 ## Step 1: Update the dependency
 
@@ -78,6 +83,8 @@ gleam deps update dream
 ```
 
 Dream 2.4.1 accepted `gleam_stdlib` from 0.44. Dream 3.0.0 requires `>= 1.0.0 and < 2.0.0`. If your `gleam.toml` names an older `gleam_stdlib`, change it to `>= 1.0.0 and < 2.0.0` as well.
+
+If your `gleam.toml` has a `path =` dependency on a Dream module, do [Step 14](#step-14-replace-path-dependencies-on-the-dream-modules) and [Step 15](#step-15-upgrade-the-dream-modules-to-their-new-major-versions) now, before you build.
 
 Then run `gleam build`. Each error names a file and a line. The steps below say which change each error comes from.
 
@@ -601,7 +608,15 @@ pub fn listen(
 ) -> Result(Nil, actor.StartError) {
 ```
 
-A `main` that ends with `listen` does not compile with Dream 3, because its value is a `Result`. This was the `main` of the `simple` example:
+The compiler does not find every call that you must change:
+
+- A `main` with no return annotation that ends with `listen` compiles with no error and no warning. Gleam gives `main` the type of its last value, `Result(Nil, actor.StartError)`.
+- A `main` with `-> Nil` does not compile. The compiler reports `Type mismatch` with the found type `Result(Nil, actor.StartError)`.
+- A `listen` call that is not the last expression compiles with the warning `Unused result value`.
+
+In the first case, the start error is lost. When the server cannot start, for example because another program uses the port, `listen` returns the `Error`, `main` returns it, and the program stops with exit code 0 and no message.
+
+This was the `main` of the `simple` example. It compiles with Dream 3 and has this problem:
 
 ### `main` in Dream 2 <a href="https://github.com/TrustBound/dream/blob/2.4.1/examples/simple/src/main.gleam#L6-L11"><img align="right" alt="Code at 2.4.1" src="https://img.shields.io/badge/%F0%9F%93%9C_code_at-2.4.1-lightgrey.svg?style=flat-square"></a>
 
@@ -614,7 +629,7 @@ pub fn main() {
 }
 ```
 
-**How to fix it.** Put `let assert Ok(Nil) =` in front of the call. A server that cannot start is a fault of the deployment, so the program must stop. `let assert` stops it with the error and a non-zero exit code, and the platform can start it again:
+**How to fix it.** Search your code for `listen(`, and handle the `Result` at each call. Put `let assert Ok(Nil) =` in front of the call. A server that cannot start is a fault of the deployment, so the program must stop. `let assert` stops it with the error and a non-zero exit code, and the platform can start it again:
 
 ### `main` in Dream 3 <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/src/main.gleam#L6-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -762,6 +777,75 @@ These changes compile with no error, but a test or a client can see them:
 
 The testing guide shows tests for `dream_test` 3.0.0. Dream 3.0.0 does not need a change to your tests, and they can stay on `dream_test` 1.x. To use the code of the new guide, set `dream_test = ">= 3.0.0 and < 4.0.0"` in `[dev-dependencies]` and run `gleam deps update dream_test`. Then change your tests as the [dream_test 2.0.0 release notes](https://github.com/TrustBound/dream_test/blob/2.0.0/releases/release-2.0.0.md) and the [dream_test upgrade guide](https://hexdocs.pm/dream_test/3.0.0/guides/upgrading-to-3.html) show.
 
+## Step 14: Replace path dependencies on the Dream modules
+
+**What changed.** In Dream 2, the modules were folders of the Dream repository: `modules/config`, `modules/ets`, `modules/http_client`, `modules/json`, `modules/mock_server`, `modules/opensearch` and `modules/postgres`. Some apps used them through a `path =` dependency on a Dream checkout, such as `deps/dream/modules/http_client`. The modules left the Dream repository. Each one now has its own repository, and you get it from Hex. Dream's `database` example used path dependencies:
+
+### Path dependencies on Dream and its modules <a href="https://github.com/TrustBound/dream/blob/2.4.1/examples/database/gleam.toml#L7-L9"><img align="right" alt="Code at 2.4.1" src="https://img.shields.io/badge/%F0%9F%93%9C_code_at-2.4.1-lightgrey.svg?style=flat-square"></a>
+
+```toml
+dream = { path = "../.." }
+dream_json = { path = "../../modules/json" }
+dream_postgres = { path = "../../modules/postgres" }
+```
+
+**What to do.** Replace each `path =` entry with the Hex requirement from this table. Replace the `dream` entry with `dream = ">= 3.0.0 and < 4.0.0"`, as Step 1 shows.
+
+| Package | Folder in Dream 2.4.1 | Requirement for Dream 3 |
+|:---|:---|:---|
+| `dream_config` | `modules/config` | `">= 2.0.0 and < 3.0.0"` |
+| `dream_ets` | `modules/ets` | `">= 3.0.0 and < 4.0.0"` |
+| `dream_http_client` | `modules/http_client` | `">= 6.0.0 and < 7.0.0"` |
+| `dream_json` | `modules/json` | `">= 2.0.0 and < 3.0.0"` |
+| `dream_mock_server` | `modules/mock_server` | `">= 2.0.0 and < 3.0.0"` |
+| `dream_opensearch` | `modules/opensearch` | `">= 4.0.0 and < 5.0.0"` |
+| `dream_postgres` | `modules/postgres` | `">= 2.0.0 and < 3.0.0"` |
+| `dream_test` | Not in Dream. It has its own repository. | `">= 3.0.0 and < 4.0.0"` |
+
+The `recorded_tests` example of Dream 3 gets `dream_postgres` from Hex:
+
+### `dream_postgres` from Hex <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/recorded_tests/gleam.toml#L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```toml
+dream_postgres = ">= 2.0.0 and < 3.0.0"
+```
+
+The `fake_api` example gets the mock server and the test framework from Hex as dev dependencies:
+
+### The dev dependencies from Hex <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/fake_api/gleam.toml#L15-L16"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```toml
+dream_mock_server = ">= 2.0.0 and < 3.0.0"
+dream_test = ">= 3.0.0 and < 4.0.0"
+```
+
+Then run `gleam deps update`, and delete the Dream checkout if nothing else uses it. Each of these versions is a new major version. Do [Step 15](#step-15-upgrade-the-dream-modules-to-their-new-major-versions) next.
+
+## Step 15: Upgrade the Dream modules to their new major versions
+
+**What changed.** Each module that works with Dream 3 is a new major version, with breaking changes. Find each module that your `gleam.toml` names in this table. Then read its release notes, which have a migration guide.
+
+| Package | In Dream 2.4.1 | For Dream 3 | Main breaking changes | Release notes |
+|:---|:---|:---|:---|:---|
+| `dream_http_client` | 5.1.2 | 6.0.0 | Response and recorded bodies are `BitArray`, errors are typed values, and the recorder mode is a type. The list below gives the details. | [6.0.0](https://github.com/TrustBound/dream_http_client/blob/6.0.0/releases/release-6.0.0.md) |
+| `dream_mock_server` | 1.1.1 | 2.0.0 | `MockRoute.method` is an `Option` of the `Method` from `gleam/http`, not of Dream's `Method`. `ServerHandle` is its own type. `router.create_router` and `config.MockConfigContext` are removed. | [2.0.0](https://github.com/TrustBound/dream_mock_server/blob/2.0.0/releases/release-2.0.0.md) |
+| `dream_postgres` | 1.0.2 | 2.0.0 | It uses `dream_postgres_client` in place of `pog`. `from_url` returns a `Result`, and it uses the user and the password of the URL. | [2.0.0](https://github.com/TrustBound/dream_postgres/blob/2.0.0/releases/release-2.0.0.md) |
+| `dream_test` | 1.x | 3.0.0 | Two major versions: 2.0.0 brought a new runner and tests that return a `Result`. 3.0.0 has one `TestSuite` type, and `runner.run` returns a `RunReport`. [Step 13](#step-13-update-your-tests-to-dream_test-3) tells when to do this. | [2.0.0](https://github.com/TrustBound/dream_test/blob/3.0.0/releases/release-2.0.0.md), [3.0.0](https://github.com/TrustBound/dream_test/blob/3.0.0/releases/release-3.0.0.md) |
+| `dream_config` | 1.0.2 | 2.0.0 | Errors are `ConfigError` and `LoadError` values, not text. `load_dotenv` keeps a variable that is set. `get_required` refuses an empty value. | [2.0.0](https://github.com/TrustBound/dream_config/blob/2.0.0/releases/release-2.0.0.md) |
+| `dream_ets` | 2.0.0 | 3.0.0 | `member`, `match`, `match_object`, `select` and `update_element` return a `Result`. `config.keypos` is removed. `size` counts every value of a bag table. | [3.0.0](https://github.com/TrustBound/dream_ets/blob/3.0.0/releases/release-3.0.0.md) |
+| `dream_json` | 1.0.2 | 2.0.0 | A timestamp is an RFC 3339 string. | [2.0.0](https://github.com/TrustBound/dream_json/blob/2.0.0/releases/release-2.0.0.md) |
+| `dream_opensearch` | 2.1.0 | 4.0.0 | Two major versions: 3.0.0 needs `dream_http_client` 6 and gives `Error(body)` for a 4xx or 5xx answer. 4.0.0 makes `client.new` return a `Result` and the errors typed values. | [3.0.0](https://github.com/TrustBound/dream_opensearch/blob/4.0.0/releases/release-3.0.0.md), [4.0.0](https://github.com/TrustBound/dream_opensearch/blob/4.0.0/releases/release-4.0.0.md) |
+| `dream_http_server` (in place of `mist`) | `mist` 5.x | 2.1.0 | `WebsocketMessage` has no `Closed` and no `Shutdown`. [Step 2](#step-2-replace-mist-and-glisten) and [Step 7](#step-7-move-the-connectionclosed-work-to-on_close) show the changes. | [2.0.0](https://github.com/TrustBound/mist/releases/tag/v2.0.0), [2.1.0](https://github.com/TrustBound/mist/releases/tag/v2.1.0) |
+
+**`dream_http_client` 6.0.0 in detail.** These changes break the most code:
+
+- **Bodies are bytes.** `HttpResponse.body`, `RecordedRequest.body`, the body of a recorded response, and the value of `client.get_body` are `BitArray`, not `String`. Read a response as text with `client.body_text(response)`, which returns `Error(Nil)` for a body that is not UTF-8.
+- **Typed errors.** `RequestError` holds a `TransportError`, and `StreamError` holds a `StreamFailure`, in place of a `String`. `client.transport_error_to_string` gives the old text.
+- **The recorder mode is a type.** `recorder.mode` takes `recorder.Record`, `recorder.Playback` or `recorder.Passthrough`, not a `String`. For a mode in a text, such as an environment variable, use `recorder.parse_mode`.
+- **`StreamMessage.DecodeError` is removed.** Remove its branch from each `case`.
+- **The Erlang module changed.** Requests go through gun, not `httpc`. Code that calls the Erlang module directly, such as a test double, must change: `dream_httpc_shim:request_sync/5` is now `dream_http_shim:request_sync/8`. The arguments are the method, the URL, the headers, the body, the timeout, the connection timeout, the redirect flag and the connection settings.
+- **Header order on the wire.** `add_header` puts the new header at the start of the list, as in 5.x. 6.0.0 sends the headers in the order of the list, so the header that you add last goes first. In 5.x, `httpc` moved standard headers, such as `content-type` and `authorization`, to its own fixed places. A server or a test that reads the headers in the order they arrive can see a new order.
+
 ## Test your code
 
 Run your tests:
@@ -781,6 +865,34 @@ A failure after the upgrade is one of the changes above. A test that expects `40
 **An empty body after the upgrade.** *Symptom:* a controller that matched `Text(body)` gets no text for an upload. *Fix:* a body that is not valid UTF-8 arrives as `Bytes`. Match `Bytes` too, or use `body_as_string` and answer its `Error`.
 
 **A name clash between `Text` of a request and of a response.** *Symptom:* the compiler says that `Text` is a `ResponseBody` where you meant a `RequestBody`. *Fix:* write `request.Text`, `request.Bytes` and `request.Stream` on the request side.
+
+**A server that does not start, with exit code 0.** *Symptom:* the program stops at once with no message, and nothing listens on the port. *Fix:* `main` returns the `Error` of `listen`. Put `let assert Ok(Nil) =` in front of the call, as [Step 9](#step-9-handle-the-result-of-listen) shows.
+
+## What is new in Dream 3
+
+These additions need no change to your code. Use them when they help.
+
+**Route groups with `scope`.** `router.scope` adds every route of a second router under a path prefix, with a middleware that runs before the routes of the group. The controllers of the group can take a different context type, for example a context that always holds the signed-in user. A scope with `path: ""` groups routes with no prefix:
+
+### Two scopes in one router <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/guide_routing_scope_app.gleam#L101-L105"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn create_router() -> Router(Context, EmptyServices) {
+  router()
+  |> scope(path: "/members", with: require_member, routes: member_routes())
+  |> scope(path: "", with: cache_for_a_minute, routes: public_routes())
+}
+```
+
+[Step 7 of the routing guide](https://hexdocs.pm/dream/3.0.0/guides/routing.html#step-7-group-routes-under-a-prefix-and-a-scope) shows the full example.
+
+Other additions:
+
+- **`Conflict` and 409.** Return `Conflict(message)` when a request clashes with the current state of a resource. [Step 11](#step-11-answer-the-conflict-error) shows it.
+- **`server.stop_gracefully`.** It stops a server and lets running requests finish, for at most the time that you give. On `SIGTERM`, a server that `listen` started does the same. [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html#step-4-start-and-stop-a-server-from-code) shows it.
+- **HTTPS and HTTP/2.** `server.tls` serves HTTPS, and clients get HTTP/2. [Serve HTTPS and HTTP/2](https://hexdocs.pm/dream/3.0.0/guides/http2.html) shows the setup.
+- **`require_json` and `body_as_string`.** They read a request body in one step. [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html) shows them.
+- **New guides.** The guides now cover routing, configuration, calls to other APIs, caches and rate limits, background work, search, and tests with recorded HTTP calls, recorded queries and a fake API. [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) lists them all.
 
 ## Where to go next
 

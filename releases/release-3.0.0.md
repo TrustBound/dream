@@ -20,6 +20,9 @@ It is a major version because a request body now has one type, `RequestBody`, fo
 - **A body the server did not read is never read as a request**: after an answer to a request whose body it did not read, the server closes the connection, so a body that holds a second request is never answered
 - **Every validation error (breaking)**: `validate_json` returns a list with one `ValidationError` for each field that failed
 - **Requests finish when the app stops**: on `SIGTERM`, the server refuses new connections and lets running requests finish, for at most 30 seconds. `server.stop_gracefully(handle, within: 30_000)` does the same from code
+- **Route groups with `router.scope`**: `scope(path: "/members", with: require_member, routes: member_routes())` puts a group of routes under a prefix and an entry function. The entry function can change the context type, so a controller in the group can get, for example, a context with the signed-in user
+- **`Conflict` answers 409 (breaking)**: `Error` has `Conflict(String)` for a request that clashes with the current state, such as a taken email. A `case` over every `Error` needs a new branch
+- **`listen` returns a `Result` (breaking)**: a server that cannot start returns `Error`, and Dream's `src` has no `panic`. `dream.get_server` takes `RisksUnderstood`, and `response.convert` takes every body type
 - **Tested docs**: every code block in the guides, READMEs and doc comments comes from a snippet that the tests compile and run
 
 ## What's New
@@ -147,6 +150,18 @@ On a route made with `route`, a body that is valid UTF-8 arrives as `Text`, and 
 
 The broadcaster removes a subscriber when the process that subscribed stops, so a WebSocket or SSE connection no longer has to unsubscribe before it ends. New function: `broadcaster.count_subscribers`.
 
+### Route Groups With `router.scope`
+
+`router.scope(path:, with:, routes:)` adds every route of a second router under a path prefix. `with` has the shape of a middleware, but its `next` can take another context type. It runs before the middleware of each route. Use `path: ""` for a group with no prefix. Scoped routes give the same `404` and `405` answers as other routes and keep their streaming flag. Step 7 of [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html) shows a member area whose controllers get the signed-in user.
+
+### A `Conflict` Error
+
+`Error` has `Conflict(String)`, which answers `409 Conflict`. Use it for a request that clashes with the current state, such as an email that is already taken or an edit against an old version. Before, apps answered these with `422` or `500`.
+
+### No `panic` in Dream
+
+`server.listen` returns `Result(Nil, actor.StartError)`. It blocks while the server runs, and returns `Error` when the server cannot start. End `main` with `let assert Ok(Nil) = ... |> server.listen(3000)`, so a failed start stops the program with a non-zero exit code. `dream.get_server` takes the value `RisksUnderstood` in place of a `Bool`, and `response.convert` takes every body type, so neither can fail.
+
 ### Tested Docs
 
 Every Gleam code block in the guides, the READMEs, the doc comments and SECURITY.md comes from a snippet file that the tests compile and run. Each block has a "tested snippet" badge that links to its snippet at this release's tag. Converting them found and fixed wrong examples across the docs. Every public function has a tested example in its doc comment, and every public type and constant has a doc comment.
@@ -155,15 +170,15 @@ Every Gleam code block in the guides, the READMEs, the doc comments and SECURITY
 
 Every other code block is proven too. A shell command is a line of a script that CI or a test runs, such as `scripts/check.sh` or the `test/integration/start.sh` and `readme.sh` of an example. Shown output is a file that a test compares with the real output: the integration run of each example runs the requests of its README against the running server and compares what they print. A Dockerfile, a Compose file, a Makefile, a migration, a query, a template or a script is a copy of the real file that a test or CI uses. The new `examples/deployment` has the Dockerfile and the Compose file of the deployment guide, and `make test-docker` builds and starts them. A block that nothing can run, such as a folder tree, a diagram or a command against your own accounts, is marked as an illustration. Proving the blocks found and fixed wrong commands: `make run` of `streaming_capabilities` did not start, the deployment guide ran migrations with Squirrel and built with Gleam 1.6.2, and several READMEs named ports, scripts and outputs that did not exist.
 
-The snippet check finds 583 Gleam code blocks and 7 diff blocks, proves 47 file blocks, 142 command blocks and 82 output blocks, and counts 39 illustrations, with no problems.
+The snippet check finds 770 code blocks and 1 diff block in 100 files, proves 75 file blocks, 150 command blocks and 130 output blocks, and counts 40 illustrations, with no problems.
 
 The snippet check moved to the [`dream_snippets`](https://github.com/TrustBound/dream_snippets) package.
 
 The testing guide and the contributor testing guide show tests for `dream_test` 3.0.0. Dream's own test run now measures line coverage and fails when coverage of `src/` is below 100%.
 
-The guides are rewritten as task guides. Each of the 14 guides in `docs/guides/` walks through one task, from building your first server to deploying with Docker, with numbered steps, the real answers of an example server, the failure cases (a 404, a 400 that lists every validation error, a broken upload, a port in use, a missing certificate), a test of your own code with its real report, and the common pitfalls. The quickstart, the `docs/learn/` lessons and the older topic pages are folded into them.
+The guides are rewritten as task guides. Each of the 24 guides in `docs/guides/` walks through one task, from building your first server to deploying with Docker, adding search, running background work and testing against recorded traffic, with numbered steps, the real answers of an example server, the failure cases (a 404, a 400 that lists every validation error, a broken upload, a port in use, a missing certificate), a test of your own code with its real report, and the common pitfalls. The quickstart, the `docs/learn/` lessons and the older topic pages are folded into them.
 
-Each example in the README has a "read guide" badge next to its "tested snippet" badge. The guide badge links to the docs section that shows the same example. The guides in `docs/guides/` are also pages on HexDocs.
+Each example in the README has a "read guide" badge next to its "tested snippet" badge. The guide badge links to the docs section that shows the same example. The guides in `docs/guides/` are also pages on HexDocs, and each one starts with a breadcrumb back to the README and the guide list. `AGENTS.md` keeps coding agents on Dream's patterns, and `docs/agents/AGENTS.md` is a template for the agents of your own Dream app.
 
 ### Modules in Their Own Repositories
 
@@ -274,7 +289,7 @@ gleam deps update dream
 
 [Upgrade from Dream 2 to 3](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html) gives each step, with the Dream 2 code next to the Dream 3 code. Most projects need only the request body change. The other steps apply only when your code uses what they name:
 
-1. Update the `dream` requirement, and `gleam_stdlib` to 1.x.
+1. Update the `dream` requirement, and `gleam_stdlib` to 1.x. If your app used the Dream modules by path (`deps/dream/modules/*`), move them to Hex now (step 14).
 2. Replace `mist` with `dream_http_server`, and `glisten` with `dream_socket_server`.
 3. Read request bodies as a `RequestBody`: `Text`, `Bytes` or `Stream`. Use `require_json` or `body_as_string`, and answer the `Error` item of a stream.
 4. Call `context()` and `services()` before `router()`, and add the fourth type parameter where you write the `Dream` type.
@@ -282,8 +297,13 @@ gleam deps update dream
 6. Answer the list of errors that `validate_json` returns.
 7. Move the work of a `ConnectionClosed` branch to `on_close`.
 8. Move from `pog` and `squirrel` to `dream_postgres_client` and `dream_sql_generator`, to follow the guides.
-9. Check the behavior changes that tests and clients can see, such as `405` for a wrong method and `413` for a body over the limit.
-10. Optionally, update your tests to `dream_test` 3.
+9. Handle the `Result` of `listen`. A `main` with no return type still compiles when it ends with `listen`, and then a failed start ends the program with exit code 0. Search your code for `listen(`.
+10. Update calls of `get_server` (it takes `RisksUnderstood`) and `response.convert`.
+11. Add a `Conflict` branch to a `case` over every `Error`.
+12. Check the behavior changes that tests and clients can see, such as `405` for a wrong method and `413` for a body over the limit.
+13. Optionally, update your tests to `dream_test` 3.
+14. Replace path dependencies on the Dream modules with the Hex packages.
+15. Upgrade the Dream modules to their new major versions. The guide has a table with the main changes of each module and a link to its release notes.
 
 ## Acknowledgements
 
