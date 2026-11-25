@@ -22,6 +22,7 @@ This directory contains comprehensive examples demonstrating Dream's features an
 | [cache](./cache) | Read-through cache with expiry in ETS (`dream_ets`) | No | Unit | 3000 |
 | [fake_api](./fake_api) | Tests against a fake API from `dream_mock_server` | No | Unit (fake on localhost) | - |
 | [background_work](./background_work) | A supervised job worker with a bounded queue | No | Unit | 3000 |
+| [search](./search) | Notes with an OpenSearch index, and answers when search is down | Record run only | Playback | 3000 |
 
 **Every example has automated integration tests.** `simplest` runs only the request of its README, the others also run Cucumber scenarios.
 
