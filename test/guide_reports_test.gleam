@@ -22,6 +22,7 @@ import snippets/guide_http2_test
 import snippets/guide_operating_test
 import snippets/guide_request_data_test
 import snippets/guide_responses_test
+import snippets/guide_routing_scope_test
 import snippets/guide_routing_test
 import snippets/guide_sse_test
 import snippets/guide_streaming_test
@@ -36,6 +37,7 @@ pub fn tests() -> TestSuite {
       guide_getting_started_test.tests,
     ),
     report_test("guide_routing_report", guide_routing_test.tests),
+    report_test("guide_routing_scope_report", guide_routing_scope_test.tests),
     report_test("guide_request_data_report", guide_request_data_test.tests),
     report_test("guide_responses_report", guide_responses_test.tests),
     report_test("guide_database_api_report", guide_database_api_test.tests),

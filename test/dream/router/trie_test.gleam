@@ -7,7 +7,9 @@ import dream/router/trie.{
 import dream_test/matchers.{be_equal, or_fail_with, should}
 import dream_test/suite.{type TestSuite}
 import dream_test/unit.{type UnitNode, describe, group, it}
+import gleam/list
 import gleam/option.{None, Some}
+import gleam/string
 
 // ============================================================================
 // Tests
@@ -18,6 +20,7 @@ pub fn tests() -> TestSuite {
     literal_extension_tests(),
     shared_child_tests(),
     multi_wildcard_tests(),
+    routes_tests(),
   ])
 }
 
@@ -189,4 +192,101 @@ fn multi_wildcard_tests() -> UnitNode {
       |> or_fail_with("/public should match /public/** with an empty path")
     }),
   ])
+}
+
+fn routes_tests() -> UnitNode {
+  group("routes", [
+    it("lists no routes for an empty trie", fn() {
+      // Arrange
+      let empty = trie.new()
+
+      // Act
+      let result = trie.routes(empty)
+
+      // Assert
+      result
+      |> should()
+      |> be_equal([])
+      |> or_fail_with("an empty trie should list no routes")
+    }),
+    it("lists each route with its method, segments and value", fn() {
+      // Arrange
+      let routes =
+        trie.new()
+        |> trie.insert("GET", [], "root")
+        |> trie.insert("GET", [Literal("users"), Param("id")], "show user")
+        |> trie.insert("DELETE", [Literal("users"), Param("id")], "delete user")
+        |> trie.insert(
+          "GET",
+          [LiteralExtension("products", ["json", "xml"])],
+          "products",
+        )
+        |> trie.insert(
+          "GET",
+          [Literal("files"), SingleWildcard(Some("file"))],
+          "file",
+        )
+        |> trie.insert(
+          "GET",
+          [Literal("static"), MultiWildcard(None)],
+          "static",
+        )
+        |> trie.insert(
+          "GET",
+          [Literal("images"), ExtensionPattern(["png"])],
+          "image",
+        )
+
+      // Act
+      let result = list.sort(trie.routes(routes), by_route_value)
+
+      // Assert
+      result
+      |> should()
+      |> be_equal([
+        #("DELETE", [Literal("users"), Param("id")], "delete user"),
+        #("GET", [Literal("files"), SingleWildcard(Some("file"))], "file"),
+        #("GET", [Literal("images"), ExtensionPattern(["png"])], "image"),
+        #("GET", [LiteralExtension("products", ["json", "xml"])], "products"),
+        #("GET", [], "root"),
+        #("GET", [Literal("users"), Param("id")], "show user"),
+        #("GET", [Literal("static"), MultiWildcard(None)], "static"),
+      ])
+      |> or_fail_with("routes should list every route of the trie")
+    }),
+    it("lists a shared parameter with the name of the first route", fn() {
+      // Arrange
+      let routes =
+        trie.new()
+        |> trie.insert("GET", [Literal("users"), Param("id")], "show user")
+        |> trie.insert(
+          "GET",
+          [Literal("users"), Param("user_id"), Literal("posts")],
+          "user posts",
+        )
+
+      // Act
+      let result = list.sort(trie.routes(routes), by_route_value)
+
+      // Assert
+      result
+      |> should()
+      |> be_equal([
+        #("GET", [Literal("users"), Param("id")], "show user"),
+        #(
+          "GET",
+          [Literal("users"), Param("id"), Literal("posts")],
+          "user posts",
+        ),
+      ])
+      |> or_fail_with("the shared parameter node should keep the name id")
+    }),
+  ])
+}
+
+fn by_route_value(
+  first: #(String, List(trie.Segment), String),
+  second: #(String, List(trie.Segment), String),
+) {
+  string.compare(first.2, second.2)
 }

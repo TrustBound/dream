@@ -437,6 +437,166 @@ pub fn stream_route(
   )
 }
 
+/// Add the routes of another router under a path prefix and an entry function
+///
+/// Each route of `inner_router` becomes a route of this router. Its path is
+/// `prefix` followed by the path of the route. When a request matches it,
+/// Dream calls `enter` with the request, this router's context, the services
+/// and `next`. `next` runs the route's own middleware and then its
+/// controller, with the context that `enter` gives to it.
+///
+/// `enter` has the shape of a middleware, but `next` can take a different
+/// context type. This lets controllers in the scope take a context that
+/// holds more, for example a signed-in user. An ordinary middleware also fits
+/// as `enter`, when the context type stays the same. `enter` can answer
+/// without a call to `next`, for example with `401`.
+///
+/// ## Example
+///
+/// `require_member` turns the app's `Context` into a `MemberContext`, or
+/// answers `401`. `cache_for_a_minute` is an ordinary middleware.
+///
+/// ### Add a member area and a plain group <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/guide_routing_scope_app.gleam#L85-L105"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// fn member_routes() -> Router(MemberContext, EmptyServices) {
+///   router()
+///   |> route(method: Get, path: "/", controller: show_profile, middleware: [])
+///   |> route(
+///     method: Get,
+///     path: "/teams/:team_id",
+///     controller: show_team,
+///     middleware: [],
+///   )
+/// }
+///
+/// fn public_routes() -> Router(Context, EmptyServices) {
+///   router()
+///   |> route(method: Get, path: "/about", controller: show_about, middleware: [])
+/// }
+///
+/// pub fn create_router() -> Router(Context, EmptyServices) {
+///   router()
+///   |> scope(path: "/members", with: require_member, routes: member_routes())
+///   |> scope(path: "", with: cache_for_a_minute, routes: public_routes())
+/// }
+/// ```
+///
+/// ## Rules
+///
+/// - **Prefix.** Dream splits the prefix and the route path at each `/`,
+///   drops the empty parts, and joins the two lists. So a slash at the start
+///   or the end of the prefix does not matter: `"/admin"`, `"admin"` and
+///   `"/admin/"` are the same prefix. `"/admin"` with the route `"/"` gives
+///   `/admin`, and with `"/users/:id"` it gives `/admin/users/:id`. Give
+///   `path: ""` to group routes with no prefix.
+/// - **Parameters.** The prefix can have parameters and wildcards, as a route
+///   path can. The controller gets the parameters of the prefix first, then
+///   those of the route. Give each parameter a name that is not used again
+///   in the full path: `get_param` finds the first parameter of a name.
+/// - **Order.** On the way in, `enter` runs first, then the middleware of the
+///   route in list order, then the controller. A scope in a scope runs the
+///   `enter` of the outer scope first.
+/// - **Streaming.** A route that `stream_route` added stays a streaming
+///   route.
+/// - **No match.** Routes from a scope give `404` and `405` (with `Allow`)
+///   as other routes do, and `allowed_methods` lists their methods.
+/// - **The same method and path.** The route added last replaces the other,
+///   as with `route`. A route from a scope replaces an earlier route of this
+///   router, and a later `route` call replaces a route from a scope.
+/// - `find_route` gives a route from a scope with an empty `middleware` list:
+///   its `controller` runs `enter`, the route's middleware and its
+///   controller.
+///
+/// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
+pub fn scope(
+  router_value: Router(outer, services),
+  path prefix: String,
+  with enter: fn(
+    Request,
+    outer,
+    services,
+    fn(Request, inner, services) -> Response,
+  ) -> Response,
+  routes inner_router: Router(inner, services),
+) -> Router(outer, services) {
+  let prefix_segments = parser.parse_pattern(prefix)
+  let prefix_param_names = extract_param_names_from_segments(prefix_segments)
+  let updated_trie =
+    insert_scoped_routes(
+      router_value.trie,
+      trie_module.routes(inner_router.trie),
+      prefix_segments,
+      prefix_param_names,
+      enter,
+    )
+
+  Router(
+    trie: updated_trie,
+    methods: list.fold(inner_router.methods, router_value.methods, add_method),
+  )
+}
+
+/// Inserts each route of a scope at its prefixed path
+fn insert_scoped_routes(
+  trie: trie_module.RadixTrie(RouteHandler(outer, services)),
+  inner_routes: List(#(String, List(Segment), RouteHandler(inner, services))),
+  prefix_segments: List(Segment),
+  prefix_param_names: List(String),
+  enter: fn(Request, outer, services, fn(Request, inner, services) -> Response) ->
+    Response,
+) -> trie_module.RadixTrie(RouteHandler(outer, services)) {
+  case inner_routes {
+    [] -> trie
+    [#(method_string, segments, handler), ..rest] -> {
+      let scoped = scoped_handler(handler, prefix_param_names, enter)
+      let updated_trie =
+        trie_module.insert(
+          trie,
+          method_string,
+          list.append(prefix_segments, segments),
+          scoped,
+        )
+      insert_scoped_routes(
+        updated_trie,
+        rest,
+        prefix_segments,
+        prefix_param_names,
+        enter,
+      )
+    }
+  }
+}
+
+/// The handler of a route from a scope: `enter`, then the route's own chain
+fn scoped_handler(
+  handler: RouteHandler(inner, services),
+  prefix_param_names: List(String),
+  enter: fn(Request, outer, services, fn(Request, inner, services) -> Response) ->
+    Response,
+) -> RouteHandler(outer, services) {
+  RouteHandler(
+    controller: enter_scope(
+      enter,
+      build_controller_chain(handler.middleware, handler.controller),
+    ),
+    middleware: [],
+    streaming: handler.streaming,
+    param_names: list.append(prefix_param_names, handler.param_names),
+  )
+}
+
+/// A controller that calls `enter` with the route's chain as `next`
+fn enter_scope(
+  enter: fn(Request, outer, services, fn(Request, inner, services) -> Response) ->
+    Response,
+  inner_chain: fn(Request, inner, services) -> Response,
+) -> fn(Request, outer, services) -> Response {
+  fn(request, context, services) {
+    enter(request, context, services, inner_chain)
+  }
+}
+
 // ============================================================================
 // Route Matching
 // ============================================================================

@@ -15,6 +15,13 @@ set -eu
 (cd examples/streaming_capabilities && make test-integration)
 (cd examples/websocket_chat && make test-integration)
 (cd examples/sse && make test-integration)
+# Example apps of the guides: unit tests only, no network, no database
+(cd examples/configuration && make test)
+(cd examples/outbound_http && make test)
+(cd examples/cache && make test)
+(cd examples/rate_limiter && make test)
+(cd examples/fake_api && make test)
+(cd examples/background_work && make test)
 # Plays back recorded HTTP calls and queries: no network and no database
 (cd examples/recorded_tests && make test)
 

@@ -45,6 +45,7 @@ Sources: [contributing.md](docs/contributing/contributing.md), [naming-conventio
 - **No `panic` and no `let assert` in `src`.** Return a `Result`, or make the wrong state impossible with types. For example, `dream.get_server` takes the one value `RisksUnderstood`, not a `Bool`.
 - **Builders.** Configure with the builder pattern, one step for each setting.
 - **Middleware is per route.** There is no global middleware list.
+- **Scopes.** Group routes with `router.scope(path: "/members", with: require_member, routes: member_routes())`. `with` has the middleware shape, but its `next` can take another context type (for example `Context` to `MemberContext`). It runs before the route's own middleware. Use `path: ""` for a group with no prefix. Give each path parameter a name that is not used again in the prefix plus the route path.
 - **Context and services.** Context is per request. Services are for the whole app.
 - **Doc comments.** Each public function has a `///` doc comment with a short description and an example. The example is a tested snippet with a heading and a badge, as in [Code Blocks in READMEs and Guides](docs/contributing/contributing.md#code-blocks-in-readmes-and-guides).
 - **Simple over clever.** Abstract when you have three examples, not one.

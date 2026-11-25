@@ -13,6 +13,7 @@ Your app has more than one page now. Some routes take values from the path, some
 - [Step 4: Write an auth middleware](#step-4-write-an-auth-middleware)
 - [Step 5: Chain middleware](#step-5-chain-middleware)
 - [Step 6: Use services in middleware](#step-6-use-services-in-middleware)
+- [Step 7: Group routes under a prefix and a scope](#step-7-group-routes-under-a-prefix-and-a-scope)
 - [When a request is refused](#when-a-request-is-refused)
 - [Test your code](#test-your-code)
 - [Common pitfalls](#common-pitfalls)
@@ -25,6 +26,7 @@ Your app has more than one page now. Some routes take values from the path, some
 - An `AuthContext` that carries the signed-in user, set by an auth middleware.
 - An admin route behind two middleware, and the `401` and `403` answers they give.
 - A rate limit middleware that reads a shared service and adds headers to the response.
+- A member area under `/members` whose controllers take a `MemberContext`, and a group of public routes with one middleware.
 - A test of the middleware through the routes, with no server running.
 
 ## Before you start
@@ -45,6 +47,7 @@ The examples run from the Dream repository. Each one starts with `make run` in i
 | A value for this request only, such as the signed-in user | A custom context type | Middleware fills it in, and controllers read it. |
 | Something shared by all requests, such as a database pool or a counter table | A services type | Made once at startup, and the same value for every request. |
 | A check that many routes need | Middleware on those routes | Written once, and it can stop the request before the controller runs. |
+| Routes that share a path prefix or a check | `scope` | It adds a group of routes in one call, and its controllers can take a different context type. |
 | A method outside the standard set, such as `PURGE` | `Other("PURGE")` as the route's method | The router matches it like any other method. |
 
 ## Step 1: Add routes with path parameters
@@ -433,7 +436,7 @@ pub fn create_router() -> Router(EmptyContext, Services) {
 }
 ```
 
-### The rate limit middleware <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/rate_limiter/src/middleware/rate_limit_middleware.gleam#L19-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The rate limit middleware <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/rate_limiter/src/middleware/rate_limit_middleware.gleam#L16-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn rate_limit_middleware(
@@ -442,35 +445,19 @@ pub fn rate_limit_middleware(
   services: Services,
   next: fn(Request, EmptyContext, Services) -> Response,
 ) -> Response {
-  let ip = get_client_ip(request)
-
-  case rate_limiter_service.check_and_increment(services.rate_limiter, ip) {
-    Ok(status) ->
-      handle_rate_limit_result(status, request, context, services, next)
-    Error(_) -> handle_service_error(request, context, services, next)
-  }
-}
-
-fn handle_rate_limit_result(
-  status: rate_limiter_service.RateLimitStatus,
-  request: Request,
-  context: EmptyContext,
-  services: Services,
-  next: fn(Request, EmptyContext, Services) -> Response,
-) -> Response {
-  let rate_limiter_service.RateLimitStatus(allowed, remaining, limit) = status
-
-  case allowed {
-    True ->
-      allow_request_with_headers(
-        request,
-        context,
-        services,
-        next,
-        remaining,
-        limit,
+  let client = identify_client(request)
+  let now = clock.read_time(services.clock)
+  case rate_limiter_service.count_request(services.rate_limiter, client, now) {
+    Ok(Allowed(limit:, remaining:)) ->
+      next(request, context, services)
+      |> add_rate_limit_headers(limit, remaining)
+    Ok(Denied(limit:, retry_after_seconds:)) ->
+      deny_request(limit, retry_after_seconds)
+    Error(StoreFailed(reason:)) ->
+      text_response(
+        status.service_unavailable,
+        "The rate limit store failed: " <> reason,
       )
-    False -> deny_request_with_headers(limit)
   }
 }
 ```
@@ -509,6 +496,154 @@ content-type: text/plain; charset=utf-8
 
 If the counter table fails, this middleware lets the request through. That's a choice: an API that must never go over its limit would answer `503` there instead.
 
+## Step 7: Group routes under a prefix and a scope
+
+Some routes share a path prefix and a check, such as a member area at `/members` that only signed-in users can open. `scope` adds a group of routes in one call. The group is a router of its own, and its controllers can take a different context type. Here, the controllers of the member area take a `MemberContext`. It always holds a user, so no controller has to check for a missing user.
+
+First, the two context types and the sign-in check:
+
+### The member context and the sign-in check <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/guide_routing_scope_app.gleam#L13-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub type Context {
+  Context(request_id: String)
+}
+
+pub type MemberContext {
+  MemberContext(request_id: String, user_name: String)
+}
+
+/// Gives the controllers of the member area a MemberContext, or answers 401
+pub fn require_member(
+  request: Request,
+  context: Context,
+  services: EmptyServices,
+  next: fn(Request, MemberContext, EmptyServices) -> Response,
+) -> Response {
+  // A stand-in for a real sign-in check, such as a session lookup
+  case get_header(request.headers, "X-User") {
+    option.Some(user_name) ->
+      next(
+        request,
+        MemberContext(request_id: context.request_id, user_name: user_name),
+        services,
+      )
+    option.None -> text_response(status.unauthorized, "Sign in first")
+  }
+}
+```
+
+`require_member` has the shape of a middleware, but its `next` takes a `MemberContext`. With no `X-User` header, it answers `401` and no controller runs. The header check is a stand-in that keeps the example small. In your app, look up a session or examine a signed token here.
+
+A controller of the member area reads the user from its context, and the path parameter from the request:
+
+### The team controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/guide_routing_scope_app.gleam#L62-L75"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn show_team(
+  request: Request,
+  context: MemberContext,
+  _services: EmptyServices,
+) -> Response {
+  case get_param(request, "team_id") {
+    Ok(team) ->
+      text_response(
+        status.ok,
+        "Team " <> team.value <> " of " <> context.user_name,
+      )
+    Error(message) -> text_response(status.bad_request, message)
+  }
+}
+```
+
+The routes of each group are a normal router. `create_router` adds the two groups:
+
+### The member area and a plain group <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/guide_routing_scope_app.gleam#L85-L105"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+fn member_routes() -> Router(MemberContext, EmptyServices) {
+  router()
+  |> route(method: Get, path: "/", controller: show_profile, middleware: [])
+  |> route(
+    method: Get,
+    path: "/teams/:team_id",
+    controller: show_team,
+    middleware: [],
+  )
+}
+
+fn public_routes() -> Router(Context, EmptyServices) {
+  router()
+  |> route(method: Get, path: "/about", controller: show_about, middleware: [])
+}
+
+pub fn create_router() -> Router(Context, EmptyServices) {
+  router()
+  |> scope(path: "/members", with: require_member, routes: member_routes())
+  |> scope(path: "", with: cache_for_a_minute, routes: public_routes())
+}
+```
+
+Each route of `member_routes()` gets the prefix `/members`. The route `/` becomes `/members`, and `/teams/:team_id` becomes `/members/teams/:team_id`. Dream drops empty parts of the paths, so a slash at the start or the end of the prefix does not change the result.
+
+The second scope has `path: ""`, so its routes keep their paths. Its `with` is an ordinary middleware, with the same context type on both sides. This puts one header on all public pages, and you write the middleware in one place.
+
+More rules of `scope`:
+
+- **Order.** On each request, `with` runs first. Then the middleware of the route run in list order, and then the controller. In a scope inside a scope, the `with` of the outer scope runs first.
+- **Parameters in the prefix.** A prefix such as `/orgs/:org_id` is permitted. The controller gets the parameters of the prefix first, then the parameters of the route. Use a different name for each parameter in the full path.
+- **404 and 405.** A route from a scope gets the same `404` and `405` answers as other routes. `POST /members/teams/7` gets `405` with `Allow: GET`.
+- **The same method and path two times.** The route that you add last replaces the other, as with two `route` calls.
+- **Streaming.** A `stream_route` in a scope stays a streaming route.
+
+The tests send requests through the router, with no server:
+
+### Test the scopes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/guide_routing_scope_test.gleam#L56-L83"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn tests() -> TestSuite {
+  describe("scopes", [
+    it("answers 401 for /members with no X-User header", fn() {
+      // Arrange
+      let profile = request(Get, "/members", [])
+
+      // Act
+      let result = send(profile)
+
+      // Assert
+      result
+      |> should
+      |> be_equal(#(401, Text("Sign in first")))
+      |> or_fail_with("GET /members with no user should answer 401")
+    }),
+    it("gives the member to the profile controller", fn() {
+      // Arrange
+      let profile = request(Get, "/members", [Header("X-User", "ada")])
+
+      // Act
+      let result = send(profile)
+
+      // Assert
+      result
+      |> should
+      |> be_equal(#(200, Text("Profile of ada")))
+      |> or_fail_with("GET /members should show the profile of ada")
+    }),
+```
+
+### The report of the scope tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/outputs/guide_routing_scope_report.txt"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+scopes
+  ✓ adds the Cache-Control header to /about
+  ✓ answers 401 for /members with no X-User header
+  ✓ answers 405 with Allow: GET for POST /members/teams/7
+  ✓ gives the member to the profile controller
+  ✓ gives the team id and the member to the team controller
+
+Summary: 5 run, 0 failed, 5 passed in 0ms
+```
+
 ## When a request is refused
 
 | What happened | What the client gets | Where it's decided |
@@ -518,6 +653,7 @@ If the counter table fails, this middleware lets the request through. That's a c
 | A path parameter has the wrong type | `400 Bad Request: id must be an integer` | `require_int` in the controller |
 | No token, or an unknown token | `401` | `auth_middleware` |
 | A known user without the admin role | `403` | `admin_middleware` |
+| No `X-User` header for a route under `/members` | `401 Sign in first` | `require_member`, the `with` of the scope |
 | Too many requests | `429` with `Retry-After: 60` | `rate_limit_middleware` |
 
 ## Test your code

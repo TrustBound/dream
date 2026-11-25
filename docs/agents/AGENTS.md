@@ -22,6 +22,7 @@ Dream is a library, not a framework. The app connects the pieces in its `main`, 
 
 - **Router.** Each route names its method, path, controller and middleware. Read [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
 - **Middleware.** Middleware is per route. There is no global middleware list. List it on each route, or make a helper function for a set that many routes use. Read [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
+- **Scopes.** Group routes with `router.scope(path: "/members", with: require_member, routes: member_routes())`. `with` has the middleware shape, but its `next` can take another context type (for example `Context` to `MemberContext`). It runs before the route's own middleware. Use `path: ""` for a group with no prefix. Give each path parameter a name that is not used again in the prefix plus the route path. Read [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
 - **Controllers.** A controller is a function that gets the request, the context and the services, and returns a response. Keep it thin: read the request, call a model or an operation, call a view, map errors to a response. Read [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html) and [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html).
 - **Context.** Context is the data of one request, such as the request ID and the user. Middleware adds to it. Read [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
 - **Services.** Services are the dependencies of the whole app, such as the database pool and the config. The app makes them one time at start. Read [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html).
@@ -106,6 +107,11 @@ Run these before each commit:
 | Write a test | [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html) |
 | Test code that calls an HTTP service | [Test a Dream app that calls other APIs](https://hexdocs.pm/dream/3.0.0/guides/testing-with-recorded-http.html) |
 | Test code that queries a database | [Test a Dream app's database code with recorded queries](https://hexdocs.pm/dream/3.0.0/guides/testing-with-recorded-queries.html) |
+| Read settings and secrets | [Load configuration and fail early](https://hexdocs.pm/dream/3.0.0/guides/configuration.html) |
+| Call another HTTP service | [Call another API from a controller](https://hexdocs.pm/dream/3.0.0/guides/calling-other-apis.html) |
+| Cache data or limit requests | [Add a cache and a rate limit](https://hexdocs.pm/dream/3.0.0/guides/caching-and-rate-limiting.html) |
+| Run work outside a request | [Run background work](https://hexdocs.pm/dream/3.0.0/guides/background-work.html) |
+| Test against a fake HTTP service | [Test a Dream app against a fake API](https://hexdocs.pm/dream/3.0.0/guides/testing-with-a-fake-api.html) |
 | Start, stop or limit the server | [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html) |
 | Deploy | [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html) |
 | Upgrade from Dream 2 | [Upgrade from Dream 2 to 3](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html) |

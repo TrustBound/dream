@@ -184,7 +184,8 @@ Rate limiting across all requests using shared ETS-backed state.
 - Rate limiting middleware
 
 **Run:** `cd examples/rate_limiter && make run`
-**Test:** Integration tests with unique IP isolation
+**Test:** Unit tests with a fixed clock (`make test`), and integration tests with unique IP isolation
+**Guide:** [Add a cache and a rate limit](guides/caching-and-rate-limiting.md)
 
 ---
 
@@ -218,6 +219,56 @@ An app that reads its settings from the environment, answers `/health` with the 
 
 **Run and test:** `make test-docker` from the repository root (Docker with Compose v2). It builds the image, starts it with Compose, checks `/health`, and checks that the app stops on `SIGTERM`. The example depends on the Dream of the repository, so the script copies both into one folder first. In your own app, `docker compose up -d --wait app` starts it.
 **Guide:** [Deploy with Docker](guides/deployment.md)
+
+---
+
+### [configuration/](../examples/configuration/)
+**Typed settings, read one time at startup.**
+
+A links app that reads `PORT`, `SITE_URL` and `SIGNING_KEY` into one `Configuration` value, stops with exit status 1 on a missing or bad setting, keeps the key out of logs, and gives the values to the controller through services.
+
+**Test:** `make test` (needs no settings)
+**Guide:** [Load configuration and fail early](guides/configuration.md)
+
+---
+
+### [outbound_http/](../examples/outbound_http/)
+**Calls to another API from a controller.**
+
+A Dream app that calls a forecast service with `dream_http_client`: the base request in services, timeouts, typed errors, 502 and 504 answers, JSON, and a streamed reply.
+
+**Test:** `make test`, against a fake service on localhost
+**Guide:** [Call another API from a controller](guides/calling-other-apis.md)
+
+---
+
+### [cache/](../examples/cache/)
+**A read-through cache with expiry.**
+
+A products app that keeps slow lookups in an ETS table with `dream_ets`, removes an entry after a write, and reads the time from a clock in services.
+
+**Test:** `make test`, with a fixed clock and no sleep
+**Guide:** [Add a cache and a rate limit](guides/caching-and-rate-limiting.md)
+
+---
+
+### [fake_api/](../examples/fake_api/)
+**Tests of a Dream app against a fake news service.**
+
+Two mock servers from `dream_mock_server` in the suite setup, with tests for a 503, a body that is not JSON, a timeout, a closed port, a relayed stream and a dropped stream, plus a contract test that can run against the real service.
+
+**Test:** `make test`, about 10 seconds, no network
+**Guide:** [Test a Dream app against a fake API](guides/testing-with-a-fake-api.md)
+
+---
+
+### [background_work/](../examples/background_work/)
+**A supervised job worker.**
+
+A controller answers 202 with a job id and a status route. The worker has a bounded queue (503 when full) and job timeouts. Each job is linked to the worker, which traps exits: a crashed job fails alone, and a crash of the worker ends its running job and marks the queued jobs lost. A cleanup runs on a timer, and the worker stops cleanly.
+
+**Test:** `make test`, with no sleep
+**Guide:** [Run background work](guides/background-work.md)
 
 ---
 

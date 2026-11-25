@@ -1,0 +1,5 @@
+The headlines contract
+  ✓ holds for the fake
+  - holds for the real service
+
+Summary: 2 run, 0 failed, 1 passed, 1 skipped in 0ms

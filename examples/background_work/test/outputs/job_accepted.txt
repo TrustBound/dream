@@ -1,0 +1,9 @@
+log: the job worker started (lost jobs: 0)
+POST /jobs sales by region and team
+  202 {"id":1,"status_url":"/jobs/1"}
+log: job 1 started
+GET /jobs/1
+  200 {"id":1,"state":"running"}
+log: job 1 done
+GET /jobs/1
+  200 {"id":1,"state":"done","result":"words: 5, lines: 1"}

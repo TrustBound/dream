@@ -1,0 +1,10 @@
+POST /jobs first
+  202 {"id":1,"status_url":"/jobs/1"}
+POST /jobs second
+  202 {"id":2,"status_url":"/jobs/2"}
+POST /jobs third
+  202 {"id":3,"status_url":"/jobs/3"}
+POST /jobs fourth
+  503 retry-after: 5 {"error":"The job queue is full. Try again in a few seconds."}
+GET /jobs/3
+  200 {"id":3,"state":"queued"}

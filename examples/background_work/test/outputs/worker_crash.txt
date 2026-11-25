@@ -1,0 +1,20 @@
+POST /jobs first
+  202 {"id":1,"status_url":"/jobs/1"}
+POST /jobs second
+  202 {"id":2,"status_url":"/jobs/2"}
+POST /jobs third
+  202 {"id":3,"status_url":"/jobs/3"}
+(the test kills the worker)
+log: the job worker started (lost jobs: 3)
+GET /jobs/1
+  200 {"id":1,"state":"lost"}
+GET /jobs/2
+  200 {"id":2,"state":"lost"}
+GET /jobs/3
+  200 {"id":3,"state":"lost"}
+POST /jobs fourth
+  202 {"id":4,"status_url":"/jobs/4"}
+log: job 4 started
+the process of job 1 ended: Killed
+GET /jobs/1
+  200 {"id":1,"state":"lost"}

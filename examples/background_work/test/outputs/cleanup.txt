@@ -1,0 +1,8 @@
+POST /jobs first
+  202 {"id":1,"status_url":"/jobs/1"}
+log: job 1 done
+GET /jobs/1
+  200 {"id":1,"state":"done","result":"words: 1, lines: 1"}
+log: removed finished jobs: 1
+GET /jobs/1
+  404 {"error":"No job 1"}

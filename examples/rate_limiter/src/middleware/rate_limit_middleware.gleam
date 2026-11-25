@@ -1,8 +1,7 @@
-//// Rate Limit Middleware
-////
-//// Middleware that enforces rate limits using dream_ets.
-//// Demonstrates practical use of services and middleware together.
+//// Counts each request of a client, and answers `429 Too Many Requests`
+//// with a `Retry-After` header over the limit.
 
+import clock
 import dream/context.{type EmptyContext}
 import dream/http/header.{add_header, get_header}
 import dream/http/request.{type Request}
@@ -12,61 +11,31 @@ import gleam/int
 import gleam/option
 import gleam/string
 import services.{type Services}
-import services/rate_limiter_service
+import services/rate_limiter_service.{Allowed, Denied, StoreFailed}
 
-/// Rate limiting middleware
-/// Checks request rate for the client IP and enforces limits
 pub fn rate_limit_middleware(
   request: Request,
   context: EmptyContext,
   services: Services,
   next: fn(Request, EmptyContext, Services) -> Response,
 ) -> Response {
-  let ip = get_client_ip(request)
-
-  case rate_limiter_service.check_and_increment(services.rate_limiter, ip) {
-    Ok(status) ->
-      handle_rate_limit_result(status, request, context, services, next)
-    Error(_) -> handle_service_error(request, context, services, next)
-  }
-}
-
-fn handle_rate_limit_result(
-  status: rate_limiter_service.RateLimitStatus,
-  request: Request,
-  context: EmptyContext,
-  services: Services,
-  next: fn(Request, EmptyContext, Services) -> Response,
-) -> Response {
-  let rate_limiter_service.RateLimitStatus(allowed, remaining, limit) = status
-
-  case allowed {
-    True ->
-      allow_request_with_headers(
-        request,
-        context,
-        services,
-        next,
-        remaining,
-        limit,
+  let client = identify_client(request)
+  let now = clock.read_time(services.clock)
+  case rate_limiter_service.count_request(services.rate_limiter, client, now) {
+    Ok(Allowed(limit:, remaining:)) ->
+      next(request, context, services)
+      |> add_rate_limit_headers(limit, remaining)
+    Ok(Denied(limit:, retry_after_seconds:)) ->
+      deny_request(limit, retry_after_seconds)
+    Error(StoreFailed(reason:)) ->
+      text_response(
+        status.service_unavailable,
+        "The rate limit store failed: " <> reason,
       )
-    False -> deny_request_with_headers(limit)
   }
 }
 
-fn allow_request_with_headers(
-  request: Request,
-  context: EmptyContext,
-  services: Services,
-  next: fn(Request, EmptyContext, Services) -> Response,
-  remaining: Int,
-  limit: Int,
-) -> Response {
-  let response = next(request, context, services)
-  add_rate_limit_headers(response, limit, remaining)
-}
-
-fn deny_request_with_headers(limit: Int) -> Response {
+fn deny_request(limit: Int, retry_after_seconds: Int) -> Response {
   let response =
     text_response(
       status.too_many_requests,
@@ -74,10 +43,15 @@ fn deny_request_with_headers(limit: Int) -> Response {
         <> int.to_string(limit)
         <> " requests per minute.",
     )
-
-  response
-  |> add_rate_limit_headers(limit, 0)
-  |> add_retry_after_header
+    |> add_rate_limit_headers(limit, 0)
+  Response(
+    ..response,
+    headers: add_header(
+      response.headers,
+      "Retry-After",
+      int.to_string(retry_after_seconds),
+    ),
+  )
 }
 
 fn add_rate_limit_headers(
@@ -85,41 +59,26 @@ fn add_rate_limit_headers(
   limit: Int,
   remaining: Int,
 ) -> Response {
-  let updated_headers =
+  let headers =
     response.headers
     |> add_header("X-RateLimit-Limit", int.to_string(limit))
     |> add_header("X-RateLimit-Remaining", int.to_string(remaining))
-
-  Response(..response, headers: updated_headers)
+  Response(..response, headers:)
 }
 
-fn add_retry_after_header(response: Response) -> Response {
-  let updated_headers = response.headers |> add_header("Retry-After", "60")
-  Response(..response, headers: updated_headers)
-}
-
-fn handle_service_error(
-  request: Request,
-  context: EmptyContext,
-  services: Services,
-  next: fn(Request, EmptyContext, Services) -> Response,
-) -> Response {
-  // Service error - fail open (allow request)
-  // In production, you might want to fail closed instead
-  next(request, context, services)
-}
-
-/// Extract client IP from request
-fn get_client_ip(request: Request) -> String {
+/// The first address of `X-Forwarded-For`, or the address of the
+/// connection. Trust `X-Forwarded-For` only behind your own proxy: a client
+/// can send any value in it.
+fn identify_client(request: Request) -> String {
   case get_header(request.headers, "X-Forwarded-For") {
-    option.Some(ip) -> extract_first_ip(ip)
-    option.None -> "demo-client"
+    option.Some(forwarded_for) -> first_address(forwarded_for)
+    option.None -> option.unwrap(request.remote_address, "unknown")
   }
 }
 
-fn extract_first_ip(forwarded_for: String) -> String {
+fn first_address(forwarded_for: String) -> String {
   case string.split(forwarded_for, ",") {
     [first, ..] -> string.trim(first)
-    [] -> "unknown"
+    [] -> forwarded_for
   }
 }

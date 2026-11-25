@@ -1,0 +1,8 @@
+scopes
+  ✓ adds the Cache-Control header to /about
+  ✓ answers 401 for /members with no X-User header
+  ✓ answers 405 with Allow: GET for POST /members/teams/7
+  ✓ gives the member to the profile controller
+  ✓ gives the team id and the member to the team controller
+
+Summary: 5 run, 0 failed, 5 passed in 0ms

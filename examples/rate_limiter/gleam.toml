@@ -1,11 +1,15 @@
 name = "dream_example_rate_limiter"
 version = "0.1.0"
-description = "Rate limiting example using dream_ets for stateful request tracking"
+description = "Rate limit - a per-client rate limit in a Dream app, counted atomically in an ETS table with dream_ets"
 licences = ["MIT"]
 
 [dependencies]
 dream = { path = "../.." }
-# Pinned to the module's move branch until it is on Hex.
-dream_ets = { git = "https://github.com/TrustBound/dream_ets.git", ref = "e2cfe4786ba6815f89bbd85c7eca62d46d5cb44f" }
-gleam_time = ">= 1.5.0 and < 2.0.0"
+dream_ets = ">= 3.0.0 and < 4.0.0"
+gleam_erlang = ">= 1.0.0 and < 2.0.0"
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"
+gleam_time = ">= 1.5.0 and < 2.0.0"
+
+[dev-dependencies]
+dream_test = ">= 3.0.0 and < 4.0.0"
+simplifile = ">= 2.3.0 and < 3.0.0"

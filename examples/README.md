@@ -11,12 +11,17 @@ This directory contains comprehensive examples demonstrating Dream's features an
 | [custom_context](./custom_context) | Authentication and authorization | No | Integration | 3000 |
 | [static](./static) | Static file serving | No | Integration | 3000 |
 | [streaming](./streaming) | Streaming responses | No | Integration | 3003 |
-| [rate_limiter](./rate_limiter) | Rate limiting middleware | No | Integration | 3000 |
+| [rate_limiter](./rate_limiter) | Rate limiting middleware with `dream_ets` | No | Unit + Integration | 3000 |
 | [database](./database) | PostgreSQL with Squirrel | Yes | Integration | 3002 |
 | [multi_format](./multi_format) | JSON/CSV/HTML/HTMX formats | Yes | Integration | 3000 |
 | [streaming_capabilities](./streaming_capabilities) | Advanced streaming patterns | No | Integration | 3001 |
 | [tasks](./tasks) | Full-featured task manager | Yes | Integration + Cypress | 3000 |
 | [recorded_tests](./recorded_tests) | Tests with recorded HTTP calls and queries | Record run only | Playback | - |
+| [configuration](./configuration) | Typed settings at startup with `dream_config` | No | Unit + startup | 3000 |
+| [outbound_http](./outbound_http) | Calls to another API with `dream_http_client` | No | Unit (fake service on localhost) | 3000 |
+| [cache](./cache) | Read-through cache with expiry in ETS (`dream_ets`) | No | Unit | 3000 |
+| [fake_api](./fake_api) | Tests against a fake API from `dream_mock_server` | No | Unit (fake on localhost) | - |
+| [background_work](./background_work) | A supervised job worker with a bounded queue | No | Unit | 3000 |
 
 **Every example has automated integration tests.** `simplest` runs only the request of its README, the others also run Cucumber scenarios.
 

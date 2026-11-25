@@ -149,6 +149,10 @@ fn find_user(request: Request, services: Services) -> Result(User, Nil) {
 }
 ```
 
+**Scopes:**
+
+`router.scope(path:, with:, routes:)` adds every route of a second router under a path prefix. When a request matches one of these routes, the `with` function runs first. It has the shape of a middleware, but its `next` can take a different context type, so the controllers of the scope can get a context with more data, for example a signed-in user. Then the middleware of the route run, and then its controller. Inside, `scope` copies the routes into the same radix trie, so a scoped route has the same lookup cost and the same `404` and `405` answers as other routes. [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html) shows an example.
+
 ### 4. Context System
 
 Context holds per-request data that middleware can modify.

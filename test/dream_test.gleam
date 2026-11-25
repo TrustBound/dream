@@ -23,6 +23,7 @@ import dream/http/validation_test
 import dream/method_not_allowed_test
 import dream/router/parser_test
 import dream/router/trie_test
+import dream/router_scope_test
 import dream/router_test
 import dream/servers/mist/builder_order_test
 import dream/servers/mist/chunked_stream_test
@@ -73,6 +74,7 @@ pub fn main() {
     transaction_test.tests(),
     static_test.tests(),
     router_test.tests(),
+    router_scope_test.tests(),
     method_not_allowed_test.tests(),
     parser_test.tests(),
     trie_test.tests(),

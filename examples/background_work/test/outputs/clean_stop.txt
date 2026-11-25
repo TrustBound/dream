@@ -1,0 +1,17 @@
+POST /jobs first
+  202 {"id":1,"status_url":"/jobs/1"}
+POST /jobs second
+  202 {"id":2,"status_url":"/jobs/2"}
+(the test calls stop with a limit of 5000 ms)
+log: stopping after job 1 ends
+POST /jobs third
+  503 retry-after: 5 {"error":"The job worker is stopping."}
+log: job 1 done
+log: the job worker stopped (cancelled jobs: 1)
+stop returned Ok(Nil)
+GET /jobs/1
+  200 {"id":1,"state":"done","result":"words: 1, lines: 1"}
+GET /jobs/2
+  200 {"id":2,"state":"cancelled"}
+POST /jobs fourth
+  503 retry-after: 5 {"error":"The job worker did not answer."}

@@ -71,6 +71,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `router.scope(path:, with:, routes:)` adds every route of a second router
+  under a path prefix. `with` runs before the route's own middleware, and its
+  `next` can take a different context type, so controllers in the scope can
+  get, for example, a context with the signed-in user. Use `path: ""` to group
+  routes with no prefix. Scoped routes give the same `404` and `405` answers as
+  other routes and keep their streaming flag. A later route with the same
+  method and path replaces an earlier one.
 - `server.stop_gracefully(handle, within: milliseconds)` stops a server and
   lets its running requests finish first. The server refuses new
   connections and closes idle keep-alive connections at once. Each running
@@ -98,6 +105,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rest get HTTP/1.1. A missing certificate or key file is a start error.
   Server adapters read the setting with `dream.get_tls`.
 - New guide: `docs/guides/http2.md`.
+- Five new task guides, each with a tested example app: "Load configuration
+  and fail early" (`examples/configuration`), "Call another API from a
+  controller" (`examples/outbound_http`), "Add a cache and a rate limit"
+  (`examples/cache` and `examples/rate_limiter`), "Run background work"
+  (`examples/background_work`) and "Test a Dream app against a fake API"
+  (`examples/fake_api`).
+- The `rate_limiter` example counts each request with the atomic
+  `helpers.increment` of `dream_ets`, sends an exact `Retry-After`, deletes
+  the rows of ended windows, and has unit tests with a fixed clock.
 - The guides are rewritten as task guides: 14 guides in `docs/guides/`, each
   with numbered steps, the real answers of an example server, failure
   cases, a test with its real report, and common pitfalls. New:

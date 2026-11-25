@@ -222,6 +222,10 @@ Upgrading from Dream 2? [Upgrade from Dream 2 to 3](https://hexdocs.pm/dream/3.0
 - [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html) - Redirects, downloads, cookies and static files.
 - [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html) - PostgreSQL with `dream_sql_generator`, migrations and operations.
 - [Grow a JSON API](https://hexdocs.pm/dream/3.0.0/guides/api-patterns.html) - Pagination, errors, versioning, filtering and CORS.
+- [Load configuration and fail early](https://hexdocs.pm/dream/3.0.0/guides/configuration.html) - Typed settings read one time at startup with `dream_config`, a clear error, and secrets kept out of logs.
+- [Call another API from a controller](https://hexdocs.pm/dream/3.0.0/guides/calling-other-apis.html) - `dream_http_client` in an app: timeouts, typed errors, 502 and 504 answers, JSON and a streamed reply.
+- [Add a cache and a rate limit](https://hexdocs.pm/dream/3.0.0/guides/caching-and-rate-limiting.html) - Shared state in ETS with `dream_ets`: a cache with expiry, and a per-client limit that answers 429.
+- [Run background work](https://hexdocs.pm/dream/3.0.0/guides/background-work.html) - Answer 202 at once, and run the job in a supervised worker with a bounded queue, timeouts and a clean stop.
 - [Render HTML and other formats](https://hexdocs.pm/dream/3.0.0/guides/templates.html) - Matcha templates, and one route in many formats.
 - [Stream responses and uploads](https://hexdocs.pm/dream/3.0.0/guides/streaming.html) - Streamed downloads and uploads, and a broken upload.
 - [Push live updates with server-sent events](https://hexdocs.pm/dream/3.0.0/guides/sse.html) - Typed SSE actors and a broadcaster.
@@ -230,6 +234,7 @@ Upgrading from Dream 2? [Upgrade from Dream 2 to 3](https://hexdocs.pm/dream/3.0
 - [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html) - Dream Test for controllers, middleware, routes and servers.
 - [Test a Dream app that calls other APIs](https://hexdocs.pm/dream/3.0.0/guides/testing-with-recorded-http.html) - Recorded HTTP calls, with the base request in services.
 - [Test a Dream app's database code with recorded queries](https://hexdocs.pm/dream/3.0.0/guides/testing-with-recorded-queries.html) - Recorded PostgreSQL queries, with the connection in services.
+- [Test a Dream app against a fake API](https://hexdocs.pm/dream/3.0.0/guides/testing-with-a-fake-api.html) - A fake service from `dream_mock_server`: error statuses, timeouts, streams and a contract test.
 - [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html) - The image, Compose, migrations and health checks.
 - [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html) - Start errors, body limits and stopping.
 

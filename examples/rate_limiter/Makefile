@@ -4,7 +4,7 @@ run:
 	@gleam run -m main
 
 test:
-	@make test-integration
+	@gleam test
 
 test-integration:
 	@echo "=== Running integration tests ==="
