@@ -1,5 +1,6 @@
 -module(sse_guide_test_ffi).
--export([open_stream/3, read_until_events/4, close/1]).
+-export([open_stream/3, read_until_events/4, close/1, watch_subscriptions/1,
+         await_subscription/2]).
 
 %% Connects to 127.0.0.1:Port and sends a GET request for an event stream.
 open_stream(Port, Path, Timeout) ->
@@ -75,3 +76,29 @@ dechunk(Body, Events) ->
 
 describe(Reason) ->
     unicode:characters_to_binary(io_lib:format("~p", [Reason])).
+
+%% A broadcaster is {broadcaster, Subject}, and its subject is
+%% {subject, Pid, Tag}. The trace message comes to the calling process when
+%% the broadcaster gets a message.
+watch_subscriptions({broadcaster, {subject, Pid, _Tag}}) ->
+    erlang:trace(Pid, true, ['receive']),
+    nil.
+
+%% Waits for the trace message of a subscribe message, {Tag, {subscribe,
+%% Subject, Owner}}, and drops the trace messages of other messages.
+await_subscription({broadcaster, {subject, Pid, _Tag}}, Timeout) ->
+    Deadline = erlang:monotonic_time(millisecond) + Timeout,
+    Result = await_subscription(Pid, Deadline, loop),
+    catch erlang:trace(Pid, false, ['receive']),
+    Result.
+
+await_subscription(Pid, Deadline, loop) ->
+    Remaining = max(0, Deadline - erlang:monotonic_time(millisecond)),
+    receive
+        {trace, Pid, 'receive', {_Tag, {subscribe, _Subject, _Owner}}} ->
+            {ok, nil};
+        {trace, Pid, 'receive', _Other} ->
+            await_subscription(Pid, Deadline, loop)
+    after Remaining ->
+        {error, <<"the stream did not subscribe to the broadcaster">>}
+    end.

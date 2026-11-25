@@ -64,6 +64,7 @@ Sources: [contributing/testing.md](docs/contributing/testing.md), [guides/testin
 - Add a new test module to `test/dream_test.gleam`, or it does not run.
 - Put a custom matcher in `test/matchers/`, one in each file. Its first parameter is a `MatchResult(a)`.
 - Stop every server that a test starts with `listen_with_handle`, also when an assertion fails. Give each server test its own port.
+- Never sleep to wait for a result. Wait for a message, a monitor, or a call with a timeout. See [Sleep in a test](https://hexdocs.pm/dream/3.0.0/guides/beam.html#sleep-in-a-test) in the BEAM guide.
 
 ## The docs are proven
 

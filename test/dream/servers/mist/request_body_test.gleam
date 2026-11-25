@@ -15,7 +15,6 @@ import dream_test/matchers.{be_equal, be_ok, or_fail_with, should}
 import dream_test/suite.{type TestSuite}
 import dream_test/unit.{describe, it}
 import gleam/bit_array
-import gleam/erlang/process
 import gleam/int
 import gleam/result
 import gleam/string
@@ -154,10 +153,7 @@ fn start_server(port: Int) -> Result(server.ServerHandle, String) {
     |> server.listen_with_handle(port)
 
   case started {
-    Ok(handle) -> {
-      process.sleep(100)
-      Ok(handle)
-    }
+    Ok(handle) -> Ok(handle)
     Error(start_error) ->
       Error(
         "Failed to start server on port "

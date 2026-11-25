@@ -219,6 +219,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI and the publish workflows use Gleam 1.19.2. Dream and the
   examples build and pass their tests on Gleam 1.19.2.
 - Dream's tests and its testing guides use `dream_test` 3.0.0.
+- No test sleeps to wait for a result. The server tests wait for a message
+  from the controller, a monitor, or a socket read with a timeout. The
+  graceful stop tests hold a request until the server drains its
+  connection, so they do not depend on timing.
 - `gleam test` now measures the line coverage of `src/`. The run fails when
   coverage is below 100%. CI checks first that the BEAM supports native
   coverage. The README shows a coverage badge.

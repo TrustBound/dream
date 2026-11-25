@@ -21,8 +21,8 @@ const endless_request = "GET /endless HTTP/1.1\r\nhost: localhost\r\n\r\n"
 
 const fast_request = "GET / HTTP/1.1\r\nhost: localhost\r\n\r\n"
 
-// The time a request runs before the test stops the server
-const request_start_ms = 300
+// How long a test waits for a message before it fails
+const timeout_ms = 3000
 
 pub fn tests() -> TestSuite {
   describe("server stop", [
@@ -37,16 +37,20 @@ fn stop_gracefully_tests() -> UnitNode {
     it("lets a running request finish with connection: close", fn() {
       // Arrange
       let port = free_port()
-      let assert Ok(handle) = start(port)
+      let events = process.new_subject()
+      let assert Ok(handle) = start(port, events)
       let response = request_in_background(port, slow_request)
-      process.sleep(request_start_ms)
+      let _started = await_started(events)
 
       // Act
-      server.stop_gracefully(handle, within: 3000)
+      let stopped = stop_gracefully_in_background(handle, timeout_ms)
+      let _released = on_drain(events, fn() { Nil })
+      let described =
+        process.receive(response, timeout_ms) |> result.map(describe_response)
+      let _stopped = process.receive(stopped, timeout_ms)
 
       // Assert
-      process.receive(response, 3000)
-      |> result.map(describe_response)
+      described
       |> should()
       |> be_equal(Ok(#("HTTP/1.1 200 OK", "close", "slow done")))
       |> or_fail_with("The running request must get its full response")
@@ -54,47 +58,49 @@ fn stop_gracefully_tests() -> UnitNode {
     it("refuses a new connection during the drain", fn() {
       // Arrange
       let port = free_port()
-      let assert Ok(handle) = start(port)
+      let events = process.new_subject()
+      let assert Ok(handle) = start(port, events)
       let _response = request_in_background(port, slow_request)
-      process.sleep(request_start_ms)
+      let _started = await_started(events)
 
       // Act
-      let stopped = stop_gracefully_in_background(handle, 3000)
-      process.sleep(100)
-      let connected = connect(port)
-      let _stop = process.receive(stopped, 3000)
+      let stopped = stop_gracefully_in_background(handle, timeout_ms)
+      let connected = on_drain(events, fn() { connect(port) })
+      let _stopped = process.receive(stopped, timeout_ms)
 
       // Assert
       connected
       |> should()
-      |> be_equal("econnrefused")
+      |> be_equal(Ok("econnrefused"))
       |> or_fail_with("A new connection during the drain must be refused")
     }),
-    it("closes an idle keep-alive connection at once", fn() {
+    it("closes an idle keep-alive connection while a request runs", fn() {
       // Arrange
       let port = free_port()
-      let assert Ok(handle) = start(port)
+      let events = process.new_subject()
+      let assert Ok(handle) = start(port, events)
       let idle = open_idle(port, fast_request)
       let _response = request_in_background(port, slow_request)
-      process.sleep(request_start_ms)
+      let _started = await_started(events)
 
       // Act
-      let stopped = stop_gracefully_in_background(handle, 3000)
-      let closed = closed_within(idle, 300)
-      let _stop = process.receive(stopped, 3000)
+      let stopped = stop_gracefully_in_background(handle, timeout_ms)
+      let closed = on_drain(events, fn() { closed_within(idle, timeout_ms) })
+      let _stopped = process.receive(stopped, timeout_ms)
 
       // Assert
       closed
       |> should()
-      |> be_equal(True)
+      |> be_equal(Ok(True))
       |> or_fail_with("The idle connection must close before the request ends")
     }),
     it("cuts a request that runs past the limit, and returns at it", fn() {
       // Arrange
       let port = free_port()
-      let assert Ok(handle) = start(port)
+      let events = process.new_subject()
+      let assert Ok(handle) = start(port, events)
       let response = request_in_background(port, endless_request)
-      process.sleep(request_start_ms)
+      let _started = await_started(events)
 
       // Act
       let started = now_ms()
@@ -102,7 +108,7 @@ fn stop_gracefully_tests() -> UnitNode {
       let elapsed = now_ms() - started
 
       // Assert
-      #(process.receive(response, 3000), elapsed >= 300 && elapsed < 1000)
+      #(process.receive(response, timeout_ms), elapsed >= 300 && elapsed < 1000)
       |> should()
       |> be_equal(#(Ok(<<>>), True))
       |> or_fail_with(
@@ -112,11 +118,11 @@ fn stop_gracefully_tests() -> UnitNode {
     it("returns at once when no request runs", fn() {
       // Arrange
       let port = free_port()
-      let assert Ok(handle) = start(port)
+      let assert Ok(handle) = start(port, process.new_subject())
 
       // Act
       let started = now_ms()
-      server.stop_gracefully(handle, within: 3000)
+      server.stop_gracefully(handle, within: timeout_ms)
       let elapsed = now_ms() - started
 
       // Assert
@@ -128,7 +134,7 @@ fn stop_gracefully_tests() -> UnitNode {
     it("is safe after the server already stopped", fn() {
       // Arrange
       let port = free_port()
-      let assert Ok(handle) = start(port)
+      let assert Ok(handle) = start(port, process.new_subject())
       server.stop(handle)
 
       // Act
@@ -148,9 +154,10 @@ fn stop_tests() -> UnitNode {
     it("cuts a running request at once", fn() {
       // Arrange
       let port = free_port()
-      let assert Ok(handle) = start(port)
-      let response = request_in_background(port, slow_request)
-      process.sleep(request_start_ms)
+      let events = process.new_subject()
+      let assert Ok(handle) = start(port, events)
+      let response = request_in_background(port, endless_request)
+      let _started = await_started(events)
 
       // Act
       let started = now_ms()
@@ -158,7 +165,7 @@ fn stop_tests() -> UnitNode {
       let elapsed = now_ms() - started
 
       // Assert
-      #(process.receive(response, 3000), elapsed < 300)
+      #(process.receive(response, timeout_ms), elapsed < 300)
       |> should()
       |> be_equal(#(Ok(<<>>), True))
       |> or_fail_with("stop must close the running request at once")
@@ -171,18 +178,21 @@ fn sigterm_tests() -> UnitNode {
     it("drains the server, then passes SIGTERM on", fn() {
       // Arrange
       let port = free_port()
-      let assert Ok(handle) = start(port)
+      let events = process.new_subject()
+      let assert Ok(handle) = start(port, events)
       let signals = process.new_subject()
       let manager = start_signal_manager(signals)
       drain_on_sigterm(manager, server_pid(handle))
       let response = request_in_background(port, slow_request)
-      process.sleep(request_start_ms)
+      let _started = await_started(events)
 
       // Act
       notify(manager, atom.create("sigterm"))
+      let _released = on_drain(events, fn() { Nil })
       let described =
-        process.receive(response, 3000) |> result.map(describe_response)
-      let signal = process.receive(signals, 3000) |> result.map(atom.to_string)
+        process.receive(response, timeout_ms) |> result.map(describe_response)
+      let signal =
+        process.receive(signals, timeout_ms) |> result.map(atom.to_string)
       stop_signal_manager(manager)
 
       // Assert
@@ -196,26 +206,30 @@ fn sigterm_tests() -> UnitNode {
     }),
     it("drains every server that listens", fn() {
       // Arrange
+      let events = process.new_subject()
       let first_port = free_port()
-      let assert Ok(first) = start(first_port)
+      let assert Ok(first) = start(first_port, events)
       let second_port = free_port()
-      let assert Ok(second) = start(second_port)
+      let assert Ok(second) = start(second_port, events)
       let signals = process.new_subject()
       let manager = start_signal_manager(signals)
       drain_on_sigterm(manager, server_pid(first))
       drain_on_sigterm(manager, server_pid(second))
       let first_response = request_in_background(first_port, slow_request)
       let second_response = request_in_background(second_port, slow_request)
-      process.sleep(request_start_ms)
+      let _first_started = await_started(events)
+      let _second_started = await_started(events)
 
       // Act
       notify(manager, atom.create("sigterm"))
+      let _first_released = on_drain(events, fn() { Nil })
+      let _second_released = on_drain(events, fn() { Nil })
       let described =
         [first_response, second_response]
         |> list.map(fn(response) {
-          process.receive(response, 3000) |> result.map(describe_response)
+          process.receive(response, timeout_ms) |> result.map(describe_response)
         })
-      let _signal = process.receive(signals, 3000)
+      let _signal = process.receive(signals, timeout_ms)
       stop_signal_manager(manager)
 
       // Assert
@@ -230,7 +244,7 @@ fn sigterm_tests() -> UnitNode {
     it("passes other signals on at once", fn() {
       // Arrange
       let port = free_port()
-      let assert Ok(handle) = start(port)
+      let assert Ok(handle) = start(port, process.new_subject())
       let signals = process.new_subject()
       let manager = start_signal_manager(signals)
       drain_on_sigterm(manager, server_pid(handle))
@@ -250,22 +264,41 @@ fn sigterm_tests() -> UnitNode {
   ])
 }
 
-fn slow(_request: Request, _context, _services) -> Response {
-  process.sleep(1000)
+/// What the controllers of the test server tell the test
+type Event {
+  /// A request reached its controller
+  Started
+  /// The server asked the connection of a `/slow` request to drain. The
+  /// controller answers when the test sends `Nil` to `release`.
+  Draining(release: Subject(Nil))
+}
+
+/// Tells the test that the request started, waits until the server drains
+/// the connection, and then waits for the test to release the request.
+fn slow(_request: Request, _context, events: Subject(Event)) -> Response {
+  process.send(events, Started)
+  let _drained = await_drain(timeout_ms)
+  let release = process.new_subject()
+  process.send(events, Draining(release))
+  let _released = process.receive(release, timeout_ms)
   text_response(ok, "slow done")
 }
 
-fn endless(_request: Request, _context, _services) -> Response {
-  process.sleep(10_000)
+/// Tells the test that the request started, then never answers: nothing
+/// sends to the subject, so the server must cut the request.
+fn endless(_request: Request, _context, events: Subject(Event)) -> Response {
+  process.send(events, Started)
+  let _never = process.receive(process.new_subject(), 10_000)
   text_response(ok, "never")
 }
 
-fn fast(_request: Request, _context, _services) -> Response {
+fn fast(_request: Request, _context, _events: Subject(Event)) -> Response {
   text_response(ok, "fast")
 }
 
-fn start(port: Int) {
+fn start(port: Int, events: Subject(Event)) {
   server.new()
+  |> server.services(events)
   |> server.router(
     router()
     |> route(method: Get, path: "/", controller: fast, middleware: [])
@@ -273,8 +306,29 @@ fn start(port: Int) {
     |> route(method: Get, path: "/endless", controller: endless, middleware: []),
   )
   |> server.bind("127.0.0.1")
-  |> server.shutdown_timeout(3000)
+  |> server.shutdown_timeout(timeout_ms)
   |> server.listen_with_handle(port)
+}
+
+/// True when a controller tells the test that its request started
+fn await_started(events: Subject(Event)) -> Bool {
+  case process.receive(events, timeout_ms) {
+    Ok(Started) -> True
+    Ok(Draining(_release)) | Error(Nil) -> False
+  }
+}
+
+/// Waits until a `/slow` request sees the drain, runs `during` while the
+/// request still runs, and then releases the request.
+fn on_drain(events: Subject(Event), during: fn() -> a) -> Result(a, Nil) {
+  case process.receive(events, timeout_ms) {
+    Ok(Draining(release)) -> {
+      let result = during()
+      process.send(release, Nil)
+      Ok(result)
+    }
+    Ok(Started) | Error(Nil) -> Error(Nil)
+  }
 }
 
 // Sends `request` from a new process, as a client does. The subject gets the
@@ -284,7 +338,7 @@ fn request_in_background(port: Int, request: String) -> Subject(BitArray) {
   process.spawn_unlinked(fn() {
     process.send(
       response,
-      request_bytes(port, bit_array.from_string(request), 3000),
+      request_bytes(port, bit_array.from_string(request), timeout_ms),
     )
   })
   response
@@ -336,6 +390,9 @@ fn closed_within(socket: Socket, timeout: Int) -> Bool
 
 @external(erlang, "graceful_stop_ffi", "connect")
 fn connect(port: Int) -> String
+
+@external(erlang, "graceful_stop_ffi", "await_drain")
+fn await_drain(timeout: Int) -> Bool
 
 @external(erlang, "graceful_stop_ffi", "now_ms")
 fn now_ms() -> Int

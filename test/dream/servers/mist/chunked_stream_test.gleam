@@ -17,7 +17,6 @@ import dream_test/types.{
 import dream_test/unit.{describe, it}
 import gleam/bit_array
 import gleam/dynamic.{type Dynamic}
-import gleam/erlang/process
 import gleam/function
 import gleam/int
 import gleam/list
@@ -176,10 +175,7 @@ fn with_echo_server(
     |> server.listen_with_handle(port)
 
   case result {
-    Ok(handle) -> {
-      process.sleep(100)
-      test_fn(handle)
-    }
+    Ok(handle) -> test_fn(handle)
     Error(start_error) ->
       assertion_failed(
         "with_echo_server",

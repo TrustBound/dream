@@ -911,6 +911,23 @@ fn read_until_events(
   timeout: Int,
 ) -> Result(BitArray, String)
 
+/// Starts to trace the messages that `event_bus` gets. The stream sends no
+/// message to the test when it subscribes, so the test sees the
+/// subscription arrive at the broadcaster.
+@external(erlang, "sse_guide_test_ffi", "watch_subscriptions")
+fn watch_subscriptions(
+  event_bus: broadcaster.Broadcaster(sse_guide_broadcast.AppEvent),
+) -> Nil
+
+/// Waits until `event_bus` gets a subscription, at most `timeout`
+/// milliseconds, then stops the trace. A message that the test sends after
+/// it comes after the subscription in the mailbox of the broadcaster.
+@external(erlang, "sse_guide_test_ffi", "await_subscription")
+fn await_subscription(
+  event_bus: broadcaster.Broadcaster(sse_guide_broadcast.AppEvent),
+  timeout: Int,
+) -> Result(Nil, String)
+
 @external(erlang, "sse_guide_test_ffi", "close")
 fn close_socket(socket: Socket) -> Nil
 
@@ -974,36 +991,15 @@ fn publish_and_read(
   event_bus: broadcaster.Broadcaster(sse_guide_broadcast.AppEvent),
   text: String,
 ) -> Result(String, String) {
+  watch_subscriptions(event_bus)
   use socket <- result.try(open_stream(port, "/events", 2000))
   let received = {
-    use _count <- result.try(wait_for_one_subscriber(event_bus, 300))
+    use Nil <- result.try(await_subscription(event_bus, 3000))
     broadcaster.publish(event_bus, AppEvent(text))
     read_until_events(socket, <<>>, 1, 3000)
   }
   close_socket(socket)
   result.try(received, bit_array_to_string)
-}
-
-/// Asks `event_bus` for its subscriber count every 10 milliseconds until the
-/// count is 1. The broadcaster handles a subscription before it answers a
-/// later count request, so a count of 1 means the stream is subscribed.
-fn wait_for_one_subscriber(
-  event_bus: broadcaster.Broadcaster(sse_guide_broadcast.AppEvent),
-  attempts_remaining: Int,
-) -> Result(Int, String) {
-  use count <- result.try(
-    broadcaster.count_subscribers(event_bus)
-    |> result.replace_error("the broadcaster did not report its subscribers"),
-  )
-  case count, attempts_remaining {
-    1, _ -> Ok(count)
-    _, attempts if attempts <= 1 ->
-      Error("the stream did not subscribe to the broadcaster")
-    _, attempts -> {
-      process.sleep(10)
-      wait_for_one_subscriber(event_bus, attempts - 1)
-    }
-  }
 }
 
 fn start_server(

@@ -218,10 +218,18 @@ fn lifecycle_tests() -> UnitNode {
       // Assert
       case result {
         Ok(handle) -> {
-          process.sleep(100)
           server.stop(handle)
-          process.sleep(100)
-          Ok(AssertionOk)
+          case port_probe.is_in_use(None, port) {
+            False -> Ok(AssertionOk)
+            True ->
+              Ok(
+                AssertionFailed(AssertionFailure(
+                  operator: "stop",
+                  message: "The port is still in use after stop returned",
+                  payload: None,
+                )),
+              )
+          }
         }
         Error(start_error) ->
           Ok(
@@ -246,7 +254,6 @@ fn lifecycle_tests() -> UnitNode {
       // Assert
       case result {
         Ok(handle) -> {
-          process.sleep(100)
           server.stop(handle)
           server.stop(handle)
           server.stop(handle)

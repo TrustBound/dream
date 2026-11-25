@@ -343,10 +343,7 @@ fn with_h2c_server(
     |> server.listen_with_handle(port)
 
   case result {
-    Ok(handle) -> {
-      process.sleep(100)
-      test_fn(handle)
-    }
+    Ok(handle) -> test_fn(handle)
     Error(start_error) ->
       assertion_failed(
         "with_h2c_server",

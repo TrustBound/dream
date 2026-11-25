@@ -61,6 +61,7 @@ Read [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/
 - A unit test has no database, no network and no files. It is fast and deterministic. Put a test that needs a real service in `test/integration/`, and make it clean up.
 - Each test makes its own request and its own services. Do not share state between tests through a database row or a file.
 - Stop every server that a test starts with `listen_with_handle`, also when an assertion fails. Do not call `listen` in a test: it never returns.
+- Never sleep to wait for a result. Wait for a message, a monitor, or a call with a timeout. See [Sleep in a test](https://hexdocs.pm/dream/3.0.0/guides/beam.html#sleep-in-a-test) in the BEAM guide.
 
 <!-- Your project: your coverage target, your fixtures, how to start the test database, and which tests need a real service. -->
 

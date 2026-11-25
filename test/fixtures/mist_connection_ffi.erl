@@ -133,12 +133,20 @@ socket_pair(Family, Address) ->
     {Listen, Client, Server}.
 
 %% Mist tells ChunkProcess when a chunked response starts and stops. The
-%% tests do not read these messages, so a short-lived process takes them.
+%% tests do not read these messages, so a sink process takes them. The sink
+%% stops when the process that made the connection stops.
 connection(Data, Socket, FactoryName) ->
-    Sink = spawn(fun() -> timer:sleep(5000) end),
+    Owner = self(),
+    Sink = spawn(fun() -> sink(erlang:monitor(process, Owner)) end),
     ChunkProcess = {subject, Sink, make_ref()},
     {connection, {initial, Data}, Socket, tcp, FactoryName, ?READ_TIMEOUT_MS,
      ChunkProcess}.
+
+sink(Monitor) ->
+    receive
+        {'DOWN', Monitor, process, _Owner, _Reason} -> ok;
+        _Message -> sink(Monitor)
+    end.
 
 unregistered_name() ->
     list_to_atom("dream_test_factory_" ++

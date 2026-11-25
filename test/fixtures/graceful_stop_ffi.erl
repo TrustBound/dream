@@ -1,6 +1,7 @@
 -module(graceful_stop_ffi).
 -behaviour(gen_event).
 -export([server_pid/1, request/3, open_idle/2, closed_within/2, connect/1, now_ms/0,
+         await_drain/1,
          start_signal_manager/1, stop_signal_manager/1, notify/2]).
 -export([init/1, handle_event/2, handle_call/2, terminate/2]).
 
@@ -69,6 +70,20 @@ connect(Port) ->
             <<"connected">>;
         {error, Reason} ->
             atom_to_binary(Reason)
+    end.
+
+%% True when the server asks the connection of the calling process to drain
+%% within Timeout milliseconds. A controller runs in the process of its
+%% connection, and mist drains a connection with the message {mist_drain}.
+%% The message goes back to the mailbox, so mist still sees it after the
+%% response and closes the connection.
+await_drain(Timeout) ->
+    receive
+        {mist_drain} ->
+            self() ! {mist_drain},
+            true
+    after Timeout ->
+        false
     end.
 
 %% The supervisor pid in a dream ServerHandle, which is opaque to a test.
