@@ -59,6 +59,11 @@ curl -i -X POST http://localhost:3002/users \
 echo
 curl -i http://localhost:3002/health
 echo
+# The email of Grace is taken
+curl -i -X POST http://localhost:3002/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Grace Again","email":"grace@example.com"}'
+echo
 
 # The files of the app, as docs/guides/database-api.md lists them
 cd "$EXAMPLE"

@@ -98,6 +98,32 @@ Feature: Database Example
             """
         Then the response status should be 400
 
+    Scenario: POST users with an email that is taken returns 409
+        Given I send a POST request to "/users" with the following JSON:
+            """
+            {"name":"Test User","email":"taken@example.com"}
+            """
+        When I send a POST request to "/users" with the following JSON:
+            """
+            {"name":"Other User","email":"taken@example.com"}
+            """
+        Then the response status should be 409
+        And the JSON response should contain field "error" with value "Email already taken"
+
+    Scenario: PUT user with an email that is taken returns 409
+        Given I send a POST request to "/users" with the following JSON:
+            """
+            {"name":"Test User","email":"taken@example.com"}
+            """
+        And I send a POST request to "/users" with a unique email
+        And I capture the user ID from the response
+        When I send a PUT request to "/users/<captured_id>" with the following JSON:
+            """
+            {"name":"Other User","email":"taken@example.com"}
+            """
+        Then the response status should be 409
+        And the JSON response should contain field "error" with value "Email already taken"
+
     Scenario: PUT non-existent user returns 404
         When I send a PUT request to "/users/999" with the following JSON:
             """

@@ -1,14 +1,14 @@
 //// Posts Controller
 ////
-//// Demonstrates CRUD operations for posts with user relationships using type-safe Squirrel queries
+//// Demonstrates CRUD operations for posts with user relationships using the model that dream_model generates
 //// Handles HTTP concerns: parsing, error mapping, response building.
 
 import context.{type DatabaseContext}
 import dream/http.{type Request, type Response, require_int, require_json}
 import dream/http/response.{json_response}
 import dream/http/status
+import gleam/dynamic/decode
 import gleam/result
-import models/post
 import operations/post_operations
 import services.{type Services}
 import utilities/response_helpers
@@ -58,7 +58,7 @@ pub fn create(
 ) -> Response {
   let result = {
     use user_id <- result.try(require_int(request, "user_id"))
-    use #(title, content) <- result.try(require_json(request, post.decoder()))
+    use #(title, content) <- result.try(require_json(request, post_decoder()))
     let db = services.database.connection
     post_operations.create_post(db, user_id, title, content)
   }
@@ -67,4 +67,11 @@ pub fn create(
     Ok(post_data) -> json_response(status.created, post_view.to_json(post_data))
     Error(err) -> response_helpers.handle_error(err)
   }
+}
+
+/// Decoder for post create requests
+fn post_decoder() -> decode.Decoder(#(String, String)) {
+  use title <- decode.field("title", decode.string)
+  use content <- decode.field("content", decode.string)
+  decode.success(#(title, content))
 }

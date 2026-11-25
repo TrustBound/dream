@@ -6,8 +6,7 @@
 import dream_json/json_encoders as encoders
 import gleam/json
 import gleam/list
-import gleam/option
-import types/post.{type Post}
+import models/post.{type Post}
 
 /// Format single post as JSON string
 pub fn to_json(post: Post) -> String {
@@ -30,7 +29,7 @@ fn to_json_object(post: Post) -> json.Json {
     #("user_id", json.int(post.user_id)),
     #("title", json.string(post.title)),
     #("content", encoders.optional_string(post.content)),
-    #("created_at", encoders.timestamp(option.Some(post.created_at))),
+    #("created_at", encoders.timestamp(post.created_at)),
   ])
 }
 

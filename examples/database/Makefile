@@ -1,7 +1,7 @@
 # Docker Compose database connection URL
 DATABASE_URL = postgres://postgres:postgres@localhost:5435/dream_example_database_db
 
-.PHONY: run test test-integration clean db-up db-down db-logs db-shell db-reset migrate migrate-up migrate-down migrate-new squirrel
+.PHONY: run test test-integration clean db-up db-down db-logs db-shell db-reset migrate migrate-up migrate-down migrate-new models
 
 run:
 	@gleam run -m main
@@ -51,8 +51,8 @@ test-integration:
 	echo "Building Gleam application..."; \
 	rm -rf build/dev build/prod; \
 	output=$$(gleam build 2>&1) || { echo "$$output"; exit 1; }; \
-	echo "Checking that src/sql.gleam is the code that dream_sql_generator generates..."; \
-	sh test/integration/sql.sh || exit 1; \
+	echo "Checking that the models are the code that dream_model generates..."; \
+	sh test/integration/models.sh || exit 1; \
 	echo "Starting server in background..."; \
 	../../integration/run-scenarios.sh database 3002 main http1; \
 	FIRST_EXIT=$$?; \
@@ -108,6 +108,6 @@ migrate-down:
 migrate-new:
 	@gleam run -m cigogne new --name $(name)
 
-# Generate src/sql.gleam from the queries in src/sql/ with dream_sql_generator
-squirrel:
-	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m dream_sql_generator
+# Generate the model modules from the queries in src/models/ with dream_model
+models:
+	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m dream_model

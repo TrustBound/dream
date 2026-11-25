@@ -1,7 +1,2 @@
--- Delete a user
+-- returns: none
 DELETE FROM users WHERE id = $1
-
-
-
-
-

@@ -10,8 +10,11 @@ pub type Services {
 }
 
 /// Initialize all services
-/// Uses assert to panic if initialization fails - adjust for production use
+/// Panics with the error message if initialization fails, for example when
+/// the schema changed after dream_model generated the models
 pub fn initialize_services() -> Services {
-  let assert Ok(database_service) = database.init_database()
-  Services(database: database_service)
+  case database.init_database() {
+    Ok(database_service) -> Services(database: database_service)
+    Error(message) -> panic as message
+  }
 }

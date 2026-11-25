@@ -6,8 +6,7 @@
 import dream_json/json_encoders as encoders
 import gleam/json
 import gleam/list
-import gleam/option
-import types/user.{type User}
+import models/user.{type User}
 
 /// Format single user as JSON string
 pub fn to_json(user: User) -> String {
@@ -29,7 +28,7 @@ fn to_json_object(user: User) -> json.Json {
     #("id", json.int(user.id)),
     #("name", json.string(user.name)),
     #("email", json.string(user.email)),
-    #("created_at", encoders.timestamp(option.Some(user.created_at))),
+    #("created_at", encoders.timestamp(user.created_at)),
   ])
 }
 

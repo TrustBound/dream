@@ -41,6 +41,13 @@ date: (the time of the request)
 connection: keep-alive
 
 {"status": "healthy"}
+HTTP/1.1 409 Conflict
+content-type: application/json; charset=utf-8
+content-length: 32
+date: (the time of the request)
+connection: keep-alive
+
+{"error": "Email already taken"}
 src/context.gleam
 src/context_helpers.gleam
 src/controllers/health_controller.gleam
@@ -54,10 +61,7 @@ src/operations/post_operations.gleam
 src/operations/user_operations.gleam
 src/router.gleam
 src/services.gleam
-src/sql.gleam
 src/types/errors.gleam
-src/types/post.gleam
-src/types/user.gleam
 src/utilities/response_helpers.gleam
 src/views/errors.gleam
 src/views/post_view.gleam

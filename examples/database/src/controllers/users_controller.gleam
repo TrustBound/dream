@@ -1,14 +1,14 @@
 //// Users Controller
 ////
-//// Demonstrates CRUD operations for users using type-safe Squirrel queries
+//// Demonstrates CRUD operations for users using the model that dream_model generates
 //// Handles HTTP concerns: parsing, error mapping, response building.
 
 import context.{type DatabaseContext}
 import dream/http.{type Request, type Response, require_int, require_json}
 import dream/http/response.{json_response}
 import dream/http/status
+import gleam/dynamic/decode
 import gleam/result
-import models/user
 import operations/user_operations
 import services.{type Services}
 import utilities/response_helpers
@@ -56,7 +56,7 @@ pub fn create(
   services: Services,
 ) -> Response {
   let result = {
-    use #(name, email) <- result.try(require_json(request, user.decoder()))
+    use #(name, email) <- result.try(require_json(request, user_decoder()))
     let db = services.database.connection
     user_operations.create_user(db, name, email)
   }
@@ -75,7 +75,7 @@ pub fn update(
 ) -> Response {
   let result = {
     use id <- result.try(require_int(request, "id"))
-    use #(name, email) <- result.try(require_json(request, user.decoder()))
+    use #(name, email) <- result.try(require_json(request, user_decoder()))
     let db = services.database.connection
     user_operations.update_user(db, id, name, email)
   }
@@ -102,4 +102,11 @@ pub fn delete(
     Ok(_) -> json_response(status.ok, "{\"message\": \"User deleted\"}")
     Error(err) -> response_helpers.handle_error(err)
   }
+}
+
+/// Decoder for user create/update requests
+fn user_decoder() -> decode.Decoder(#(String, String)) {
+  use name <- decode.field("name", decode.string)
+  use email <- decode.field("email", decode.string)
+  decode.success(#(name, email))
 }
