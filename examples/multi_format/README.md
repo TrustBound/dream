@@ -151,7 +151,7 @@ src/views/products/view.gleam
 
 At start-up, the app runs `client.check_schema` through `check_schema_waiting_for_database` in `src/database.gleam`. The check queries the database.
 
-- When PostgreSQL cannot be reached, the app prints one line for each attempt, such as `Waiting for the database (attempt 3 of 15): ...`. It runs the check again every 2 seconds, at most 15 times. Each failed attempt also takes 2 to 3 seconds, the time that the pool waits for a connection. When the last attempt fails, the app prints one message (from `client.format_schema_check_error`) and stops with exit status 1.
+- When PostgreSQL cannot be reached, the app prints one line for each attempt, such as `Waiting for the database (6s of 30s): ...`. It runs the check again every 2 seconds, for at most 30 seconds. When the database is still down after 30 seconds, the app prints one message (from `client.format_schema_check_error`) and stops with exit status 1.
 - When the schema changed after `make models`, the app prints that message and stops with exit status 1 at once. Another database error, such as a missing table, also stops the app at once.
 
 Start the database first. After a schema change, run `make migrate` and `make models`. `make test` proves both cases with `integration/startup-check.sh` of the repository: it stops the postgres container and starts the app, and it changes a column of the test database.

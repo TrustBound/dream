@@ -594,7 +594,7 @@ dream_model = ">= 1.0.0 and < 2.0.0"
   )
 ```
 
-The app stops with a message that names each changed table. Run `gleam run -m dream_model` again after a migration. `check_schema_waiting_for_database` is a small function of the example. It runs `client.check_schema` again every 2 seconds, at most 15 times, while the error is `SchemaUnreadable` with `dream_postgres_client.ConnectionUnavailable`. Thus the app waits for a database that starts at the same time. Each other error stops the app at once. In CI, `gleam run -m dream_model -- --check` fails when a generated module is out of date.
+The app stops with a message that names each changed table. Run `gleam run -m dream_model` again after a migration. `check_schema_waiting_for_database` is a small function of the example. It runs `client.check_schema` again every 2 seconds, for at most 30 seconds, while the error is `SchemaUnreadable` with `dream_postgres_client.ConnectionUnavailable`. Thus the app waits for a database that starts at the same time. Each other error stops the app at once. In CI, `gleam run -m dream_model -- --check` fails when a generated module is out of date.
 
 ### From Squirrel to dream_model
 

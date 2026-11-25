@@ -14,9 +14,9 @@
 # with no server of the example running. It runs "gleam run -m main" two
 # times:
 #
-# 1. With the postgres container stopped. The app must print "Waiting for
-#    the database" lines. Then the script starts the container, and the
-#    app must start and answer on PORT.
+# 1. With the postgres container stopped. The app must print two
+#    "Waiting for the database (Ns of 30s)" lines. Then the script starts
+#    the container, and the app must start and answer on PORT.
 # 2. With COLUMN of TABLE changed to allow NULL. The app must stop with
 #    exit status 1 and the message of a changed schema, and it must print
 #    no "Waiting for the database" line. Then the script sets the column
@@ -78,8 +78,15 @@ echo "=== Start-up: the app waits for the database ==="
 docker-compose stop postgres > /dev/null 2>&1 || fail "Cannot stop the postgres container"
 started=$(date +%s)
 "$SERVER" start "$PIDFILE" "$LOG" "$PORT" gleam run -m main || exit 1
-wait_for_log "Waiting for the database (attempt 2 of 15)" 30 \
-  || fail "The app did not wait for the database"
+waited=0
+for _ in $(seq 1 30); do
+  if [ "$(grep -c 'Waiting for the database (.*s of 30s)' "$LOG" 2>/dev/null)" -ge 2 ]; then
+    waited=1
+    break
+  fi
+  sleep 1
+done
+[ "$waited" -eq 1 ] || fail "The app did not wait for the database"
 docker-compose start postgres > /dev/null 2>&1 || fail "Cannot start the postgres container"
 answered=0
 for _ in $(seq 1 40); do

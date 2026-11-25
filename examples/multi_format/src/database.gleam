@@ -46,52 +46,63 @@ pub fn init_database() -> Result(DatabaseService, String) {
   Ok(DatabaseService(connection: connection))
 }
 
-/// How many times the app runs the schema check while the database cannot
-/// be reached. With `schema_check_delay_ms`, the app waits 28 seconds in all
-/// between the attempts. Each failed check also takes 2 to 3 seconds, the
-/// time that the pool waits for a connection.
-const schema_check_attempts = 15
+/// How long the app runs the schema check again while the database cannot
+/// be reached, in milliseconds. The last check can start just before this
+/// deadline, and a failed check takes 2 to 3 seconds, the time that the
+/// pool waits for a connection.
+const schema_check_deadline_ms = 30_000
 
 /// The time between two schema checks, in milliseconds
 const schema_check_delay_ms = 2000
 
 /// Runs `client.check_schema`, and waits for a database that cannot be
 /// reached yet. When the pool has no connection, it prints one line, waits
-/// `schema_check_delay_ms` and runs the check again, at most
-/// `schema_check_attempts` times. A changed schema and the other database
-/// errors give the error at once.
+/// `schema_check_delay_ms` and runs the check again, until
+/// `schema_check_deadline_ms` passed since the first check. A changed
+/// schema and the other database errors give the error at once.
 pub fn check_schema_waiting_for_database(
   connection: dream_postgres_client.Connection,
   expected: List(client.SchemaFingerprint),
 ) -> Result(Nil, client.SchemaCheckError) {
-  check_schema_attempt(connection, expected, 1)
+  check_schema_until(connection, expected, monotonic_time(Millisecond))
 }
 
-fn check_schema_attempt(
+fn check_schema_until(
   connection: dream_postgres_client.Connection,
   expected: List(client.SchemaFingerprint),
-  attempt: Int,
+  started_ms: Int,
 ) -> Result(Nil, client.SchemaCheckError) {
-  case client.check_schema(connection, expected) {
+  let result = client.check_schema(connection, expected)
+  let elapsed_ms = monotonic_time(Millisecond) - started_ms
+  case result {
     Error(
       client.SchemaUnreadable(
         error: dream_postgres_client.ConnectionUnavailable,
         ..,
       ) as error,
     )
-      if attempt < schema_check_attempts
+      if elapsed_ms + schema_check_delay_ms < schema_check_deadline_ms
     -> {
       io.println_error(
-        "Waiting for the database (attempt "
-        <> int.to_string(attempt)
-        <> " of "
-        <> int.to_string(schema_check_attempts)
-        <> "): "
+        "Waiting for the database ("
+        <> int.to_string(elapsed_ms / 1000)
+        <> "s of "
+        <> int.to_string(schema_check_deadline_ms / 1000)
+        <> "s): "
         <> client.format_schema_check_error(error),
       )
       process.sleep(schema_check_delay_ms)
-      check_schema_attempt(connection, expected, attempt + 1)
+      check_schema_until(connection, expected, started_ms)
     }
-    result -> result
+    _ -> result
   }
 }
+
+/// The unit of `monotonic_time`. Erlang reads it as the atom `millisecond`.
+type TimeUnit {
+  Millisecond
+}
+
+/// The time of a clock that never goes back, for durations
+@external(erlang, "erlang", "monotonic_time")
+fn monotonic_time(unit: TimeUnit) -> Int

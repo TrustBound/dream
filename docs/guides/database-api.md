@@ -346,7 +346,7 @@ First, create `src/database.gleam`. It starts the connection pool, then
 checks that the schema is still the one that dream_model generated the
 models from:
 
-### Starting the connection pool <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/database.gleam#L9-L104"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Starting the connection pool <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/database.gleam#L9-L115"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_postgres/client
@@ -396,55 +396,66 @@ pub fn init_database() -> Result(DatabaseService, String) {
   Ok(DatabaseService(connection: connection))
 }
 
-/// How many times the app runs the schema check while the database cannot
-/// be reached. With `schema_check_delay_ms`, the app waits 28 seconds in all
-/// between the attempts. Each failed check also takes 2 to 3 seconds, the
-/// time that the pool waits for a connection.
-const schema_check_attempts = 15
+/// How long the app runs the schema check again while the database cannot
+/// be reached, in milliseconds. The last check can start just before this
+/// deadline, and a failed check takes 2 to 3 seconds, the time that the
+/// pool waits for a connection.
+const schema_check_deadline_ms = 30_000
 
 /// The time between two schema checks, in milliseconds
 const schema_check_delay_ms = 2000
 
 /// Runs `client.check_schema`, and waits for a database that cannot be
 /// reached yet. When the pool has no connection, it prints one line, waits
-/// `schema_check_delay_ms` and runs the check again, at most
-/// `schema_check_attempts` times. A changed schema and the other database
-/// errors give the error at once.
+/// `schema_check_delay_ms` and runs the check again, until
+/// `schema_check_deadline_ms` passed since the first check. A changed
+/// schema and the other database errors give the error at once.
 pub fn check_schema_waiting_for_database(
   connection: dream_postgres_client.Connection,
   expected: List(client.SchemaFingerprint),
 ) -> Result(Nil, client.SchemaCheckError) {
-  check_schema_attempt(connection, expected, 1)
+  check_schema_until(connection, expected, monotonic_time(Millisecond))
 }
 
-fn check_schema_attempt(
+fn check_schema_until(
   connection: dream_postgres_client.Connection,
   expected: List(client.SchemaFingerprint),
-  attempt: Int,
+  started_ms: Int,
 ) -> Result(Nil, client.SchemaCheckError) {
-  case client.check_schema(connection, expected) {
+  let result = client.check_schema(connection, expected)
+  let elapsed_ms = monotonic_time(Millisecond) - started_ms
+  case result {
     Error(
       client.SchemaUnreadable(
         error: dream_postgres_client.ConnectionUnavailable,
         ..,
       ) as error,
     )
-      if attempt < schema_check_attempts
+      if elapsed_ms + schema_check_delay_ms < schema_check_deadline_ms
     -> {
       io.println_error(
-        "Waiting for the database (attempt "
-        <> int.to_string(attempt)
-        <> " of "
-        <> int.to_string(schema_check_attempts)
-        <> "): "
+        "Waiting for the database ("
+        <> int.to_string(elapsed_ms / 1000)
+        <> "s of "
+        <> int.to_string(schema_check_deadline_ms / 1000)
+        <> "s): "
         <> client.format_schema_check_error(error),
       )
       process.sleep(schema_check_delay_ms)
-      check_schema_attempt(connection, expected, attempt + 1)
+      check_schema_until(connection, expected, started_ms)
     }
-    result -> result
+    _ -> result
   }
 }
+
+/// The unit of `monotonic_time`. Erlang reads it as the atom `millisecond`.
+type TimeUnit {
+  Millisecond
+}
+
+/// The time of a clock that never goes back, for durations
+@external(erlang, "erlang", "monotonic_time")
+fn monotonic_time(unit: TimeUnit) -> Int
 ```
 
 Then create `src/services.gleam`. It holds the database service:
@@ -511,11 +522,12 @@ pub const context = DatabaseContext(request_id: "")
    gives the database time to start. When the pool has no connection,
    `check_schema` gives `SchemaUnreadable` with
    `dream_postgres_client.ConnectionUnavailable`. The function then prints
-   one line, such as `Waiting for the database (attempt 3 of 15): ...`,
-   waits 2 seconds, and runs the check again, at most 15 times. A changed
+   one line, such as `Waiting for the database (6s of 30s): ...`, waits
+   2 seconds, and runs the check again, for at most 30 seconds. It reads
+   the time from the monotonic clock of Erlang. A changed
    schema and the other database errors stop the app at once. The two
-   constants `schema_check_attempts` and `schema_check_delay_ms` set the
-   number of attempts and the wait.
+   constants `schema_check_deadline_ms` and `schema_check_delay_ms` set the
+   deadline and the wait.
 4. `initialize_services()` runs once when the server starts. If the
    database cannot be reached after the last attempt, or the schema
    changed, `stop` prints the message of
@@ -1631,7 +1643,7 @@ For the code that talks to PostgreSQL, test through HTTP against a real database
 ## Common pitfalls
 
 - **A generated model is out of date.** dream_model generates each model from its `.sql` files and the live schema. After you change a query or a migration, run `make migrate` and then `make models`. The app stops at start-up when the schema changed after the generation, and the example's integration run fails when a model isn't what `gleam run -m dream_model -- --check` expects.
-- **The app stops at start with a database error.** The schema check runs a query at start-up, so the app needs the database. When the pool has no connection, the app prints one line for each attempt, such as `Waiting for the database (attempt 3 of 15): The schema fingerprint query of models/user failed: ConnectionUnavailable`, and runs the check again 2 seconds later. It tries 15 times. Each failed attempt also takes 2 to 3 seconds, the time that the pool waits for a connection. So a database that starts at the same time as the app, for example in Docker Compose, does not stop the app. When the database is still down after the last attempt, the app prints one message and stops with exit status 1. A changed schema, or another database error such as a missing table, stops the app at once, with no wait. Start PostgreSQL first, or run `make migrate` and `make models` after a schema change. In production, let your supervisor or orchestrator restart the app, and keep the health check.
+- **The app stops at start with a database error.** The schema check runs a query at start-up, so the app needs the database. When the pool has no connection, the app prints one line for each attempt, such as `Waiting for the database (6s of 30s): The schema fingerprint query of models/user failed: ConnectionUnavailable`, and runs the check again 2 seconds later. It stops trying 30 seconds after the first check. So a database that starts at the same time as the app, for example in Docker Compose, does not stop the app. When the database is still down after 30 seconds, the app prints one message and stops with exit status 1. A changed schema, or another database error such as a missing table, stops the app at once, with no wait. Start PostgreSQL first, or run `make migrate` and `make models` after a schema change. In production, let your supervisor or orchestrator restart the app, and keep the health check.
 - **One type, other columns.** Every query that returns one type must give the same columns, in the same order, with the same types. Otherwise dream_model stops with the first difference. A query with other columns, such as a count, needs another `returns:` hint, for example `-- returns: one` for one column.
 - **A side effect's result thrown away.** `let _ = search.index(post)` hides a failure. Return a `Result` from every step of an operation and chain them with `use`.
 - **Port 5432 is taken.** The example maps PostgreSQL to port 5435 on your machine, so it doesn't collide with a local PostgreSQL.
