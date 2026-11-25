@@ -24,6 +24,10 @@ test-integration:
 	@echo "Building Gleam application..."
 	@rm -rf build/dev build/prod
 	@output=$$(make build 2>&1) || { echo "$$output"; exit 1; }
+	@if [ -z "$$CI" ]; then \
+		export DATABASE_URL="$(DATABASE_URL)"; \
+		../../integration/startup-check.sh 3000 tasks_db tasks title; \
+	fi
 	@echo "Starting server in background..."
 	@export DATABASE_URL="$(DATABASE_URL)"; \
 	../../integration/run-scenarios.sh tasks 3000 main http1; \

@@ -51,6 +51,9 @@ test-integration:
 	output=$$(gleam build 2>&1) || { echo "$$output"; exit 1; }; \
 	echo "Checking that the models are the code that dream_model generates..."; \
 	sh test/integration/models.sh || exit 1; \
+	if [ -z "$$CI" ]; then \
+		../../integration/startup-check.sh 3000 dream_example_multi_format_db products name || exit 1; \
+	fi; \
 	echo "Starting server in background..."; \
 	../../integration/run-scenarios.sh multi_format 3000 main http1; \
 	FIRST_EXIT=$$?; \

@@ -580,13 +580,13 @@ dream_model = ">= 1.0.0 and < 2.0.0"
 4. Run `gleam run -m dream_model`. It writes `src/models/user.gleam`. Delete the `sql.gleam` of Squirrel and the functions that converted its rows.
 5. Give the `schema_fingerprint` of each generated module to `client.check_schema` when the app starts.
 
-### Check the schema at start-up <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/database.gleam#L42-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Check the schema at start-up <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/database.gleam#L44-L52"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-  // Stop with a clear message when the schema changed after dream_model
-  // generated the models
+  // Wait for the database, then stop with a clear message when the schema
+  // changed after dream_model generated the models
   use Nil <- result.try(
-    client.check_schema(connection, [
+    check_schema_waiting_for_database(connection, [
       user.schema_fingerprint,
       post.schema_fingerprint,
     ])
@@ -594,7 +594,7 @@ dream_model = ">= 1.0.0 and < 2.0.0"
   )
 ```
 
-The app stops with a message that names each changed table. Run `gleam run -m dream_model` again after a migration. In CI, `gleam run -m dream_model -- --check` fails when a generated module is out of date.
+The app stops with a message that names each changed table. Run `gleam run -m dream_model` again after a migration. `check_schema_waiting_for_database` is a small function of the example. It runs `client.check_schema` again every 2 seconds, at most 15 times, while the error is `SchemaUnreadable` with `dream_postgres_client.ConnectionUnavailable`. Thus the app waits for a database that starts at the same time. Each other error stops the app at once. In CI, `gleam run -m dream_model -- --check` fails when a generated module is out of date.
 
 ### From Squirrel to dream_model
 

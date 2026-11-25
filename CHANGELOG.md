@@ -214,6 +214,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   models. When the database cannot be reached, or the schema changed after
   `make models`, the app prints one message and stops with exit status 1.
   Before, it started and answered `500` until the database was back.
+- The `database`, `multi_format` and `tasks` examples wait for the
+  database at start-up. When the pool has no connection, the app prints
+  `Waiting for the database (attempt N of 15): ...` and runs the schema
+  check again every 2 seconds, at most 15 times. A changed schema and the
+  other database errors still stop the app at once. `make test` of each
+  example proves both cases with `integration/startup-check.sh`.
 
 ### Fixed
 
