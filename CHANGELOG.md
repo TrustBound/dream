@@ -247,6 +247,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   resolved versions against the Hex API with no key. The script now
   downloads the packages on the host and builds the image with no network.
 - `make test-docker` removes the images that it builds. Each run used to leave two images named after its temporary folder.
+- The `database`, `tasks` and `multi_format` examples answer `Unauthorized`, `Forbidden` and `UnprocessableContent` with `401`, `403` and `422`, not `400`.
 
 ### Testing
 

@@ -26,6 +26,30 @@ pub fn bad_request() -> Response {
   html_response(status.bad_request, "<h1>400 Bad Request</h1>")
 }
 
+/// 401 Unauthorized response
+pub fn unauthorized(message: String) -> Response {
+  html_response(
+    status.unauthorized,
+    "<h1>401 Unauthorized</h1><p>" <> message <> "</p>",
+  )
+}
+
+/// 403 Forbidden response
+pub fn forbidden(message: String) -> Response {
+  html_response(
+    status.forbidden,
+    "<h1>403 Forbidden</h1><p>" <> message <> "</p>",
+  )
+}
+
+/// 422 Unprocessable Content response
+pub fn unprocessable_content(message: String) -> Response {
+  html_response(
+    status.unprocessable_content,
+    "<h1>422 Unprocessable Content</h1><p>" <> message <> "</p>",
+  )
+}
+
 /// 409 Conflict response
 pub fn conflict(message: String) -> Response {
   html_response(

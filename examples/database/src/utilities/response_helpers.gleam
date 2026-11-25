@@ -10,11 +10,11 @@ import views/errors
 pub fn handle_error(err: Error) -> Response {
   case err {
     error.BadRequest(msg) -> errors.bad_request(msg)
-    error.Unauthorized(_msg) -> errors.bad_request("Unauthorized")
-    error.Forbidden(_msg) -> errors.bad_request("Forbidden")
+    error.Unauthorized(msg) -> errors.unauthorized(msg)
+    error.Forbidden(msg) -> errors.forbidden(msg)
     error.NotFound(msg) -> errors.not_found(msg)
     error.Conflict(msg) -> errors.conflict(msg)
-    error.UnprocessableContent(msg) -> errors.bad_request(msg)
+    error.UnprocessableContent(msg) -> errors.unprocessable_content(msg)
     error.InternalServerError(_msg) -> errors.internal_error()
   }
 }
