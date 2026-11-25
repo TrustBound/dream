@@ -13,9 +13,9 @@ import dream/http/status
 import gleam/option
 import gleam/result
 import gleam/string
+import models/product.{type Product}
 import operations/product_operations
 import services.{type Services}
-import types/product.{type Product}
 import utilities/response_helpers
 import views/products/view as product_view
 

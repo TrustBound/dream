@@ -94,14 +94,12 @@ src/controllers/products_controller.gleam
 src/database.gleam
 src/main.gleam
 src/models/product.gleam
+src/models/product/get.sql
+src/models/product/list.sql
 src/operations/product_operations.gleam
 src/router.gleam
 src/services.gleam
-src/sql.gleam
-src/sql/get_product.sql
-src/sql/list_products.sql
 src/types/errors.gleam
-src/types/product.gleam
 src/utilities/response_helpers.gleam
 src/views/errors.gleam
 src/views/products/templates/card.gleam

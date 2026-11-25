@@ -4,9 +4,9 @@ import gleam/string_tree.{type StringTree}
 
 import gleam/float
 import gleam/int
-import sql.{type GetProductRow}
+import models/product.{type Product}
 
-pub fn render_tree(product product: GetProductRow) -> StringTree {
+pub fn render_tree(product product: Product) -> StringTree {
   let tree = string_tree.from_string("")
   let tree =
     string_tree.append(
@@ -49,6 +49,6 @@ pub fn render_tree(product product: GetProductRow) -> StringTree {
   tree
 }
 
-pub fn render(product product: GetProductRow) -> String {
+pub fn render(product product: Product) -> String {
   string_tree.to_string(render_tree(product: product))
 }

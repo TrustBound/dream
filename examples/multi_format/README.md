@@ -8,7 +8,7 @@ Demonstrates Dream's elegant pattern for serving the same data in multiple forma
 - **Matcha templates** - Semantic HTML with Pico CSS (classless styling)
 - **Flat controller pattern** - No nested cases, all named helper functions
 - **Streaming responses** - CSV export as a stream of bytes
-- **Type-safe SQL** - `dream_sql_generator` generates the queries
+- **Typed models** - `dream_model` generates the product model from SQL files
 - **Multiple formats per endpoint** - Same controller serves JSON, HTML, HTMX, CSV
 
 ## Running the Example
@@ -30,12 +30,12 @@ make run
 
 Server will start on `http://localhost:3000`.
 
-When you change a query in `src/sql/` or a template, generate the code again. `make squirrel` needs the database:
+When you change a query in `src/models/product/` or a template, generate the code again. `make models` needs the database:
 
-### Generate the SQL code <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/multi_format/test/integration/sql.sh#L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Generate the model <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/multi_format/test/integration/models.sh#L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
-make squirrel
+make models
 ```
 
 ### Compile the templates <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/multi_format/test/templates.sh#L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
@@ -114,7 +114,7 @@ The example has these source files and migrations:
 find src priv -type f | sort
 ```
 
-### The files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/multi_format/test/integration/readme_output.txt#L91-L113"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/multi_format/test/integration/readme_output.txt#L91-L111"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```text
 priv/migrations/20251106170310-create_products.sql
@@ -123,14 +123,12 @@ src/controllers/products_controller.gleam
 src/database.gleam
 src/main.gleam
 src/models/product.gleam
+src/models/product/get.sql
+src/models/product/list.sql
 src/operations/product_operations.gleam
 src/router.gleam
 src/services.gleam
-src/sql.gleam
-src/sql/get_product.sql
-src/sql/list_products.sql
 src/types/errors.gleam
-src/types/product.gleam
 src/utilities/response_helpers.gleam
 src/views/errors.gleam
 src/views/products/templates/card.gleam
@@ -142,7 +140,8 @@ src/views/products/templates/show.matcha
 src/views/products/view.gleam
 ```
 
-- `src/sql/`: the SQL queries. `dream_sql_generator` generates `src/sql.gleam` from them.
+- `src/models/product/`: the SQL queries. `dream_model` generates `src/models/product.gleam` from them. The templates take its `Product` type.
+- `src/database.gleam` starts the pool and calls `client.check_schema` with the fingerprint of the model. The app stops with a clear message when the schema changed after the generation.
 - `src/views/products/templates/`: the Matcha templates (`.matcha`) and the Gleam modules generated from them.
 - `src/views/products/view.gleam`: a product as JSON, HTML, CSV or HTMX partial.
 - `src/controllers/products_controller.gleam`: picks the format from the path extension.

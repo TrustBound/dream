@@ -1,5 +1,4 @@
--- name: list_products
--- List all products
+-- returns: many Product
 SELECT
   id,
   name,
@@ -8,4 +7,3 @@ SELECT
   created_at
 FROM products
 ORDER BY id;
-

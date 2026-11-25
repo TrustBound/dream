@@ -1,5 +1,5 @@
--- name: get_product
--- Get a single product by ID
+-- returns: one Product
+-- not found: Product not found
 SELECT
   id,
   name,
@@ -9,4 +9,3 @@ SELECT
 FROM products
 WHERE id = $1
 LIMIT 1;
-

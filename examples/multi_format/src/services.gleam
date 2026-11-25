@@ -8,7 +8,11 @@ pub type Services {
 }
 
 /// Initialize all services
+/// Panics with the error message if initialization fails, for example when
+/// the schema changed after dream_model generated the models
 pub fn initialize_services() -> Services {
-  let assert Ok(db_service) = database.init_database()
-  Services(database: db_service)
+  case database.init_database() {
+    Ok(db_service) -> Services(database: db_service)
+    Error(message) -> panic as message
+  }
 }

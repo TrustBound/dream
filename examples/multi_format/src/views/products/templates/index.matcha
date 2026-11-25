@@ -1,7 +1,7 @@
-{> import sql.{type ListProductsRow}
+{> import models/product.{type Product}
 {> import gleam/int
 {> import gleam/float
-{> with products as List(ListProductsRow)
+{> with products as List(Product)
 
 <!DOCTYPE html>
 <html lang="en">

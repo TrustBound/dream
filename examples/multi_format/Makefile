@@ -1,7 +1,7 @@
 # Docker Compose database connection URL
 DATABASE_URL = postgres://postgres:postgres@localhost:5435/dream_example_multi_format_db
 
-.PHONY: run test test-integration clean db-up db-down db-logs db-shell db-reset squirrel migrate migrate-up migrate-down migrate-new matcha
+.PHONY: run test test-integration clean db-up db-down db-logs db-shell db-reset models migrate migrate-up migrate-down migrate-new matcha
 
 run:
 	@gleam run -m main
@@ -49,8 +49,8 @@ test-integration:
 	echo "Building Gleam application..."; \
 	rm -rf build/dev build/prod; \
 	output=$$(gleam build 2>&1) || { echo "$$output"; exit 1; }; \
-	echo "Checking that src/sql.gleam is the code that dream_sql_generator generates..."; \
-	sh test/integration/sql.sh || exit 1; \
+	echo "Checking that the models are the code that dream_model generates..."; \
+	sh test/integration/models.sh || exit 1; \
 	echo "Starting server in background..."; \
 	../../integration/run-scenarios.sh multi_format 3000 main http1; \
 	FIRST_EXIT=$$?; \
@@ -93,9 +93,9 @@ db-reset:
 	@echo "Waiting for PostgreSQL to be ready..."
 	@timeout 30 bash -c 'until docker-compose exec -T postgres pg_isready -U postgres; do sleep 1; done' || true
 
-# Generate type-safe SQL code with dream_sql_generator
-squirrel:
-	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m dream_sql_generator
+# Generate the model modules from the queries in src/models/ with dream_model
+models:
+	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m dream_model
 
 # Migration commands using cigogne
 migrate:

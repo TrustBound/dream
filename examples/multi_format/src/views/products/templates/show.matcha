@@ -1,7 +1,7 @@
-{> import sql.{type GetProductRow}
+{> import models/product.{type Product}
 {> import gleam/int
 {> import gleam/float
-{> with product as GetProductRow
+{> with product as Product
 
 <!DOCTYPE html>
 <html lang="en">
