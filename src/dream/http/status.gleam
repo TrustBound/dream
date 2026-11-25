@@ -1,5 +1,7 @@
 //// HTTP status code constants
 ////
+//// Guide: [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html).
+////
 //// Simple Int constants for common HTTP status codes.
 //// Use these for semantic clarity in your responses instead of magic numbers.
 ////

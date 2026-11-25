@@ -1,5 +1,7 @@
 //// Server-Sent Events support for Dream (Mist server adapter)
 ////
+//// Guide: [Push live updates with server-sent events](https://hexdocs.pm/dream/3.0.0/guides/sse.html).
+////
 //// This module provides Dream's SSE abstraction for the Mist server adapter.
 //// It upgrades an HTTP request to an SSE connection backed by a dedicated OTP
 //// actor with its own mailbox, avoiding the stalling issues of chunked
@@ -199,6 +201,8 @@ pub opaque type Action(state, message) {
 ///   sse.continue_connection(state + 1)
 /// }
 /// ```
+///
+/// Guide: [Push live updates with server-sent events](https://hexdocs.pm/dream/3.0.0/guides/sse.html).
 pub fn upgrade_to_sse(
   request _request: Request,
   dependencies dependencies: deps,

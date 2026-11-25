@@ -94,7 +94,7 @@ pub fn create_custom_server() -> Dream(
 }
 ```
 
-The `dream/dream` module has functions that read the settings of a `Dream` value. A server adapter uses them to start the server: `get_server`, `get_router`, `get_context`, `get_services`, `get_max_body_size`, `get_bind_interface` and `get_tls`. `set_tls` sets the certificate and key files. In your application, use `server.tls()` in place of `set_tls`. Before the server starts, the Mist adapter calls `port_probe.is_in_use` from `dream/servers/mist/port_probe` to check if the port is free. Each function has an example in its doc comment on [HexDocs](https://hexdocs.pm/dream/dream/dream.html).
+The `dream/dream` module has functions that read the settings of a `Dream` value. A server adapter uses them to start the server: `get_server`, `get_router`, `get_context`, `get_services`, `get_max_body_size`, `get_bind_interface` and `get_tls`. `set_tls` sets the certificate and key files. In your application, use `server.tls()` in place of `set_tls`. Before the server starts, the Mist adapter calls `port_probe.is_in_use` from `dream/servers/mist/port_probe` to check if the port is free. Each function has an example in its doc comment on [HexDocs](https://hexdocs.pm/dream/3.0.0/dream/dream.html).
 
 ### 3. Middleware
 
@@ -589,7 +589,7 @@ The BEAM is battle-tested. It scales.
 
 ## Modules Ecosystem
 
-Dream is modular. Core provides routing and HTTP primitives. Additional functionality lives in separate modules that you can use as needed.
+Core provides routing and HTTP primitives. Other packages, such as a database client or an HTTP client, work with Dream. Each one has its own repository, its own version and its own releases, separate from Dream. The [Ecosystem](../index.md#-ecosystem) section of the documentation index lists each package with its current version.
 
 ### Core Module: `dream`
 

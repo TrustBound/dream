@@ -29,7 +29,7 @@ Your app has more than one page now. Some routes take values from the path, some
 
 ## Before you start
 
-Read [Build your first Dream server](https://github.com/TrustBound/dream/blob/main/docs/guides/getting-started.md) first: it explains controllers, the router and the server. You need Dream in your project:
+Read [Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getting-started.html) first: it explains controllers, the router and the server. You need Dream in your project:
 
 ```sh
 gleam add dream
@@ -69,7 +69,7 @@ pub fn create_router() -> Router(EmptyContext, EmptyServices) {
     controller: posts_controller.show,
 ```
 
-The controller reads each value with `http.require_string` (or `require_int` for a number, as [Read request data safely](https://github.com/TrustBound/dream/blob/main/docs/guides/request-data.md) shows). Both return a `Result`, so a missing or wrong value turns into a `400` answer instead of a crash.
+The controller reads each value with `http.require_string` (or `require_int` for a number, as [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html) shows). Both return a `Result`, so a missing or wrong value turns into a `400` answer instead of a crash.
 
 Lookup is fast whatever the number of routes: Dream keeps the routes in a radix trie, so a lookup walks the segments of the path, not the list of routes. In Dream's benchmarks a lookup takes about 1.3 to 1.5 microseconds with 100 or with 1,000 routes.
 
@@ -771,20 +771,20 @@ auth middleware
 Summary: 4 run, 0 failed, 4 passed in 0ms
 ```
 
-[Test your controllers and your app](https://github.com/TrustBound/dream/blob/main/docs/guides/testing.md) shows how to test a middleware alone, with a `next` that records what it got.
+[Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html) shows how to test a middleware alone, with a `next` that records what it got.
 
 ## Common pitfalls
 
 - **The path parameter name in the route and in the controller differ.** The router checks names at run time, not at compile time. If the route says `:user_id` and the controller asks for `"id"`, every request gets `400`. Keep the two in step, and test the route.
 - **Middleware in the wrong order.** A middleware that reads the user must come after the one that sets it. With `[admin_middleware, auth_middleware]`, every admin request gets `401 Unauthorized: Not authenticated`.
-- **Business logic in middleware.** Middleware is for checks that many routes share. Logic that belongs to one action goes in the controller, or in an operation (see [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md)).
+- **Business logic in middleware.** Middleware is for checks that many routes share. Logic that belongs to one action goes in the controller, or in an operation (see [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html)).
 - **Per-request data in services.** Services are shared by every request at the same time. Put the user in the context, never in services.
 - **A `405` where you expected `404`.** A route of another method matches the path, for example a `GET` route of `/users/:id` matches `/users/new`. The `allow` header of the answer names the methods that match.
 
 ## Where to go next
 
-- [Read request data safely](https://github.com/TrustBound/dream/blob/main/docs/guides/request-data.md): path parameters, query strings, JSON and forms.
-- [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md): services with a database pool.
-- [Concepts](https://github.com/TrustBound/dream/blob/main/docs/concepts.md): context, services and middleware explained.
-- [Core patterns](https://github.com/TrustBound/dream/blob/main/docs/concepts/patterns.md): the middleware onion and the other patterns.
-- The API reference of `dream/router` on [HexDocs](https://hexdocs.pm/dream/dream/router.html).
+- [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html): path parameters, query strings, JSON and forms.
+- [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html): services with a database pool.
+- [Concepts](https://github.com/TrustBound/dream/blob/3.0.0/docs/concepts.md): context, services and middleware explained.
+- [Core patterns](https://github.com/TrustBound/dream/blob/3.0.0/docs/concepts/patterns.md): the middleware onion and the other patterns.
+- The API reference of `dream/router` on [HexDocs](https://hexdocs.pm/dream/3.0.0/dream/router.html).

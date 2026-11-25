@@ -1,5 +1,7 @@
 //// HTTP header types and utilities
 ////
+//// Guides: [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html) and [Grow a JSON API](https://hexdocs.pm/dream/3.0.0/guides/api-patterns.html).
+////
 //// Types and functions for working with HTTP headers. Headers can be used
 //// with both requests and responses.
 ////

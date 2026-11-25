@@ -10,9 +10,9 @@
 <div align="center">
   <a href="https://hex.pm/packages/dream"><img src="https://img.shields.io/hexpm/v/dream" alt="Hex Package"></a>
   <a href="https://github.com/TrustBound/dream/releases"><img src="https://img.shields.io/github/v/release/TrustBound/dream?label=Release" alt="Latest Release"></a>
-  <a href="https://hexdocs.pm/dream"><img src="https://img.shields.io/badge/hex-docs-lightgreen.svg" alt="HexDocs"></a>
+  <a href="https://hexdocs.pm/dream/3.0.0/"><img src="https://img.shields.io/badge/hex-docs-lightgreen.svg" alt="HexDocs"></a>
   <a href="https://github.com/TrustBound/dream/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/TrustBound/dream/badges/coverage.json" alt="Coverage"></a>
-  <a href="https://github.com/TrustBound/dream/blob/main/LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
+  <a href="https://github.com/TrustBound/dream/blob/3.0.0/LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
   <a href="https://gleam.run"><img src="https://img.shields.io/badge/gleam-%E2%9C%A8-ffaff3" alt="Gleam"></a>
 </div>
 
@@ -65,7 +65,7 @@ In words:
   Mist-based HTTP server using a builder pattern.
 
 Types are omitted here for brevity – Gleam can infer them.
-[Build your first Dream server](https://github.com/TrustBound/dream/blob/main/docs/guides/getting-started.md)
+[Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getting-started.html)
 walks through a fully-typed version line by line.
 
 Dream also includes **named HTTP status constants** (like `ok`, `not_found`, and `teapot`) so you can avoid magic numbers in responses.
@@ -197,7 +197,7 @@ fn handle_close(_state: Nil, _deps: Dependencies) -> Nil {
 - Use explicit `Dependencies` instead of closures, so it’s clear what
   each handler needs.
 
-See the [guides](https://github.com/TrustBound/dream/blob/main/docs/index.md)
+See the [guides](https://github.com/TrustBound/dream/blob/3.0.0/docs/index.md)
 for complete examples of JSON APIs, streaming, and WebSockets.
 
 ## Why This Approach?
@@ -212,27 +212,29 @@ for complete examples of JSON APIs, streaming, and WebSockets.
 
 ## Guides
 
-- [Build your first Dream server](https://github.com/TrustBound/dream/blob/main/docs/guides/getting-started.md) - From an empty folder to a tested route.
-- [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md) - Path parameters, custom methods, context and middleware.
-- [Read request data safely](https://github.com/TrustBound/dream/blob/main/docs/guides/request-data.md) - Query strings, JSON that reports every error, and forms.
-- [Send responses, cookies and files](https://github.com/TrustBound/dream/blob/main/docs/guides/responses.md) - Redirects, downloads, cookies and static files.
-- [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md) - PostgreSQL with `dream_sql_generator`, migrations and operations.
-- [Grow a JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/api-patterns.md) - Pagination, errors, versioning, filtering and CORS.
-- [Render HTML and other formats](https://github.com/TrustBound/dream/blob/main/docs/guides/templates.md) - Matcha templates, and one route in many formats.
-- [Stream responses and uploads](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) - Streamed downloads and uploads, and a broken upload.
-- [Push live updates with server-sent events](https://github.com/TrustBound/dream/blob/main/docs/guides/sse.md) - Typed SSE actors and a broadcaster.
-- [Build a chat with WebSockets](https://github.com/TrustBound/dream/blob/main/docs/guides/websockets.md) - Typed WebSocket actors and a chat room.
-- [Serve HTTPS and HTTP/2](https://github.com/TrustBound/dream/blob/main/docs/guides/http2.md) - TLS, ALPN and prior knowledge.
-- [Test your controllers and your app](https://github.com/TrustBound/dream/blob/main/docs/guides/testing.md) - Dream Test for controllers, middleware, routes and servers.
-- [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md) - The image, Compose, migrations and health checks.
-- [Start, stop and troubleshoot the server](https://github.com/TrustBound/dream/blob/main/docs/guides/operating.md) - Start errors, body limits and stopping.
+Upgrading from Dream 2? [Upgrade from Dream 2 to 3](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html) gives every change, with the Dream 2 code next to the Dream 3 code.
+
+- [Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getting-started.html) - From an empty folder to a tested route.
+- [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html) - Path parameters, custom methods, context and middleware.
+- [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html) - Query strings, JSON that reports every error, and forms.
+- [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html) - Redirects, downloads, cookies and static files.
+- [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html) - PostgreSQL with `dream_sql_generator`, migrations and operations.
+- [Grow a JSON API](https://hexdocs.pm/dream/3.0.0/guides/api-patterns.html) - Pagination, errors, versioning, filtering and CORS.
+- [Render HTML and other formats](https://hexdocs.pm/dream/3.0.0/guides/templates.html) - Matcha templates, and one route in many formats.
+- [Stream responses and uploads](https://hexdocs.pm/dream/3.0.0/guides/streaming.html) - Streamed downloads and uploads, and a broken upload.
+- [Push live updates with server-sent events](https://hexdocs.pm/dream/3.0.0/guides/sse.html) - Typed SSE actors and a broadcaster.
+- [Build a chat with WebSockets](https://hexdocs.pm/dream/3.0.0/guides/websockets.html) - Typed WebSocket actors and a chat room.
+- [Serve HTTPS and HTTP/2](https://hexdocs.pm/dream/3.0.0/guides/http2.html) - TLS, ALPN and prior knowledge.
+- [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html) - Dream Test for controllers, middleware, routes and servers.
+- [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html) - The image, Compose, migrations and health checks.
+- [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html) - Start errors, body limits and stopping.
 
 ## Learn More
 
-- 📚 [Complete Documentation](https://github.com/TrustBound/dream/blob/main/docs/index.md) - Guides, tutorials, and concepts
-- 📖 [API Reference](https://hexdocs.pm/dream) - Complete API documentation on HexDocs
-- 🚀 [Build your first Dream server](https://github.com/TrustBound/dream/blob/main/docs/guides/getting-started.md) - Get a server running
-- 💡 [Examples](https://github.com/TrustBound/dream/tree/main/examples) - Working code you can run
+- 📚 [Complete Documentation](https://github.com/TrustBound/dream/blob/3.0.0/docs/index.md) - Guides, tutorials, and concepts
+- 📖 [API Reference](https://hexdocs.pm/dream/3.0.0/) - Complete API documentation on HexDocs
+- 🚀 [Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getting-started.html) - Get a server running
+- 💡 [Examples](https://github.com/TrustBound/dream/tree/3.0.0/examples) - Working code you can run
 
 ## Why Gleam? Why the BEAM?
 
@@ -252,7 +254,7 @@ for complete examples of JSON APIs, streaming, and WebSockets.
 
 Gleam gives you the BEAM's superpowers with type safety. You write functions. The BEAM handles concurrency, fault tolerance, and scaling.
 
-[Read more about why Gleam and the BEAM →](https://github.com/TrustBound/dream/blob/main/docs/index.md)
+[Read more about why Gleam and the BEAM →](https://github.com/TrustBound/dream/blob/3.0.0/docs/index.md)
 
 ## Philosophy
 
@@ -274,7 +276,7 @@ You provide:
 
 ## Contributing
 
-See the [Contributing Guide](https://github.com/TrustBound/dream/blob/main/docs/index.md#contributing) for guidelines.
+See the [Contributing Guide](https://github.com/TrustBound/dream/blob/3.0.0/docs/index.md#contributing) for guidelines.
 
 ---
 
@@ -294,7 +296,7 @@ Right now it uses our own builds of both,
 add the HTTP/2 fixes we needed. They use the same module names as mist and
 glisten, so don't add `mist` or `glisten` to a project that uses Dream.
 
-[More about the server packages →](https://github.com/TrustBound/dream/blob/main/docs/contributing/http-server-packages.md)
+[More about the server packages →](https://github.com/TrustBound/dream/blob/3.0.0/docs/contributing/http-server-packages.md)
 
 ---
 

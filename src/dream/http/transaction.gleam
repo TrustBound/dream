@@ -1,5 +1,7 @@
 //// HTTP requests and responses
 ////
+//// Guides: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html) and [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html).
+////
 //// Core HTTP types for Dream applications. For response builders and status codes,
 //// see the `dream/http/response` and `dream/http/status` modules.
 ////

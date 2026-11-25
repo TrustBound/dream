@@ -1,5 +1,7 @@
 //// Dream unified error type
 ////
+//// Guide: [Grow a JSON API](https://hexdocs.pm/dream/3.0.0/guides/api-patterns.html).
+////
 //// A single error type used throughout Dream applications for both
 //// HTTP-level validation errors and domain-level operation errors.
 //// This eliminates the need for error conversion between layers.

@@ -25,7 +25,7 @@ A controller's job ends with a `Response`. Most of the time that's text or JSON,
 
 ## Before you start
 
-Read [Build your first Dream server](https://github.com/TrustBound/dream/blob/main/docs/guides/getting-started.md) first. You need Dream:
+Read [Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getting-started.html) first. You need Dream:
 
 ```sh
 gleam add dream
@@ -45,8 +45,8 @@ Each builder takes the status first. `dream/http/status` has a name for each com
 | A redirect | `redirect_response(status, location)` | A `Location` header and an empty body |
 | No body | `empty_response(status)` | Nothing but the status |
 | Bytes, such as a file or an image | `binary_response(status, bytes, content_type)` | The content type you give |
-| A body made while it's sent | `stream_response(status, yielder, content_type)` | See [Stream responses and uploads](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) |
-| Server-sent events | `sse_response` | See [Push live updates with server-sent events](https://github.com/TrustBound/dream/blob/main/docs/guides/sse.md) |
+| A body made while it's sent | `stream_response(status, yielder, content_type)` | See [Stream responses and uploads](https://hexdocs.pm/dream/3.0.0/guides/streaming.html) |
+| Server-sent events | `sse_response` | See [Push live updates with server-sent events](https://hexdocs.pm/dream/3.0.0/guides/sse.html) |
 | Files from a folder | `static.serve(...)` from `dream/controllers/static` | The content type from the file's extension |
 
 A `Response` is a record with `status`, `body`, `headers`, `cookies` and `content_type`, so you change any part of it with the record update syntax `Response(..response, headers: ...)`.
@@ -520,7 +520,7 @@ Summary: 3 run, 0 failed, 3 passed in 0ms
 
 ## Where to go next
 
-- [Render HTML and other formats](https://github.com/TrustBound/dream/blob/main/docs/guides/templates.md): HTML from templates, and one route that answers JSON, HTML or CSV.
-- [Stream responses and uploads](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md): bodies too big to build at once.
-- [Read request data safely](https://github.com/TrustBound/dream/blob/main/docs/guides/request-data.md).
-- The API reference of `dream/http/response`, `dream/http/cookie` and `dream/controllers/static` on [HexDocs](https://hexdocs.pm/dream/).
+- [Render HTML and other formats](https://hexdocs.pm/dream/3.0.0/guides/templates.html): HTML from templates, and one route that answers JSON, HTML or CSV.
+- [Stream responses and uploads](https://hexdocs.pm/dream/3.0.0/guides/streaming.html): bodies too big to build at once.
+- [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html).
+- The API reference of `dream/http/response`, `dream/http/cookie` and `dream/controllers/static` on [HexDocs](https://hexdocs.pm/dream/3.0.0/).

@@ -1,5 +1,7 @@
 //// Secure static file serving
 ////
+//// Guide: [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html).
+////
 //// Serve files from disk with built-in security. Handles CSS, JavaScript, images,
 //// and any other static assets your application needs.
 ////
@@ -234,6 +236,8 @@ pub fn without_index(
 ///   }
 /// }
 /// ```
+///
+/// Guide: [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html).
 pub fn serve(
   request request: Request,
   context context: context,

@@ -1,5 +1,7 @@
 //// HTTP request types and utilities
 ////
+//// Guides: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html) and [Stream responses and uploads](https://hexdocs.pm/dream/3.0.0/guides/streaming.html).
+////
 //// Core request types and functions for working with HTTP requests in Dream.
 //// Includes request methods, path parameters, query parameters, and request inspection.
 ////
@@ -294,6 +296,8 @@ pub type BodyReadError {
 ///   }
 /// }
 /// ```
+///
+/// Guide: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html).
 pub fn body_as_string(request: Request) -> Result(String, Nil) {
   case request.body {
     Text(text) -> Ok(text)

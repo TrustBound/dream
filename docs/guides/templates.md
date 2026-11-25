@@ -25,7 +25,7 @@ Your app serves pages to browsers and data to scripts, often the same data. You 
 
 ## Before you start
 
-Read [Send responses, cookies and files](https://github.com/TrustBound/dream/blob/main/docs/guides/responses.md) for the response builders. You need Dream, and the `matcha` binary of the [Matcha template compiler](https://github.com/michaeljones/matcha) on your `PATH`. Dream's CI installs version 0.19.0 for Linux with `scripts/install-matcha.sh`, which checks the download against the checksum of the release:
+Read [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html) for the response builders. You need Dream, and the `matcha` binary of the [Matcha template compiler](https://github.com/michaeljones/matcha) on your `PATH`. Dream's CI installs version 0.19.0 for Linux with `scripts/install-matcha.sh`, which checks the download against the checksum of the release:
 
 ### Download, check and unpack matcha <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/install-matcha.sh#L15-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -540,7 +540,7 @@ This layered approach solves real-world problems:
 - **Type safety**: Full Gleam type checking throughout the template pipeline
 - **Maintainability**: Clear separation of concerns makes changes predictable
 
-See [Template Composition](https://github.com/TrustBound/dream/blob/main/docs/guides/templates.md) for a complete guide to this pattern.
+See [Template Composition](https://hexdocs.pm/dream/3.0.0/guides/templates.html) for a complete guide to this pattern.
 
 
 ## Step 4: Pick the format from the request
@@ -718,7 +718,7 @@ To check that the generated template modules match their templates, Dream's CI r
 
 ## Where to go next
 
-- [Send responses, cookies and files](https://github.com/TrustBound/dream/blob/main/docs/guides/responses.md).
-- [Stream responses and uploads](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md): the streamed CSV export of `/products.csv`.
-- [Build a chat with WebSockets](https://github.com/TrustBound/dream/blob/main/docs/guides/websockets.md): Matcha templates in a live app.
+- [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html).
+- [Stream responses and uploads](https://hexdocs.pm/dream/3.0.0/guides/streaming.html): the streamed CSV export of `/products.csv`.
+- [Build a chat with WebSockets](https://hexdocs.pm/dream/3.0.0/guides/websockets.html): Matcha templates in a live app.
 - [Matcha on GitHub](https://github.com/michaeljones/matcha).

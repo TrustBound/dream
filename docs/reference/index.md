@@ -1,6 +1,6 @@
 # Reference
 
-**API Documentation:** [HexDocs](https://hexdocs.pm/dream)
+**API Documentation:** [HexDocs](https://hexdocs.pm/dream/3.0.0/)
 
 ## Understanding Dream
 

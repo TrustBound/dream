@@ -26,7 +26,7 @@ make test-integration
 
 ### Framework
 
-Dream uses [dream_test](https://hexdocs.pm/dream_test/), a BDD-style testing
+Dream uses [dream_test](https://hexdocs.pm/dream_test/3.0.0/), a BDD-style testing
 framework with `describe`/`it` blocks and chainable assertions.
 
 ### Test Location
@@ -635,6 +635,6 @@ lsof -i:3000
 
 ## Resources
 
-- [dream_test documentation](https://hexdocs.pm/dream_test/)
+- [dream_test documentation](https://hexdocs.pm/dream_test/3.0.0/)
 - [Cucumber Elixir](https://hexdocs.pm/cucumber/)
 - [GitHub Actions](https://docs.github.com/en/actions)

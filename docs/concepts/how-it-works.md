@@ -52,7 +52,7 @@ Simple pipeline. No magic.
 
 The HTTP server (Mist) receives the request and passes it to Dream's router.
 
-The Mist adapter does this work for you. `handler.create` in `dream/servers/mist/handler` makes the function that Mist calls for each request. That function calls `convert_metadata` from `dream/servers/mist/request`, which turns the method, path, query, headers and cookies of the Mist request into a Dream `Request` with an empty body. Each function has an example in its doc comment on [HexDocs](https://hexdocs.pm/dream/dream/servers/mist/handler.html#create).
+The Mist adapter does this work for you. `handler.create` in `dream/servers/mist/handler` makes the function that Mist calls for each request. That function calls `convert_metadata` from `dream/servers/mist/request`, which turns the method, path, query, headers and cookies of the Mist request into a Dream `Request` with an empty body. Each function has an example in its doc comment on [HexDocs](https://hexdocs.pm/dream/3.0.0/dream/servers/mist/handler.html#create).
 
 The adapter keeps the Mist request in the process dictionary of the request process, so that `upgrade_websocket` and `upgrade_to_sse` can read it later. The functions `put`, `get`, `to_dynamic` and `unsafe_coerce` in `dream/servers/mist/internal` do this. Your application does not call them.
 
@@ -79,7 +79,7 @@ If the route has middleware, each middleware function runs in order:
 - Can transform streaming responses (egress streaming)
 - Can call `next()` to continue, or return early to short-circuit
 
-`router.build_controller_chain` joins the middleware of the route and the controller into one function. The first middleware in the list is the outermost one. See the example in its doc comment on [HexDocs](https://hexdocs.pm/dream/dream/router.html#build_controller_chain).
+`router.build_controller_chain` joins the middleware of the route and the controller into one function. The first middleware in the list is the outermost one. See the example in its doc comment on [HexDocs](https://hexdocs.pm/dream/3.0.0/dream/router.html#build_controller_chain).
 
 ### 5. Controller Action Executes
 

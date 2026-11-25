@@ -1,5 +1,7 @@
 //// HTTP response types and builders
 ////
+//// Guides: [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html), [Render HTML and other formats](https://hexdocs.pm/dream/3.0.0/guides/templates.html) and [Stream responses and uploads](https://hexdocs.pm/dream/3.0.0/guides/streaming.html).
+////
 //// Core response types and convenient functions for building common HTTP responses.
 //// This module provides builders for text, JSON, HTML, binary, and streaming responses.
 ////
@@ -216,6 +218,8 @@ pub fn json_response(status: Int, body: String) -> Response {
 ///   response.html_response(status.ok, html)
 /// }
 /// ```
+///
+/// Guide: [Render HTML and other formats](https://hexdocs.pm/dream/3.0.0/guides/templates.html).
 pub fn html_response(status: Int, body: String) -> Response {
   Response(
     status: status,
@@ -254,6 +258,8 @@ pub fn html_response(status: Int, body: String) -> Response {
 ///   )
 /// }
 /// ```
+///
+/// Guide: [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html).
 pub fn redirect_response(status: Int, location: String) -> Response {
   Response(
     status: status,
@@ -374,6 +380,8 @@ pub fn binary_response(
 ///   name <> "\n"
 /// }
 /// ```
+///
+/// Guide: [Stream responses and uploads](https://hexdocs.pm/dream/3.0.0/guides/streaming.html).
 pub fn stream_response(
   status: Int,
   stream: yielder.Yielder(BitArray),

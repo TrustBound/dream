@@ -1,5 +1,7 @@
 //// Convenience module for HTTP utilities
 ////
+//// Guides: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html) and [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html).
+////
 //// This module re-exports all HTTP-related types and functions from the
 //// dream/http submodules, allowing you to use a single import in your controllers.
 ////

@@ -1,5 +1,7 @@
 //// Request conversion from Mist to Dream format
 ////
+//// The reference [Dream vs Mist](https://github.com/TrustBound/dream/blob/3.0.0/docs/reference/dream-vs-mist.md) shows what this conversion does for you.
+////
 //// This module provides functions to convert Mist HTTP requests
 //// to Dream request format, including method, header, and cookie conversion.
 ////

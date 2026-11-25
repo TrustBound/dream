@@ -156,6 +156,24 @@ A multi-user chat application that uses WebSockets and a broadcaster service.
 
 ---
 
+### [sse/](../examples/sse/)
+**Live updates with server-sent events.** (Best first server-sent events example.)
+
+Two event streams, one with plain events and one with named events and IDs, from typed SSE actors.
+
+**Demonstrates:**
+- HTTP → SSE upgrade from a Dream controller with `upgrade_to_sse`
+- Typed SSE actor loop (`on_init`, `on_message`)
+- Named events with IDs
+- Middleware headers, such as CORS, on the SSE response
+- End-to-end integration tests using Gherkin/Cucumber
+
+**Run:** `cd examples/sse && make run`
+**Test:** `cd examples/sse && make test-integration`
+**Guide:** [Push live updates with server-sent events](guides/sse.md)
+
+---
+
 ### [rate_limiter/](../examples/rate_limiter/)
 **Global rate limiting with shared state.** (Best first ETS + rate limiting example.)
 
@@ -183,6 +201,23 @@ File serving with security, directory listing, MIME types.
 
 **Run:** `cd examples/static && make run`
 **Test:** Integration tests with security validation
+
+---
+
+### [deployment/](../examples/deployment/)
+**A Dream app in a container.** (Best first Docker deployment example.)
+
+An app that reads its settings from the environment, answers `/health` with the state of its database, and listens on all interfaces. Its `Dockerfile` and `docker-compose.yml` run it with PostgreSQL and its migrations.
+
+**Demonstrates:**
+- Two-stage Docker image: the Gleam image compiles, an Erlang image runs
+- Settings from the environment (`DATABASE_URL`, `PORT`)
+- A health check that the platform uses to restart the app
+- Migrations that run before the app starts
+- A clean stop on `SIGTERM`
+
+**Run and test:** `make test-docker` from the repository root (Docker with Compose v2). It builds the image, starts it with Compose, checks `/health`, and checks that the app stops on `SIGTERM`. The example depends on the Dream of the repository, so the script copies both into one folder first. In your own app, `docker compose up -d --wait app` starts it.
+**Guide:** [Deploy with Docker](guides/deployment.md)
 
 ---
 

@@ -1,5 +1,7 @@
 //// Route configuration and request matching
 ////
+//// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
+////
 //// The router matches incoming requests to controllers based on HTTP method and path patterns.
 //// It uses a radix trie for O(path depth) lookup performance, making it efficient even with
 //// hundreds of routes. The router supports path parameters, wildcards, middleware chains,
@@ -265,6 +267,8 @@ pub type EmptyServices {
 ///   )
 /// }
 /// ```
+///
+/// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
 pub fn router() -> Router(context, services) {
   Router(trie: trie_module.new(), methods: [])
 }
@@ -323,6 +327,8 @@ pub fn router() -> Router(context, services) {
 ///   )
 /// }
 /// ```
+///
+/// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
 pub fn route(
   router_value: Router(context, services),
   method method_value: Method,
@@ -397,6 +403,8 @@ pub fn route(
 /// - Large form submissions
 ///
 /// For regular requests (JSON APIs, forms < 10MB), use `route()` instead.
+///
+/// Guide: [Stream responses and uploads](https://hexdocs.pm/dream/3.0.0/guides/streaming.html).
 pub fn stream_route(
   router_value: Router(context, services),
   method method_value: Method,

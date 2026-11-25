@@ -1,5 +1,7 @@
 //// HTTP cookie types and utilities
 ////
+//// Guide: [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html).
+////
 //// Types and functions for working with HTTP cookies. Cookies can be used
 //// with both requests and responses.
 ////

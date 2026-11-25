@@ -1,6 +1,6 @@
 # Grow a JSON API
 
-Your API answers single records. Now clients want pages of results, filters and sort orders, a way to call it from a browser on another origin, and a version number so you can change it without breaking them. They also want errors they can parse. This guide collects those patterns. Each piece is a tested snippet that runs without a database, so you can read it whole and then put the same logic behind your own models, like the ones in [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md).
+Your API answers single records. Now clients want pages of results, filters and sort orders, a way to call it from a browser on another origin, and a version number so you can change it without breaking them. They also want errors they can parse. This guide collects those patterns. Each piece is a tested snippet that runs without a database, so you can read it whole and then put the same logic behind your own models, like the ones in [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html).
 
 ## Table of Contents
 
@@ -32,7 +32,7 @@ You need Dream and `gleam_json`:
 gleam add dream gleam_json
 ```
 
-Read [Read request data safely](https://github.com/TrustBound/dream/blob/main/docs/guides/request-data.md) first: these patterns read the query string and decode bodies.
+Read [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html) first: these patterns read the query string and decode bodies.
 
 ## Which pattern to use
 
@@ -548,7 +548,7 @@ Summary: 3 run, 0 failed, 3 passed in 0ms
 
 ## Where to go next
 
-- [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md): the same patterns with PostgreSQL behind them.
-- [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md): middleware such as CORS and rate limits.
-- [Render HTML and other formats](https://github.com/TrustBound/dream/blob/main/docs/guides/templates.md).
-- The API reference on [HexDocs](https://hexdocs.pm/dream/).
+- [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html): the same patterns with PostgreSQL behind them.
+- [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html): middleware such as CORS and rate limits.
+- [Render HTML and other formats](https://hexdocs.pm/dream/3.0.0/guides/templates.html).
+- The API reference on [HexDocs](https://hexdocs.pm/dream/3.0.0/).

@@ -1,3 +1,7 @@
+//// Publish and subscribe for SSE and WebSocket connections
+////
+//// Guides: [Push live updates with server-sent events](https://hexdocs.pm/dream/3.0.0/guides/sse.html) and [Build a chat with WebSockets](https://hexdocs.pm/dream/3.0.0/guides/websockets.html).
+
 import gleam/erlang/process.{type Monitor, type Selector, type Subject}
 import gleam/list
 import gleam/otp/actor
@@ -110,6 +114,8 @@ type Subscriber(message) {
 ///   broadcaster.start_broadcaster()
 /// }
 /// ```
+///
+/// Guides: [Push live updates with server-sent events](https://hexdocs.pm/dream/3.0.0/guides/sse.html) and [Build a chat with WebSockets](https://hexdocs.pm/dream/3.0.0/guides/websockets.html).
 pub fn start_broadcaster() -> Result(Broadcaster(message), actor.StartError) {
   actor.new_with_initialiser(
     initialisation_timeout_milliseconds,

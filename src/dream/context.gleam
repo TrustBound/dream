@@ -1,5 +1,7 @@
 //// Request context for your application
 ////
+//// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
+////
 //// Context holds per-request data that changes with every request—user authentication,
 //// session info, request IDs, etc. It's passed to every middleware and controller.
 ////

@@ -38,7 +38,7 @@ You need Dream and `gleam_erlang`:
 gleam add dream gleam_erlang
 ```
 
-Read [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md) first. The examples on this page are small and include their imports. The full app runs from the Dream repository with `make run` in `examples/websocket_chat`, on port 8080, and its [README](https://github.com/TrustBound/dream/blob/main/examples/websocket_chat/README.md) walks through the browser side and the templates.
+Read [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html) first. The examples on this page are small and include their imports. The full app runs from the Dream repository with `make run` in `examples/websocket_chat`, on port 8080, and its [README](https://github.com/TrustBound/dream/blob/3.0.0/examples/websocket_chat/README.md) walks through the browser side and the templates.
 
 ## WebSockets, SSE or streaming
 
@@ -61,7 +61,7 @@ Use WebSockets when:
 - The server must push updates without the client polling.
 
 If you only need one request → one response, or one-way event streams,
-prefer regular HTTP or SSE. See the [Streaming Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) for that.
+prefer regular HTTP or SSE. See the [Streaming Guide](https://hexdocs.pm/dream/3.0.0/guides/streaming.html) for that.
 
 ## Overview: How Dream WebSockets Work
 
@@ -745,7 +745,7 @@ To run them:
   full API (`Message`, `Action`, `send_text`, `send_binary`, etc.).
 - Explore `src/dream/services/broadcaster.gleam` for the pub/sub
   implementation.
-- Run and modify the [`examples/websocket_chat/`](https://github.com/TrustBound/dream/tree/main/examples/websocket_chat)
+- Run and modify the [`examples/websocket_chat/`](https://github.com/TrustBound/dream/tree/3.0.0/examples/websocket_chat)
   example to fit your own use case.
-- Revisit the [Streaming Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) to compare WebSockets with
+- Revisit the [Streaming Guide](https://hexdocs.pm/dream/3.0.0/guides/streaming.html) to compare WebSockets with
   HTTP streaming and SSE.

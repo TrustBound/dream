@@ -1,6 +1,6 @@
 # Test your controllers and your app
 
-You want to change your app without fear: know that each route still answers what it should, that the middleware still refuses what it should, and that a failure tells you exactly what broke. Dream apps are plain functions and records, so most of that needs no server at all. This guide tests a Dream app with [Dream Test](https://hexdocs.pm/dream_test/), the framework that Dream's own tests use: controllers, middleware and models alone, the whole router with `dream.route_request`, and a real server when you need one. The reports shown are the real output of the tests shown.
+You want to change your app without fear: know that each route still answers what it should, that the middleware still refuses what it should, and that a failure tells you exactly what broke. Dream apps are plain functions and records, so most of that needs no server at all. This guide tests a Dream app with [Dream Test](https://hexdocs.pm/dream_test/3.0.0/), the framework that Dream's own tests use: controllers, middleware and models alone, the whole router with `dream.route_request`, and a real server when you need one. The reports shown are the real output of the tests shown.
 
 ## Table of Contents
 
@@ -40,7 +40,7 @@ Add Dream Test as a dev dependency:
 gleam add --dev dream_test
 ```
 
-[Build your first Dream server](https://github.com/TrustBound/dream/blob/main/docs/guides/getting-started.md) ends with a first test of this kind. Each guide has a "Test your code" section for its own topic.
+[Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getting-started.html) ends with a first test of this kind. Each guide has a "Test your code" section for its own topic.
 
 ## Which kind of test to write
 
@@ -650,7 +650,7 @@ pub fn tests() -> TestSuite {
 
 ## Step 9: Test the whole app through its routes
 
-`dream.route_request` does what the server does with a request: it finds the route by method and path, runs its middleware and its controller, and returns the response. Give it your router and the context and services for the test. This is the test from [Build your first Dream server](https://github.com/TrustBound/dream/blob/main/docs/guides/getting-started.md):
+`dream.route_request` does what the server does with a request: it finds the route by method and path, runs its middleware and its controller, and returns the response. Give it your router and the context and services for the test. This is the test from [Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getting-started.html):
 
 ### Test the routes of an app <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/guide_getting_started_test.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -983,7 +983,7 @@ isn't reachable through public functions, it's dead code: delete it.
 
 ## Where to go next
 
-- [Dream Test on HexDocs](https://hexdocs.pm/dream_test/).
-- [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md): a middleware test through the routes.
-- [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md): an operation test with test services, and Cucumber scenarios against PostgreSQL.
-- [Start, stop and troubleshoot the server](https://github.com/TrustBound/dream/blob/main/docs/guides/operating.md): a real server in a test.
+- [Dream Test on HexDocs](https://hexdocs.pm/dream_test/3.0.0/).
+- [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html): a middleware test through the routes.
+- [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html): an operation test with test services, and Cucumber scenarios against PostgreSQL.
+- [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html): a real server in a test.

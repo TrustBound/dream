@@ -35,7 +35,7 @@ You want a JSON API whose data lives in PostgreSQL: create, read, update and del
 
 ## Before you start
 
-Read [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md) for context and services, and [Read request data safely](https://github.com/TrustBound/dream/blob/main/docs/guides/request-data.md) for `require_json`. You need Docker for PostgreSQL. To run the finished example from the Dream repository, use the commands of its integration run in the repository root:
+Read [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html) for context and services, and [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html) for `require_json`. You need Docker for PostgreSQL. To run the finished example from the Dream repository, use the commands of its integration run in the repository root:
 
 ### Start examples/database <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/test/integration/start.sh#L3-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -399,7 +399,7 @@ pub const context = DatabaseContext(request_id: "")
    Change this for production use.
 3. Every controller gets `services` as an argument, and reads the pool
    from `services.database.connection`.
-4. `DatabaseContext` is a custom context with one field. [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md)
+4. `DatabaseContext` is a custom context with one field. [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html)
    explains custom context in full.
 
 **Why Services?**
@@ -1556,7 +1556,7 @@ reorder_task
 Summary: 4 run, 0 failed, 4 passed in 0ms
 ```
 
-For the code that talks to PostgreSQL, test through HTTP against a real database. The example's Cucumber scenarios do that: `make test-integration` in `examples/database` starts PostgreSQL, runs the migrations, starts the server and runs every scenario twice, over HTTP/1.1 and over HTTP/2. [Test your controllers and your app](https://github.com/TrustBound/dream/blob/main/docs/guides/testing.md) has more.
+For the code that talks to PostgreSQL, test through HTTP against a real database. The example's Cucumber scenarios do that: `make test-integration` in `examples/database` starts PostgreSQL, runs the migrations, starts the server and runs every scenario twice, over HTTP/1.1 and over HTTP/2. [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html) has more.
 
 ## Common pitfalls
 
@@ -1568,9 +1568,9 @@ For the code that talks to PostgreSQL, test through HTTP against a real database
 
 ## Where to go next
 
-- [Grow a JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/api-patterns.md): pagination, versioning, filtering and CORS.
-- [Render HTML and other formats](https://github.com/TrustBound/dream/blob/main/docs/guides/templates.md): the same data as JSON, HTML or CSV.
-- [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md): the app and its migrations in Docker Compose.
-- [Test your controllers and your app](https://github.com/TrustBound/dream/blob/main/docs/guides/testing.md).
-- [Concepts](https://github.com/TrustBound/dream/blob/main/docs/concepts.md): controllers, models, views and operations explained.
-- The API reference on [HexDocs](https://hexdocs.pm/dream/).
+- [Grow a JSON API](https://hexdocs.pm/dream/3.0.0/guides/api-patterns.html): pagination, versioning, filtering and CORS.
+- [Render HTML and other formats](https://hexdocs.pm/dream/3.0.0/guides/templates.html): the same data as JSON, HTML or CSV.
+- [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html): the app and its migrations in Docker Compose.
+- [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html).
+- [Concepts](https://github.com/TrustBound/dream/blob/3.0.0/docs/concepts.md): controllers, models, views and operations explained.
+- The API reference on [HexDocs](https://hexdocs.pm/dream/3.0.0/).

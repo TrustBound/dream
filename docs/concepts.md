@@ -167,7 +167,7 @@ Context holds per-request data that changes for each request. Request A's authen
 
 Dream provides `EmptyContext` for simple apps that don't need per-request data:
 
-### EmptyContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/context.gleam#L138-L140"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### EmptyContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/context.gleam#L140-L142"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type EmptyContext {
@@ -177,7 +177,7 @@ pub type EmptyContext {
 
 This is the default when you call `server.new()`. For apps that need request tracking, Dream also provides `AppContext`:
 
-### AppContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/context.gleam#L146-L148"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### AppContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/context.gleam#L148-L150"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type AppContext {

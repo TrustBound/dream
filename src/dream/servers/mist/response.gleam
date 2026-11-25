@@ -1,5 +1,7 @@
 //// Response conversion from Dream to Mist format
 ////
+//// The reference [Dream vs Mist](https://github.com/TrustBound/dream/blob/3.0.0/docs/reference/dream-vs-mist.md) shows what this conversion does for you.
+////
 //// This module provides functions to convert Dream HTTP responses
 //// to Mist response format, including status code, header, and cookie conversion.
 ////

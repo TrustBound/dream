@@ -1,5 +1,7 @@
 //// Radix Trie - Fast route matching data structure
 ////
+//// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
+////
 //// Provides O(path depth) route lookup instead of O(number of routes) linear search.
 //// This is the core data structure used by Dream's router for efficient route matching.
 ////

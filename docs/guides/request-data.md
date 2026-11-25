@@ -27,7 +27,7 @@ Every value in a request comes from outside your program: the id in the path, th
 
 ## Before you start
 
-Read [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md) for routes and path parameters. Add Dream, and `gleam_json` for building JSON answers:
+Read [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html) for routes and path parameters. Add Dream, and `gleam_json` for building JSON answers:
 
 ```sh
 gleam add dream gleam_json
@@ -75,7 +75,7 @@ The example runs from the Dream repository with `make run` in `examples/simple`,
 | A JSON body, first error only | `http.require_json(request, decoder)` | `Result(value, Error)` with a `BadRequest` message |
 | A form (`application/x-www-form-urlencoded`) | `http.require_form`, then `http.require_field`, `http.require_field_int`, `http.field_optional` | The fields as a list of pairs, then each field |
 | A header | `http.get_header(request.headers, "Authorization")` | `Option(String)`, name matched without case |
-| A cookie | `http.get_cookie_value(request.cookies, "visits")` | `Option(String)`; see [Send responses, cookies and files](https://github.com/TrustBound/dream/blob/main/docs/guides/responses.md) |
+| A cookie | `http.get_cookie_value(request.cookies, "visits")` | `Option(String)`; see [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html) |
 
 The `require_` helpers return Dream's `Error` type, so a controller can chain them with `use ... <- result.try(...)` and turn any failure into an answer in one place.
 
@@ -630,12 +630,12 @@ The second test compares the whole body, so it fails if a message changes or one
 - **A missing query parameter isn't a routing error.** `/search` matches with no query at all, so check for `None` in the controller.
 - **The body is bytes, not text.** A body that isn't valid UTF-8 arrives as `Bytes`, and `body_as_string` returns `Error(Nil)`. Answer `400` for it, as `create_signup` does.
 - **Decoding and validating in one step.** A decoder that checks business rules gives decode errors for rule failures, and the client can't tell a typo from a bad value. Decode, then validate.
-- **A body over the size limit never reaches the controller.** The server answers `413 Content Too Large` with `Request body too large`. [Start, stop and troubleshoot the server](https://github.com/TrustBound/dream/blob/main/docs/guides/operating.md) shows the limit and the answer.
+- **A body over the size limit never reaches the controller.** The server answers `413 Content Too Large` with `Request body too large`. [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html) shows the limit and the answer.
 - **The route parameter name and the controller's name differ.** `require_int(request, "id")` on a route with `:user_id` always answers `400`.
 
 ## Where to go next
 
-- [Send responses, cookies and files](https://github.com/TrustBound/dream/blob/main/docs/guides/responses.md): the other half of the exchange.
-- [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md): `require_json` with a database behind it.
-- [Stream responses and uploads](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md): bodies too big to read at once.
-- The API reference of `dream/http/params` and `dream/http/validation` on [HexDocs](https://hexdocs.pm/dream/).
+- [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html): the other half of the exchange.
+- [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html): `require_json` with a database behind it.
+- [Stream responses and uploads](https://hexdocs.pm/dream/3.0.0/guides/streaming.html): bodies too big to read at once.
+- The API reference of `dream/http/params` and `dream/http/validation` on [HexDocs](https://hexdocs.pm/dream/3.0.0/).

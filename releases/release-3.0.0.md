@@ -74,7 +74,7 @@ One port serves every client with the protocol it can use:
 | HTTPS | The client and server agree on HTTP/2 during the TLS handshake (ALPN). Browsers do this. |
 | Plain HTTP, prior knowledge | The client sends HTTP/2 from its first byte, as proxies set to speak h2c to their backends do. |
 
-Every other client gets HTTP/1.1. Dream does not upgrade HTTP/1.1 connections with `Upgrade: h2c`: RFC 9113 deprecated it, and it can let a client get past a proxy's rules. The [HTTP/2 guide](https://github.com/TrustBound/dream/blob/main/docs/guides/http2.md) covers HTTPS, proxies and how to check the protocol.
+Every other client gets HTTP/1.1. Dream does not upgrade HTTP/1.1 connections with `Upgrade: h2c`: RFC 9113 deprecated it, and it can let a client get past a proxy's rules. The [HTTP/2 guide](https://hexdocs.pm/dream/3.0.0/guides/http2.html) covers HTTPS, proxies and how to check the protocol.
 
 ### Faster and Lighter Under Load
 
@@ -98,7 +98,7 @@ The large memory gain is mostly a macOS effect. Linux gets a smaller one, about 
 
 In Dream 2, a deploy cut off every running request: on `SIGTERM`, the Erlang VM closed the connections at once. Now a server that `listen` started drains first. It closes the listening socket and the idle keep-alive connections at once. Each running request gets its full response, with `connection: close`. Then the VM stops. The server waits at most 30 seconds, the time that Kubernetes waits after `SIGTERM`. Set a time below the grace period of your platform with `server.shutdown_timeout`. Docker waits 10 seconds.
 
-In code, `server.stop_gracefully(handle, within: 30_000)` drains the same way and returns when the server is down. `server.stop(handle)` still stops at once. See [Start, stop and troubleshoot the server](https://github.com/TrustBound/dream/blob/main/docs/guides/operating.md#stopping-in-production).
+In code, `server.stop_gracefully(handle, within: 30_000)` drains the same way and returns when the server is down. `server.stop(handle)` still stops at once. See [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html#stopping-in-production).
 
 ### Dream's HTTP Server Packages
 
@@ -111,7 +111,7 @@ The adapter needed many HTTP/2 fixes in mist and one fix in glisten. We are givi
 | [`dream_http_server`](https://hex.pm/packages/dream_http_server) | mist 6.0.3 plus fixes, most of them for HTTP/2, and HTTP/2 over TLS |
 | [`dream_socket_server`](https://hex.pm/packages/dream_socket_server) | glisten 9.0.1 plus a socket buffer fix |
 
-Both keep the upstream module names (`mist`, `glisten`). They are named for what they do, so they do not appear when people search Hex for mist or glisten. They are temporary: when upstream releases contain the fixes, Dream goes back to `mist` and `glisten`. See [Dream's HTTP server packages](https://github.com/TrustBound/dream/blob/main/docs/contributing/http-server-packages.md) for the reasons and for how to go back.
+Both keep the upstream module names (`mist`, `glisten`). They are named for what they do, so they do not appear when people search Hex for mist or glisten. They are temporary: when upstream releases contain the fixes, Dream goes back to `mist` and `glisten`. See [Dream's HTTP server packages](https://github.com/TrustBound/dream/blob/3.0.0/docs/contributing/http-server-packages.md) for the reasons and for how to go back.
 
 ### Streaming Uses Chunked Responses
 
@@ -121,7 +121,7 @@ Dream's streaming adapter now uses the server's actor-based chunked responses. D
 
 `Request.body` is now a `RequestBody`, and the `Request.stream` field is gone.
 
-#### The `RequestBody` type <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/http/request.gleam#L260-L274"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The `RequestBody` type <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/http/request.gleam#L262-L276"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type RequestBody {
@@ -272,333 +272,18 @@ gleam deps update dream
 
 ### Migration Guide
 
-Most projects need only the request body change in step 3. Steps 1, 2, 4, 6, 7, 8, 9 and 10 apply only in the cases they name.
-
-Each "before and after" below is a diff of a real file in this repository, from Dream 2.4.1 to Dream 3.0.0. The badge on a diff links to that file in GitHub's compare view.
-
-#### 1. Your `gleam.toml` lists `mist` or `glisten`
-
-Dream's server packages define the same modules, and Gleam stops the build with a duplicate module error when two packages do. Replace `mist` with `dream_http_server`, as Dream's own `gleam.toml` did:
-
-#### Replace `mist` with `dream_http_server` <a href="https://github.com/TrustBound/dream/compare/2.4.1...3.0.0#diff-7cd1e07e743a743d849d706b1dafd77e5839325c3b7327d3f060335605d525be"><img align="right" alt="Tested diff" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square"></a>
-
-```diff
---- a/gleam.toml
-+++ b/gleam.toml
- [dependencies]
--gleam_stdlib = ">= 0.44.0 and < 2.0.0"
--mist = ">= 5.0.3 and < 6.0.0"
-+gleam_stdlib = ">= 1.0.0 and < 2.0.0"
-+# dream's HTTP server: a fork of mist 6.0.3 with HTTP/2 fixes, published under
-+# its own name with mist's module names.
-+dream_http_server = ">= 2.1.0 and < 3.0.0"
-```
-
-Replace `glisten` with `dream_socket_server = ">= 1.0.0 and < 2.0.0"` in the same way. Your `import mist` and `import glisten` lines stay as they are, because the module names are the same.
-
-#### 2. Your project still uses `gleam_stdlib` 0.x
-
-Dream 2.4.1 accepted `gleam_stdlib` from 0.44. Dream 3.0.0 requires `>= 1.0.0 and < 2.0.0`. The diff in step 1 shows this change in Dream's own `gleam.toml`.
-
-#### 3. Request bodies
-
-`RequestBody` replaces `body: String` and `stream`.
-
-**What changed.** `Request.body` is now a `RequestBody`. The `Request.stream` field is gone.
-
-#### The `RequestBody` type <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/http/request.gleam#L260-L274"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
-
-```gleam
-pub type RequestBody {
-  Text(String)
-  Bytes(BitArray)
-  Stream(Yielder(Result(BitArray, BodyReadError)))
-}
-
-/// Why a read of a streamed request body failed
-///
-/// The server reports one cause. `MalformedBody` means that the server could
-/// not read the rest of the body: the connection closed before the end of
-/// the body, no data came in the read timeout, or the chunked framing was
-/// not valid. The server does not tell these cases apart.
-pub type BodyReadError {
-  MalformedBody
-}
-```
-
-- On a route made with `route`, a body that is valid UTF-8 arrives as `Text`. An empty body is `Text("")`. Any other body arrives as `Bytes`, with the exact bytes.
-- On a route made with `stream_route`, the body arrives as `Stream`. Each item is `Ok(chunk)`, or one `Error(MalformedBody)` when a read from the connection fails, for example when the client closed the connection before the end of the body. The stream ends after the `Error` item.
-
-**Why.** In Dream 2, a body that was not valid UTF-8 (for example a PNG or a PDF upload) reached the controller as `""`, with no error. The `body` and `stream` fields could also disagree. One value with three shapes removes both problems, and it matches `ResponseBody`.
-
-**How to upgrade.**
-
-**A controller that parses JSON.** Use the new `require_json`. It reads the body as text, parses the JSON, runs your decoder, and returns `BadRequest` with the reason when a step fails. The database example made this change:
-
-#### Parse a JSON body with `require_json` <a href="https://github.com/TrustBound/dream/compare/2.4.1...3.0.0#diff-93ef6055589a796ca5033f0c627fc0d8178a9c5bf171b6bf79301e81cbe33e1b"><img align="right" alt="Tested diff" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square"></a>
-
-```diff
---- a/examples/database/src/controllers/users_controller.gleam
-+++ b/examples/database/src/controllers/users_controller.gleam
-@@ -16,13 +14,6 @@ import services.{type Services}
--fn parse_user_data(body: String) -> Result(#(String, String), Error) {
--  case validate_json(body, user.decoder()) {
--    Ok(d) -> Ok(d)
--    Error(_) -> Error(BadRequest("Invalid user data"))
--  }
--}
-@@ -65,8 +56,7 @@ pub fn create(
-   let result = {
--    use data <- result.try(parse_user_data(request.body))
--    let #(name, email) = data
-+    use #(name, email) <- result.try(require_json(request, user.decoder()))
-     let db = services.database.connection
-```
-
-Use `validate_json(text, decoder)` when you already have a `String`. It now returns a list of errors: step 8 shows the change.
-
-**A controller that needs the body as text.** Use `body_as_string(request)`. It returns `Error(Nil)` when the body is not valid UTF-8. Before 3.0.0 a controller could read `request.body` as a `String`. Now it reads the body with `body_as_string`:
-
-#### Read a text body with `body_as_string` <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_request.gleam#L46-L51"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
-
-```gleam
-pub fn show_body(request: Request, _context, _services) -> Response {
-  case body_as_string(request) {
-    Ok(body) -> text_response(status.ok, body)
-    Error(_) -> text_response(status.bad_request, "Body is not valid UTF-8")
-  }
-}
-```
-
-**A controller or middleware that reads the stream.** Match `Stream` on `request.body` in place of `Some` on `request.stream`. Each item is a `Result`, so fold with `yielder.try_fold` and answer the `Error` item. The streaming example made this change:
-
-#### Read a stream from `request.body` <a href="https://github.com/TrustBound/dream/compare/2.4.1...3.0.0#diff-96161bd1d29b10b5817d71e3db6be67d9a8494e6ea36bc113379cb3b2743ce32"><img align="right" alt="Tested diff" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square"></a>
-
-```diff
---- a/examples/streaming_capabilities/src/controllers/stream_controller.gleam
-+++ b/examples/streaming_capabilities/src/controllers/stream_controller.gleam
-@@ -17,17 +18,14 @@ pub fn upload(
--  case request.stream {
--    Some(stream) -> {
--      // Consume the stream "saving" it
--      let total_bytes = stream |> yielder.fold(0, accumulate_chunk_size)
--
--      text_response(
--        status.ok,
--        "Uploaded " <> int.to_string(total_bytes) <> " bytes successfully",
--      )
--    }
--    None -> text_response(status.bad_request, "Expected streaming request body")
-+  case request.body {
-+    // Consume the stream "saving" it. try_fold stops at an Error item.
-+    Stream(stream) ->
-+      stream
-+      |> yielder.try_fold(0, accumulate_chunk_size)
-+      |> respond_to_upload
-+    Text(_) | Bytes(_) ->
-+      text_response(status.bad_request, "Expected streaming request body")
-   }
-```
-
-The fold function gets the `Result` and stops at an `Error`. The controller answers the `Error` with 400:
-
-#### Fold over `Result` items <a href="https://github.com/TrustBound/dream/compare/2.4.1...3.0.0#diff-96161bd1d29b10b5817d71e3db6be67d9a8494e6ea36bc113379cb3b2743ce32"><img align="right" alt="Tested diff" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square"></a>
-
-```diff
---- a/examples/streaming_capabilities/src/controllers/stream_controller.gleam
-+++ b/examples/streaming_capabilities/src/controllers/stream_controller.gleam
-@@ -77,17 +80,33 @@ pub fn proxy(
--fn accumulate_chunk_size(acc: Int, chunk: BitArray) -> Int {
--  let size = bit_array.byte_size(chunk)
-+fn accumulate_chunk_size(
-+  acc: Int,
-+  item: Result(BitArray, BodyReadError),
-+) -> Result(Int, BodyReadError) {
-+  use chunk <- result.map(item)
-   // Simulate saving to disk
--  acc + size
-+  acc + bit_array.byte_size(chunk)
-+}
-+
-+fn respond_to_upload(counted: Result(Int, BodyReadError)) -> Response {
-+  case counted {
-+    Ok(total_bytes) ->
-+      text_response(
-+        status.ok,
-+        "Uploaded " <> int.to_string(total_bytes) <> " bytes successfully",
-+      )
-+    // The connection broke before the client sent the whole body
-+    Error(_read_error) ->
-+      text_response(status.bad_request, "The upload stopped before its end")
-+  }
- }
-```
-
-A controller that saves the stream to a file deletes the partial file when it gets the `Error` item. The streaming guide shows the full example.
-
-**Code that builds a `Request`** (tests, middleware). Remove `stream:` and give `body:` a `RequestBody`. The test fixtures made this change:
-
-#### Build a `Request` with a `RequestBody` <a href="https://github.com/TrustBound/dream/compare/2.4.1...3.0.0#diff-35a52c8b99fa4dc8d5c395580d1a99ff19404fdc3316a228fb5ab2dbecabb54c"><img align="right" alt="Tested diff" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square"></a>
-
-```diff
---- a/test/fixtures/request.gleam
-+++ b/test/fixtures/request.gleam
-@@ -20,8 +22,7 @@ pub fn create_request(method: Method, path: String) -> Request {
--    body: "",
--    stream: option.None,
-+    body: Text(""),
-@@ -62,7 +72,7 @@ pub fn create_streaming_request(
--  Request(..create_request(method, path), stream: option.Some(stream))
-+  Request(..create_request(method, path), body: Stream(yielder.map(stream, Ok)))
-```
-
-**A module that uses request and response bodies together.** `Text`, `Bytes` and `Stream` are also the `ResponseBody` constructors. Qualify the request side: `request.Text`, `request.Bytes`, `request.Stream`.
-
-**Other behaviour changes.**
-
-- `require_form` returns `BadRequest("Request body is not text")` for a body that is not text. It now also reads a `Stream` body.
-- A binary upload on a `route` now arrives as `Bytes`. In Dream 2 it arrived as `""`.
-
-#### 4. Your code names the `Dream` type, or calls `context()` or `services()` after `router()`
-
-**What changed.** The `Dream` type has a fourth type parameter, `router`. It is `NoRouter` until you call `server.router()`, and then it is the `Router(context, services)` you gave. The compiler now enforces the builder order:
-
-- `server.context()` and `server.services()` accept only an app that has no router yet. Call them before `server.router()`.
-- `server.listen()` and `server.listen_with_handle()` accept only an app that has a router.
-- `server.router()` accepts only an app that has no router yet, so you call it one time.
-- `bind()`, `max_body_size()` and `tls()` work before or after `router()`.
-
-The accessors in `dream/dream` follow the new shape. `get_router` returns `NoRouter` or the router, not an `Option`. `get_services` returns the services, not an `Option`. `create` takes the router state and the services without an `Option`.
-
-**Why.** A router's type includes the context and services types: `Router(context, services)`. `context()` and `services()` change those types, so a router given before them cannot stay in the app. In Dream 2, `context()` and `services()` dropped the router with no error, and `listen()` crashed at start. The compiler caught the wrong order only when the controllers used the context type. A router whose controllers ignore the context compiled, and so did an app with no router at all.
-
-**How to upgrade.**
-
-- If the build fails with a type mismatch between `NoRouter` and `Router(...)`, move `context()` and `services()` above `router()`, and make sure that `router()` comes before `listen()`.
-- If you write the `Dream` type, add the fourth parameter. This app has its own context and services, in the right order:
-
-##### Context, services, router, in that order <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_type.gleam#L22-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
-
-```gleam
-pub fn create_server() -> Dream(
-  mist.Builder(Connection, ResponseData),
-  MyContext,
-  Services,
-  Router(MyContext, Services),
-) {
-  server.new()
-  |> server.context(MyContext(request_id: "", user: None))
-  |> server.services(Services(
-    database_url: "postgres://localhost/app",
-    cache_size: 100,
-  ))
-  |> server.router(my_router())
-}
-```
-
-- If you use `dream.get_router` or `dream.get_services`, remove the `Some` and `None` cases.
-
-#### 5. Other changes that can affect an app
-
-- **Router fallback.** When a route fits the start of a path but fails deeper down, the router now tries the next route. With `/users/:id/posts` and `/users/**rest`, `GET /users/1/comments` now finds `/users/**rest`. In Dream 2 it returned 404. A wildcard route can now receive requests that got a 404 before.
-- **`server.stop`.** `stop` now stops the server from any process, and it returns after the server is down. In Dream 2 it did nothing unless the process that started the server called it.
-- **Broadcaster.** The broadcaster removes a subscriber when the process that subscribed stops. You do not have to call `unsubscribe` before a WebSocket or SSE connection ends. New function: `broadcaster.count_subscribers`.
-- **Form, query string and cookie values.** A value that contains `=` is kept. `token=a=b` gives the value `a=b`. In Dream 2 the form field and the query parameter were dropped, and the cookie value was empty.
-- **SSE `on_init` selector.** The selector that `on_init` returns is used, as in Dream 2.4.
-- **Cookie `Expires`.** The `Set-Cookie` header writes `expires` as an HTTP date, `Expires=Tue, 14 Nov 2023 22:13:20 GMT`. In Dream 2 it was the number of seconds, which browsers ignore, so a cookie with only `expires` now expires when you asked.
-- **IPv6 `remote_address`.** An IPv6 client gives its real address, such as `2601:282:a00:b38::421d`. In Dream 2 every IPv6 client was `::1`. Code that compares `remote_address` with `"::1"` now sees the real address.
-- **Binary static files.** `static.serve` sends a file that is not UTF-8 as `Bytes` with status 200. In Dream 2 it answered 404. A UTF-8 file is still `Text`.
-- **Broken streamed uploads.** On a `stream_route`, when a read of the body fails before its end, the stream gives one `Error(MalformedBody)` item and then ends. The controller decides the answer. In Dream 2 the stream ended as if the body was complete.
-- **Methods.** A request with CONNECT, TRACE or another method without its own constructor gets the route of that method, or the 405 or 404 below. In Dream 2 it ran the GET route of its path.
-- **405 for a known path with another method.** A request whose path matches a route, with a method that no route of the path has, gets `405 Method Not Allowed` with an `Allow` header and the body `Method not allowed`. In Dream 2 it got `404 Route not found`. A client or a test that expects `404` for a wrong method must expect `405`. A path that no route matches still gets `404`.
-- **Connection after an unread body.** Over HTTP/1.1, the server closes the connection after it answers a request whose body it did not read to its end, and sends `connection: close`. A client that sends a body Dream refuses (`404`, `405`, `413`) opens a new connection for its next request; HTTP clients do that by themselves.
-- **Body over the size limit.** A buffered body over `max_body_size` gets `413 Content Too Large` with the body `Request body too large`. In Dream 2 it got `400` with an empty body, and a chunked body over the limit reached the controller. A body that cannot be read still gets `400`, now with the body `Request body could not be read`. A client that checks for `400` on a body that is too big must check for `413`.
-- **Missing path parameter message.** `get_int_param`, `get_string_param`, `require_int` and `require_string` give `Missing required path parameter: id` for a missing parameter, the message of `get_param`. In Dream 2 they gave `Missing id parameter`. Tests or clients that match the old text must match the new one.
-- **Start errors.** `listen()` panics with `Failed to start server: ` and the start error for every start error, for example `Failed to start server: InitFailed("TLS file not found: cert.pem")`. In Dream 2 an `InitFailed` error panicked with its message only. Code or log checks that match the old panic text must match the new form.
-
-#### 6. Your tests follow the Dream 2 testing guide
-
-The testing guide now shows tests for `dream_test` 3.0.0. Dream 3.0.0 does not need a change to your tests, and they can stay on `dream_test` 1.x. To use the code of the new guide, set `dream_test = ">= 3.0.0 and < 4.0.0"` in `[dev-dependencies]` and run `gleam deps update dream_test`. Then change your tests as the [dream_test 2.0.0 release notes](https://github.com/TrustBound/dream_test/blob/main/releases/release-2.0.0.md) and the [dream_test upgrade guide](https://github.com/TrustBound/dream_test/blob/main/docs/guides/upgrading-to-3.md) show.
-
-#### 7. Your code has a `case` over every `Method` value
-
-**What changed.** `Method` has three more variants: `Connect`, `Trace` and `Other(String)`. A `case` that names every `Method` value does not compile until it has a branch for each one. Dream's own `method_to_string` made this change:
-
-#### Name the new methods <a href="https://github.com/TrustBound/dream/compare/2.4.1...3.0.0#diff-d379a6a5ba4353e9c995a5a5de14ccc4e089b5d9f207accfb3dfa32aba8b9445"><img align="right" alt="Tested diff" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square"></a>
-
-```diff
---- a/src/dream/http/request.gleam
-+++ b/src/dream/http/request.gleam
-@@ -216,12 +359,35 @@ pub fn method_to_string(method: Method) -> String {
-     Patch -> "PATCH"
-     Options -> "OPTIONS"
-     Head -> "HEAD"
-+    Connect -> "CONNECT"
-+    Trace -> "TRACE"
-+    Other(name) -> name
-   }
- }
-```
-
-`Other` holds the name exactly as the client sent it. `parse_method` gives `Some(Connect)` and `Some(Trace)` for those names in any case, and `Some(Other(name))` for another valid method token, such as `"PURGE"`. It gives `None` only for text that is not a method token, such as `"GET /"`. In Dream 2 it gave `None` for every name except the seven standard ones.
-
-#### 8. Your code calls `validate_json`
-
-**What changed.** `validate_json` returns `Result(a, List(ValidationError))`. A body with two wrong fields gives two errors, in the order of the decoder. A JSON syntax error gives a list with one error. In Dream 2 it gave only the first error. `require_json` joins the messages with `"; "` in its `BadRequest`. The module example of `dream/http/validation` made this change:
-
-#### Answer with every validation error <a href="https://github.com/TrustBound/dream/compare/2.4.1...3.0.0#diff-d14b0ecd284c6857c738de35bd2a16215d846d7c64a854ea717d2481e7de9232"><img align="right" alt="Tested diff" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-diff-lightgreen.svg?style=flat-square"></a>
-
-```diff
---- a/src/dream/http/validation.gleam
-+++ b/src/dream/http/validation.gleam
-@@ -6,44 +6,96 @@
- ////   case validation_result {
--////     Ok(user) -> create_user(services.db, user)
--////     Error(err) -> create_validation_error_response(err)
-+////     Ok(user) -> response.json_response(status.created, user_to_json(user))
-+////     Error(validation_errors) ->
-+////       create_validation_error_response(validation_errors)
- ////   }
- //// }
--//// 
--//// fn create_validation_error_response(err: ValidationError) -> Response {
--////   response.json_response(status.bad_request, error_json(err.message))
-+////
-+//// // One message for each field that failed
-+//// fn create_validation_error_response(
-+////   validation_errors: List(ValidationError),
-+//// ) -> Response {
-+////   let messages = list.map(validation_errors, error_message)
-+////   response.json_response(
-+////     status.bad_request,
-+////     json.to_string(
-+////       json.object([#("errors", json.array(messages, json.string))]),
-+////     ),
-+////   )
-+//// }
-+////
-+//// fn error_message(validation_error: ValidationError) -> String {
-+////   validation_error.message
-+//// }
-```
-
-#### 9. Your WebSocket handler matches `ConnectionClosed`
-
-**What changed.** The `websocket.Message` type has no `ConnectionClosed` any more. It never arrived: a close frame from the client and a dropped connection call `on_close`, and the server sends no message to `on_message`. `dream_http_server` 2.0.0 removed `Closed` and `Shutdown` from `mist.WebsocketMessage`, which `ConnectionClosed` came from. A `case` that names `websocket.ConnectionClosed` does not compile.
-
-**What to do.** Delete the `ConnectionClosed` branch of your `on_message` handler. Do the work of that branch in `on_close`, which runs once when the connection closes.
-
-#### 10. Your app uses `pog`, `squirrel` or `dream_postgres`
-
-**What changed.** The guides and the examples use [`dream_postgres_client`](https://hex.pm/packages/dream_postgres_client) in place of `pog`, and [`dream_sql_generator`](https://hex.pm/packages/dream_sql_generator) in place of `squirrel`. Both are forks, maintained for Dream. `dream_postgres` 2.0.0 uses `dream_postgres_client`.
-
-**What to do.**
-
-1. In `[dependencies]`, replace `pog` with `dream_postgres_client = ">= 1.0.0 and < 2.0.0"`.
-2. In `[dev-dependencies]`, replace `squirrel` with `dream_sql_generator = ">= 1.0.0 and < 2.0.0"`.
-3. Add a `[tools.dream_sql_generator]` table with `client_module = "dream_postgres_client"`.
-4. In your code, replace `import pog` with `import dream_postgres_client`, and `pog.` with `dream_postgres_client.`.
-5. Run `gleam run -m dream_sql_generator` in place of `gleam run -m squirrel`. The generated code then uses `dream_postgres_client`.
+[Upgrade from Dream 2 to 3](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html) gives each step, with the Dream 2 code next to the Dream 3 code. Most projects need only the request body change. The other steps apply only when your code uses what they name:
+
+1. Update the `dream` requirement, and `gleam_stdlib` to 1.x.
+2. Replace `mist` with `dream_http_server`, and `glisten` with `dream_socket_server`.
+3. Read request bodies as a `RequestBody`: `Text`, `Bytes` or `Stream`. Use `require_json` or `body_as_string`, and answer the `Error` item of a stream.
+4. Call `context()` and `services()` before `router()`, and add the fourth type parameter where you write the `Dream` type.
+5. Add branches for `Connect`, `Trace` and `Other(String)` to a `case` over every `Method`.
+6. Answer the list of errors that `validate_json` returns.
+7. Move the work of a `ConnectionClosed` branch to `on_close`.
+8. Move from `pog` and `squirrel` to `dream_postgres_client` and `dream_sql_generator`, to follow the guides.
+9. Check the behavior changes that tests and clients can see, such as `405` for a wrong method and `413` for a body over the limit.
+10. Optionally, update your tests to `dream_test` 3.
 
 ## Acknowledgements
 
@@ -606,21 +291,22 @@ To Alex Manning and the contributors to mist and glisten. Problems with the HTTP
 
 ## Documentation
 
-- [dream](https://hexdocs.pm/dream) - v3.0.0
-- [dream_http_server](https://hexdocs.pm/dream_http_server) - v2.1.0
-- [dream_socket_server](https://hexdocs.pm/dream_socket_server) - v1.0.1
-- [Dream's HTTP server packages](https://github.com/TrustBound/dream/blob/main/docs/contributing/http-server-packages.md)
-- [Guides](https://github.com/TrustBound/dream/blob/main/docs/guides/index.md) - Build your first Dream server, then one guide for each task
-- [HTTP/2 guide](https://github.com/TrustBound/dream/blob/main/docs/guides/http2.md)
-- [Streaming API Reference](https://github.com/TrustBound/dream/blob/main/docs/reference/streaming-api.md)
+- [dream](https://hexdocs.pm/dream/3.0.0/) - v3.0.0
+- [dream_http_server](https://hexdocs.pm/dream_http_server/2.1.0/) - v2.1.0
+- [dream_socket_server](https://hexdocs.pm/dream_socket_server/1.0.1/) - v1.0.1
+- [Dream's HTTP server packages](https://github.com/TrustBound/dream/blob/3.0.0/docs/contributing/http-server-packages.md)
+- [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) - Build your first Dream server, then one guide for each task
+- [Upgrade from Dream 2 to 3](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html)
+- [HTTP/2 guide](https://hexdocs.pm/dream/3.0.0/guides/http2.html)
+- [Streaming API Reference](https://github.com/TrustBound/dream/blob/3.0.0/docs/reference/streaming-api.md)
 
 ## Community
 
-- [Full Documentation](https://github.com/TrustBound/dream/tree/main/docs)
+- [Full Documentation](https://github.com/TrustBound/dream/tree/3.0.0/docs)
 - [Discussions](https://github.com/TrustBound/dream/discussions)
 - [Report Issues](https://github.com/TrustBound/dream/issues)
-- [Contributing Guide](https://github.com/TrustBound/dream/blob/main/CONTRIBUTING.md)
+- [Contributing Guide](https://github.com/TrustBound/dream/blob/3.0.0/CONTRIBUTING.md)
 
 ---
 
-**Full Changelog:** [CHANGELOG.md](https://github.com/TrustBound/dream/blob/main/CHANGELOG.md)
+**Full Changelog:** [CHANGELOG.md](https://github.com/TrustBound/dream/blob/3.0.0/CHANGELOG.md)

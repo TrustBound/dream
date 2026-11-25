@@ -30,7 +30,7 @@ Your app works on your machine. Now it has to run somewhere else: in a container
 
 ## Before you start
 
-You need Docker with Compose v2. Dream apps compile to BEAM bytecode and run on the Erlang runtime. The image is built in two stages: the official Gleam image compiles the app, and a plain Erlang image of the same OTP version runs it. Read [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md) for the database side. In the Dream repository, `make test-docker` builds the example's image and starts it with Compose:
+You need Docker with Compose v2. Dream apps compile to BEAM bytecode and run on the Erlang runtime. The image is built in two stages: the official Gleam image compiles the app, and a plain Erlang image of the same OTP version runs it. Read [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html) for the database side. In the Dream repository, `make test-docker` builds the example's image and starts it with Compose:
 
 ### The Docker test of the repository <a href="https://github.com/TrustBound/dream/blob/3.0.0/Makefile#L60-L63"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -303,7 +303,7 @@ docker compose stop app
 
 Docker sends `SIGTERM` to the first process of the container. The Erlang VM logs `SIGTERM received - shutting down` and stops, with exit status `0`, in about 0.2 seconds. The test checks the log line, the exit status and that the stop takes less than 5 seconds. With `gleam run` as the first process, the same stop takes 10 seconds and ends with exit status `137`, because Docker kills the container.
 
-A request that runs when the app gets `SIGTERM` finishes before the VM stops. The server waits at most 30 seconds for running requests. Docker waits 10 seconds before it kills a container, so `docker-compose.yml` sets `stop_grace_period: 35s` for the app. With a plain `docker stop`, give the same time with `docker stop -t 35`, or give the server a shorter time with `server.shutdown_timeout`, as [Start, stop and troubleshoot the server](https://github.com/TrustBound/dream/blob/main/docs/guides/operating.md#stopping-in-production) shows.
+A request that runs when the app gets `SIGTERM` finishes before the VM stops. The server waits at most 30 seconds for running requests. Docker waits 10 seconds before it kills a container, so `docker-compose.yml` sets `stop_grace_period: 35s` for the app. With a plain `docker stop`, give the same time with `docker stop -t 35`, or give the server a shorter time with `server.shutdown_timeout`, as [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html#stopping-in-production) shows.
 
 Stop everything, and remove the database volume:
 
@@ -518,7 +518,7 @@ The BEAM handles thousands of concurrent connections per core. You don't need to
 
 Serve static assets from CDN or object storage (S3, Cloudflare, etc.). Don't serve them from your Dream app. Use Dream for dynamic content only.
 
-In development, or for a small number of files, `dream/controllers/static` can serve files from a directory. `static.serve` sends a file, and stops paths that try to leave the root directory. It takes a `Config`. `static.default_config` serves `index.html` for a directory and does not list directories. `static.with_directory_listing` turns on the directory listing, `static.without_index` turns off `index.html`, and `static.with_custom_404` sets your own controller for a file that is not there. Each function has an example in its doc comment on [HexDocs](https://hexdocs.pm/dream/dream/controllers/static.html).
+In development, or for a small number of files, `dream/controllers/static` can serve files from a directory. `static.serve` sends a file, and stops paths that try to leave the root directory. It takes a `Config`. `static.default_config` serves `index.html` for a directory and does not list directories. `static.with_directory_listing` turns on the directory listing, `static.without_index` turns off `index.html`, and `static.with_custom_404` sets your own controller for a file that is not there. Each function has an example in its doc comment on [HexDocs](https://hexdocs.pm/dream/3.0.0/dream/controllers/static.html).
 
 ## Security checklist
 
@@ -644,6 +644,6 @@ The image itself is tested by running it: `make test-docker` builds it, starts i
 
 ## Where to go next
 
-- [Start, stop and troubleshoot the server](https://github.com/TrustBound/dream/blob/main/docs/guides/operating.md): start errors, ports and stopping the server.
-- [Serve HTTPS and HTTP/2](https://github.com/TrustBound/dream/blob/main/docs/guides/http2.md): TLS in Dream or at a proxy.
-- [Why the BEAM?](https://github.com/TrustBound/dream/blob/main/docs/reference/why-beam.md)
+- [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html): start errors, ports and stopping the server.
+- [Serve HTTPS and HTTP/2](https://hexdocs.pm/dream/3.0.0/guides/http2.html): TLS in Dream or at a proxy.
+- [Why the BEAM?](https://github.com/TrustBound/dream/blob/3.0.0/docs/reference/why-beam.md)

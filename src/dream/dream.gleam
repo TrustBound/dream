@@ -1,5 +1,7 @@
 //// Core Dream server type and shared functionality
 ////
+//// Guides: [Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getting-started.html) and [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html).
+////
 //// This module provides the generic Dream server type and core routing
 //// functionality that is shared across all server implementations.
 ////

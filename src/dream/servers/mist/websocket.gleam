@@ -1,5 +1,7 @@
 //// WebSocket support for Dream (Mist server adapter)
 ////
+//// Guide: [Build a chat with WebSockets](https://hexdocs.pm/dream/3.0.0/guides/websockets.html).
+////
 //// This module provides Dream's WebSocket abstraction for the Mist server
 //// adapter. It upgrades an HTTP request to a WebSocket connection and runs
 //// a typed message loop driven by your handler functions.
@@ -187,6 +189,8 @@ pub opaque type Action(state, custom) {
 ///   Nil
 /// }
 /// ```
+///
+/// Guide: [Build a chat with WebSockets](https://hexdocs.pm/dream/3.0.0/guides/websockets.html).
 pub fn upgrade_websocket(
   request _request: Request,
   dependencies dependencies: deps,

@@ -1,5 +1,7 @@
 //// Your Dream app's entry point
 ////
+//// Guides: [Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getting-started.html), [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html), [Serve HTTPS and HTTP/2](https://hexdocs.pm/dream/3.0.0/guides/http2.html) and [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html).
+////
 //// This module is where your web application starts. It provides a builder pattern
 //// for configuring and starting a Dream server using Mist (the BEAM's HTTP server).
 ////
@@ -141,6 +143,8 @@ pub opaque type ServerHandle {
 ///   |> server.listen(3000)
 /// }
 /// ```
+///
+/// Guide: [Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getting-started.html).
 pub fn new() -> dream.Dream(
   mist.Builder(Connection, ResponseData),
   EmptyContext,
@@ -194,6 +198,8 @@ pub fn new() -> dream.Dream(
 ///   |> server.listen(3000)
 /// }
 /// ```
+///
+/// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
 pub fn context(
   dream_instance: dream.Dream(
     mist.Builder(Connection, ResponseData),
@@ -256,6 +262,8 @@ pub fn context(
 ///   |> server.listen(3000)
 /// }
 /// ```
+///
+/// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
 pub fn services(
   dream_instance: dream.Dream(
     mist.Builder(Connection, ResponseData),
@@ -320,6 +328,8 @@ pub fn services(
 ///   |> server.listen(3000)
 /// }
 /// ```
+///
+/// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
 pub fn router(
   dream_instance: dream.Dream(
     mist.Builder(Connection, ResponseData),
@@ -370,6 +380,8 @@ pub fn router(
 ///   |> server.listen(3000)
 /// }
 /// ```
+///
+/// Guide: [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html).
 pub fn bind(
   dream_instance: dream.Dream(
     mist.Builder(Connection, ResponseData),
@@ -428,6 +440,8 @@ pub fn bind(
 ///   |> server.listen(3000)
 /// }
 /// ```
+///
+/// Guide: [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html).
 pub fn max_body_size(
   dream_instance: dream.Dream(
     mist.Builder(Connection, ResponseData),
@@ -488,6 +502,8 @@ pub fn max_body_size(
 ///   |> server.shutdown_timeout(8000)
 /// }
 /// ```
+///
+/// Guide: [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html).
 pub fn shutdown_timeout(
   dream_instance: dream.Dream(
     mist.Builder(Connection, ResponseData),
@@ -539,6 +555,8 @@ pub fn shutdown_timeout(
 ///   |> server.listen_with_handle(port)
 /// }
 /// ```
+///
+/// Guide: [Serve HTTPS and HTTP/2](https://hexdocs.pm/dream/3.0.0/guides/http2.html).
 pub fn tls(
   dream_instance: dream.Dream(
     mist.Builder(Connection, ResponseData),
@@ -589,6 +607,8 @@ pub fn tls(
 ///   |> server.listen(3000)
 /// }
 /// ```
+///
+/// Guide: [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html).
 pub fn listen(
   dream_instance: dream.Dream(
     mist.Builder(Connection, ResponseData),
@@ -653,6 +673,8 @@ pub fn listen(
 ///   }
 /// }
 /// ```
+///
+/// Guides: [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html) and [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html).
 pub fn listen_with_handle(
   dream_instance: dream.Dream(
     mist.Builder(Connection, ResponseData),
@@ -711,6 +733,8 @@ pub fn listen_with_handle(
 ///   result.map(started, server.stop)
 /// }
 /// ```
+///
+/// Guide: [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html).
 pub fn stop(handle: ServerHandle) -> Nil {
   stop_gracefully(handle, within: 0)
 }
@@ -753,6 +777,8 @@ pub fn stop(handle: ServerHandle) -> Nil {
 ///   result.map(started, server.stop_gracefully(_, within: 30_000))
 /// }
 /// ```
+///
+/// Guide: [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html).
 pub fn stop_gracefully(handle: ServerHandle, within timeout: Int) -> Nil {
   case handle {
     ServerHandle(process_pid) -> {

@@ -38,7 +38,7 @@ You need Dream and `gleam_erlang`, for the actor's process types:
 gleam add dream gleam_erlang
 ```
 
-Read [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md) first. The examples on this page are small and include their imports. The example runs from the Dream repository with `make run` in `examples/sse`, on port 8081.
+Read [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html) first. The examples on this page are small and include their imports. The example runs from the Dream repository with `make run` in `examples/sse`, on port 8081.
 
 ## SSE, WebSockets or streaming
 
@@ -58,8 +58,8 @@ Use SSE when:
 - You are building **live dashboards**, notification feeds, or progress indicators.
 
 If the client also needs to send messages, use
-[WebSockets](https://github.com/TrustBound/dream/blob/main/docs/guides/websockets.md) instead. For large file downloads or one-off
-streams, see the [Streaming Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md).
+[WebSockets](https://hexdocs.pm/dream/3.0.0/guides/websockets.html) instead. For large file downloads or one-off
+streams, see the [Streaming Guide](https://hexdocs.pm/dream/3.0.0/guides/streaming.html).
 
 ## Overview: How Dream SSE Works
 
@@ -750,7 +750,7 @@ To run them:
 - **The actor keeps running after the client left.** Check the result of `send_event` and return `sse.stop_connection()` on `Error(Nil)`.
 - **A proxy buffers the stream.** Some proxies hold a response until it ends. Turn buffering off for the SSE path (for nginx, `proxy_buffering off`), or the browser sees nothing.
 - **Work in the controller.** The controller only upgrades. Start timers and subscriptions in `on_init`, which runs in the actor.
-- **Browser connection limits.** Over HTTP/1.1 a browser opens few connections to one host, and each SSE stream holds one. Serve over HTTP/2, see [Serve HTTPS and HTTP/2](https://github.com/TrustBound/dream/blob/main/docs/guides/http2.md), or share one stream between tabs.
+- **Browser connection limits.** Over HTTP/1.1 a browser opens few connections to one host, and each SSE stream holds one. Serve over HTTP/2, see [Serve HTTPS and HTTP/2](https://hexdocs.pm/dream/3.0.0/guides/http2.html), or share one stream between tabs.
 
 ## Where to go next
 
@@ -758,9 +758,9 @@ To run them:
   API (`SSEConnection`, `Event`, `Action`, `send_event`, etc.).
 - Explore `src/dream/services/broadcaster.gleam` for the pub/sub
   implementation.
-- Run and modify the [`examples/sse/`](https://github.com/TrustBound/dream/tree/main/examples/sse) example to
+- Run and modify the [`examples/sse/`](https://github.com/TrustBound/dream/tree/3.0.0/examples/sse) example to
   fit your own use case.
-- Revisit the [WebSocket Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/websockets.md) to compare SSE with
+- Revisit the [WebSocket Guide](https://hexdocs.pm/dream/3.0.0/guides/websockets.html) to compare SSE with
   bi-directional connections.
-- See the [Streaming Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) for chunked transfer encoding
+- See the [Streaming Guide](https://hexdocs.pm/dream/3.0.0/guides/streaming.html) for chunked transfer encoding
   and file downloads.

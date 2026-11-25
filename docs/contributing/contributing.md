@@ -58,7 +58,7 @@ make test-unit
 
 ### Test Naming
 
-Dream's tests use [dream_test](https://hexdocs.pm/dream_test/), not `_test` functions. Name the `group` for the function, and name each `it` for the result it expects and the condition:
+Dream's tests use [dream_test](https://hexdocs.pm/dream_test/3.0.0/), not `_test` functions. Name the `group` for the function, and name each `it` for the result it expects and the condition:
 
 #### Name a test for its result and condition <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_test_naming.gleam#L13-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 

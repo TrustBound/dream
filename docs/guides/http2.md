@@ -24,7 +24,7 @@ Browsers only use HTTP/2 over HTTPS, and they want HTTPS anyway. You want your D
 
 ## Before you start
 
-You need Dream, and a certificate and key as PEM files. Read [Build your first Dream server](https://github.com/TrustBound/dream/blob/main/docs/guides/getting-started.md) first. The `simple` example's integration run starts it twice: over plain HTTP with `main`, then over HTTPS with this module, which uses a test certificate that the run writes to `build/test_tls`:
+You need Dream, and a certificate and key as PEM files. Read [Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getting-started.html) first. The `simple` example's integration run starts it twice: over plain HTTP with `main`, then over HTTPS with this module, which uses a test certificate that the run writes to `build/test_tls`:
 
 ### The HTTPS start of the simple example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/tls_main.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -224,6 +224,6 @@ To test that real clients get HTTP/2, run a client against the running server, a
 
 ## Where to go next
 
-- [Start, stop and troubleshoot the server](https://github.com/TrustBound/dream/blob/main/docs/guides/operating.md): other start errors.
-- [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md).
-- The API reference of `dream/servers/mist/server` on [HexDocs](https://hexdocs.pm/dream/dream/servers/mist/server.html).
+- [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html): other start errors.
+- [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html).
+- The API reference of `dream/servers/mist/server` on [HexDocs](https://hexdocs.pm/dream/3.0.0/dream/servers/mist/server.html).

@@ -1,5 +1,7 @@
 //// JSON validation with structured error messages
 ////
+//// Guide: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html).
+////
 //// Validate and decode JSON request bodies with detailed error information.
 //// Validation is kept separate from response building - controllers
 //// decide how to handle validation errors.
@@ -216,6 +218,8 @@ pub type ValidationError {
 /// - Missing required field: an error with the field path, for each field
 /// - Wrong type: an error with expected vs. found types, for each field
 /// - Invalid enum value: an error with validation details
+///
+/// Guide: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html).
 pub fn validate_json(
   body: String,
   decoder: decode.Decoder(decoded_type),

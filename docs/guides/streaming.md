@@ -29,13 +29,13 @@ Some bodies are too big, or too slow, to hold in memory: a CSV export of a whole
 
 ## Before you start
 
-Read [Send responses, cookies and files](https://github.com/TrustBound/dream/blob/main/docs/guides/responses.md) first. You need Dream and `gleam_yielder`:
+Read [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html) first. You need Dream and `gleam_yielder`:
 
 ```sh
 gleam add dream gleam_yielder
 ```
 
-The example runs from the Dream repository with `make run` in `examples/streaming_capabilities`, on port 3000. Its `/proxy` route reads from a mock server that the example starts on port 9876. [The streaming API reference](https://github.com/TrustBound/dream/blob/main/docs/reference/streaming-api.md) lists every type and function, with short recipes. Server-sent events have [their own guide](https://github.com/TrustBound/dream/blob/main/docs/guides/sse.md).
+The example runs from the Dream repository with `make run` in `examples/streaming_capabilities`, on port 3000. Its `/proxy` route reads from a mock server that the example starts on port 9876. [The streaming API reference](https://github.com/TrustBound/dream/blob/3.0.0/docs/reference/streaming-api.md) lists every type and function, with short recipes. Server-sent events have [their own guide](https://hexdocs.pm/dream/3.0.0/guides/sse.html).
 
 ## Stream or buffer
 
@@ -1621,7 +1621,7 @@ fn map_validation_result_to_response(
 ### Server-sent events and chunked encoding
 
 SSE now has its own dedicated module and guide. See the
-**[SSE Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/sse.md)** for a full walkthrough of `upgrade_to_sse`,
+**[SSE Guide](https://hexdocs.pm/dream/3.0.0/guides/sse.html)** for a full walkthrough of `upgrade_to_sse`,
 event builders, broadcasting, and integration testing.
 
 > **Note:** The old `sse_response` function from `dream/http/response` used
@@ -1880,7 +1880,7 @@ The `streaming_capabilities` example checks its download endpoint with this scen
         And the response should contain exactly 1000 lines
 ```
 
-See [Testing Guide](https://github.com/TrustBound/dream/blob/main/docs/guides/testing.md) for more examples.
+See [Testing Guide](https://hexdocs.pm/dream/3.0.0/guides/testing.html) for more examples.
 
 
 ## Common pitfalls
@@ -1977,7 +1977,7 @@ learns that the data was lost.
 
 ## Where to go next
 
-- [The streaming API reference](https://github.com/TrustBound/dream/blob/main/docs/reference/streaming-api.md): every streaming type and function, and short recipes.
-- [Push live updates with server-sent events](https://github.com/TrustBound/dream/blob/main/docs/guides/sse.md).
-- [Build a chat with WebSockets](https://github.com/TrustBound/dream/blob/main/docs/guides/websockets.md).
-- [examples/streaming](https://github.com/TrustBound/dream/tree/main/examples/streaming) and [examples/streaming_capabilities](https://github.com/TrustBound/dream/tree/main/examples/streaming_capabilities).
+- [The streaming API reference](https://github.com/TrustBound/dream/blob/3.0.0/docs/reference/streaming-api.md): every streaming type and function, and short recipes.
+- [Push live updates with server-sent events](https://hexdocs.pm/dream/3.0.0/guides/sse.html).
+- [Build a chat with WebSockets](https://hexdocs.pm/dream/3.0.0/guides/websockets.html).
+- [examples/streaming](https://github.com/TrustBound/dream/tree/3.0.0/examples/streaming) and [examples/streaming_capabilities](https://github.com/TrustBound/dream/tree/3.0.0/examples/streaming_capabilities).

@@ -1,5 +1,7 @@
 //// Parameter validation and extraction utilities
 ////
+//// Guide: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html).
+////
 //// This module provides safe parameter extraction from HTTP requests,
 //// returning Result types with `dream/http/error.Error` instead of crashing on missing or invalid data.
 ////
@@ -43,6 +45,8 @@ import gleam/uri
 ///   Ok("/users/" <> int.to_string(id))
 /// }
 /// ```
+///
+/// Guide: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html).
 pub fn require_int(request: Request, name: String) -> Result(Int, Error) {
   get_int_param(request, name)
   |> result_string_to_error
@@ -100,6 +104,8 @@ pub fn require_string(request: Request, name: String) -> Result(String, Error) {
 ///   Ok(title)
 /// }
 /// ```
+///
+/// Guide: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html).
 pub fn require_form(
   request: Request,
 ) -> Result(List(#(String, String)), Error) {
@@ -154,6 +160,8 @@ pub fn require_form(
 ///   Ok(task)
 /// }
 /// ```
+///
+/// Guide: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html).
 pub fn require_json(
   request: Request,
   decoder: decode.Decoder(decoded),

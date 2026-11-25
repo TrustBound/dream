@@ -14,21 +14,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Request.stream` field is gone. On
   a `route`, a valid UTF-8 body arrives as `Text` and any other body as
   `Bytes`; on a `stream_route`, the body arrives as `Stream`. A binary body
-  used to arrive as `""`. See the Migration Guide in
-  `releases/release-3.0.0.md`.
+  used to arrive as `""`. See step 3 of the
+  [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
 - Each item of a `Stream` body is a `Result`. When a read from the
   connection fails, the stream gives one `Error(MalformedBody)` item and then
   ends. Every reader of a `Stream` body must handle the `Error` item: the
-  controller owns the answer. See the Migration Guide, step 3.
+  controller owns the answer. See step 3 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
 - `Method` has three more variants: `Connect`, `Trace` and `Other(String)`.
   A `case` over every `Method` value needs three more branches.
   `parse_method` gives `Some(Connect)`, `Some(Trace)`, and
   `Some(Other(name))` for another valid method token. It gives `None` only
-  for text that is not a method token. See the Migration Guide, step 7.
+  for text that is not a method token. See step 5 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
 - `validate_json` returns `Result(a, List(ValidationError))`: one error for
   each decode error, in the order of the decoder, or the one syntax error.
   It used to give only the first error. `require_json` joins the messages
-  with `"; "`. See the Migration Guide, step 8.
+  with `"; "`. See step 6 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
 - `require_form` returns `BadRequest("Request body is not text")` for a body
   that is not text, and now also reads a `Stream` body.
 - The router tries the next route when a route fits the start of a path but
@@ -42,18 +42,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with no error, and `listen()` crashed at start, as it did with no router.
   `dream.get_router` and `dream.get_services` no longer return an `Option`,
   and `dream.create` takes the router state and the services without an
-  `Option`. See the Migration Guide in `releases/release-3.0.0.md`.
+  `Option`. See step 4 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
 - A request whose path matches a route, with a method that no route of that
   path has, gets `405 Method Not Allowed` with an `Allow` header that lists
   the methods of the path in alphabetical order, and the plain-text body
   `Method not allowed`. It used to get `404 Route not found`. A path that no
   route matches still gets `404`. `HEAD` and `OPTIONS` to a path with only
   a `GET` route get `405` too. `dream.route_request` gives the same answer.
-  See the Migration Guide, step 5.
+  See step 9 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
 - The WebSocket message `ConnectionClosed` is gone: it never arrived, and a
   close calls `on_close`. `dream_http_server` 2.0.0 removed the `Closed`
   and `Shutdown` messages that it came from. Delete the `ConnectionClosed`
-  branch, and do its work in `on_close`. See the Migration Guide, step 9.
+  branch, and do its work in `on_close`. See step 7 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
 
 ### Added
 

@@ -25,7 +25,7 @@ A server that runs on your laptop meets new problems in real use: the port is al
 
 ## Before you start
 
-Read [Build your first Dream server](https://github.com/TrustBound/dream/blob/main/docs/guides/getting-started.md). The examples run from the Dream repository with `make run` in `examples/simplest` and `examples/simple`, both on port 3000.
+Read [Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getting-started.html). The examples run from the Dream repository with `make run` in `examples/simplest` and `examples/simple`, both on port 3000.
 
 ## Which start function to use
 
@@ -44,7 +44,7 @@ Read [Build your first Dream server](https://github.com/TrustBound/dream/blob/ma
 | `bind("0.0.0.0")` | Any machine that can reach this one, and other containers. Needed in Docker. |
 | No `bind` call | The default of the HTTP server, which start errors name `localhost`. |
 
-Read the port from the environment in production, as [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md) does, so the platform can choose it.
+Read the port from the environment in production, as [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html) does, so the platform can choose it.
 
 ## Step 2: Read a start error
 
@@ -147,7 +147,7 @@ Request body too large
 
 The answer is the same. The server reads the chunks until the body grows over the limit, then stops, answers `413` and closes the connection. It never holds more of the body than the limit. A body that stops early, or has malformed chunks, gets `400 Bad Request` with the plain-text body `Request body could not be read`.
 
-Routes made with `stream_route` aren't limited: the controller reads the body chunk by chunk and decides itself, as [Stream responses and uploads](https://github.com/TrustBound/dream/blob/main/docs/guides/streaming.md) shows.
+Routes made with `stream_route` aren't limited: the controller reads the body chunk by chunk and decides itself, as [Stream responses and uploads](https://hexdocs.pm/dream/3.0.0/guides/streaming.html) shows.
 
 ## Step 4: Start and stop a server from code
 
@@ -219,7 +219,7 @@ pub fn serve_then_stop(port: Int) -> Result(Nil, actor.StartError) {
 
 ## Stopping in production
 
-In production, start the app with the `entrypoint.sh` of `gleam export erlang-shipment`, as the image of [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md) does. It runs your `main` in the Erlang VM, and `listen` keeps it running. Each request runs in its own process, so a crash in one request doesn't stop the server. Your platform, or Docker, restarts the whole program when it stops.
+In production, start the app with the `entrypoint.sh` of `gleam export erlang-shipment`, as the image of [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html) does. It runs your `main` in the Erlang VM, and `listen` keeps it running. Each request runs in its own process, so a crash in one request doesn't stop the server. Your platform, or Docker, restarts the whole program when it stops.
 
 When the platform stops a copy of your app, it sends `SIGTERM`, and the Erlang VM shuts down: `entrypoint.sh` replaces itself with the VM, so the VM is the process that gets the signal. In the Docker test of the `deployment` example, `docker compose stop` takes about 0.2 seconds, and the app's exit status is `0`. Don't start the app with `gleam run` in production: `gleam run` doesn't pass `SIGTERM` on to the VM, so the platform waits for its grace period, 10 seconds in Docker, and then kills the app.
 
@@ -247,7 +247,7 @@ pub fn app() {
 
 When the time ends, the server closes the requests that still run. After a `connection: close` response, the server waits for the client to close the connection, at most 5 seconds. `curl` closes it at once.
 
-The drain closes the listening socket, so the copy refuses new connections while it drains. To deploy without refused connections, let the platform stop sending traffic to the old copy first. Most platforms do that with the health check of [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md) and a grace period before `SIGTERM`.
+The drain closes the listening socket, so the copy refuses new connections while it drains. To deploy without refused connections, let the platform stop sending traffic to the old copy first. Most platforms do that with the health check of [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html) and a grace period before `SIGTERM`.
 
 To look inside a running VM (process count, memory, scheduler use), start it as a named node and connect a remote shell, or export the VM's metrics to your monitoring. Neither `gleam run` nor `entrypoint.sh run` starts a named node by itself.
 
@@ -336,7 +336,7 @@ Summary: 1 run, 0 failed, 1 passed in 0ms
 
 ## Where to go next
 
-- [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md).
-- [Serve HTTPS and HTTP/2](https://github.com/TrustBound/dream/blob/main/docs/guides/http2.md).
-- [Test your controllers and your app](https://github.com/TrustBound/dream/blob/main/docs/guides/testing.md).
-- The API reference of `dream/servers/mist/server` on [HexDocs](https://hexdocs.pm/dream/dream/servers/mist/server.html).
+- [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html).
+- [Serve HTTPS and HTTP/2](https://hexdocs.pm/dream/3.0.0/guides/http2.html).
+- [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html).
+- The API reference of `dream/servers/mist/server` on [HexDocs](https://hexdocs.pm/dream/3.0.0/dream/servers/mist/server.html).

@@ -51,9 +51,9 @@ make run
 | Your situation | Start from | Why |
 |:---|:---|:---|
 | You want to see the smallest working app | `examples/simplest` (this guide) | One file: a controller, a router and the server. |
-| You need path parameters, request bodies, cookies | `examples/simple`, with [Read request data safely](https://github.com/TrustBound/dream/blob/main/docs/guides/request-data.md) | Several controllers in their own modules. |
-| You need middleware and a per-request context | `examples/custom_context`, with [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md) | Shows the context type and auth middleware. |
-| You need a database | `examples/database`, with [Build a database-backed JSON API](https://github.com/TrustBound/dream/blob/main/docs/guides/database-api.md) | PostgreSQL, `dream_sql_generator` and migrations. |
+| You need path parameters, request bodies, cookies | `examples/simple`, with [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html) | Several controllers in their own modules. |
+| You need middleware and a per-request context | `examples/custom_context`, with [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html) | Shows the context type and auth middleware. |
+| You need a database | `examples/database`, with [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html) | PostgreSQL, `dream_sql_generator` and migrations. |
 
 ## Step 1: Write the server
 
@@ -182,7 +182,7 @@ When a request arrives, Dream turns it into a `Request` value, looks up the rout
 Two notes on the builder:
 
 - If you add your own context or services later, call `server.context(...)` and `server.services(...)` before `server.router(...)`. The router's type names the context and services types, so the compiler rejects the other order.
-- `server.listen` never returns. If it can't start, for example because the port is in use, it stops the program with an error. [Start, stop and troubleshoot the server](https://github.com/TrustBound/dream/blob/main/docs/guides/operating.md) shows those errors and how to handle them.
+- `server.listen` never returns. If it can't start, for example because the port is in use, it stops the program with an error. [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html) shows those errors and how to handle them.
 
 ### The same server, shorter
 
@@ -349,19 +349,19 @@ hello app
 Summary: 4 run, 0 failed, 4 passed in 0ms
 ```
 
-The report sorts the tests by name, so `answers POST /` comes before `answers an unknown path`. [Test your controllers and your app](https://github.com/TrustBound/dream/blob/main/docs/guides/testing.md) goes further: path parameters, JSON bodies, middleware and a test against the real server.
+The report sorts the tests by name, so `answers POST /` comes before `answers an unknown path`. [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html) goes further: path parameters, JSON bodies, middleware and a test against the real server.
 
 ## Common pitfalls
 
 - **The port is taken.** A second `gleam run` while the first one still runs stops with `Port 3000 already in use on localhost`. Stop the other process or pick another port.
-- **The server isn't reachable from another machine or a container.** `bind("localhost")` listens on your machine only. Use `bind("0.0.0.0")` when something else must reach it, as in [Deploy with Docker](https://github.com/TrustBound/dream/blob/main/docs/guides/deployment.md).
+- **The server isn't reachable from another machine or a container.** `bind("localhost")` listens on your machine only. Use `bind("0.0.0.0")` when something else must reach it, as in [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html).
 - **A `405` where you expected `404`.** A route of another method matches the path. The `allow` header names its methods. See Step 3.
 - **The compiler complains about the router's type after you add a context.** Call `server.context` and `server.services` before `server.router`.
 
 ## Where to go next
 
-- [Route requests and add middleware](https://github.com/TrustBound/dream/blob/main/docs/guides/routing.md): more routes, path parameters, custom methods and middleware.
-- [Read request data safely](https://github.com/TrustBound/dream/blob/main/docs/guides/request-data.md): query strings, JSON bodies and forms.
-- [Test your controllers and your app](https://github.com/TrustBound/dream/blob/main/docs/guides/testing.md).
-- [How it works](https://github.com/TrustBound/dream/blob/main/docs/concepts/how-it-works.md): the path of a request through Dream.
-- The API reference on [HexDocs](https://hexdocs.pm/dream/).
+- [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html): more routes, path parameters, custom methods and middleware.
+- [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html): query strings, JSON bodies and forms.
+- [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html).
+- [How it works](https://github.com/TrustBound/dream/blob/3.0.0/docs/concepts/how-it-works.md): the path of a request through Dream.
+- The API reference on [HexDocs](https://hexdocs.pm/dream/3.0.0/).
