@@ -3,12 +3,12 @@
 //// Pure formatting functions: User → String
 //// No Result types, no Response types, no error handling.
 
-import dream_json/json_encoders as encoders
 import gleam/json
 import gleam/list
 import gleam/option
 import gleam/time/timestamp
 import models/user.{type User}
+import views/time_text
 
 /// Format single user as JSON string
 pub fn to_json(user: User) -> String {
@@ -30,7 +30,7 @@ fn to_json_object(user: User) -> json.Json {
     #("id", json.int(user.id)),
     #("name", json.string(user.name)),
     #("email", json.string(user.email)),
-    #("created_at", encoders.timestamp(created_at(user.created_at))),
+    #("created_at", time_text.to_json(created_at(user.created_at))),
   ])
 }
 
@@ -42,6 +42,6 @@ fn identity(x: a) -> a {
 // the current time.
 fn created_at(
   value: option.Option(timestamp.Timestamp),
-) -> option.Option(timestamp.Timestamp) {
-  option.Some(option.unwrap(value, timestamp.system_time()))
+) -> timestamp.Timestamp {
+  option.unwrap(value, timestamp.system_time())
 }

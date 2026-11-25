@@ -9,6 +9,7 @@ import gleam/list
 import gleam/option
 import gleam/time/timestamp
 import models/post.{type Post}
+import views/time_text
 
 /// Format single post as JSON string
 pub fn to_json(post: Post) -> String {
@@ -31,7 +32,7 @@ fn to_json_object(post: Post) -> json.Json {
     #("user_id", json.int(post.user_id)),
     #("title", json.string(post.title)),
     #("content", encoders.optional_string(post.content)),
-    #("created_at", encoders.timestamp(created_at(post.created_at))),
+    #("created_at", time_text.to_json(created_at(post.created_at))),
   ])
 }
 
@@ -43,6 +44,6 @@ fn identity(x: a) -> a {
 // the current time.
 fn created_at(
   value: option.Option(timestamp.Timestamp),
-) -> option.Option(timestamp.Timestamp) {
-  option.Some(option.unwrap(value, timestamp.system_time()))
+) -> timestamp.Timestamp {
+  option.unwrap(value, timestamp.system_time())
 }

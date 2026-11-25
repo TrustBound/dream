@@ -65,4 +65,5 @@ src/types/errors.gleam
 src/utilities/response_helpers.gleam
 src/views/errors.gleam
 src/views/post_view.gleam
+src/views/time_text.gleam
 src/views/user_view.gleam

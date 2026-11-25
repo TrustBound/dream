@@ -128,7 +128,7 @@ The example has these Gleam files:
 find src -name "*.gleam" | sort
 ```
 
-### The Gleam files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/test/integration/readme_output.txt#L51-L68"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The Gleam files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/test/integration/readme_output.txt#L51-L69"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```text
 src/context.gleam
@@ -148,6 +148,7 @@ src/types/errors.gleam
 src/utilities/response_helpers.gleam
 src/views/errors.gleam
 src/views/post_view.gleam
+src/views/time_text.gleam
 src/views/user_view.gleam
 ```
 
