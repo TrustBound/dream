@@ -1,0 +1,3 @@
+Count before the crash: 2
+A new counter process after the crash: True
+Count after the restart: 1

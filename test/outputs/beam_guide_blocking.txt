@@ -1,0 +1,2 @@
+signup_and_wait: email sent to ada@example.com, then response 200
+signup: response 202, then email sent to ada@example.com

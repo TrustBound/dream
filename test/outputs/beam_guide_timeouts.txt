@@ -1,0 +1,2 @@
+price_or_wait_forever, the price service does not answer: still waiting, with no answer
+price_with_timeout, the price service does not answer in 10 ms: 503 The price service did not answer in time

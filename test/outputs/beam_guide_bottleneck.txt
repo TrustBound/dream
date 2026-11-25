@@ -1,0 +1,3 @@
+Requests that wait for the one price process: 3
+A call after the price process stopped: it panics, True that the callee exited
+Three requests that read the ETS table: [Ok(100), Ok(100), Ok(100)]

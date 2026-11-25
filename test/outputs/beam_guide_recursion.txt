@@ -1,0 +1,2 @@
+sum_to(1000000), at most 1000000 words of heap: the runtime stopped the process at the limit
+sum_to_with_total(1000000, 0), at most 1000000 words of heap: 500000500000

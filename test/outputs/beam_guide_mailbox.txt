@@ -1,0 +1,4 @@
+log, 1000 lines to a busy logger: 1000 messages wait
+log_and_wait: the line is written before the call returns
+price_with_own_timeout, a reply after the timeout: 1 message left in the mailbox
+price_with_timeout, a reply after the timeout: 0 messages left in the mailbox

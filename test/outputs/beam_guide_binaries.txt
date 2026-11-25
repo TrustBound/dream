@@ -1,0 +1,3 @@
+preview_slice, 16 bytes of a 1000000-byte upload, keeps 16 bytes
+preview_slice, 100 bytes of a 1000000-byte upload, keeps 1000000 bytes
+preview_copy, 100 bytes of a 1000000-byte upload, keeps 100 bytes

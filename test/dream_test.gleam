@@ -1,5 +1,6 @@
 //// Main test entry point using dream_test framework.
 
+import beam_snippets_test
 import benchmarks/router_benchmark
 import contributing_snippets_test
 import doc_core_snippets_test
@@ -112,6 +113,7 @@ pub fn main() {
     websocket_chat_readme_snippets_test.tests(),
     docs_snippet_pages_test.tests(),
     guide_reports_test.tests(),
+    beam_snippets_test.tests(),
   ])
   |> runner.results_reporters([bdd.new()])
   |> runner.coverage(

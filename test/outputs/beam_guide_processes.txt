@@ -1,0 +1,4 @@
+Two requests at the same time: 2 processes
+Two requests on one keep-alive connection: 1 process
+GET /crash: 500
+GET / after the crash: 200
