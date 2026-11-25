@@ -23,8 +23,11 @@ This repository is a Gleam library. Use the `gleam` CLI and the top-level `Makef
   - `gleam format`
   - `make format` does the same across the project.
 
-- **Run CI-style checks locally** (format check + build + tests)
+- **Run CI-style checks locally** (format check, build, unit tests with the 100% line coverage gate, docs code block check)
   - `make check`
+
+- **Check the docs code blocks against their tested snippets**
+  - `make check-snippets`
 
 - **Clean build artifacts**
   - `make clean`
@@ -38,13 +41,7 @@ This repository is a Gleam library. Use the `gleam` CLI and the top-level `Makef
 Tests live under `test/` and mirror the `src/` structure.
 
 - **Test entrypoint**
-  - `test/dream_test.gleam` runs all test modules via `gleeunit.main()`.
-
-- **Run tests for a single module** (example from this repo)
-  - `gleam test --module dream/router_test`
-
-- **Watch tests on file changes**
-  - `gleam test --watch`
+  - `test/dream_test.gleam` runs all test modules with the `dream_test` runner and measures line coverage of `src/`. A new test module runs only after it is added to that list.
 
 Some examples under `examples/` define additional targets (e.g. to run servers) in their own `Makefile` and `README.md`. When working inside an example, `cd` into that directory and use its documented commands.
 
@@ -55,11 +52,10 @@ The project has strong testing requirements:
 - Tests follow a **black-box** philosophy: test public interfaces and observable behavior, not private functions or implementation details.
 - Unit tests must be isolated (no network, filesystem, or real databases), fast, and deterministic.
 - `src/dream/` is expected to have **100% test coverage**. If a private function cannot be reached via public APIs, it is treated as dead code.
-- Test naming convention:
-  - `function_name_with_condition_returns_expected_result_test()`
+- Tests use `dream_test` (`describe`/`group` and `it`), not `_test` functions. Name the `group` for the function and each `it` for the expected result and the condition (see `docs/contributing/contributing.md`, "Test Naming").
 - Test layout mirrors `src/` structure (e.g. `test/dream/router_test.gleam` exercises `src/dream/router.gleam`).
 
-For integration-style tests (real databases, HTTP, etc.), follow the patterns documented in `docs/guides/testing.md` and the `examples/tasks` project (which uses a dedicated `test/integration/` directory).
+For integration-style tests (real databases, HTTP, etc.), follow the patterns documented in `docs/contributing/testing.md`, `docs/guides/testing.md` and the `test/integration/` directory of each example.
 
 ## Architecture overview
 
@@ -77,14 +73,14 @@ Key concepts, as implemented here and described in `docs/reference/architecture.
   - Associates each route with a controller function and a chain of middleware.
   - Builds a controller/middleware chain so middleware wrap controllers in a predictable order.
 
-- **Dream server (`dream.gleam`)**
-  - Defines the generic `Dream(server, context, services)` type encapsulating:
+- **Dream server (`dream/dream.gleam`)**
+  - Defines the opaque `Dream(server, context, services, router)` type encapsulating:
     - The underlying HTTP server implementation (Mist builder).
     - The router instance.
     - A "template" context value cloned per request.
     - Optional services (application dependencies).
     - Server configuration such as `max_body_size`.
-  - Exposes `route_request/4`, which finds the matching route, attaches path params to the request, builds the middleware chain, and returns a `Response` (404 if unmatched).
+  - Exposes `route_request/4`, which finds the matching route, attaches path params to the request, builds the middleware chain, and returns a `Response` (404 when no route has the path, 405 when a route has the path but not the method).
 
 - **HTTP convenience layer (`http.gleam` + `http/` submodules)**
   - Re-exports HTTP types (`Request`, `Response`, `Method`, `Header`, `Cookie`, `PathParam`, etc.).
@@ -143,7 +139,7 @@ At a high level:
 - **[`dream_json`](https://github.com/TrustBound/dream_json)** – JSON encoding helpers.
 - **[`dream_mock_server`](https://github.com/TrustBound/dream_mock_server)** – A mock HTTP server for tests.
 
-Consumers can depend on these modules individually (e.g. via Hex or local `path` dependencies), and the `docs/reference/architecture.md` file documents typical usage patterns.
+Consumers depend on these modules individually from Hex, and the `docs/reference/architecture.md` file documents typical usage patterns.
 
 ### Examples (`examples/`)
 
@@ -158,11 +154,12 @@ When you need a concrete usage pattern (e.g. SSR, operations, multi-format respo
 
 The `docs/` tree is the canonical source for user-facing concepts and should stay in sync with the code:
 
-- `docs/quickstart.md` – 5-minute introduction to building a Dream app.
-- `docs/learn/` – Learning path from "hello world" to production patterns.
-- `docs/guides/` – Focused guides (authentication, controllers & models, operations, multiple formats, testing, deployment, etc.).
+- `docs/guides/` – Task guides (getting started, routing, request data, responses, database API, JSON APIs, templates, streaming, SSE, WebSockets, HTTP/2, testing, deployment, operating, upgrading to 3).
+- `docs/concepts/` – Concepts and patterns.
 - `docs/reference/` – Technical reference, including `architecture.md`, `design-principles.md`, `dream-vs-mist.md`, and `naming-conventions.md`.
-- `docs/contributing/` – Docs-specific contribution guidelines and tone.
+- `docs/contributing/` – Contribution rules: code style, the docs code block check, testing, publishing and tone.
+
+Every code block in the docs is an exact copy of a tested file, with a "tested snippet" badge. `make check-snippets` fails otherwise. Read `docs/contributing/contributing.md`, "Code Blocks in READMEs and Guides", before you add a code block.
 
 When changing APIs or patterns in `src/dream`, look for corresponding guides or reference docs and update them together.
 
@@ -185,7 +182,7 @@ These rules come from `CONTRIBUTING.md` and `docs/reference/naming-conventions.m
 - **Documentation**
   - All **public functions** should have Gleam doc comments that include:
     - A concise description of behavior.
-    - Example usage (including relevant imports) where appropriate.
+    - Example usage (including relevant imports) where appropriate. The example is a tested snippet with a heading and a badge, like every other docs code block.
     - Any non-obvious notes or caveats.
 
 - **Project structure expectations**
