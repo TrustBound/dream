@@ -1,5 +1,4 @@
--- name: create_project
--- Create a new project
+-- returns: one Project
 INSERT INTO projects (name, description, color)
 VALUES ($1, $2, $3)
 RETURNING
@@ -8,4 +7,3 @@ RETURNING
   description,
   color,
   created_at;
-

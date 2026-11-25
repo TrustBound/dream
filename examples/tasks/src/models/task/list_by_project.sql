@@ -1,5 +1,4 @@
--- name: get_task
--- Get a single task by ID
+-- returns: many Task
 SELECT
   id,
   title,
@@ -12,5 +11,5 @@ SELECT
   created_at,
   updated_at
 FROM tasks
-WHERE id = $1;
-
+WHERE project_id = $1
+ORDER BY position ASC, created_at DESC;

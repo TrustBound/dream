@@ -2,13 +2,14 @@
 
 import gleam/json
 import gleam/option
+import models/project.{type Project}
+import models/tag.{type Tag}
+import models/task.{type Task}
 import templates/components/layout_components
 import templates/components/project_components
 import templates/components/task_components
 import templates/pages/project as project_page
-import types/project.{type Project}
-import types/tag.{type Tag}
-import types/task.{type Task}
+import utilities/dates
 
 /// Render project card for HTMX swap
 pub fn card(project: Project) -> String {
@@ -55,7 +56,7 @@ pub fn to_json(project: Project) -> String {
     #("name", json.string(project.name)),
     #("description", json_option_string(project.description)),
     #("color", json_option_string(project.color)),
-    #("created_at", json.string(project.created_at)),
+    #("created_at", json.string(dates.timestamp_to_string(project.created_at))),
   ])
   |> json.to_string
 }
@@ -72,7 +73,7 @@ fn project_to_json_object(project: Project) -> json.Json {
     #("name", json.string(project.name)),
     #("description", json_option_string(project.description)),
     #("color", json_option_string(project.color)),
-    #("created_at", json.string(project.created_at)),
+    #("created_at", json.string(dates.timestamp_to_string(project.created_at))),
   ])
 }
 

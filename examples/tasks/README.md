@@ -60,12 +60,12 @@ Server will start on `http://localhost:3000`.
 
 The migrations are already in `priv/migrations`. They were made with `make migrate-new name=create_projects`, and the same for `create_todos`, `create_tags` and `create_todo_tags`.
 
-When you change a query or a template, generate the code again. `make squirrel` needs the database:
+When you change a query or a template, generate the code again. `make models` needs the database:
 
-### Generate the SQL code <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/sql.sh#L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Generate the models <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/models.sh#L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
-make squirrel
+make models
 ```
 
 ### Compile the templates <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/templates.sh#L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
@@ -115,7 +115,7 @@ Open `http://localhost:3000` in your browser to:
 5. ✅ **No raw HTML in code** - All HTML from matcha templates
 6. ✅ **Format detection** - PathParam.format for `.htmx` partials
 7. ✅ **Clean architecture** - Models, Controllers, Views, Operations
-8. ✅ **Type-safe SQL** - `dream_sql_generator` generates the queries
+8. ✅ **Typed models** - `dream_model` generates the models from SQL files
 
 ## Code Structure
 
@@ -127,7 +127,7 @@ The example has these folders:
 find src priv -type d | sort
 ```
 
-### The folders <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/readme_output.txt#L1-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The folders <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/readme_output.txt#L1-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```text
 priv
@@ -137,11 +137,8 @@ src/controllers
 src/middleware
 src/models
 src/models/project
-src/models/project/sql
 src/models/tag
-src/models/tag/sql
 src/models/task
-src/models/task/sql
 src/operations
 src/services
 src/templates
@@ -154,9 +151,9 @@ src/utilities
 src/views
 ```
 
-- `src/models/`: data access, with the SQL queries of each model in its `sql/` folder.
+- `src/models/`: data access. Each model folder holds its SQL queries, and `dream_model` generates the module next to it, for example `src/models/task.gleam` from `src/models/task/*.sql`. `src/services/database.gleam` calls `client.check_schema` with the fingerprints of the models at start-up.
 - `src/templates/`: the Matcha templates, from small elements to full pages.
 - `src/views/`: the view modules that fill the templates.
-- `src/operations/`: business logic. `src/types/`: domain types.
+- `src/operations/`: business logic. `src/types/`: the input data of the forms.
 - `priv/migrations/`: the database migrations. `docker-compose.yml` starts PostgreSQL.
 

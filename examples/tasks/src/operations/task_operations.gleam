@@ -1,19 +1,31 @@
 //// Task operations - Business logic for task management
 ////
-//// This module contains pure domain logic for task operations.
-//// It returns Result types with dream.Error.
+//// This module contains pure domain logic for task operations. It calls
+//// the functions that dream_model generated in models/task and models/tag,
+//// which return Result types with dream.Error.
 
 import dream/http/error.{type Error}
-import dream_postgres_client.{type Connection}
+import dream_postgres/client.{type Connection}
+import gleam/option.{type Option}
 import gleam/result
-import models/tag/tag_model
-import models/task/task_model
-import types/tag.{type Tag}
-import types/task.{type Task, type TaskData}
+import gleam/time/calendar
+import models/tag.{type Tag}
+import models/task.{type Task}
+import types/task.{type TaskData, TaskData} as _task_data
+import utilities/dates
 
 /// Create a new task
 pub fn create_task(db: Connection, data: TaskData) -> Result(Task, Error) {
-  task_model.create(db, data)
+  task.create(
+    db,
+    data.title,
+    stored_description(data.description),
+    data.completed,
+    data.priority,
+    option.Some(stored_due_date(data.due_date)),
+    data.position,
+    option.unwrap(data.project_id, 0),
+  )
 }
 
 /// Update an existing task
@@ -22,12 +34,21 @@ pub fn update_task(
   task_id: Int,
   data: TaskData,
 ) -> Result(Task, Error) {
-  task_model.update(db, task_id, data)
+  task.update(
+    db,
+    task_id,
+    data.title,
+    stored_description(data.description),
+    data.completed,
+    data.priority,
+    option.Some(stored_due_date(data.due_date)),
+    option.unwrap(data.project_id, 0),
+  )
 }
 
 /// Get a task by ID
 pub fn get_task(db: Connection, task_id: Int) -> Result(Task, Error) {
-  task_model.get(db, task_id)
+  task.get(db, task_id)
 }
 
 /// Get a task with its tags
@@ -35,18 +56,18 @@ pub fn get_task_with_tags(
   db: Connection,
   task_id: Int,
 ) -> Result(#(Task, List(Tag)), Error) {
-  use task <- result.try(task_model.get(db, task_id))
+  use found <- result.try(task.get(db, task_id))
 
   let tags =
-    tag_model.get_tags_for_task(db, task.id)
+    tag.for_task(db, found.id)
     |> result.unwrap([])
 
-  Ok(#(task, tags))
+  Ok(#(found, tags))
 }
 
 /// List all tasks
 pub fn list_tasks(db: Connection) -> Result(List(Task), Error) {
-  task_model.list(db)
+  task.list(db)
 }
 
 /// List all tasks with their tags
@@ -55,7 +76,7 @@ pub fn list_tasks(db: Connection) -> Result(List(Task), Error) {
 pub fn list_tasks_with_tags(
   db: Connection,
 ) -> Result(List(#(Task, List(Tag))), Error) {
-  use tasks <- result.try(task_model.list(db))
+  use tasks <- result.try(task.list(db))
 
   // Get tags for each task
   let tasks_with_tags = build_tasks_with_tags(db, tasks)
@@ -69,23 +90,24 @@ fn build_tasks_with_tags(
 ) -> List(#(Task, List(Tag))) {
   case tasks {
     [] -> []
-    [task, ..rest] -> {
+    [first, ..rest] -> {
       let tags =
-        tag_model.get_tags_for_task(db, task.id)
+        tag.for_task(db, first.id)
         |> result.unwrap([])
-      [#(task, tags), ..build_tasks_with_tags(db, rest)]
+      [#(first, tags), ..build_tasks_with_tags(db, rest)]
     }
   }
 }
 
-/// Delete a task
+/// Delete a task. A task that does not exist gives NotFound.
 pub fn delete_task(db: Connection, task_id: Int) -> Result(Nil, Error) {
-  task_model.delete(db, task_id)
+  task.delete(db, task_id)
+  |> result.replace(Nil)
 }
 
 /// Toggle task completion status
 pub fn toggle_completion(db: Connection, task_id: Int) -> Result(Task, Error) {
-  task_model.toggle_completed(db, task_id)
+  task.toggle_completed(db, task_id)
 }
 
 /// Update task position (for reordering)
@@ -94,16 +116,53 @@ pub fn update_position(
   task_id: Int,
   new_position: Int,
 ) -> Result(Task, Error) {
-  task_model.update_position(db, task_id, new_position)
+  task.update_position(db, task_id, new_position)
 }
 
-/// Update a single field on a task
+/// Update a single field on a task (for auto-save)
 pub fn update_field(
   db: Connection,
   task_id: Int,
   field: String,
   value: String,
 ) -> Result(Nil, Error) {
-  use _task <- result.try(task_model.update_field(db, task_id, field, value))
+  use found <- result.try(task.get(db, task_id))
+  let data =
+    TaskData(
+      title: found.title,
+      description: found.description,
+      completed: found.completed,
+      priority: found.priority,
+      due_date: option.map(found.due_date, dates.date_to_string),
+      position: found.position,
+      project_id: found.project_id,
+    )
+  let data = case field {
+    "title" -> TaskData(..data, title: value)
+    "description" -> TaskData(..data, description: non_empty(value))
+    "due_date" -> TaskData(..data, due_date: non_empty(value))
+    _ -> data
+  }
+  use _updated <- result.try(update_task(db, task_id, data))
   Ok(Nil)
+}
+
+// A task with no description stores an empty description.
+fn stored_description(description: Option(String)) -> Option(String) {
+  option.Some(option.unwrap(description, ""))
+}
+
+// A task with no due date, or with a date that does not parse, stores
+// 2025-01-01.
+fn stored_due_date(due_date: Option(String)) -> calendar.Date {
+  due_date
+  |> option.then(dates.parse_date)
+  |> option.unwrap(calendar.Date(year: 2025, month: calendar.January, day: 1))
+}
+
+fn non_empty(value: String) -> Option(String) {
+  case value {
+    "" -> option.None
+    _ -> option.Some(value)
+  }
 }

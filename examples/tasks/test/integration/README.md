@@ -19,7 +19,7 @@ From the repository root. `make test-tasks` runs this line of `scripts/test-task
 This will:
 1. Start the database (via docker-compose)
 2. Run migrations
-3. Generate SQL code (Squirrel)
+3. Check the models that dream_model generates
 4. Compile Matcha templates
 5. Build the Gleam application
 6. Start the server in the background

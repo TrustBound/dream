@@ -1,5 +1,5 @@
--- name: create_task
--- Create a new task
+-- returns: one Task
+-- params: title, description, completed, priority, due_date, position, project_id
 INSERT INTO tasks (
   title,
   description,
@@ -21,4 +21,3 @@ RETURNING
   project_id,
   created_at,
   updated_at;
-

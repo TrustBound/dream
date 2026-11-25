@@ -1,5 +1,6 @@
--- name: update_task
--- Update a task
+-- returns: one Task
+-- not found: Task not found
+-- params: id, title, description, completed, priority, due_date, project_id
 UPDATE tasks
 SET
   title = $2,
@@ -21,4 +22,3 @@ RETURNING
   project_id,
   created_at,
   updated_at;
-

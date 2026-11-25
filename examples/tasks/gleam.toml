@@ -5,7 +5,7 @@ licences = ["MIT"]
 
 [dependencies]
 dream = { path = "../.." }
-dream_postgres = { path = "../../../modules-breakout/dream_postgres" }
+dream_postgres = ">= 2.1.0 and < 3.0.0"
 # Pinned to the module's move branch until it is on Hex.
 dream_config = { git = "https://github.com/TrustBound/dream_config.git", ref = "f68cc45f32b4aa21234f254118f3e18ae4c9cf49" }
 dream_postgres_client = ">= 1.0.0 and < 2.0.0"
@@ -20,8 +20,5 @@ gleam_time = ">= 1.5.0 and < 2.0.0"
 gleam_otp = ">= 1.2.0 and < 2.0.0"
 
 [dev-dependencies]
-dream_sql_generator = ">= 1.0.0 and < 2.0.0"
+dream_model = ">= 1.0.0 and < 2.0.0"
 gleeunit = ">= 1.9.0 and < 2.0.0"
-
-[tools.dream_sql_generator]
-client_module = "dream_postgres_client"

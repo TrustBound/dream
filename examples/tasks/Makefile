@@ -1,7 +1,7 @@
 # Docker Compose database connection URL
 DATABASE_URL = postgres://postgres:postgres@localhost:5437/tasks_db
 
-.PHONY: run test test-integration test-e2e e2e-install e2e-open e2e-run e2e-test e2e-clean clean db-up db-down db-logs db-shell db-reset db-clear squirrel matcha migrate migrate-up migrate-down migrate-new build
+.PHONY: run test test-integration test-e2e e2e-install e2e-open e2e-run e2e-test e2e-clean clean db-up db-down db-logs db-shell db-reset db-clear models matcha migrate migrate-up migrate-down migrate-new build
 
 run:
 	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m main
@@ -17,8 +17,8 @@ test-integration:
 	@if [ -z "$$CI" ]; then make db-up > /dev/null 2>&1 || true; else echo "Using the PostgreSQL service of CI"; fi
 	@echo "Running migrations..."
 	@export DATABASE_URL="$(DATABASE_URL)" && make migrate > /dev/null 2>&1
-	@echo "Generating SQL code..."
-	@sh test/integration/sql.sh
+	@echo "Checking the models..."
+	@sh test/integration/models.sh
 	@echo "Compiling matcha templates..."
 	@make matcha > /dev/null 2>&1
 	@echo "Building Gleam application..."
@@ -75,9 +75,9 @@ create-task-in-db:
 create-tag-in-db:
 	@export DATABASE_URL="$(DATABASE_URL)" && docker-compose exec -T postgres psql -U postgres -d tasks_db -c "INSERT INTO tags (name, created_at) VALUES ('$(NAME)', NOW()) RETURNING id;" || true
 
-# Generate type-safe SQL code with dream_sql_generator
-squirrel:
-	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m dream_sql_generator
+# Generate the model modules from the queries in src/models/ with dream_model
+models:
+	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m dream_model
 
 # Compile Matcha templates
 matcha:
@@ -96,8 +96,8 @@ migrate-down:
 migrate-new:
 	@gleam run -m cigogne new --name $(name)
 
-# Build with matcha and squirrel generation
-build: matcha squirrel
+# Build with matcha and model generation
+build: matcha models
 	@gleam build
 
 # E2E Testing with Cypress
@@ -123,8 +123,8 @@ e2e-test:
 	@if [ -z "$$CI" ]; then make db-up > /dev/null 2>&1 || true; else echo "Using the PostgreSQL service of CI"; fi
 	@echo "Running migrations..."
 	@export DATABASE_URL="$(DATABASE_URL)" && make migrate > /dev/null 2>&1
-	@echo "Generating SQL code..."
-	@export DATABASE_URL="$(DATABASE_URL)" && make squirrel > /dev/null 2>&1
+	@echo "Generating the models..."
+	@export DATABASE_URL="$(DATABASE_URL)" && make models > /dev/null 2>&1
 	@echo "Compiling matcha templates..."
 	@make matcha > /dev/null 2>&1
 	@echo "Building Gleam application..."

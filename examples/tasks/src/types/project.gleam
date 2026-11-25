@@ -1,16 +1,9 @@
-//// Project domain type
+//// Project input type
+////
+//// The data of a new project. dream_model generates the Project record of
+//// a row in models/project.
 
 import gleam/option.{type Option}
-
-pub type Project {
-  Project(
-    id: Int,
-    name: String,
-    description: Option(String),
-    color: Option(String),
-    created_at: String,
-  )
-}
 
 pub type ProjectData {
   ProjectData(name: String, description: Option(String), color: Option(String))

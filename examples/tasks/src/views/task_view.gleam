@@ -2,11 +2,12 @@
 
 import gleam/json
 import gleam/option
+import models/tag.{type Tag}
+import models/task.{type Task}
 import templates/components/layout_components
 import templates/components/task_components
 import templates/pages/index
-import types/tag.{type Tag}
-import types/task.{type Task}
+import utilities/dates
 
 /// Render task card for HTMX swap
 pub fn card(task: Task, tags: List(Tag)) -> String {
@@ -42,11 +43,14 @@ pub fn to_json(task: Task) -> String {
     #("description", json_option_string(task.description)),
     #("completed", json.bool(task.completed)),
     #("priority", json.int(task.priority)),
-    #("due_date", json_option_string(task.due_date)),
+    #(
+      "due_date",
+      json_option_string(option.map(task.due_date, dates.date_to_string)),
+    ),
     #("position", json.int(task.position)),
     #("project_id", json_option_int(task.project_id)),
-    #("created_at", json.string(task.created_at)),
-    #("updated_at", json.string(task.updated_at)),
+    #("created_at", json.string(dates.timestamp_to_string(task.created_at))),
+    #("updated_at", json.string(dates.timestamp_to_string(task.updated_at))),
   ])
   |> json.to_string
 }
@@ -64,11 +68,14 @@ fn task_to_json_object(task: Task) -> json.Json {
     #("description", json_option_string(task.description)),
     #("completed", json.bool(task.completed)),
     #("priority", json.int(task.priority)),
-    #("due_date", json_option_string(task.due_date)),
+    #(
+      "due_date",
+      json_option_string(option.map(task.due_date, dates.date_to_string)),
+    ),
     #("position", json.int(task.position)),
     #("project_id", json_option_int(task.project_id)),
-    #("created_at", json.string(task.created_at)),
-    #("updated_at", json.string(task.updated_at)),
+    #("created_at", json.string(dates.timestamp_to_string(task.created_at))),
+    #("updated_at", json.string(dates.timestamp_to_string(task.updated_at))),
   ])
 }
 

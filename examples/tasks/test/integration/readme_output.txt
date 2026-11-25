@@ -5,11 +5,8 @@ src/controllers
 src/middleware
 src/models
 src/models/project
-src/models/project/sql
 src/models/tag
-src/models/tag/sql
 src/models/task
-src/models/task/sql
 src/operations
 src/services
 src/templates

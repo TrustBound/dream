@@ -4,13 +4,12 @@ import context.{type TasksContext}
 import dream/http
 import gleam/option
 import gleam/result
-import models/project/project_model
-import models/tag/tag_model
-import models/task/task_model
+import models/project
+import models/tag.{type Tag}
+import models/task.{type Task}
+import operations/project_operations
 import services.{type Services}
-import types/project.{ProjectData}
-import types/tag.{type Tag}
-import types/task.{type Task}
+import types/project.{ProjectData} as _project_data
 import utilities/response_helpers
 import views/project_view
 
@@ -20,7 +19,7 @@ pub fn index(
   _context: TasksContext,
   services: Services,
 ) -> http.Response {
-  case project_model.list(services.db) {
+  case project.list(services.db) {
     Ok(projects) ->
       http.html_response(http.ok, project_view.list_page(projects))
     Error(err) -> response_helpers.handle_error(err)
@@ -35,18 +34,18 @@ pub fn show(
 ) -> http.Response {
   let result = {
     use project_id <- result.try(http.require_int(request, "project_id"))
-    use project <- result.try(project_model.get(services.db, project_id))
-    use tasks <- result.try(task_model.list_by_project(services.db, project.id))
+    use found <- result.try(project.get(services.db, project_id))
+    use tasks <- result.try(task.list_by_project(services.db, found.id))
 
     let tags_by_task = build_tags_by_task(services, tasks)
-    Ok(#(project, tasks, tags_by_task))
+    Ok(#(found, tasks, tags_by_task))
   }
 
   case result {
-    Ok(#(project, tasks, tags_by_task)) ->
+    Ok(#(found, tasks, tags_by_task)) ->
       http.html_response(
         http.ok,
-        project_view.show_page(project, tasks, tags_by_task),
+        project_view.show_page(found, tasks, tags_by_task),
       )
     Error(err) -> response_helpers.handle_error(err)
   }
@@ -58,11 +57,11 @@ fn build_tags_by_task(
 ) -> List(#(Int, List(Tag))) {
   case tasks {
     [] -> []
-    [task, ..rest] -> {
+    [first, ..rest] -> {
       let tags =
-        tag_model.get_tags_for_task(services.db, task.id)
+        tag.for_task(services.db, first.id)
         |> result.unwrap([])
-      [#(task.id, tags), ..build_tags_by_task(services, rest)]
+      [#(first.id, tags), ..build_tags_by_task(services, rest)]
     }
   }
 }
@@ -81,8 +80,8 @@ pub fn create(
       color: option.None,
     )
 
-  case project_model.create(services.db, data) {
-    Ok(project) -> http.html_response(http.ok, project_view.card(project))
+  case project_operations.create_project(services.db, data) {
+    Ok(created) -> http.html_response(http.ok, project_view.card(created))
     Error(err) -> response_helpers.handle_error(err)
   }
 }
@@ -95,7 +94,7 @@ pub fn delete(
 ) -> http.Response {
   let result = {
     use project_id <- result.try(http.require_int(request, "project_id"))
-    project_model.delete(services.db, project_id)
+    project.delete(services.db, project_id)
   }
 
   case result {

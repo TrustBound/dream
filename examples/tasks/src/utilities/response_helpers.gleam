@@ -4,8 +4,8 @@
 
 import dream/http.{type Error, type Response}
 import dream/http/error
-import types/tag.{type Tag}
-import types/task.{type Task}
+import models/tag.{type Tag}
+import models/task.{type Task}
 import views/errors
 
 /// Handle Dream errors and convert to appropriate HTTP responses

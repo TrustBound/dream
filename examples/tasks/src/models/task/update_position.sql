@@ -1,5 +1,6 @@
--- name: update_position
--- Update the position of a task for drag-and-drop reordering
+-- returns: one Task
+-- not found: Task not found
+-- params: id, position
 UPDATE tasks
 SET position = $2
 WHERE id = $1
@@ -14,4 +15,3 @@ RETURNING
   project_id,
   created_at,
   updated_at;
-

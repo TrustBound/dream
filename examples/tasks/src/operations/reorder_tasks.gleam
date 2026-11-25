@@ -4,8 +4,7 @@ import dream/http/error.{type Error}
 import dream_postgres/client.{type Connection}
 import gleam/list
 import gleam/result
-import models/task/task_model
-import types/task.{type Task}
+import models/task.{type Task}
 
 /// Reorder a task by moving it to a new position
 /// This operation could be extended to handle complex reordering logic,
@@ -15,7 +14,7 @@ pub fn execute(
   task_id: Int,
   new_position: Int,
 ) -> Result(Task, Error) {
-  task_model.update_position(db, task_id, new_position)
+  task.update_position(db, task_id, new_position)
 }
 
 /// Batch reorder multiple tasks
@@ -35,11 +34,7 @@ fn batch_reorder_recursive(
   case updates {
     [] -> Ok(list.reverse(results))
     [#(task_id, position), ..rest] -> {
-      use task_item <- result.try(task_model.update_position(
-        db,
-        task_id,
-        position,
-      ))
+      use task_item <- result.try(task.update_position(db, task_id, position))
       batch_reorder_recursive(db, rest, [task_item, ..results])
     }
   }

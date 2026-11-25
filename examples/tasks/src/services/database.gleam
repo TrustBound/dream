@@ -1,8 +1,15 @@
+//// Starts the connection pool, then checks that the schema is still the
+//// one that dream_model generated the models from.
+
+import dream_postgres/client
 import dream_postgres_client
 import gleam/erlang/process
 import gleam/io
 import gleam/option
 import gleam/otp/actor
+import models/project
+import models/tag
+import models/task
 
 pub fn initialize() -> dream_postgres_client.Connection {
   io.println("Connecting to database...")
@@ -23,5 +30,17 @@ pub fn initialize() -> dream_postgres_client.Connection {
     dream_postgres_client.start(config)
 
   io.println("Database connection pool started")
-  connection
+
+  // Stop with a clear message when the schema changed after dream_model
+  // generated the models
+  case
+    client.check_schema(connection, [
+      project.schema_fingerprint,
+      tag.schema_fingerprint,
+      task.schema_fingerprint,
+    ])
+  {
+    Ok(Nil) -> connection
+    Error(error) -> panic as client.format_schema_check_error(error)
+  }
 }

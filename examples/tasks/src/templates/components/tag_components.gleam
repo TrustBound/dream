@@ -2,11 +2,11 @@
 
 import gleam/int
 import gleam/string
+import models/tag.{type Tag}
 import templates/components/tag_list
 import templates/components/tag_selector
 import templates/elements/badge
 import templates/elements/tag_button
-import types/tag.{type Tag}
 import utilities/html_helpers.{htmx_attribute, join_attributes}
 
 pub fn tag_badge(tag: Tag) -> String {

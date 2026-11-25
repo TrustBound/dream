@@ -1,5 +1,5 @@
--- name: get_project
--- Get a single project by ID
+-- returns: one Project
+-- not found: Project not found
 SELECT
   id,
   name,
@@ -8,4 +8,3 @@ SELECT
   created_at
 FROM projects
 WHERE id = $1;
-

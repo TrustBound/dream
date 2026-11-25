@@ -1,5 +1,4 @@
--- name: list_projects
--- List all projects
+-- returns: many Project
 SELECT
   id,
   name,
@@ -8,4 +7,3 @@ SELECT
   created_at
 FROM projects
 ORDER BY created_at DESC;
-

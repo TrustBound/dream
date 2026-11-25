@@ -3,13 +3,13 @@
 import gleam/int
 import gleam/option
 import gleam/string
+import models/project.{type Project}
 import templates/components/project_card
 import templates/components/project_form
 import templates/components/project_list
 import templates/elements/button
 import templates/elements/list_item
 import templates/elements/paragraph
-import types/project.{type Project}
 import utilities/html_helpers.{htmx_attribute, join_attributes}
 
 pub fn project_card(project: Project) -> String {

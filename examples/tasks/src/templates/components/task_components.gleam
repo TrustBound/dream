@@ -3,6 +3,8 @@
 import gleam/int
 import gleam/option.{type Option}
 import gleam/string
+import models/tag.{type Tag}
+import models/task.{type Task}
 import templates/components/form_components
 import templates/components/tag_components
 import templates/components/task_card
@@ -18,8 +20,7 @@ import templates/elements/input
 import templates/elements/list_item
 import templates/elements/priority_badge
 import templates/elements/textarea
-import types/tag.{type Tag}
-import types/task.{type Task}
+import utilities/dates
 import utilities/html_helpers.{htmx_attribute, htmx_vals, join_attributes}
 
 pub fn task_card(task: Task, tags: List(Tag)) -> String {
@@ -58,7 +59,7 @@ pub fn task_card(task: Task, tags: List(Tag)) -> String {
   }
   let priority_badge_html = priority_badge.render(badge_text: priority_text)
 
-  let due_date_html = case task.due_date {
+  let due_date_html = case option.map(task.due_date, dates.date_to_string) {
     option.Some(date) -> {
       let icon_html = icon.render(icon_name: "calendar")
       date_display.render(icon_html: icon_html, date_text: date)
@@ -210,7 +211,8 @@ pub fn task_editor(task: Task, _tags: List(Tag)) -> String {
     )
 
   // Due date input with auto-save
-  let due_date_value = option.unwrap(task.due_date, "")
+  let due_date_value =
+    option.map(task.due_date, dates.date_to_string) |> option.unwrap("")
   let due_date_attrs =
     join_attributes([
       htmx_attribute("post", "/tasks/" <> task_id <> "/update-field"),
@@ -293,7 +295,8 @@ fn edit_form(task: Task) -> String {
   let task_id = int.to_string(task.id)
   let title_value = task.title
   let description_value = option.unwrap(task.description, "")
-  let due_date_value = option.unwrap(task.due_date, "")
+  let due_date_value =
+    option.map(task.due_date, dates.date_to_string) |> option.unwrap("")
 
   let title_field =
     form_components.text_field("title", "title", "Title", title_value)

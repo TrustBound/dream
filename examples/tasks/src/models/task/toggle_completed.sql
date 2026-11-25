@@ -1,5 +1,5 @@
--- name: toggle_completed
--- Toggle the completed status of a task
+-- returns: one Task
+-- not found: Task not found
 UPDATE tasks
 SET
   completed = NOT completed,
@@ -16,4 +16,3 @@ RETURNING
   project_id,
   created_at,
   updated_at;
-

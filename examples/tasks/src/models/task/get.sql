@@ -1,5 +1,5 @@
--- name: list_tasks
--- List all tasks ordered by position
+-- returns: one Task
+-- not found: Task not found
 SELECT
   id,
   title,
@@ -12,5 +12,4 @@ SELECT
   created_at,
   updated_at
 FROM tasks
-ORDER BY position ASC, created_at DESC;
-
+WHERE id = $1;
