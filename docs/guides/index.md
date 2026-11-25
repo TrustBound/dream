@@ -16,6 +16,8 @@ Start with the first one, then pick the task you have:
 - [Build a chat with WebSockets](https://hexdocs.pm/dream/3.0.0/guides/websockets.html) - Typed WebSocket actors and a chat room.
 - [Serve HTTPS and HTTP/2](https://hexdocs.pm/dream/3.0.0/guides/http2.html) - TLS, ALPN and prior knowledge.
 - [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html) - Dream Test for controllers, middleware, routes and servers.
+- [Test a Dream app that calls other APIs](https://hexdocs.pm/dream/3.0.0/guides/testing-with-recorded-http.html) - Recorded HTTP calls, with the base request in services.
+- [Test a Dream app's database code with recorded queries](https://hexdocs.pm/dream/3.0.0/guides/testing-with-recorded-queries.html) - Recorded PostgreSQL queries, with the connection in services.
 - [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html) - The image, Compose, migrations and health checks.
 - [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html) - Start errors, body limits and stopping.
 

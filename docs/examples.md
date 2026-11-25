@@ -221,6 +221,23 @@ An app that reads its settings from the environment, answers `/health` with the 
 
 ---
 
+### [recorded_tests/](../examples/recorded_tests/)
+**Tests that play back recorded HTTP calls and queries.** (Best first example of tests with no network and no database.)
+
+Two small apps and their tests. The parcels app calls a carrier API with the base request in its services. The lists app keeps a PostgreSQL connection in its services. The tests give each app services with a recorder, and play back the committed recordings.
+
+**Demonstrates:**
+- A base request and a connection in services, so that a test can change them
+- A recorder in the setup of a Dream Test suite, with the mode from `RECORDER_MODE`
+- A token header and a secret column kept out of the recordings
+- A transaction that rolls back, played back with no database
+- The report of a request and of a query with no recording
+
+**Test:** `make test` plays back, with no network and no database. `make record` records again, with a fake carrier API and PostgreSQL in Docker.
+**Guides:** [Test a Dream app that calls other APIs](guides/testing-with-recorded-http.md) and [Test a Dream app's database code with recorded queries](guides/testing-with-recorded-queries.md)
+
+---
+
 ## How to Use Examples
 
 1. **Read the README** - Explains what it demonstrates

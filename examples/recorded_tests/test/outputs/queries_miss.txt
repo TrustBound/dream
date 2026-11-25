@@ -1,0 +1,30 @@
+Lists
+  ✗ finds list 7
+    fail_with
+      Message: No recording matches SELECT name FROM lists WHERE id = $1 with [7]
+               Nearest recording in test/recordings/queries/lists.json:
+                 parameters:
+                 - [2]
+                 + [7]
+               Next nearest recording in test/recordings/queries/lists.json:
+                 parameters:
+                 - [999]
+                 + [7]
+    Run it alone: gleam test -- --only "Lists/finds list 7"
+
+Failures:
+Lists
+  ✗ finds list 7
+    fail_with
+      Message: No recording matches SELECT name FROM lists WHERE id = $1 with [7]
+               Nearest recording in test/recordings/queries/lists.json:
+                 parameters:
+                 - [2]
+                 + [7]
+               Next nearest recording in test/recordings/queries/lists.json:
+                 parameters:
+                 - [999]
+                 + [7]
+    Run it alone: gleam test -- --only "Lists/finds list 7"
+
+Summary: 1 run, 1 failed, 0 passed in 0ms

@@ -1,0 +1,26 @@
+# The PostgreSQL server for a record run of the lists tests. `make record`
+# starts it, and removes it with its data at the end. A playback run needs
+# no server.
+
+name: dream_recorded_tests
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dream
+      POSTGRES_PASSWORD: dream
+      POSTGRES_DB: lists
+    ports:
+      # Port 5441 on this machine, so the record run does not use a
+      # PostgreSQL server that already listens on 5432.
+      - "5441:5432"
+    volumes:
+      # Runs when the server starts with an empty database
+      - ./priv/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      # Over TCP: the server listens on TCP only after the schema is made
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U dream -d lists"]
+      interval: 1s
+      timeout: 5s
+      retries: 30

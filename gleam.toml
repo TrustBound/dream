@@ -25,6 +25,8 @@ pages = [
     { title = "Build a chat with WebSockets", path = "guides/websockets.html", source = "./docs/guides/websockets.md" },
     { title = "Serve HTTPS and HTTP/2", path = "guides/http2.html", source = "./docs/guides/http2.md" },
     { title = "Test your controllers and your app", path = "guides/testing.html", source = "./docs/guides/testing.md" },
+    { title = "Test a Dream app that calls other APIs", path = "guides/testing-with-recorded-http.html", source = "./docs/guides/testing-with-recorded-http.md" },
+    { title = "Test a Dream app's database code with recorded queries", path = "guides/testing-with-recorded-queries.html", source = "./docs/guides/testing-with-recorded-queries.md" },
     { title = "Deploy with Docker", path = "guides/deployment.html", source = "./docs/guides/deployment.md" },
     { title = "Start, stop and troubleshoot the server", path = "guides/operating.html", source = "./docs/guides/operating.md" },
 ]
@@ -105,4 +107,10 @@ tested_files = [
   "examples/tasks/src/templates",
   "examples/tasks/cypress",
   "examples/tasks/cypress.config.ts",
+  "examples/recorded_tests/test",
+  "examples/recorded_tests/gleam.toml",
+  "examples/recorded_tests/Makefile",
+  "examples/recorded_tests/scripts",
+  "examples/recorded_tests/docker-compose.yml",
+  "examples/recorded_tests/priv",
 ]

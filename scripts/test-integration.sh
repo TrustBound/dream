@@ -15,6 +15,8 @@ set -eu
 (cd examples/streaming_capabilities && make test-integration)
 (cd examples/websocket_chat && make test-integration)
 (cd examples/sse && make test-integration)
+# Plays back recorded HTTP calls and queries: no network and no database
+(cd examples/recorded_tests && make test)
 
 echo ""
 echo "✅ All integration tests passed!"

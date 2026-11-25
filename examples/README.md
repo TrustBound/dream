@@ -16,6 +16,7 @@ This directory contains comprehensive examples demonstrating Dream's features an
 | [multi_format](./multi_format) | JSON/CSV/HTML/HTMX formats | Yes | Integration | 3000 |
 | [streaming_capabilities](./streaming_capabilities) | Advanced streaming patterns | No | Integration | 3001 |
 | [tasks](./tasks) | Full-featured task manager | Yes | Integration + Cypress | 3000 |
+| [recorded_tests](./recorded_tests) | Tests with recorded HTTP calls and queries | Record run only | Playback | - |
 
 **Every example has automated integration tests.** `simplest` runs only the request of its README, the others also run Cucumber scenarios.
 
