@@ -1,5 +1,4 @@
 -- returns: one Product
--- not found: Product not found
 SELECT
   id,
   name,

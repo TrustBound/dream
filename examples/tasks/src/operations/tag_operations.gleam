@@ -2,7 +2,8 @@
 ////
 //// This module contains pure domain logic for tag operations. It calls
 //// the functions that dream_model generated in models/tag and models/task,
-//// which return Result types with dream.Error.
+//// which return data errors, and maps them to Dream errors with the texts
+//// for the client.
 
 import dream/http/error.{type Error}
 import dream_postgres/client.{type Connection}
@@ -11,6 +12,7 @@ import gleam/result
 import models/tag.{type Tag}
 import models/task.{type Task}
 import types/tag.{TagData} as _tag_data
+import utilities/response_helpers
 
 /// Create a new tag and attach it to a task
 ///
@@ -23,12 +25,13 @@ pub fn create_and_attach(
   let data = TagData(name: tag_name, color: option.None)
 
   // A tag with no color stores an empty color.
-  use created <- result.try(tag.get_or_create(
-    db,
-    data.name,
-    option.Some(option.unwrap(data.color, "")),
-  ))
-  use _ <- result.try(tag.add_to_task(db, task_id, created.id))
+  use created <- result.try(
+    tag.get_or_create(db, data.name, option.Some(option.unwrap(data.color, "")))
+    |> result.map_error(tag_error),
+  )
+  use _ <- result.try(
+    tag.add_to_task(db, task_id, created.id) |> result.map_error(tag_error),
+  )
 
   Ok(created)
 }
@@ -39,7 +42,7 @@ pub fn add_tag_to_task(
   task_id: Int,
   tag_id: Int,
 ) -> Result(Nil, Error) {
-  tag.add_to_task(db, task_id, tag_id)
+  tag.add_to_task(db, task_id, tag_id) |> result.map_error(tag_error)
 }
 
 /// Remove a tag from a task. A tag that is not on the task gives NotFound.
@@ -49,12 +52,13 @@ pub fn remove_tag_from_task(
   tag_id: Int,
 ) -> Result(Nil, Error) {
   tag.remove_from_task(db, task_id, tag_id)
+  |> result.map_error(tag_on_task_error)
   |> result.replace(Nil)
 }
 
 /// Get all available tags
 pub fn list_all(db: Connection) -> Result(List(Tag), Error) {
-  tag.list(db)
+  tag.list(db) |> result.map_error(tag_error)
 }
 
 /// Get tags for a specific task
@@ -62,7 +66,7 @@ pub fn get_tags_for_task(
   db: Connection,
   task_id: Int,
 ) -> Result(List(Tag), Error) {
-  tag.for_task(db, task_id)
+  tag.for_task(db, task_id) |> result.map_error(tag_error)
 }
 
 /// Get a task with its tags
@@ -73,11 +77,39 @@ pub fn get_task_with_tags(
   db: Connection,
   task_id: Int,
 ) -> Result(#(Task, List(Tag)), Error) {
-  use found <- result.try(task.get(db, task_id))
+  use found <- result.try(task.get(db, task_id) |> result.map_error(task_error))
 
   let tags =
     tag.for_task(db, found.id)
+    |> result.map_error(tag_error)
     |> result.unwrap([])
 
   Ok(#(found, tags))
+}
+
+/// The Dream error of a model error, with the texts for the client.
+fn tag_error(model_error: client.ModelQueryError) -> Error {
+  response_helpers.model_error_to_error(
+    model_error,
+    not_found: "Tag not found",
+    conflicts: [],
+  )
+}
+
+/// The Dream error of a model error, with the texts for the client.
+fn tag_on_task_error(model_error: client.ModelQueryError) -> Error {
+  response_helpers.model_error_to_error(
+    model_error,
+    not_found: "Tag not found on task",
+    conflicts: [],
+  )
+}
+
+/// The Dream error of a model error, with the texts for the client.
+fn task_error(model_error: client.ModelQueryError) -> Error {
+  response_helpers.model_error_to_error(
+    model_error,
+    not_found: "Task not found",
+    conflicts: [],
+  )
 }

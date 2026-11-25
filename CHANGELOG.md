@@ -200,8 +200,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [dream_model](https://github.com/TrustBound/dream_model) in place of
   `dream_sql_generator`. Each model folder holds one `.sql` file for each
   query, with hints, and `make models` generates the model module. The
-  generated functions return Dream errors, so the hand-written row
-  converters and `sql.gleam` files are gone. The examples need
+  generated functions return data errors (`client.ModelQueryError` of
+  `dream_postgres`: `NotFound`, `Conflict(constraint)` or
+  `QueryFailed(message, cause)`), so the hand-written row converters and
+  `sql.gleam` files are gone. The operations map these errors to Dream
+  errors, with the texts for the client, through `model_error_to_error`
+  in `src/utilities/response_helpers.gleam` of each example. The HTTP
+  answers are the same as before. The examples need
   `dream_postgres` `>= 2.1.0` and `dream_model` `>= 1.0.0` (a dev
   dependency). The guides and step 8 of the
   [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html)

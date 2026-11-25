@@ -1,5 +1,4 @@
 -- returns: one Task
--- not found: Task not found
 SELECT
   id,
   title,

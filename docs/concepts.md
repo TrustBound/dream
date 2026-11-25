@@ -348,7 +348,7 @@ pub fn show(
 
 The operation holds the logic, with no HTTP. If the task does not exist, it returns the error. If the tags query fails, it shows the task with no tags:
 
-### Operation coordinates two models <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/operations/task_operations.gleam#L54-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Operation coordinates two models <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/operations/task_operations.gleam#L58-L71"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Get a task with its tags
@@ -356,10 +356,11 @@ pub fn get_task_with_tags(
   db: Connection,
   task_id: Int,
 ) -> Result(#(Task, List(Tag)), Error) {
-  use found <- result.try(task.get(db, task_id))
+  use found <- result.try(task.get(db, task_id) |> result.map_error(task_error))
 
   let tags =
     tag.for_task(db, found.id)
+    |> result.map_error(tag_error)
     |> result.unwrap([])
 
   Ok(#(found, tags))
@@ -396,18 +397,18 @@ The examples do not write models by hand. [dream_model](https://github.com/Trust
 
 ```sql
 -- returns: one User
--- not found: User not found
 SELECT id, name, email, created_at FROM users WHERE id = $1
 ```
 
-dream_model writes `src/models/user.gleam` with a `User` record and the function `get(db, id) -> Result(User, Error)`. With no row, `get` returns `NotFound("User not found")`. A database failure gives `InternalServerError`. The operation calls it like any other function:
+dream_model writes `src/models/user.gleam` with a `User` record and the function `get(db, id) -> Result(User, client.ModelQueryError)`. The error is data, with no HTTP status: with no row, `get` returns `client.NotFound`, and a database failure gives `client.QueryFailed`. The operation calls it, and maps the error to a Dream error with the text for the client:
 
-### Calling the generated model <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L11-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Calling the generated model <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L14-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Get a user by ID
 pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
   user.get(db, id)
+  |> result.map_error(user_error)
 }
 ```
 

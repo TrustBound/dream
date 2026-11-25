@@ -1,5 +1,4 @@
 -- returns: one Task
--- not found: Task not found
 UPDATE tasks
 SET
   completed = NOT completed,

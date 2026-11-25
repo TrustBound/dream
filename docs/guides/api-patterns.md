@@ -253,7 +253,7 @@ pub fn find_product(
 
 ### One place for error answers
 
-Dream uses a unified error type (`dream.Error`) across the framework and application. This eliminates the need for error mapping and keeps controllers thin.
+Dream uses a unified error type (`dream.Error`) across the framework and application. The operations map the data errors of the generated models to it, so controllers handle one error type and stay thin.
 
 **Response Helpers Pattern:**
 

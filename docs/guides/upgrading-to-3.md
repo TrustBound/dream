@@ -181,14 +181,14 @@ The controller called the helper:
 
 In Dream 3 the helper is gone, and the controller calls `require_json`:
 
-### Parse a JSON body with `require_json` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/controllers/users_controller.gleam#L58-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Parse a JSON body with `require_json` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/controllers/users_controller.gleam#L23-L27"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   let result = {
-    use #(name, email) <- result.try(require_json(request, user_decoder()))
     let db = services.database.connection
-    user_operations.create_user(db, name, email)
+    user_operations.list_users(db)
   }
+
 ```
 
 Use `validate_json(text, decoder)` when you already have a `String`. It returns a list of errors: [Step 6](#step-6-answer-every-validation-error) shows the change.
@@ -625,28 +625,28 @@ fn extract_first_user(
 }
 ```
 
-With dream_model, the query has hints. `returns: one User` makes the function return one `User`, and `not found` gives the text of the 404:
+With dream_model, the query has hints. `returns: one User` makes the function return one `User`, or `client.NotFound` when there is no row:
 
 ### The query with dream_model <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user/get.sql"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```sql
 -- returns: one User
--- not found: User not found
 SELECT id, name, email, created_at FROM users WHERE id = $1
 ```
 
-dream_model generates `user.get(db, id) -> Result(User, Error)`. The helpers are gone, and the operation calls the generated function:
+dream_model generates `user.get(db, id) -> Result(User, client.ModelQueryError)`. The error is data, with no HTTP status and no text for the client. The helpers are gone. The operation calls the generated function, and `user_error` maps its error to a Dream error with the text, `NotFound("User not found")` for no row:
 
-### The call of the generated function <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L11-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The call of the generated function <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L14-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Get a user by ID
 pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
   user.get(db, id)
+  |> result.map_error(user_error)
 }
 ```
 
-A unique violation now has a hint too. `-- unique users_email_key: Email already taken` in `create.sql` gives `Conflict` and a 409 answer. Squirrel gave a database error, which the example answered with 500.
+A unique violation now has a hint too. `-- unique: users_email_key` in `create.sql` gives `client.Conflict("users_email_key")`. `user_error` maps it to `Conflict("Email already taken")`, and the client gets a 409 answer. Squirrel gave a database error, which the example answered with 500. The mapping is `model_error_to_error` in `src/utilities/response_helpers.gleam` of the example.
 
 [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html) shows the full setup.
 

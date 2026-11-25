@@ -1,5 +1,4 @@
 -- returns: one Task
--- not found: Task not found
 -- params: id, position
 UPDATE tasks
 SET position = $2

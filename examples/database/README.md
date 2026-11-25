@@ -96,7 +96,7 @@ curl -X DELETE http://localhost:3002/users/1
 
 ## A taken email
 
-The email column is unique. A second user with the same email gets a 409 answer. The `-- unique users_email_key: Email already taken` hint of `src/models/user/create.sql` gives the message.
+The email column is unique. A second user with the same email gets a 409 answer. The `-- unique: users_email_key` hint of `src/models/user/create.sql` makes the model return `client.Conflict("users_email_key")`. `src/operations/user_operations.gleam` gives the message, `Email already taken`.
 
 ### Create a user with a taken email <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/test/integration/readme.sh#L63-L65"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -220,7 +220,7 @@ models:
 ## Key Concepts
 
 - **Database Service** - Singleton pattern for connection management
-- **dream_model** - Generates typed model functions from SQL files. They return Dream errors: 404 for a missing row, 409 for a taken email
+- **dream_model** - Generates typed model functions from SQL files. They return data errors: `NotFound` for a missing row, `Conflict` for a taken email. The operations map them to Dream errors, with the texts for the client, through `model_error_to_error` in `src/utilities/response_helpers.gleam`
 - **Migrations** - Using Cigogne for database schema management
 - **Models** - Generated data access, one `.sql` file for each function
 - **Controllers** - HTTP request handling and routing to models

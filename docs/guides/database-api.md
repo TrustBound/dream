@@ -64,7 +64,7 @@ The server listens on port 3002.
 | Cigogne | Runs the SQL migrations in `priv/migrations/` in order, once each | `make migrate` |
 | `dream_model` | Reads the `.sql` files of each folder in `src/models/`, asks the database for their types, and writes one model module for each folder, such as `src/models/user.gleam` | `make models` |
 | Services | Hand the pool to every controller | `services.gleam` |
-| A model | Runs queries and returns domain types and Dream errors. dream_model generates it | `models/user.gleam` |
+| A model | Runs queries and returns domain types and data errors. dream_model generates it | `models/user.gleam` |
 | An operation | A workflow over more than one model | `operations/` |
 | A view | Turns domain types into JSON | `views/user_view.gleam` |
 
@@ -278,7 +278,7 @@ Create `src/models/user/create.sql`:
 
 ```sql
 -- returns: one User
--- unique users_email_key: Email already taken
+-- unique: users_email_key
 INSERT INTO users (name, email) VALUES ($1, $2)
 RETURNING id, name, email, created_at
 ```
@@ -289,7 +289,6 @@ Create `src/models/user/get.sql`:
 
 ```sql
 -- returns: one User
--- not found: User not found
 SELECT id, name, email, created_at FROM users WHERE id = $1
 ```
 
@@ -305,11 +304,15 @@ SELECT id, name, email, created_at FROM users ORDER BY id
 The hints say what each function returns and which errors it gives:
 
 - `-- returns: one User` returns one `User`. With no row, the function
-  returns `NotFound` with the text of `-- not found:`.
+  returns `client.NotFound`.
 - `-- returns: many User` returns a `List(User)`.
-- `-- unique users_email_key: Email already taken` turns a violation of
-  that unique constraint into `Conflict`, which answers 409.
-- Every other database error gives `InternalServerError`.
+- `-- unique: users_email_key` turns a violation of that unique
+  constraint into `client.Conflict("users_email_key")`.
+- Every other database error gives `client.QueryFailed` with a message
+  and the original error as its cause.
+
+A hint holds no text for the client. The operation gives each error its
+text, in [Step 7](#step-7-call-the-model-from-an-operation).
 
 The example also has `update.sql` and `delete.sql`, and the queries of
 the post model in `src/models/post/`.
@@ -558,37 +561,43 @@ Services solves this with type safety. The compiler verifies every controller ge
   `Option(client.Timestamp)`.
 - One function for each `.sql` file. Each one takes the connection
   first, then the parameters of the query, and returns
-  `Result(_, Error)` with the Dream `Error`. For example
-  `get(db, id) -> Result(User, Error)` and
-  `create(db, name, email) -> Result(User, Error)`.
+  `Result(_, client.ModelQueryError)`. For example
+  `get(db, id) -> Result(User, client.ModelQueryError)` and
+  `create(db, name, email) -> Result(User, client.ModelQueryError)`.
 - `schema_fingerprint`, the value that `check_schema` uses.
 
-The functions already turn the database answers into Dream errors: no
-row gives `NotFound`, a taken email gives `Conflict`, and any other
-failure gives `InternalServerError` with no SQL in its message. Thus the
-model needs no hand-written code.
+The functions already turn the database answers into data errors: no
+row gives `NotFound`, a taken email gives `Conflict("users_email_key")`,
+and any other failure gives `QueryFailed` with no SQL in its message.
+The model has no HTTP status and no text for the client, and needs no
+hand-written code.
 
 ## Step 7: Call the model from an operation
 
 The controller in the next steps does not call the model directly. It
 calls `src/operations/user_operations.gleam`. In this app, each
-operation passes the call to the generated model:
+operation calls the generated model and maps its error to a Dream
+error:
 
-### User operations <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L7-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### User operations <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L8-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/error.{type Error}
 import dream_postgres/client.{type Connection}
+import gleam/result
 import models/user.{type User}
+import utilities/response_helpers
 
 /// Get a user by ID
 pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
   user.get(db, id)
+  |> result.map_error(user_error)
 }
 
 /// List all users
 pub fn list_users(db: Connection) -> Result(List(User), Error) {
   user.list(db)
+  |> result.map_error(user_error)
 }
 
 /// Create a new user
@@ -598,10 +607,62 @@ pub fn create_user(
   email: String,
 ) -> Result(User, Error) {
   user.create(db, name, email)
+  |> result.map_error(user_error)
 }
 ```
 
-The file also has `update_user` and `delete_user`. An operation is the
+The file also has `update_user` and `delete_user`. `user_error` gives
+the texts for the client: the text of a missing user, and the text of
+each unique constraint:
+
+### The texts of the user errors <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L53-L60"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+/// The Dream error of a user model error, with the texts for the client.
+fn user_error(model_error: client.ModelQueryError) -> Error {
+  response_helpers.model_error_to_error(
+    model_error,
+    not_found: "User not found",
+    conflicts: [#("users_email_key", "Email already taken")],
+  )
+}
+```
+
+`model_error_to_error` is in `src/utilities/response_helpers.gleam`.
+`NotFound` becomes `error.NotFound` with the text, a `Conflict` with a
+text becomes `error.Conflict`, and the rest becomes
+`error.InternalServerError`:
+
+### Map a model error to a Dream error <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/utilities/response_helpers.gleam#L25-L47"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+/// Turn the error of a generated model function into a Dream error.
+///
+/// The model gives data: `NotFound`, `Conflict` with the name of a unique
+/// constraint, or `QueryFailed`. This function gives the text for the
+/// client. `not_found` is the text of a missing row. `conflicts` gives the
+/// text of each unique constraint of the `-- unique:` hints. A conflict
+/// with no text, and a failed query, give an internal server error.
+pub fn model_error_to_error(
+  model_error: client.ModelQueryError,
+  not_found not_found: String,
+  conflicts conflicts: List(#(String, String)),
+) -> Error {
+  case model_error {
+    client.NotFound -> error.NotFound(not_found)
+    client.Conflict(constraint:) ->
+      case list.key_find(conflicts, constraint) {
+        Ok(message) -> error.Conflict(message)
+        Error(Nil) ->
+          error.InternalServerError("no conflict text for " <> constraint)
+      }
+    client.QueryFailed(message:, cause: _) -> error.InternalServerError(message)
+  }
+}
+```
+
+The controller then gets one error type, `dream.Error`, from the
+operation and from `require_int` and `require_json`. An operation is the
 place for business logic that uses more than one model. [Step 13](#step-13-move-a-workflow-into-an-operation)
 explains when an operation earns its place.
 
@@ -760,7 +821,7 @@ Controllers orchestrate the flow:
    If the body is not text, not JSON, or not valid user data, it
    returns `BadRequest` with the reason.
 3. Call operations for data access (they return
-   `Result(_, dream.Error)`).
+   `Result(_, dream.Error)`, mapped from the errors of the models).
 4. Handle errors uniformly through `response_helpers.handle_error`
    (maps `dream.Error` to HTTP responses).
 5. Call views for formatting, and build the response.
@@ -773,7 +834,7 @@ otherwise carry on”, without deeply nested `case` expressions.
 
 - **`require_int`**: Safely extracts and validates path parameters. Returns `BadRequest` if missing or invalid, eliminating the need for `let assert`.
 - **Flat `use` chains**: The `use` syntax keeps code readable without nested `case` statements.
-- **Unified errors**: All errors use `dream.Error`, so controllers don't need to map between different error types.
+- **Unified errors**: The operations map the data errors of the models to `dream.Error`, so controllers handle one error type.
 - **Centralized error handling**: `response_helpers.handle_error` ensures consistent error responses across the application.
 
 **The require_* pattern (recommended):**
@@ -1032,7 +1093,7 @@ connection: keep-alive
 {"error": "Expected Field but found Nothing at email"}
 ```
 
-The model turned "no row" into `NotFound("User not found")`, `require_int` turned `abc` into a `BadRequest`, and `require_json` turned the decoder's first error into a `BadRequest`. `response_helpers.handle_error` mapped each one to its status and a JSON body.
+The model turned "no row" into `client.NotFound`, the operation turned it into `NotFound("User not found")`, `require_int` turned `abc` into a `BadRequest`, and `require_json` turned the decoder's first error into a `BadRequest`. `response_helpers.handle_error` mapped each one to its status and a JSON body.
 
 Last, the health check, which runs `SELECT 1` on the pool:
 
@@ -1100,8 +1161,9 @@ curl -i -X POST http://localhost:3002/users \
   -d '{"name":"Grace Again","email":"grace@example.com"}'
 ```
 
-The `-- unique users_email_key` hint of `create.sql` turned the unique
-violation into `Conflict("Email already taken")`, and
+The `-- unique: users_email_key` hint of `create.sql` turned the unique
+violation into `client.Conflict("users_email_key")`. The operation
+turned it into `Conflict("Email already taken")`, and
 `response_helpers.handle_error` answered 409:
 
 ### The 409 answer <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/test/integration/readme_output.txt#L44-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
@@ -1146,7 +1208,7 @@ pub fn index(
   _context: TasksContext,
   services: Services,
 ) -> http.Response {
-  case project.list(services.db) {
+  case project_operations.list_projects(services.db) {
     Ok(projects) ->
       http.html_response(http.ok, project_view.list_page(projects))
     Error(err) -> response_helpers.handle_error(err)
@@ -1187,7 +1249,7 @@ pub fn show(
 
 The tag workflow lives in `src/operations/tag_operations.gleam`:
 
-#### Create and attach a tag <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/operations/tag_operations.gleam#L15-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Create and attach a tag <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/operations/tag_operations.gleam#L17-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Create a new tag and attach it to a task
@@ -1201,12 +1263,13 @@ pub fn create_and_attach(
   let data = TagData(name: tag_name, color: option.None)
 
   // A tag with no color stores an empty color.
-  use created <- result.try(tag.get_or_create(
-    db,
-    data.name,
-    option.Some(option.unwrap(data.color, "")),
-  ))
-  use _ <- result.try(tag.add_to_task(db, task_id, created.id))
+  use created <- result.try(
+    tag.get_or_create(db, data.name, option.Some(option.unwrap(data.color, "")))
+    |> result.map_error(tag_error),
+  )
+  use _ <- result.try(
+    tag.add_to_task(db, task_id, created.id) |> result.map_error(tag_error),
+  )
 
   Ok(created)
 }
@@ -1265,7 +1328,7 @@ pub fn create_and_add_to_task(
 The controller is thin:
 
 - It reads the task ID and the tag name with `require_int`, `require_form` and `require_field`. Each one returns a `Result`. For a form field that can be missing, use `field_optional`, which returns an `Option`.
-- It calls the operation, which returns `dream.Error` on failure.
+- It calls the operation, which maps the errors of the models and returns `dream.Error` on failure.
 - It sends every error to `response_helpers.handle_error`.
 - It builds the response.
 
@@ -1422,7 +1485,7 @@ Models handle data access. They are functions that:
 
 1.  Take a database connection.
 2.  Run one SQL query each.
-3.  Return domain types and Dream errors.
+3.  Return domain types and data errors (`client.ModelQueryError`).
 
 dream_model generates all three parts. These examples come from the
 project model in the tasks example. Each `.sql` file of
@@ -1432,7 +1495,6 @@ project model in the tasks example. Each `.sql` file of
 
 ```sql
 -- returns: one Project
--- not found: Project not found
 SELECT
   id,
   name,
@@ -1484,7 +1546,7 @@ are `Option(String)`. The input rules stay in hand-written code: the
 operation gives an empty text to a missing field, then calls the
 generated function:
 
-#### The create operation <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/operations/project_operations.gleam#L12-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The create operation <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/operations/project_operations.gleam#L15-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Create a new project. A missing description or color is stored as an
@@ -1499,6 +1561,7 @@ pub fn create_project(
     option.Some(option.unwrap(data.description, "")),
     option.Some(option.unwrap(data.color, "")),
   )
+  |> result.map_error(project_error)
 }
 ```
 
@@ -1519,13 +1582,14 @@ so a task that does not exist gives a 404.
 - **Do Not Edit Generated Code:** Change the `.sql` file and run
   `make models`. Keep input rules in an operation.
 - **Explicit Connection:** Pass `db: Connection` explicitly.
-- **Name the Errors:** Use `-- not found:` for the text of the 404 when
-  a `returns: one` query finds no row. Use `-- unique <constraint>:`
-  for each unique constraint that a user can break: a violation of it
-  answers 409.
-- **Unified Errors:** The generated functions return
-  `Result(_, dream.Error)`, which keeps error handling consistent
-  across the application.
+- **Name the Unique Constraints:** Use `-- unique: <constraint>` for
+  each unique constraint that a user can break. A violation of it gives
+  `client.Conflict` with the name of the constraint.
+- **Texts in the Operations:** The generated functions return data
+  errors, with no HTTP status and no text for the client. Map them in
+  the operation with `response_helpers.model_error_to_error`, which
+  gives the text of a missing row and of each constraint, so the
+  controllers handle one error type, `dream.Error`.
 - **Check the Schema:** Give the `schema_fingerprint` of each model to
   `client.check_schema` at start-up.
 

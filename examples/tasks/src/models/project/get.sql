@@ -1,5 +1,4 @@
 -- returns: one Project
--- not found: Project not found
 SELECT
   id,
   name,

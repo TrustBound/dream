@@ -140,7 +140,7 @@ src/views/products/templates/show.matcha
 src/views/products/view.gleam
 ```
 
-- `src/models/product/`: the SQL queries. `dream_model` generates `src/models/product.gleam` from them. The templates take its `Product` type.
+- `src/models/product/`: the SQL queries. `dream_model` generates `src/models/product.gleam` from them. The templates take its `Product` type. The model returns data errors, and `src/operations/product_operations.gleam` maps them to Dream errors with the texts for the client, through `model_error_to_error` in `src/utilities/response_helpers.gleam`.
 - `src/database.gleam` starts the pool and calls `client.check_schema` with the fingerprint of the model, through `check_schema_waiting_for_database`. The app waits for a database that is not up yet, and stops with a clear message when the schema changed after the generation.
 - `src/views/products/templates/`: the Matcha templates (`.matcha`) and the Gleam modules generated from them.
 - `src/views/products/view.gleam`: a product as JSON, HTML, CSV or HTMX partial.
