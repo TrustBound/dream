@@ -81,7 +81,7 @@ Every code block in `README.md`, `SECURITY.md`, the `.md` files of `docs/` and `
 
 Read [The BEAM for Dream developers](https://hexdocs.pm/dream/3.0.0/guides/beam.html) and [Why the BEAM?](docs/reference/why-beam.md). These rules come from Dream's own docs:
 
-- Each request runs in its own process. Do not keep request state in a shared place. Put shared state (caches, rate limits, pools) in a supervised process or in ETS, and reference it from `Services` ([architecture.md](docs/reference/architecture.md), "Singleton / Global Services").
+- Each connection runs in its own process, and the requests on one keep-alive connection share it. Do not keep request state in a shared place. Put shared state (caches, rate limits, pools) in a supervised process or in ETS, and reference it from `Services` ([architecture.md](docs/reference/architecture.md), "Singleton / Global Services").
 - Each SSE or WebSocket connection is one actor. Do not do slow work in `on_message`: give it to another process and send the result back as a custom message ([websockets guide](https://hexdocs.pm/dream/3.0.0/guides/websockets.html), "Common pitfalls"). Start timers and subscriptions in `on_init`, not in the controller ([SSE guide](https://hexdocs.pm/dream/3.0.0/guides/sse.html)).
 - Do not start a production app with `gleam run`. It does not pass `SIGTERM` to the VM. Use the `entrypoint.sh` of `gleam export erlang-shipment` ([operating guide](https://hexdocs.pm/dream/3.0.0/guides/operating.html), [deployment guide](https://hexdocs.pm/dream/3.0.0/guides/deployment.html)).
 - Do not call `listen` in a test. It never returns. Use `listen_with_handle`, and stop the handle.

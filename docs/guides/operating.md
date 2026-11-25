@@ -219,7 +219,7 @@ pub fn serve_then_stop(port: Int) -> Result(Nil, actor.StartError) {
 
 ## Stopping in production
 
-In production, start the app with the `entrypoint.sh` of `gleam export erlang-shipment`, as the image of [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html) does. It runs your `main` in the Erlang VM, and `listen` keeps it running. Each request runs in its own process, so a crash in one request doesn't stop the server. Your platform, or Docker, restarts the whole program when it stops.
+In production, start the app with the `entrypoint.sh` of `gleam export erlang-shipment`, as the image of [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html) does. It runs your `main` in the Erlang VM, and `listen` keeps it running. Each connection runs in its own process, and the requests on one keep-alive connection share that process. A crash in one request doesn't stop the server. Your platform, or Docker, restarts the whole program when it stops.
 
 When the platform stops a copy of your app, it sends `SIGTERM`, and the Erlang VM shuts down: `entrypoint.sh` replaces itself with the VM, so the VM is the process that gets the signal. In the Docker test of the `deployment` example, `docker compose stop` takes about 0.2 seconds, and the app's exit status is `0`. Don't start the app with `gleam run` in production: `gleam run` doesn't pass `SIGTERM` on to the VM, so the platform waits for its grace period, 10 seconds in Docker, and then kills the app.
 

@@ -512,7 +512,7 @@ Start with 15, increase if you see connection exhaustion. The BEAM handles pooli
 
 ### Concurrency
 
-The BEAM handles thousands of concurrent connections per core. You don't need to tune much. Each request runs in its own lightweight process.
+The BEAM handles thousands of concurrent connections per core. You don't need to tune much. Each connection runs in its own lightweight process.
 
 ### Static Assets
 

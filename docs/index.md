@@ -11,9 +11,10 @@ Dream is a web toolkit that gets out of your way. It provides type-safe routing,
 If you are new to Dream or Gleam, follow this path the first time through:
 
 1. [Build your first Dream server](guides/getting-started.md) – from an empty folder to a tested route.
-2. [Guides](guides/index.md) – one guide for each task: routing, request data, a database API, streaming, WebSockets, deployment and more.
-3. [Examples](examples.md) – open a full app that matches what you are trying to build.
-4. [Core Patterns](concepts/patterns.md) – skim the pattern catalog to see what Dream provides.
+2. [The BEAM for Dream developers](guides/beam.md) – how the runtime runs your app, and the traps to avoid.
+3. [Guides](guides/index.md) – one guide for each task: routing, request data, a database API, streaming, WebSockets, deployment and more.
+4. [Examples](examples.md) – open a full app that matches what you are trying to build.
+5. [Core Patterns](concepts/patterns.md) – skim the pattern catalog to see what Dream provides.
 
 After that, dip into the sections below whenever you need more detail.
 
@@ -24,6 +25,7 @@ After that, dip into the sections below whenever you need more detail.
 ### 🛠️ [Guides](guides/index.md)
 **Building something specific?** Each guide walks through one task with real code and the real answers of a running server.
 - [Build your first Dream server](guides/getting-started.md)
+- [The BEAM for Dream developers](guides/beam.md)
 - [Route requests and add middleware](guides/routing.md)
 - [Read request data safely](guides/request-data.md)
 - [Send responses, cookies and files](guides/responses.md)
@@ -40,6 +42,7 @@ After that, dip into the sections below whenever you need more detail.
 - [Deploy with Docker](guides/deployment.md)
 - [Start, stop and troubleshoot the server](guides/operating.md)
 - [Upgrade from Dream 2 to 3](guides/upgrading-to-3.md)
+- [Instructions for coding agents](agents/AGENTS.md)
 
 ### 📖 [Concepts](concepts.md)
 **Core concepts explained.** Understanding how Dream works.

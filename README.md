@@ -215,6 +215,7 @@ for complete examples of JSON APIs, streaming, and WebSockets.
 Upgrading from Dream 2? [Upgrade from Dream 2 to 3](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html) gives every change, with the Dream 2 code next to the Dream 3 code.
 
 - [Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getting-started.html) - From an empty folder to a tested route.
+- [The BEAM for Dream developers](https://hexdocs.pm/dream/3.0.0/guides/beam.html) - How the runtime runs your app, and the common traps, each with its fix.
 - [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html) - Path parameters, custom methods, context and middleware.
 - [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html) - Query strings, JSON that reports every error, and forms.
 - [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html) - Redirects, downloads, cookies and static files.
@@ -233,6 +234,7 @@ Upgrading from Dream 2? [Upgrade from Dream 2 to 3](https://hexdocs.pm/dream/3.0
 
 ## Learn More
 
+- 🤖 [Instructions for coding agents](https://github.com/TrustBound/dream/blob/3.0.0/docs/agents/AGENTS.md) - A template `AGENTS.md` that keeps the coding agents of your Dream app on Dream's patterns. Copy it to the root of your project and fill in the marked sections.
 - 📚 [Complete Documentation](https://github.com/TrustBound/dream/blob/3.0.0/docs/index.md) - Guides, tutorials, and concepts
 - 📖 [API Reference](https://hexdocs.pm/dream/3.0.0/) - Complete API documentation on HexDocs
 - 🚀 [Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getting-started.html) - Get a server running

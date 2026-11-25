@@ -50,7 +50,7 @@ These rules come from the Dream guides and from Dream's [design principles](http
 
 ## Testing
 
-Read [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html). For tests that use recorded traffic, read [Test with recorded HTTP](https://hexdocs.pm/dream/3.0.0/guides/testing-with-recorded-http.html) and [Test with recorded queries](https://hexdocs.pm/dream/3.0.0/guides/testing-with-recorded-queries.html).
+Read [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html). For tests that use recorded traffic, read [Test a Dream app that calls other APIs](https://hexdocs.pm/dream/3.0.0/guides/testing-with-recorded-http.html) and [Test a Dream app's database code with recorded queries](https://hexdocs.pm/dream/3.0.0/guides/testing-with-recorded-queries.html).
 
 - Use [Dream Test](https://hexdocs.pm/dream_test/3.0.0/).
 - Test a controller or a middleware as a plain function, with a request that you build. It needs no server.
@@ -68,7 +68,7 @@ Read [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/
 
 Read [The BEAM for Dream developers](https://hexdocs.pm/dream/3.0.0/guides/beam.html). From the Dream guides:
 
-- Each request runs in its own process. A crash in one request does not stop the server. Do not keep request state in a shared place.
+- Each connection runs in its own process, and the requests on one keep-alive connection share it. A crash in one request does not stop the server. Do not keep request state in a shared place.
 - Put shared state, such as a cache or a rate limit, in a supervised process or in ETS, and reference it from `Services`.
 - Each SSE or WebSocket connection is one actor. Do not do slow work in `on_message`: give it to another process and send the result back as a custom message.
 - Do not start the app with `gleam run` in production. It does not pass `SIGTERM` to the Erlang VM. Use the `entrypoint.sh` of `gleam export erlang-shipment`. Read [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html) and [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html).
@@ -103,8 +103,8 @@ Run these before each commit:
 | Add WebSockets | [Build a chat with WebSockets](https://hexdocs.pm/dream/3.0.0/guides/websockets.html) |
 | Serve HTTPS or HTTP/2 | [Serve HTTPS and HTTP/2](https://hexdocs.pm/dream/3.0.0/guides/http2.html) |
 | Write a test | [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html) |
-| Test code that calls an HTTP service | [Test with recorded HTTP](https://hexdocs.pm/dream/3.0.0/guides/testing-with-recorded-http.html) |
-| Test code that queries a database | [Test with recorded queries](https://hexdocs.pm/dream/3.0.0/guides/testing-with-recorded-queries.html) |
+| Test code that calls an HTTP service | [Test a Dream app that calls other APIs](https://hexdocs.pm/dream/3.0.0/guides/testing-with-recorded-http.html) |
+| Test code that queries a database | [Test a Dream app's database code with recorded queries](https://hexdocs.pm/dream/3.0.0/guides/testing-with-recorded-queries.html) |
 | Start, stop or limit the server | [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html) |
 | Deploy | [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html) |
 | Upgrade from Dream 2 | [Upgrade from Dream 2 to 3](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html) |

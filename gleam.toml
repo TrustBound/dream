@@ -14,6 +14,8 @@ pages = [
     { title = "Guides", path = "guides/index.html", source = "./docs/guides/index.md" },
     { title = "Upgrade from Dream 2 to 3", path = "guides/upgrading-to-3.html", source = "./docs/guides/upgrading-to-3.md" },
     { title = "Build your first Dream server", path = "guides/getting-started.html", source = "./docs/guides/getting-started.md" },
+    { title = "The BEAM for Dream developers", path = "guides/beam.html", source = "./docs/guides/beam.md" },
+    { title = "Instructions for coding agents", path = "guides/agents.html", source = "./docs/agents/AGENTS.md" },
     { title = "Route requests and add middleware", path = "guides/routing.html", source = "./docs/guides/routing.md" },
     { title = "Read request data safely", path = "guides/request-data.html", source = "./docs/guides/request-data.md" },
     { title = "Send responses, cookies and files", path = "guides/responses.html", source = "./docs/guides/responses.md" },
