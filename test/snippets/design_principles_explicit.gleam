@@ -12,11 +12,12 @@ pub type Services {
 }
 
 pub fn main() {
-  server.new()
-  |> server.services(initialize_services())
-  |> server.router(create_router())
-  |> server.bind("localhost")
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.services(initialize_services())
+    |> server.router(create_router())
+    |> server.bind("localhost")
+    |> server.listen(3000)
 }
 
 pub fn initialize_services() -> Services {

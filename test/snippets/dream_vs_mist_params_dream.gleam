@@ -60,8 +60,9 @@ pub fn create_router() {
 }
 
 pub fn main() {
-  server.new()
-  |> server.services(initialize_services())
-  |> server.router(create_router())
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.services(initialize_services())
+    |> server.router(create_router())
+    |> server.listen(3000)
 }

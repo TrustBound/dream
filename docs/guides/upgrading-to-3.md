@@ -15,8 +15,10 @@ Dream 3.0.0 has breaking changes. A request body is one `RequestBody` value, the
 - [Step 6: Answer every validation error](#step-6-answer-every-validation-error)
 - [Step 7: Move the ConnectionClosed work to on_close](#step-7-move-the-connectionclosed-work-to-on_close)
 - [Step 8: Move from pog and squirrel](#step-8-move-from-pog-and-squirrel)
-- [Step 9: Check the behavior changes](#step-9-check-the-behavior-changes)
-- [Step 10: Update your tests to dream_test 3](#step-10-update-your-tests-to-dream_test-3)
+- [Step 9: Handle the result of listen](#step-9-handle-the-result-of-listen)
+- [Step 10: Update calls of get_server and response.convert](#step-10-update-calls-of-get_server-and-responseconvert)
+- [Step 11: Check the behavior changes](#step-11-check-the-behavior-changes)
+- [Step 12: Update your tests to dream_test 3](#step-12-update-your-tests-to-dream_test-3)
 - [Test your code](#test-your-code)
 - [Common pitfalls](#common-pitfalls)
 - [Where to go next](#where-to-go-next)
@@ -28,6 +30,7 @@ By the end of this guide, your project:
 - Depends on Dream 3.0.0 and compiles.
 - Reads request bodies as `Text`, `Bytes` or `Stream`, and answers a broken upload.
 - Builds the server in the order that the compiler enforces.
+- Stops with a non-zero exit code when the server cannot start.
 - Expects the new answers: `405` for a wrong method, `413` for a body over the limit.
 
 ## Before you start
@@ -50,8 +53,10 @@ Do the steps in order. Steps 1 and 3 apply to most projects. The other steps app
 | `validate_json` | It returns a list of errors. | [Step 6](#step-6-answer-every-validation-error) |
 | `websocket.ConnectionClosed` | It is removed. `on_close` runs when the connection closes. | [Step 7](#step-7-move-the-connectionclosed-work-to-on_close) |
 | `pog`, `squirrel` or `dream_postgres` | The guides use `dream_postgres_client` and `dream_sql_generator`. | [Step 8](#step-8-move-from-pog-and-squirrel) |
-| Tests or clients that check status codes or error texts | Some answers and messages changed. | [Step 9](#step-9-check-the-behavior-changes) |
-| Tests from the Dream 2 testing guide | No change is necessary. The new guide uses `dream_test` 3. | [Step 10](#step-10-update-your-tests-to-dream_test-3) |
+| `server.listen` in `main` | It returns a `Result`. | [Step 9](#step-9-handle-the-result-of-listen) |
+| `dream.get_server` or `response.convert` | `get_server` takes `RisksUnderstood`. `convert` takes the Mist request. | [Step 10](#step-10-update-calls-of-get_server-and-responseconvert) |
+| Tests or clients that check status codes or error texts | Some answers and messages changed. | [Step 11](#step-11-check-the-behavior-changes) |
+| Tests from the Dream 2 testing guide | No change is necessary. The new guide uses `dream_test` 3. | [Step 12](#step-12-update-your-tests-to-dream_test-3) |
 
 ## Step 1: Update the dependency
 
@@ -558,7 +563,133 @@ pub type Message(custom) {
 
 [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html) shows the full setup.
 
-## Step 9: Check the behavior changes
+## Step 9: Handle the result of listen
+
+**What changed.** `server.listen` returns `Result(Nil, actor.StartError)`. When the server starts, it still blocks and does not return. When the server cannot start, it returns the error. In Dream 2 it returned `Nil` and stopped the program with a panic:
+
+### `listen` in Dream 2 <a href="https://github.com/TrustBound/dream/blob/2.4.1/src/dream/servers/mist/server.gleam#L339-L349"><img align="right" alt="Code at 2.4.1" src="https://img.shields.io/badge/%F0%9F%93%9C_code_at-2.4.1-lightgrey.svg?style=flat-square"></a>
+
+```gleam
+pub fn listen(
+  dream_instance: dream.Dream(
+    mist.Builder(Connection, ResponseData),
+    context,
+    services,
+  ),
+  port: Int,
+) -> Nil {
+  listen_internal(dream_instance, port, True)
+  |> panic_on_start_error
+}
+```
+
+### `listen` in Dream 3 <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/servers/mist/server.gleam#L639-L647"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn listen(
+  dream_instance: dream.Dream(
+    mist.Builder(Connection, ResponseData),
+    context,
+    services,
+    Router(context, services),
+  ),
+  port: Int,
+) -> Result(Nil, actor.StartError) {
+```
+
+A `main` that ends with `listen` does not compile with Dream 3, because its value is a `Result`. This was the `main` of the `simple` example:
+
+### `main` in Dream 2 <a href="https://github.com/TrustBound/dream/blob/2.4.1/examples/simple/src/main.gleam#L6-L11"><img align="right" alt="Code at 2.4.1" src="https://img.shields.io/badge/%F0%9F%93%9C_code_at-2.4.1-lightgrey.svg?style=flat-square"></a>
+
+```gleam
+pub fn main() {
+  dream.new()
+  |> router(create_router())
+  |> bind("localhost")
+  |> listen(3000)
+}
+```
+
+**How to fix it.** Put `let assert Ok(Nil) =` in front of the call. A server that cannot start is a fault of the deployment, so the program must stop. `let assert` stops it with the error and a non-zero exit code, and the platform can start it again:
+
+### `main` in Dream 3 <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/src/main.gleam#L6-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn main() {
+  let assert Ok(Nil) =
+    dream.new()
+    |> router(create_router())
+    |> bind("localhost")
+    // Refuse a buffered request body over 1 MB
+    |> max_body_size(1_000_000)
+    |> listen(3000)
+}
+```
+
+A program that must do something else on a start error can match on the `Error` value in place of `let assert`.
+
+## Step 10: Update calls of get_server and response.convert
+
+Most apps do not call these two functions. Skip this step if your code does not use them.
+
+**What changed in `get_server`.** The `risks_understood` argument is the value `RisksUnderstood`, not a `Bool`. A call with `False` panicked in Dream 2. In Dream 3 it does not compile:
+
+### `get_server` in Dream 2 <a href="https://github.com/TrustBound/dream/blob/2.4.1/src/dream/dream.gleam#L176-L185"><img align="right" alt="Code at 2.4.1" src="https://img.shields.io/badge/%F0%9F%93%9C_code_at-2.4.1-lightgrey.svg?style=flat-square"></a>
+
+```gleam
+pub fn get_server(
+  dream: Dream(server, context, services),
+  risks_understood risks: Bool,
+) -> server {
+  case risks {
+    True -> dream.server
+    False ->
+      panic as "dream.get_server() requires risks_understood: True. This function breaks Dream's server abstraction and couples your code to Mist. Read the documentation to understand the risks before proceeding."
+  }
+}
+```
+
+### `get_server` in Dream 3 <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/dream.gleam#L242-L247"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn get_server(
+  dream: Dream(server, context, services, router),
+  risks_understood _risks: RisksUnderstood,
+) -> server {
+  dream.server
+}
+```
+
+### The `RisksUnderstood` type <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/dream.gleam#L189-L191"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub type RisksUnderstood {
+  RisksUnderstood
+}
+```
+
+**How to fix it.** Replace `risks_understood: True` with `risks_understood: dream.RisksUnderstood`.
+
+**What changed in `response.convert`.** `convert` from `dream/servers/mist/response` takes the Mist request first, and it converts a `Stream` body too. In Dream 2 it panicked on a `Stream` body:
+
+### `convert` in Dream 2 <a href="https://github.com/TrustBound/dream/blob/2.4.1/src/dream/servers/mist/response.gleam#L52"><img align="right" alt="Code at 2.4.1" src="https://img.shields.io/badge/%F0%9F%93%9C_code_at-2.4.1-lightgrey.svg?style=flat-square"></a>
+
+```gleam
+pub fn convert(dream_resp: Response) -> http_response.Response(ResponseData) {
+```
+
+### `convert` in Dream 3 <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/servers/mist/response.gleam#L69-L72"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn convert(
+  mist_request: http_request.Request(Connection),
+  dream_response: Response,
+) -> http_response.Response(ResponseData) {
+```
+
+**How to fix it.** Give the Mist request as the first argument. `convert_stream` is private now: call `convert` for every body.
+
+## Step 11: Check the behavior changes
 
 These changes compile with no error, but a test or a client can see them:
 
@@ -567,7 +698,6 @@ These changes compile with no error, but a test or a client can see them:
 - **Router fallback.** When a route fits the start of a path but fails deeper down, the router tries the next route. With `/users/:id/posts` and `/users/**rest`, `GET /users/1/comments` finds `/users/**rest`. In Dream 2 it returned 404. A wildcard route can receive requests that got a 404 before.
 - **Methods.** A request with CONNECT, TRACE or another method without its own constructor gets the route of that method, or the 405 or 404 above. In Dream 2 it ran the GET route of its path.
 - **Missing path parameter message.** `get_int_param`, `get_string_param`, `require_int` and `require_string` give `Missing required path parameter: id` for a missing parameter, the message of `get_param`. In Dream 2 they gave `Missing id parameter`.
-- **Start errors.** `listen()` panics with `Failed to start server: ` and the start error for every start error, for example `Failed to start server: InitFailed("TLS file not found: cert.pem")`. In Dream 2 an `InitFailed` error panicked with its message only.
 - **`server.stop`.** `stop` stops the server from any process, and it returns after the server is down. In Dream 2 it did nothing unless the process that started the server called it.
 - **Broadcaster.** The broadcaster removes a subscriber when the process that subscribed stops. You do not have to call `unsubscribe` before a WebSocket or SSE connection ends. New function: `broadcaster.count_subscribers`.
 - **Form, query string and cookie values.** A value that contains `=` is kept. `token=a=b` gives the value `a=b`. In Dream 2 the form field and the query parameter were dropped, and the cookie value was empty.
@@ -577,7 +707,7 @@ These changes compile with no error, but a test or a client can see them:
 - **Binary static files.** `static.serve` sends a file that is not UTF-8 as `Bytes` with status 200. In Dream 2 it answered 404. A UTF-8 file is still `Text`.
 - **Connection after an unread body.** Over HTTP/1.1, the server closes the connection after it answers a request whose body it did not read to its end, and sends `connection: close`. A client that sends a body Dream refuses (`404`, `405`, `413`) opens a new connection for its next request. HTTP clients do that by themselves.
 
-## Step 10: Update your tests to dream_test 3
+## Step 12: Update your tests to dream_test 3
 
 The testing guide shows tests for `dream_test` 3.0.0. Dream 3.0.0 does not need a change to your tests, and they can stay on `dream_test` 1.x. To use the code of the new guide, set `dream_test = ">= 3.0.0 and < 4.0.0"` in `[dev-dependencies]` and run `gleam deps update dream_test`. Then change your tests as the [dream_test 2.0.0 release notes](https://github.com/TrustBound/dream_test/blob/2.0.0/releases/release-2.0.0.md) and the [dream_test upgrade guide](https://hexdocs.pm/dream_test/3.0.0/guides/upgrading-to-3.html) show.
 
@@ -589,7 +719,7 @@ Run your tests:
 gleam test
 ```
 
-A failure after the upgrade is one of the changes above. A test that expects `404` for a wrong method, `400` for a large body, or `Missing id parameter` belongs to [Step 9](#step-9-check-the-behavior-changes). A test that builds a `Request` belongs to [Step 3](#step-3-read-request-bodies-as-a-requestbody). [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html) shows how to test controllers, routes and a running server with Dream 3.
+A failure after the upgrade is one of the changes above. A test that expects `404` for a wrong method, `400` for a large body, or `Missing id parameter` belongs to [Step 11](#step-11-check-the-behavior-changes). A test that builds a `Request` belongs to [Step 3](#step-3-read-request-bodies-as-a-requestbody). [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html) shows how to test controllers, routes and a running server with Dream 3.
 
 ## Common pitfalls
 

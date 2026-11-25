@@ -726,7 +726,7 @@ date: (the time of the request)
 connection: keep-alive
 
 Method not allowed
-Failed to start server: InitFailed("TLS file not found: build/test_tls/cert.pem")
+  Error(InitFailed("TLS file not found: build/test_tls/cert.pem"))
 HTTP/1.1 413 Payload Too Large
 content-type: text/plain; charset=utf-8
 connection: close

@@ -14,18 +14,19 @@ pub type MyContext {
 }
 
 pub fn start(my_services, my_router) {
-  server.new()
-  |> context(
-    MyContext(
-      request_id: "",
-      user: None,
-      session: empty_session(),
-      permissions: [],
-    ),
-  )
-  |> services(my_services)
-  |> router(my_router)
-  |> listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> context(
+      MyContext(
+        request_id: "",
+        user: None,
+        session: empty_session(),
+        permissions: [],
+      ),
+    )
+    |> services(my_services)
+    |> router(my_router)
+    |> listen(3000)
 }
 
 pub type User {

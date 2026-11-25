@@ -27,8 +27,9 @@ pub fn app_router() -> Router(EmptyContext, EmptyServices) {
 
 /// Starts the server on localhost, port 3000
 pub fn main() {
-  server.new()
-  |> server.router(app_router())
-  |> server.bind("localhost")
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.router(app_router())
+    |> server.bind("localhost")
+    |> server.listen(3000)
 }

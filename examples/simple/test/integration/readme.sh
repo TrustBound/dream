@@ -59,7 +59,7 @@ echo
 # The start of docs/guides/operating.md with a missing certificate. The
 # HTTP/1.1 run has no build/test_tls folder, so tls_main cannot start.
 cd "$EXAMPLE"
-gleam run -m tls_main 2>&1 | grep "Failed to start server"
+gleam run -m tls_main 2>&1 | grep "InitFailed"
 
 # The body limit of docs/guides/operating.md: main sets max_body_size to
 # 1_000_000 bytes, and this body has one byte more.

@@ -32,16 +32,18 @@ import mist.{type Connection, type ResponseData, Bytes as MistBytes}
 /// - Status code (Int remains Int)
 /// - Headers (Dream Header to Mist tuple format)
 /// - Cookies (each cookie becomes its own `Set-Cookie` header per RFC 6265)
-/// - Body (Text/Bytes to Mist ResponseData)
+/// - Body (Text, Bytes or Stream to Mist ResponseData)
 ///
-/// The conversion handles two of the three body types:
+/// The conversion handles the three body types:
 /// - `Text`: Converted to bytes and sent immediately
 /// - `Bytes`: Sent as-is
-/// - `Stream`: Not handled here. `convert` panics; use `convert_stream`,
-///   which sends the stream with chunked transfer encoding.
+/// - `Stream`: Sent with chunked transfer encoding on the connection of
+///   `mist_request`
 ///
 /// ## Parameters
 ///
+/// - `mist_request`: The Mist request that the response answers. A `Stream`
+///   body uses its connection.
 /// - `dream_response`: Dream Response with all fields populated
 ///
 /// ## Returns
@@ -50,35 +52,46 @@ import mist.{type Connection, type ResponseData, Bytes as MistBytes}
 ///
 /// ## Example
 ///
-/// ### Convert a response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_response_convert.gleam#L11-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Convert a response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_response_convert.gleam#L9-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
-/// pub fn send_user(user_json: String) -> http_response.Response(ResponseData) {
+/// pub fn send_user(
+///   mist_request: http_request.Request(Connection),
+///   user_json: String,
+/// ) -> http_response.Response(ResponseData) {
 ///   // Internal use - normally called by the request handler
 ///   let dream_response = response.json_response(200, user_json)
-///   let mist_response = convert(dream_response)
+///   let mist_response = convert(mist_request, dream_response)
 ///   // Mist server sends mist_response to client
 ///   mist_response
 /// }
 /// ```
 pub fn convert(
+  mist_request: http_request.Request(Connection),
   dream_response: Response,
 ) -> http_response.Response(ResponseData) {
-  let headers = build_response_headers(dream_response)
-
-  let response_data = case dream_response.body {
-    Text(text) -> MistBytes(bytes_tree.from_string(text))
-    DreamBytes(bytes) -> MistBytes(bytes_tree.from_bit_array(bytes))
-    Stream(_stream) ->
-      panic as "Stream bodies must use convert_stream with mist request"
+  case dream_response.body {
+    Text(text) ->
+      fixed_response(dream_response, MistBytes(bytes_tree.from_string(text)))
+    DreamBytes(bytes) ->
+      fixed_response(
+        dream_response,
+        MistBytes(bytes_tree.from_bit_array(bytes)),
+      )
+    Stream(stream) -> convert_stream(mist_request, dream_response, stream)
   }
-
-  http_response.new(dream_response.status)
-  |> http_response.set_body(response_data)
-  |> set_all_headers(headers)
 }
 
-/// Convert a Dream streaming response to Mist chunked response
+fn fixed_response(
+  dream_response: Response,
+  response_data: ResponseData,
+) -> http_response.Response(ResponseData) {
+  http_response.new(dream_response.status)
+  |> http_response.set_body(response_data)
+  |> set_all_headers(build_response_headers(dream_response))
+}
+
+/// Send a Dream stream body as a Mist chunked response
 ///
 /// Uses mist's actor-based chunked API to drain a Dream yielder,
 /// sending each element as an HTTP chunk. Requires the original mist
@@ -91,23 +104,7 @@ pub fn convert(
 /// answers the request with a 500 after the chunked body was already sent.
 /// So the actor reports its subject back here, and the first `DrainNext`
 /// is sent from the request process once `mist.chunked` is done.
-///
-/// ## Example
-///
-/// ### Convert a streaming response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_response_convert.gleam#L19-L27"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
-///
-/// ```gleam
-/// pub fn send_stream(
-///   mist_request: http_request.Request(Connection),
-///   dream_response: Response,
-///   stream: yielder.Yielder(BitArray),
-/// ) -> http_response.Response(ResponseData) {
-///   // Internal use - called by the handler when body is Stream
-///   let mist_response = convert_stream(mist_request, dream_response, stream)
-///   mist_response
-/// }
-/// ```
-pub fn convert_stream(
+fn convert_stream(
   mist_request: http_request.Request(Connection),
   dream_response: Response,
   stream: yielder.Yielder(BitArray),

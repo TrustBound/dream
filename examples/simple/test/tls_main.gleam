@@ -6,9 +6,13 @@ import dream/servers/mist/server.{bind, listen, router, tls} as dream
 import router.{create_router}
 
 pub fn main() {
-  dream.new()
-  |> router(create_router())
-  |> bind("localhost")
-  |> tls(certfile: "build/test_tls/cert.pem", keyfile: "build/test_tls/key.pem")
-  |> listen(3000)
+  let assert Ok(Nil) =
+    dream.new()
+    |> router(create_router())
+    |> bind("localhost")
+    |> tls(
+      certfile: "build/test_tls/cert.pem",
+      keyfile: "build/test_tls/key.pem",
+    )
+    |> listen(3000)
 }

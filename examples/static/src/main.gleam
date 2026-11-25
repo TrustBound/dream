@@ -26,8 +26,9 @@ pub fn main() {
 
   io.println("=== STARTING SERVER ON PORT 3000 ===")
 
-  dream.new()
-  |> router(router_instance)
-  |> bind("localhost")
-  |> listen(3000)
+  let assert Ok(Nil) =
+    dream.new()
+    |> router(router_instance)
+    |> bind("localhost")
+    |> listen(3000)
 }

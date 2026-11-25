@@ -850,7 +850,7 @@ Type safety across your entire app.
 
 Update `src/main.gleam`:
 
-### The main function <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/main.gleam#L10-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The main function <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/main.gleam#L10-L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import context as db_context
@@ -859,12 +859,13 @@ import router.{create_router}
 import services.{initialize_services}
 
 pub fn main() {
-  dream.new()
-  |> context(db_context.context)
-  |> services(initialize_services())
-  |> router(create_router())
-  |> bind("localhost")
-  |> listen(3002)
+  let assert Ok(Nil) =
+    dream.new()
+    |> context(db_context.context)
+    |> services(initialize_services())
+    |> router(create_router())
+    |> bind("localhost")
+    |> listen(3002)
 }
 ```
 

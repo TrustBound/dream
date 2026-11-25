@@ -191,7 +191,7 @@ pub const context = AuthContext(request_id: "", user: option.None)
 
 The server gets the starting value of the context, and its services, before the router:
 
-### Start the server with a context <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/custom_context/src/main.gleam#L10-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Start the server with a context <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/custom_context/src/main.gleam#L10-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn main() {
@@ -199,12 +199,13 @@ pub fn main() {
   let app_services = app_services.initialize_services()
 
   // Start the server
-  dream.new()
-  |> context(app_context.AuthContext(request_id: "", user: option.None))
-  |> services(app_services)
-  |> router(app_router.create_router())
-  |> bind("localhost")
-  |> listen(3001)
+  let assert Ok(Nil) =
+    dream.new()
+    |> context(app_context.AuthContext(request_id: "", user: option.None))
+    |> services(app_services)
+    |> router(app_router.create_router())
+    |> bind("localhost")
+    |> listen(3001)
 ```
 
 Every request starts with this value: no request id and no user. The router's type names the context and the services, `Router(AuthContext, Services)`, so the compiler checks that every controller and middleware takes the same types:

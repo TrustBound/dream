@@ -82,6 +82,7 @@ pub fn create_custom_server() -> Dream(
 }
 
 pub fn main() {
-  create_custom_server()
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    create_custom_server()
+    |> server.listen(3000)
 }

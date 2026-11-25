@@ -159,7 +159,7 @@ fn dream_module_tests() -> UnitNode {
       // Assert
       mist_server
       |> should()
-      |> be_equal(dream.get_server(app, risks_understood: True))
+      |> be_equal(dream.get_server(app, risks_understood: dream.RisksUnderstood))
       |> or_fail_with("raw_server should return the app's Mist builder")
     }),
     it("get_router example returns the router", fn() {

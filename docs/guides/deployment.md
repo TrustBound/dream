@@ -96,7 +96,7 @@ fn read_port() -> Result(Int, String) {
 
 Start the server with the port from `Config`. `start_server` keeps running until the server stops:
 
-### Start the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_app.gleam#L38-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Start the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/deployment_guide_app.gleam#L38-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_server(services: Services) {
@@ -108,8 +108,9 @@ pub fn create_server(services: Services) {
 }
 
 pub fn start_server(services: Services, port: Int) {
-  create_server(services)
-  |> server.listen(port)
+  let assert Ok(Nil) =
+    create_server(services)
+    |> server.listen(port)
 }
 ```
 

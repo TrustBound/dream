@@ -7,11 +7,12 @@ import dream/servers/mist/server
 
 pub fn main() {
   // Only accept local connections
-  server.new()
-  |> server.services(my_services())
-  |> server.router(my_router())
-  |> server.bind("localhost")
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.services(my_services())
+    |> server.router(my_router())
+    |> server.bind("localhost")
+    |> server.listen(3000)
 }
 
 pub type Services {

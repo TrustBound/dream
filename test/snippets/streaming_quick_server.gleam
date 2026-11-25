@@ -11,8 +11,9 @@ import dream/router.{type EmptyServices, type Router, route}
 import dream/servers/mist/server.{bind, listen, max_body_size}
 
 pub fn main() {
-  create_server()
-  |> listen(3000)
+  let assert Ok(Nil) =
+    create_server()
+    |> listen(3000)
 }
 
 pub fn create_server() {

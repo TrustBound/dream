@@ -16,9 +16,10 @@ pub fn main() {
   start()
 }
 
-pub fn start() -> Nil {
-  configure_server()
-  |> server.listen(8080)
+pub fn start() {
+  let assert Ok(Nil) =
+    configure_server()
+    |> server.listen(8080)
 }
 
 pub fn configure_server() {

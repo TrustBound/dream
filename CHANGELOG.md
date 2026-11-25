@@ -49,11 +49,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Method not allowed`. It used to get `404 Route not found`. A path that no
   route matches still gets `404`. `HEAD` and `OPTIONS` to a path with only
   a `GET` route get `405` too. `dream.route_request` gives the same answer.
-  See step 9 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+  See step 11 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
 - The WebSocket message `ConnectionClosed` is gone: it never arrived, and a
   close calls `on_close`. `dream_http_server` 2.0.0 removed the `Closed`
   and `Shutdown` messages that it came from. Delete the `ConnectionClosed`
   branch, and do its work in `on_close`. See step 7 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+
+- `server.listen()` returns `Result(Nil, actor.StartError)`. It still
+  blocks when the server starts, and it returns the start error when the
+  server cannot start. It used to panic. A `main` that ends with `listen()`
+  does not compile: write `let assert Ok(Nil) =` in front of it, so a failed
+  start still stops the program with a non-zero exit code. The examples, the
+  README and the guides do this. See step 9 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+- `dream.get_server()` takes `risks_understood: RisksUnderstood`, a type with
+  one value, in place of a `Bool`. A call with `False` used to panic. Now it
+  does not compile. See step 10 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+- `servers/mist/response.convert()` takes the Mist request first, and it
+  converts a `Stream` body too. It used to panic on a `Stream` body.
+  `convert_stream()` is private. See step 10 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+- `src/` has no `panic` and no `let assert`.
 
 ### Added
 
@@ -150,10 +164,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of the removed `mist.Streaming` response variant. Dream's public
   streaming API (`stream_response`, `sse_response`, `ResponseBody.Stream`)
   is unchanged.
-- `listen()` panics with `Failed to start server: ` and the start error for
-  every start error, for example
-  `Failed to start server: InitFailed("TLS file not found: cert.pem")`. An
-  `InitFailed` error used to panic with its message only.
 - The modules moved to their own repositories, with their own releases:
   [dream_config](https://github.com/TrustBound/dream_config),
   [dream_ets](https://github.com/TrustBound/dream_ets),
@@ -226,8 +236,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gleam test` now measures the line coverage of `src/`. The run fails when
   coverage is below 100%. CI checks first that the BEAM supports native
   coverage. The README shows a coverage badge.
-- 1162 tests run, 0 failed, in about 22 seconds (Apple M1 Max, OTP 29, Gleam
-  1.19.2, with other tests running on the machine). Line coverage of `src/` is 1138 of 1138 lines (100%). The snippet check finds 590 Gleam code blocks and 7 diff blocks, proves 47 file blocks, 144 command blocks and 83 output blocks, and counts 39 illustrations, with no problems. The integration tests run
+- 1178 tests run, 0 failed, in about 15 seconds (Apple M1 Max, OTP 29, Gleam
+  1.19.2, `gleam test`). The same run passed 12 times in a row. Line coverage of `src/` is 1128 of 1128 lines (100%). The snippet check finds 676 Gleam code blocks and 1 diff block, proves 58 file blocks, 148 command blocks and 105 output blocks, and counts 40 illustrations, with no problems. The integration tests run
   eleven examples, ten of them over HTTP/1.1 and over HTTP/2 with TLS.
   `make test-tasks` passes 26 scenarios over each protocol and 26 Cypress
   tests in about 90 seconds; `make test-docker` takes about 29 seconds, and

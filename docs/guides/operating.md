@@ -31,7 +31,7 @@ Read [Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getti
 
 | Your situation | Use | What happens on a start error |
 |:---|:---|:---|
-| The `main` of your app | `server.listen(port)` | It stops the program with `Failed to start server: ` and the error. It never returns when the start works. |
+| The `main` of your app | `let assert Ok(Nil) = server.listen(port)` | `listen` returns `Error(StartError)`, and `let assert` stops the program with the error and a non-zero exit code. `listen` never returns when the start works. |
 | A test, or code that must handle the error or stop the server later | `server.listen_with_handle(port)` | It returns `Error(StartError)`, or `Ok(handle)` for `server.stop(handle)`. |
 
 ## Step 1: Choose the address and the port
@@ -53,29 +53,29 @@ Before Dream opens the port it checks two things: that the certificate files of 
 ### Start the app again on the same port <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simplest/test/integration/readme.sh#L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
-gleam run -m main 2>&1 | grep "Failed to start server"
+gleam run -m main 2>&1 | grep "InitFailed"
 ```
 
 ### The start error for a port in use <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simplest/test/integration/readme_output.txt#L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```text
-Failed to start server: InitFailed("Port 3000 already in use on localhost. Stop the process using that port or choose a different one.")
+  Error(InitFailed("Port 3000 already in use on localhost. Stop the process using that port or choose a different one."))
 ```
 
-`listen` stopped the program with `Failed to start server:` and the error, an `actor.InitFailed` with a message that says what to do. The full output also has Gleam's `runtime error: panic` header and a stack trace, which the command above leaves out with `grep`.
+`listen` returned the error, an `actor.InitFailed` with a message that says what to do. The `let assert Ok(Nil) =` of `main` did not match it, so the program stopped with a non-zero exit code. The full output also has Gleam's `runtime error: let assert` header and a stack trace, which the command above leaves out with `grep`.
 
 A missing certificate fails the same way, before the port check. The `simple` example's HTTPS module points at a test certificate that doesn't exist in the plain HTTP run:
 
 ### Start the HTTPS module with no certificate <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme.sh#L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
-gleam run -m tls_main 2>&1 | grep "Failed to start server"
+gleam run -m tls_main 2>&1 | grep "InitFailed"
 ```
 
 ### The start error for a missing certificate <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L729"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```text
-Failed to start server: InitFailed("TLS file not found: build/test_tls/cert.pem")
+  Error(InitFailed("TLS file not found: build/test_tls/cert.pem"))
 ```
 
 ## Step 3: Limit the size of request bodies
@@ -91,12 +91,13 @@ import dream/servers/mist/server.{bind, listen, max_body_size, router} as dream
 import router.{create_router}
 
 pub fn main() {
-  dream.new()
-  |> router(create_router())
-  |> bind("localhost")
-  // Refuse a buffered request body over 1 MB
-  |> max_body_size(1_000_000)
-  |> listen(3000)
+  let assert Ok(Nil) =
+    dream.new()
+    |> router(create_router())
+    |> bind("localhost")
+    // Refuse a buffered request body over 1 MB
+    |> max_body_size(1_000_000)
+    |> listen(3000)
 }
 ```
 
@@ -234,7 +235,7 @@ import dream/router.{route, router}
 import dream/servers/mist/server
 
 pub fn main() {
-  server.listen(app(), 3000)
+  let assert Ok(Nil) = server.listen(app(), 3000)
 }
 
 pub fn app() {

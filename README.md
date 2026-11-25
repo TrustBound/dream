@@ -46,10 +46,11 @@ pub fn app_router() {
 }
 
 pub fn main() {
-  server.new()
-  |> server.router(app_router())
-  |> server.bind("localhost")
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.router(app_router())
+    |> server.bind("localhost")
+    |> server.listen(3000)
 }
 ```
 

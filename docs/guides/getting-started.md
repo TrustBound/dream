@@ -91,10 +91,11 @@ pub fn app_router() -> Router(EmptyContext, EmptyServices) {
 
 /// Starts the server on localhost, port 3000
 pub fn main() {
-  server.new()
-  |> server.router(app_router())
-  |> server.bind("localhost")
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.router(app_router())
+    |> server.bind("localhost")
+    |> server.listen(3000)
 }
 ```
 
@@ -182,7 +183,7 @@ When a request arrives, Dream turns it into a `Request` value, looks up the rout
 Two notes on the builder:
 
 - If you add your own context or services later, call `server.context(...)` and `server.services(...)` before `server.router(...)`. The router's type names the context and services types, so the compiler rejects the other order.
-- `server.listen` never returns. If it can't start, for example because the port is in use, it stops the program with an error. [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html) shows those errors and how to handle them.
+- `server.listen` never returns when the server starts. If it cannot start, for example because the port is in use, it returns the error. Then `let assert Ok(Nil) =` stops the program with that error and a non-zero exit code. [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html) shows those errors and how to handle them.
 
 ### The same server, shorter
 
@@ -210,10 +211,11 @@ pub fn app_router() {
 }
 
 pub fn main() {
-  server.new()
-  |> server.router(app_router())
-  |> server.bind("localhost")
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.router(app_router())
+    |> server.bind("localhost")
+    |> server.listen(3000)
 }
 ```
 

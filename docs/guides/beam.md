@@ -530,7 +530,7 @@ page with ?page=two: 400 page must be a whole number
 port_setting("eighty"): Error("PORT must be a whole number")
 ```
 
-The client of `page_or_crash` gets a `500`, and the log gets a crash report for an input error. `page` tells the client what is wrong. `port_setting` stops with the message that you gave to `as`, so the log says what to fix.
+The client of `page_or_crash` gets a `500`, and the log gets a crash report for an input error. `page` tells the client what is wrong. `port_setting` stops with the message that you gave to `as`, so the log says what to fix. The `main` of a Dream app does the same with the result of `server.listen`: `let assert Ok(Nil) =` stops the program when the server cannot start.
 
 ## Memory
 

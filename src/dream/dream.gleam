@@ -182,6 +182,14 @@ pub fn create(
   )
 }
 
+/// The proof that the caller of `get_server()` read its warning
+///
+/// `RisksUnderstood` has one value, so the only call of `get_server()` that
+/// compiles is the one that names it.
+pub type RisksUnderstood {
+  RisksUnderstood
+}
+
 /// Get the underlying server instance from a Dream instance
 ///
 /// ⚠️ **Warning: This breaks Dream's server abstraction**
@@ -192,9 +200,9 @@ pub fn create(
 ///
 /// ## The `risks_understood` Parameter
 ///
-/// You **must** explicitly pass `risks_understood: True` to call this function.
-/// Passing `False` will panic. This forces you to consciously acknowledge that
-/// you're breaking Dream's abstraction.
+/// You **must** explicitly pass `risks_understood: RisksUnderstood` to call
+/// this function. A call without it does not compile. This forces you to
+/// consciously acknowledge that you're breaking Dream's abstraction.
 ///
 /// ## When You Might Need This
 ///
@@ -205,7 +213,7 @@ pub fn create(
 ///
 /// ## Risks You're Accepting
 ///
-/// By passing `risks_understood: True`, you acknowledge:
+/// By passing `risks_understood: RisksUnderstood`, you acknowledge:
 /// - **Vendor lock-in**: Your code becomes coupled to Mist
 /// - **Breaking changes**: If Dream switches servers or upgrades Mist, your code breaks
 /// - **Lost abstractions**: You bypass Dream's carefully designed API
@@ -219,31 +227,23 @@ pub fn create(
 ///
 /// ## Example
 ///
-/// ### Get the Mist server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L38-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the Mist server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L39-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn raw_server(app) -> mist.Builder(Connection, ResponseData) {
 ///   // You must explicitly acknowledge the risks
-///   let mist_server = dream.get_server(app, risks_understood: True)
+///   let mist_server = dream.get_server(app, risks_understood: RisksUnderstood)
 ///   // Now you have raw Mist types - your code is coupled to Mist
 ///   mist_server
 /// }
 /// ```
 ///
 /// If you must use this, isolate it in a single module and document why.
-///
-/// ## Panics
-///
-/// Panics if `risks_understood` is `False`. You must pass `True` to proceed.
 pub fn get_server(
   dream: Dream(server, context, services, router),
-  risks_understood risks: Bool,
+  risks_understood _risks: RisksUnderstood,
 ) -> server {
-  case risks {
-    True -> dream.server
-    False ->
-      panic as "dream.get_server() requires risks_understood: True. This function breaks Dream's server abstraction and couples your code to Mist. Read the documentation to understand the risks before proceeding."
-  }
+  dream.server
 }
 
 /// Get the router configured for this Dream instance
@@ -253,7 +253,7 @@ pub fn get_server(
 ///
 /// ## Example
 ///
-/// ### Check for a router <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L45-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Check for a router <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L46-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn configured_router() -> Router(EmptyContext, EmptyServices) {
@@ -272,7 +272,7 @@ pub fn get_router(dream: Dream(server, context, services, router)) -> router {
 ///
 /// ## Example
 ///
-/// ### Get the context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L51-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L52-L56"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn configured_context() -> MyContext {
@@ -292,7 +292,7 @@ pub fn get_context(dream: Dream(server, context, services, router)) -> context {
 ///
 /// ## Example
 ///
-/// ### Check for services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L57-L61"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Check for services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L58-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn configured_services() -> MyServices {
@@ -314,7 +314,7 @@ pub fn get_services(
 ///
 /// ## Example
 ///
-/// ### Get the max body size <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L63-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the max body size <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L64-L68"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn configured_max_body_size() -> Int {
@@ -336,7 +336,7 @@ pub fn get_max_body_size(
 ///
 /// ## Example
 ///
-/// ### Get the bind interface <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L69-L75"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the bind interface <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L70-L76"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn bind_status() -> String {
@@ -488,7 +488,7 @@ pub fn get_shutdown_timeout(
 ///
 /// ## Example
 ///
-/// ### Route a request <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L77-L87"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Route a request <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L78-L88"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn handle(
@@ -605,7 +605,7 @@ pub fn execute_route(
 ///
 /// ## Example
 ///
-/// ### Parse cookies from headers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L89-L101"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Parse cookies from headers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L90-L102"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn request_cookies() -> List(Cookie) {
@@ -653,7 +653,7 @@ fn is_cookie_header(header: Header) -> Bool {
 ///
 /// ## Example
 ///
-/// ### Parse a cookie string <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L103-L112"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Parse a cookie string <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L104-L113"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn cookie_string_cookies() -> List(Cookie) {

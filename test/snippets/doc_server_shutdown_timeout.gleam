@@ -6,7 +6,7 @@ import dream/router.{route, router}
 import dream/servers/mist/server
 
 pub fn main() {
-  server.listen(app(), 3000)
+  let assert Ok(Nil) = server.listen(app(), 3000)
 }
 
 pub fn app() {

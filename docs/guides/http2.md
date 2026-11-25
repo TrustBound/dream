@@ -37,11 +37,15 @@ import dream/servers/mist/server.{bind, listen, router, tls} as dream
 import router.{create_router}
 
 pub fn main() {
-  dream.new()
-  |> router(create_router())
-  |> bind("localhost")
-  |> tls(certfile: "build/test_tls/cert.pem", keyfile: "build/test_tls/key.pem")
-  |> listen(3000)
+  let assert Ok(Nil) =
+    dream.new()
+    |> router(create_router())
+    |> bind("localhost")
+    |> tls(
+      certfile: "build/test_tls/cert.pem",
+      keyfile: "build/test_tls/key.pem",
+    )
+    |> listen(3000)
 }
 ```
 
@@ -95,7 +99,7 @@ pub fn start(certfile: String, keyfile: String, port: Int) {
 }
 ```
 
-You can call `server.tls()` before or after the other settings. If a file does not exist, `listen()` stops with the message `Failed to start server: InitFailed("TLS file not found: <path>")`, and `listen_with_handle()` returns `Error(InitFailed("TLS file not found: <path>"))`.
+You can call `server.tls()` before or after the other settings. If a file does not exist, `listen()` and `listen_with_handle()` return `Error(InitFailed("TLS file not found: <path>"))`.
 
 
 ## Step 2: Check which protocol you get
@@ -140,18 +144,18 @@ To use HTTP/2 between the proxy and Dream as well:
 
 ## When the certificate is missing
 
-Dream checks that both files exist before it opens the port. `listen` stops the program with the error, and `listen_with_handle` returns it. The `simple` example's plain HTTP run has no test certificate yet, so starting `tls_main` there shows the error:
+Dream checks that both files exist before it opens the port. `listen` and `listen_with_handle` return the error. In `main`, `let assert Ok(Nil) =` then stops the program. The `simple` example's plain HTTP run has no test certificate yet, so starting `tls_main` there shows the error:
 
 ### Start tls_main with no certificate <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme.sh#L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
-gleam run -m tls_main 2>&1 | grep "Failed to start server"
+gleam run -m tls_main 2>&1 | grep "InitFailed"
 ```
 
 ### The start error <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L729"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```text
-Failed to start server: InitFailed("TLS file not found: build/test_tls/cert.pem")
+  Error(InitFailed("TLS file not found: build/test_tls/cert.pem"))
 ```
 
 The path in the message is the path you gave, relative to the folder the server started in.

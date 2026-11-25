@@ -211,7 +211,7 @@ pub fn initialize_services() -> Services {
 
 Injected once in `main()`, used everywhere:
 
-#### Inject services at startup <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L71-L87"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Inject services at startup <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L71-L88"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_custom_server() -> Dream(
@@ -228,8 +228,9 @@ pub fn create_custom_server() -> Dream(
 }
 
 pub fn main() {
-  create_custom_server()
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    create_custom_server()
+    |> server.listen(3000)
 }
 ```
 

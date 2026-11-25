@@ -11,12 +11,13 @@ pub fn main() {
   let app_services = app_services.initialize_services()
 
   // Start the server
-  dream.new()
-  |> context(AppContext(request_id: ""))
-  |> services(app_services)
-  |> router(app_router.create_router())
-  |> bind("localhost")
-  |> listen(3000)
+  let assert Ok(Nil) =
+    dream.new()
+    |> context(AppContext(request_id: ""))
+    |> services(app_services)
+    |> router(app_router.create_router())
+    |> bind("localhost")
+    |> listen(3000)
 
   io.println("Multi-format example server listening on http://localhost:3000")
   io.println("Try:")

@@ -7,11 +7,12 @@ import dream/servers/mist/server
 
 pub fn main() {
   // Limit request bodies to 10MB
-  server.new()
-  |> server.services(my_services())
-  |> server.router(my_router())
-  |> server.max_body_size(10_000_000)
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.services(my_services())
+    |> server.router(my_router())
+    |> server.max_body_size(10_000_000)
+    |> server.listen(3000)
 }
 
 pub type Services {

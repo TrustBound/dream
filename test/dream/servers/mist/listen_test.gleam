@@ -5,25 +5,19 @@ import dream/dream
 import dream/http/request.{type Request, Get}
 import dream/http/response.{type Response, text_response}
 import dream/router.{route, router}
-import dream/servers/mist/port_probe
 import dream/servers/mist/server
 import dream_test/matchers.{be_equal, be_false, or_fail_with, should}
 import dream_test/suite.{type TestSuite}
 import dream_test/unit.{type UnitNode, describe, group, it}
-import fixtures/panic_catcher
 import gleam/bit_array
 import gleam/dynamic.{type Dynamic}
 import gleam/erlang/process
 import gleam/int
-import gleam/option.{Some}
+import gleam/otp/actor
 import gleam/result
 import mist
 
 const socket_timeout_ms = 2000
-
-const wait_attempts = 100
-
-const wait_step_ms = 20
 
 pub fn tests() -> TestSuite {
   describe("server.listen", [
@@ -39,26 +33,25 @@ fn listen_tests() -> UnitNode {
       // Arrange
       let port = free_port()
       let listener =
-        process.spawn_unlinked(fn() {
+        spawn_watched(fn() {
           server.new()
           |> server.router(hello_router())
           |> server.bind("127.0.0.1")
           |> server.listen(port)
         })
-      let ready = wait_for_port(port, True, wait_attempts)
+      let blocked = await_blocked(listener, socket_timeout_ms)
 
       // Act
       let status_line = get_status_line(port)
-      process.kill(listener)
-      let stopped = wait_for_port(port, False, wait_attempts)
+      let stopped = kill_and_await_links(listener, socket_timeout_ms)
 
       // Assert
-      #(ready, status_line, stopped)
+      #(blocked, status_line, stopped)
       |> should()
       |> be_equal(#(True, Ok("HTTP/1.1 200"), True))
       |> or_fail_with("listen should serve until its process stops")
     }),
-    it("panics with the start error when the port is in use", fn() {
+    it("returns the start error when the port is in use", fn() {
       // Arrange
       let #(port, held) = hold_port()
       let app =
@@ -67,20 +60,22 @@ fn listen_tests() -> UnitNode {
         |> server.bind("127.0.0.1")
 
       // Act
-      let result = panic_catcher.catch_panic(fn() { server.listen(app, port) })
+      let result = server.listen(app, port)
       release_port(held)
 
       // Assert
       result
       |> should()
-      |> be_equal(Error(
-        "Failed to start server: InitFailed(\"Port "
-        <> int.to_string(port)
-        <> " already in use on 127.0.0.1. Stop the process using that port or choose a different one.\")",
-      ))
-      |> or_fail_with("listen should panic with the port-in-use message")
+      |> be_equal(
+        Error(actor.InitFailed(
+          "Port "
+          <> int.to_string(port)
+          <> " already in use on 127.0.0.1. Stop the process using that port or choose a different one.",
+        )),
+      )
+      |> or_fail_with("listen should return the port-in-use error")
     }),
-    it("panics when the server cannot bind its address", fn() {
+    it("returns an error when the server cannot bind its address", fn() {
       // Arrange
       // 192.0.2.1 is a documentation address (RFC 5737) that no host has, so
       // the listener cannot bind it. The supervisor of mist then fails with
@@ -92,16 +87,15 @@ fn listen_tests() -> UnitNode {
         |> server.bind("192.0.2.1")
 
       // Act
-      let result =
-        call_trapping_exits(fn() {
-          panic_catcher.catch_panic(fn() { server.listen(app, port) })
-        })
+      let result = call_trapping_exits(fn() { server.listen(app, port) })
 
       // Assert
       result
       |> should()
-      |> be_equal(Error("Failed to start server: InitFailed(\"shutdown\")"))
-      |> or_fail_with("listen should panic when the address is not local")
+      |> be_equal(Error(actor.InitFailed("shutdown")))
+      |> or_fail_with(
+        "listen should return an error when the address is not local",
+      )
     }),
   ])
 }
@@ -113,7 +107,7 @@ fn placeholder_handler_tests() -> UnitNode {
       let port = free_port()
       let builder =
         server.new()
-        |> dream.get_server(risks_understood: True)
+        |> dream.get_server(risks_understood: dream.RisksUnderstood)
         |> mist.bind("127.0.0.1")
         |> mist.port(port)
 
@@ -182,19 +176,6 @@ fn get_status_line(port: Int) -> Result(String, String) {
   })
 }
 
-/// Waits until the port is in use (`in_use` True) or free (`in_use` False).
-/// Returns True when it is, and False when the attempts run out.
-fn wait_for_port(port: Int, in_use: Bool, attempts: Int) -> Bool {
-  case port_probe.is_in_use(Some("127.0.0.1"), port) == in_use, attempts {
-    True, _ -> True
-    False, 0 -> False
-    False, _ -> {
-      process.sleep(wait_step_ms)
-      wait_for_port(port, in_use, attempts - 1)
-    }
-  }
-}
-
 pub type HeldPort
 
 @external(erlang, "doc_server_ffi", "hold_port")
@@ -209,6 +190,15 @@ fn request_until_closed(
   payload: BitArray,
   timeout_ms: Int,
 ) -> Result(BitArray, Dynamic)
+
+@external(erlang, "blocking_listen_ffi", "spawn_watched")
+fn spawn_watched(run: fn() -> a) -> process.Pid
+
+@external(erlang, "blocking_listen_ffi", "await_blocked")
+fn await_blocked(listener: process.Pid, timeout_ms: Int) -> Bool
+
+@external(erlang, "blocking_listen_ffi", "kill_and_await_links")
+fn kill_and_await_links(listener: process.Pid, timeout_ms: Int) -> Bool
 
 @external(erlang, "port_ffi", "call_trapping_exits")
 fn call_trapping_exits(run: fn() -> a) -> a

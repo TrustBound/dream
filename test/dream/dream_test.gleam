@@ -6,14 +6,12 @@ import dream/http/cookie
 import dream/http/header.{Header}
 import dream/http/request.{Get}
 import dream/router.{EmptyServices, route, router}
-import dream/servers/mist/server
 import dream_test/matchers.{
-  be_empty, be_equal, be_error, have_length, or_fail_with, should,
+  be_empty, be_equal, have_length, or_fail_with, should,
 }
 import dream_test/suite.{type TestSuite}
 import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/handler.{id_param_handler, multi_param_handler, test_handler}
-import fixtures/panic_catcher
 import fixtures/request as test_request
 import matchers/extract_body_text.{extract_body_text}
 import matchers/extract_cookie_name.{extract_cookie_name}
@@ -30,7 +28,6 @@ pub fn tests() -> TestSuite {
     parse_cookies_tests(),
     handler_flow_tests(),
     cookie_string_tests(),
-    get_server_tests(),
   ])
 }
 
@@ -364,30 +361,6 @@ fn cookie_string_tests() -> UnitNode {
         cookie.simple_cookie("flag", ""),
       ])
       |> or_fail_with("flag has no = so its value is empty")
-    }),
-  ])
-}
-
-fn get_server_tests() -> UnitNode {
-  group("get_server", [
-    it("panics when the risks are not understood", fn() {
-      // Arrange
-      let dream_instance = server.new()
-
-      // Act
-      let result =
-        panic_catcher.catch_panic(fn() {
-          dream.get_server(dream_instance, risks_understood: False)
-        })
-
-      // Assert
-      result
-      |> should()
-      |> be_error()
-      |> be_equal(
-        "dream.get_server() requires risks_understood: True. This function breaks Dream's server abstraction and couples your code to Mist. Read the documentation to understand the risks before proceeding.",
-      )
-      |> or_fail_with("get_server should panic with its documented message")
     }),
   ])
 }

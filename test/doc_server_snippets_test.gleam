@@ -16,10 +16,12 @@ import dream/services/broadcaster
 import dream_test/matchers.{be_equal, or_fail_with, should}
 import dream_test/suite.{type TestSuite}
 import dream_test/unit.{type UnitNode, describe, group, it}
+import fixtures/mist_connection
 import fixtures/request as test_request
 import gleam/bit_array
 import gleam/dynamic.{type Dynamic}
 import gleam/erlang/process.{type Selector, type Subject}
+import gleam/http
 import gleam/http/request as http_request
 import gleam/http/response as http_response
 import gleam/option.{type Option, None, Some}
@@ -717,7 +719,16 @@ fn adapter_module_tests() -> UnitNode {
       let user_json = "{\"name\":\"Ada\"}"
 
       // Act
-      let mist_response = doc_server_response_convert.send_user(user_json)
+      let mist_response =
+        doc_server_response_convert.send_user(
+          mist_connection.request(
+            mist_connection.closed_connection(<<>>),
+            http.Get,
+            "/",
+            [],
+          ),
+          user_json,
+        )
 
       // Assert
       mist_response.headers
@@ -725,7 +736,7 @@ fn adapter_module_tests() -> UnitNode {
       |> be_equal([#("content-type", "application/json; charset=utf-8")])
       |> or_fail_with("convert should keep the JSON content type")
     }),
-    it("convert_stream sends the stream as chunks", fn() {
+    it("convert sends a stream body as chunks", fn() {
       // Arrange
       let port = free_port()
 
@@ -736,7 +747,7 @@ fn adapter_module_tests() -> UnitNode {
       body
       |> should()
       |> be_equal("5\r\nhello\r\n0\r\n\r\n")
-      |> or_fail_with("convert_stream should send one chunk, then the end")
+      |> or_fail_with("convert should send one chunk, then the end")
     }),
     it("is_in_use returns False for a free port", fn() {
       // Arrange
@@ -802,11 +813,7 @@ fn stream_through_mist(port: Int) -> String {
   let stream = yielder.from_list([<<"hello":utf8>>])
   let dream_response = response.stream_response(200, stream, "text/plain")
   let handler = fn(mist_request) {
-    doc_server_response_convert.send_stream(
-      mist_request,
-      dream_response,
-      stream,
-    )
+    doc_server_response_convert.send_stream(mist_request, dream_response)
   }
   let started =
     mist.new(handler)

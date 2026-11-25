@@ -6,10 +6,11 @@ import dream/router.{type Router, route, router}
 import dream/servers/mist/server
 
 pub fn main() {
-  server.new()
-  |> server.services(initialize_services())
-  |> server.router(create_router())
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.services(initialize_services())
+    |> server.router(create_router())
+    |> server.listen(3000)
 }
 
 pub type Services {

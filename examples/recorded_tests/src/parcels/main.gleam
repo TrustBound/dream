@@ -8,10 +8,11 @@ import parcels/services as parcels_services
 
 pub fn main() {
   let assert Ok(app_services) = parcels_services.initialize_services()
-  dream.new()
-  |> context(EmptyContext)
-  |> services(app_services)
-  |> router(parcels_router.create_router())
-  |> bind("localhost")
-  |> listen(3000)
+  let assert Ok(Nil) =
+    dream.new()
+    |> context(EmptyContext)
+    |> services(app_services)
+    |> router(parcels_router.create_router())
+    |> bind("localhost")
+    |> listen(3000)
 }

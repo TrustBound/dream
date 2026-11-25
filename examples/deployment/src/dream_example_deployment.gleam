@@ -16,19 +16,16 @@ import dream_postgres_client
 import envoy
 import gleam/erlang/process
 import gleam/int
-import gleam/io
 import gleam/otp/actor
 import gleam/result
+import gleam/string
 
 pub type Services {
   Services(check_database: fn() -> Result(Nil, String))
 }
 
-pub fn main() -> Nil {
-  case start() {
-    Ok(Nil) -> Nil
-    Error(reason) -> io.println_error("Cannot start the app: " <> reason)
-  }
+pub fn main() {
+  let assert Ok(Nil) = start()
 }
 
 fn start() -> Result(Nil, String) {
@@ -45,7 +42,9 @@ fn start() -> Result(Nil, String) {
   // Listen on all interfaces, so that the container's port reaches the app
   |> server.bind("0.0.0.0")
   |> server.listen(port)
-  Ok(Nil)
+  |> result.map_error(fn(start_error) {
+    "the server did not start: " <> string.inspect(start_error)
+  })
 }
 
 // PORT is optional, but a PORT that is not a number is an error

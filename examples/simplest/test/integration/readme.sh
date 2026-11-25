@@ -15,4 +15,4 @@ echo
 # The second start of docs/guides/operating.md: the server of the run
 # already listens on port 3000.
 cd "$EXAMPLE"
-gleam run -m main 2>&1 | grep "Failed to start server"
+gleam run -m main 2>&1 | grep "InitFailed"

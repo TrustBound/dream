@@ -13,13 +13,14 @@ import services
 pub fn main() {
   let app_services = services.initialize()
 
-  server.new()
-  |> server.context(EmptyContext)
-  |> server.services(app_services)
-  |> server.router(router.create())
-  |> server.tls(
-    certfile: "build/test_tls/cert.pem",
-    keyfile: "build/test_tls/key.pem",
-  )
-  |> server.listen(8080)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.context(EmptyContext)
+    |> server.services(app_services)
+    |> server.router(router.create())
+    |> server.tls(
+      certfile: "build/test_tls/cert.pem",
+      keyfile: "build/test_tls/key.pem",
+    )
+    |> server.listen(8080)
 }

@@ -42,6 +42,7 @@ Sources: [contributing.md](docs/contributing/contributing.md), [naming-conventio
 - **No closures for dependencies.** A function gets each dependency as a parameter, from `Services`, or from a `Dependencies` type for SSE and WebSocket handlers.
 - **No nested `case`.** Put the inner `case` in a named helper function, or use a flat `use` chain.
 - **Errors are values.** Return `Result(success, error)`. Never discard an error with `Error(_)`: bind it and handle it.
+- **No `panic` and no `let assert` in `src`.** Return a `Result`, or make the wrong state impossible with types. For example, `dream.get_server` takes the one value `RisksUnderstood`, not a `Bool`.
 - **Builders.** Configure with the builder pattern, one step for each setting.
 - **Middleware is per route.** There is no global middleware list.
 - **Context and services.** Context is per request. Services are for the whole app.

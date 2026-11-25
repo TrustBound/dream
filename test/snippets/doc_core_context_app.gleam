@@ -4,8 +4,9 @@ import dream/context.{AppContext}
 import dream/servers/mist/server.{context, listen, router}
 
 pub fn start(my_router) {
-  server.new()
-  |> context(AppContext(request_id: ""))
-  |> router(my_router)
-  |> listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> context(AppContext(request_id: ""))
+    |> router(my_router)
+    |> listen(3000)
 }

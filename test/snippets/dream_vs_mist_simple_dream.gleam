@@ -13,7 +13,8 @@ pub fn create_router() {
 }
 
 pub fn main() {
-  server.new()
-  |> server.router(create_router())
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.router(create_router())
+    |> server.listen(3000)
 }

@@ -28,10 +28,14 @@ import router.{create_router}
 import services.{initialize_services}
 
 pub fn main() {
-  dream.new()
-  |> services(initialize_services())
-  |> router(create_router())
-  |> bind("localhost")
-  |> tls(certfile: "build/test_tls/cert.pem", keyfile: "build/test_tls/key.pem")
-  |> listen(3000)
+  let assert Ok(Nil) =
+    dream.new()
+    |> services(initialize_services())
+    |> router(create_router())
+    |> bind("localhost")
+    |> tls(
+      certfile: "build/test_tls/cert.pem",
+      keyfile: "build/test_tls/key.pem",
+    )
+    |> listen(3000)
 }

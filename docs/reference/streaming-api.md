@@ -1054,7 +1054,7 @@ fn create_image_response(result: Result(Nil, UploadError)) -> Response {
 }
 ```
 
-### Server Configuration <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_quick_server.gleam#L6-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Server Configuration <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/streaming_quick_server.gleam#L6-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type EmptyContext}
@@ -1065,8 +1065,9 @@ import dream/router.{type EmptyServices, type Router, route}
 import dream/servers/mist/server.{bind, listen, max_body_size}
 
 pub fn main() {
-  create_server()
-  |> listen(3000)
+  let assert Ok(Nil) =
+    create_server()
+    |> listen(3000)
 }
 
 pub fn create_server() {

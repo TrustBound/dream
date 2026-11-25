@@ -5,14 +5,14 @@ import dream/http/header.{Header}
 import dream/http/response.{Response, Stream, Text}
 import dream/servers/mist/response as mist_response
 import dream_test/matchers.{
-  be_equal, be_error, contain, contain_string, or_fail_with, should,
+  be_equal, contain, contain_string, or_fail_with, should,
 }
 import dream_test/suite.{type TestSuite}
 import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/mist_connection
-import fixtures/panic_catcher
 import gleam/erlang/process.{type Subject}
 import gleam/http
+import gleam/http/response as http_response
 import gleam/option
 import gleam/yielder
 import matchers/count_mist_headers.{count_mist_headers}
@@ -49,7 +49,7 @@ fn convert_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result.status
@@ -69,7 +69,7 @@ fn convert_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -89,7 +89,7 @@ fn convert_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -110,7 +110,7 @@ fn convert_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -131,7 +131,7 @@ fn convert_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -155,7 +155,7 @@ fn convert_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -175,7 +175,7 @@ fn convert_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -196,7 +196,7 @@ fn convert_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -218,7 +218,7 @@ fn convert_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -240,7 +240,7 @@ fn convert_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -269,7 +269,7 @@ fn multiple_set_cookie_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -295,7 +295,7 @@ fn multiple_set_cookie_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert — both cookie values appear as separate headers
       result
@@ -318,7 +318,7 @@ fn multiple_set_cookie_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -342,7 +342,7 @@ fn multiple_set_cookie_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -365,7 +365,7 @@ fn multiple_set_cookie_tests() -> UnitNode {
           )
 
         // Act
-        let result = mist_response.convert(dream_response)
+        let result = convert(dream_response)
 
         // Assert — both must survive as separate headers
         result
@@ -388,7 +388,7 @@ fn multiple_set_cookie_tests() -> UnitNode {
           )
 
         // Act
-        let result = mist_response.convert(dream_response)
+        let result = convert(dream_response)
 
         // Assert
         result
@@ -414,7 +414,7 @@ fn multiple_set_cookie_tests() -> UnitNode {
           )
 
         // Act
-        let result = mist_response.convert(dream_response)
+        let result = convert(dream_response)
 
         // Assert
         result
@@ -438,7 +438,7 @@ fn multiple_set_cookie_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert — set_header replaces, so only the last value should remain
       result
@@ -464,7 +464,7 @@ fn multiple_set_cookie_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert — both cookies present, secure one has its attributes
       result
@@ -490,7 +490,7 @@ fn multiple_set_cookie_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -514,7 +514,7 @@ fn multiple_set_cookie_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -540,7 +540,7 @@ fn multiple_set_cookie_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert — all headers coexist correctly
       result
@@ -566,7 +566,7 @@ fn multiple_set_cookie_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -593,7 +593,7 @@ fn multiple_set_cookie_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -619,7 +619,7 @@ fn multiple_set_cookie_tests() -> UnitNode {
         )
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -649,7 +649,7 @@ fn cookie_attribute_tests() -> UnitNode {
       let dream_response = response_with_cookie(cookie)
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -677,7 +677,7 @@ fn cookie_attribute_tests() -> UnitNode {
       let dream_response = response_with_cookie(cookie)
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -691,7 +691,7 @@ fn cookie_attribute_tests() -> UnitNode {
       let dream_response = response_with_cookie(expiring_cookie(1_700_000_000))
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -707,7 +707,7 @@ fn cookie_attribute_tests() -> UnitNode {
       let dream_response = response_with_cookie(expiring_cookie(0))
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -723,7 +723,7 @@ fn cookie_attribute_tests() -> UnitNode {
       let dream_response = response_with_cookie(expiring_cookie(-1))
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -739,7 +739,7 @@ fn cookie_attribute_tests() -> UnitNode {
       let dream_response = response_with_cookie(expiring_cookie(915_148_799))
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -755,7 +755,7 @@ fn cookie_attribute_tests() -> UnitNode {
       let dream_response = response_with_cookie(expiring_cookie(951_782_400))
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -771,7 +771,7 @@ fn cookie_attribute_tests() -> UnitNode {
       let dream_response = response_with_cookie(expiring_cookie(1_709_208_000))
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -787,7 +787,7 @@ fn cookie_attribute_tests() -> UnitNode {
       let dream_response = response_with_cookie(expiring_cookie(1_751_328_000))
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -804,7 +804,7 @@ fn cookie_attribute_tests() -> UnitNode {
         response_with_cookie(expiring_cookie(253_402_300_799))
 
       // Act
-      let result = mist_response.convert(dream_response)
+      let result = convert(dream_response)
 
       // Assert
       result
@@ -820,73 +820,49 @@ fn cookie_attribute_tests() -> UnitNode {
 
 fn stream_tests() -> UnitNode {
   group("stream bodies", [
-    it("convert panics for a stream body", fn() {
-      // Arrange
-      let dream_response =
-        Response(
-          status: 200,
-          body: Stream(yielder.empty()),
-          headers: [],
-          cookies: [],
-          content_type: option.None,
-        )
-
-      // Act
-      let result =
-        panic_catcher.catch_panic(fn() { mist_response.convert(dream_response) })
-
-      // Assert
-      result
-      |> should()
-      |> be_error()
-      |> be_equal("Stream bodies must use convert_stream with mist request")
-      |> or_fail_with("convert should panic with its message")
-    }),
-    it("convert_stream answers 400 when the chunk process cannot start", fn() {
-      // Arrange
-      let factory = mist_connection.start_refusing_factory()
-      let #(connection, client) = mist_connection.open_connection(<<>>, factory)
-      let request = mist_connection.request(connection, http.Get, "/", [])
-      let dream_response = stream_response()
-
-      // Act
-      let result =
-        mist_response.convert_stream(request, dream_response, yielder.empty())
-      mist_connection.close_socket(client)
-      mist_connection.stop_factory(factory)
-
-      // Assert
-      result.status
-      |> should()
-      |> be_equal(400)
-      |> or_fail_with("mist answers 400 when it cannot start the process")
-    }),
     it(
-      "convert_stream stops reading the stream when a chunk cannot be sent",
+      "convert answers 400 when the chunk process of a stream cannot start",
       fn() {
         // Arrange
-        let factory = mist_connection.start_accepting_factory()
+        let factory = mist_connection.start_refusing_factory()
         let #(connection, client) =
           mist_connection.open_connection(<<>>, factory)
         let request = mist_connection.request(connection, http.Get, "/", [])
-        let reads = process.new_subject()
-        let stream =
-          yielder.repeatedly(fn() { read_after_client_left(connection, reads) })
+        let dream_response = stream_response(yielder.empty())
 
         // Act
-        let _response =
-          mist_response.convert_stream(request, stream_response(), stream)
-        let read_count = count_reads(reads, 0)
+        let result = mist_response.convert(request, dream_response)
         mist_connection.close_socket(client)
         mist_connection.stop_factory(factory)
 
         // Assert
-        read_count
+        result.status
         |> should()
-        |> be_equal(1)
-        |> or_fail_with("The stream should be read once, then stop")
+        |> be_equal(400)
+        |> or_fail_with("mist answers 400 when it cannot start the process")
       },
     ),
+    it("convert stops reading a stream when a chunk cannot be sent", fn() {
+      // Arrange
+      let factory = mist_connection.start_accepting_factory()
+      let #(connection, client) = mist_connection.open_connection(<<>>, factory)
+      let request = mist_connection.request(connection, http.Get, "/", [])
+      let reads = process.new_subject()
+      let stream =
+        yielder.repeatedly(fn() { read_after_client_left(connection, reads) })
+
+      // Act
+      let _response = mist_response.convert(request, stream_response(stream))
+      let read_count = count_reads(reads, 0)
+      mist_connection.close_socket(client)
+      mist_connection.stop_factory(factory)
+
+      // Assert
+      read_count
+      |> should()
+      |> be_equal(1)
+      |> or_fail_with("The stream should be read once, then stop")
+    }),
   ])
 }
 
@@ -915,10 +891,10 @@ fn response_with_cookie(cookie: cookie.Cookie) -> response.Response {
   )
 }
 
-fn stream_response() -> response.Response {
+fn stream_response(stream: yielder.Yielder(BitArray)) -> response.Response {
   Response(
     status: 200,
-    body: Text(""),
+    body: Stream(stream),
     headers: [],
     cookies: [],
     content_type: option.None,
@@ -944,4 +920,20 @@ fn count_reads(reads: Subject(Nil), count: Int) -> Int {
     False, Ok(Nil) -> count_reads(reads, count + 1)
     False, Error(Nil) -> count
   }
+}
+
+/// Converts a response that has no stream body. Such a body does not use the
+/// connection of the request, so a closed connection is enough.
+fn convert(
+  dream_response: response.Response,
+) -> http_response.Response(mist.ResponseData) {
+  mist_response.convert(
+    mist_connection.request(
+      mist_connection.closed_connection(<<>>),
+      http.Get,
+      "/",
+      [],
+    ),
+    dream_response,
+  )
 }

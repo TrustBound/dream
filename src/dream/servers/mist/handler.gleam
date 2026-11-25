@@ -1,7 +1,7 @@
 import dream/dream
 import dream/http/header.{Header}
 import dream/http/request.{type Request, Request}
-import dream/http/response.{type Response, Stream}
+import dream/http/response.{type Response}
 import dream/internal/built_in_answer
 import dream/router.{type Route, type Router, find_route}
 import dream/servers/mist/internal
@@ -157,8 +157,10 @@ fn create_request_handler(
 
       // 405 or 404: answer at once, without reading the body
       option.None ->
-        built_in_answer.no_route(router, partial_request)
-        |> mist_response.convert()
+        mist_response.convert(
+          mist_request,
+          built_in_answer.no_route(router, partial_request),
+        )
     }
 
     // 6. Check for upgrade response in stash (WebSocket)
@@ -216,7 +218,7 @@ fn respond_with_route_response(
   case maybe_upgrade {
     option.Some(perform_upgrade) ->
       upgrade_or_respond(mist_request, dream_response, perform_upgrade)
-    option.None -> convert_dream_response(mist_request, dream_response)
+    option.None -> mist_response.convert(mist_request, dream_response)
   }
 }
 
@@ -228,7 +230,7 @@ fn upgrade_or_respond(
 ) -> http_response.Response(ResponseData) {
   case dream_response.status {
     200 -> perform_upgrade(extract_dream_headers(dream_response))
-    _ -> convert_dream_response(mist_request, dream_response)
+    _ -> mist_response.convert(mist_request, dream_response)
   }
 }
 
@@ -241,7 +243,7 @@ fn prepare_streaming_request(
       let chunks = yielder.unfold(chunk_provider, stream_unfolder)
       Ok(Request(..partial_request, body: request.Stream(chunks)))
     }
-    Error(_) -> Error(unreadable_body_answer())
+    Error(_) -> Error(unreadable_body_answer(mist_request))
   }
 }
 
@@ -280,8 +282,8 @@ fn prepare_buffered_request(
       Ok(
         Request(..partial_request, body: buffered_body(request_with_body.body)),
       )
-    Error(mist.ExcessBody) -> Error(too_large_answer())
-    Error(mist.MalformedBody) -> Error(unreadable_body_answer())
+    Error(mist.ExcessBody) -> Error(too_large_answer(mist_request))
+    Error(mist.MalformedBody) -> Error(unreadable_body_answer(mist_request))
   }
 }
 
@@ -294,17 +296,6 @@ fn buffered_body(bytes: BitArray) -> request.RequestBody {
   }
 }
 
-fn convert_dream_response(
-  mist_request: http_request.Request(Connection),
-  dream_response: Response,
-) -> http_response.Response(ResponseData) {
-  case dream_response.body {
-    Stream(stream) ->
-      mist_response.convert_stream(mist_request, dream_response, stream)
-    _ -> mist_response.convert(dream_response)
-  }
-}
-
 fn extract_dream_headers(response: Response) -> List(#(String, String)) {
   list.map(response.headers, fn(header) {
     let Header(name, value) = header
@@ -314,21 +305,25 @@ fn extract_dream_headers(response: Response) -> List(#(String, String)) {
 
 /// 413 Content Too Large (RFC 9110, section 15.5.14): the buffered body is
 /// over `max_body_size`.
-fn too_large_answer() -> http_response.Response(ResponseData) {
-  plain_text_answer(413, "Request body too large")
+fn too_large_answer(
+  mist_request: http_request.Request(Connection),
+) -> http_response.Response(ResponseData) {
+  plain_text_answer(mist_request, 413, "Request body too large")
 }
 
 /// 400 Bad Request: the body stopped early, or its chunks are malformed.
-fn unreadable_body_answer() -> http_response.Response(ResponseData) {
-  plain_text_answer(400, "Request body could not be read")
+fn unreadable_body_answer(
+  mist_request: http_request.Request(Connection),
+) -> http_response.Response(ResponseData) {
+  plain_text_answer(mist_request, 400, "Request body could not be read")
 }
 
 /// Every answer that the handler gives itself, with no controller, is a short
 /// plain-text body.
 fn plain_text_answer(
+  mist_request: http_request.Request(Connection),
   status: Int,
   text: String,
 ) -> http_response.Response(ResponseData) {
-  built_in_answer.plain_text(status, text)
-  |> mist_response.convert()
+  mist_response.convert(mist_request, built_in_answer.plain_text(status, text))
 }

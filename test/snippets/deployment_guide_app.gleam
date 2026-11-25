@@ -44,6 +44,7 @@ pub fn create_server(services: Services) {
 }
 
 pub fn start_server(services: Services, port: Int) {
-  create_server(services)
-  |> server.listen(port)
+  let assert Ok(Nil) =
+    create_server(services)
+    |> server.listen(port)
 }
