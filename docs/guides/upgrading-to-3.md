@@ -55,7 +55,7 @@ Do the steps in order. Steps 1 and 3 apply to most projects. The other steps app
 | A `case` over every `Method` | `Method` has `Connect`, `Trace` and `Other(String)`. | [Step 5](#step-5-name-the-new-methods) |
 | `validate_json` | It returns a list of errors. | [Step 6](#step-6-answer-every-validation-error) |
 | `websocket.ConnectionClosed` | It is removed. `on_close` runs when the connection closes. | [Step 7](#step-7-move-the-connectionclosed-work-to-on_close) |
-| `pog`, `squirrel` or `dream_postgres` | The guides use `dream_postgres_client` and `dream_sql_generator`. | [Step 8](#step-8-move-from-pog-and-squirrel) |
+| `pog`, `squirrel` or `dream_postgres` | The guides use `dream_postgres_client` and `dream_model`. | [Step 8](#step-8-move-from-pog-and-squirrel) |
 | `server.listen` in `main` | It returns a `Result`. | [Step 9](#step-9-handle-the-result-of-listen) |
 | `dream.get_server` or `response.convert` | `get_server` takes `RisksUnderstood`. `convert` takes the Mist request. | [Step 10](#step-10-update-calls-of-get_server-and-responseconvert) |
 | A `case` over every `Error` | `Error` has `Conflict(String)`, which gives 409. | [Step 11](#step-11-answer-the-conflict-error) |
@@ -185,7 +185,7 @@ In Dream 3 the helper is gone, and the controller calls `require_json`:
 
 ```gleam
   let result = {
-    use #(name, email) <- result.try(require_json(request, user.decoder()))
+    use #(name, email) <- result.try(require_json(request, user_decoder()))
     let db = services.database.connection
     user_operations.create_user(db, name, email)
   }
@@ -555,15 +555,98 @@ pub type Message(custom) {
 
 ## Step 8: Move from pog and squirrel
 
-**What changed.** The guides and the examples use [`dream_postgres_client`](https://hex.pm/packages/dream_postgres_client) in place of `pog`, and [`dream_sql_generator`](https://hex.pm/packages/dream_sql_generator) in place of `squirrel`. Both are forks, maintained for Dream. `dream_postgres` 2.0.0 uses `dream_postgres_client`. Your app can stay on `pog` and `squirrel`: Dream 3.0.0 does not depend on them. Do this step to follow the guides, or to use `dream_postgres` 2.0.0.
+**What changed.** The guides and the examples use [`dream_postgres_client`](https://hex.pm/packages/dream_postgres_client) in place of `pog`, and [`dream_model`](https://github.com/TrustBound/dream_model) in place of `squirrel`. Squirrel generates one row type for each query, and your model converts each row by hand. dream_model generates the whole model module: one record type and one function for each `.sql` file. Each function returns a Dream `Error`, so a controller can give the result straight to its error handler. Your app can stay on `pog` and `squirrel`: Dream 3.0.0 does not depend on them. Do this step to follow the guides.
 
 **What to do.**
 
-1. In `[dependencies]`, replace `pog` with `dream_postgres_client = ">= 1.0.0 and < 2.0.0"`.
-2. In `[dev-dependencies]`, replace `squirrel` with `dream_sql_generator = ">= 1.0.0 and < 2.0.0"`.
-3. Add a `[tools.dream_sql_generator]` table with `client_module = "dream_postgres_client"`.
-4. In your code, replace `import pog` with `import dream_postgres_client`, and `pog.` with `dream_postgres_client.`.
-5. Run `gleam run -m dream_sql_generator` in place of `gleam run -m squirrel`. The generated code then uses `dream_postgres_client`.
+1. In `[dependencies]`, replace `pog` with `dream_postgres` and `dream_postgres_client`. In `[dev-dependencies]`, replace `squirrel` with `dream_model`. The database example has these lines:
+
+### The dependencies of the database example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L10-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```toml
+dream_postgres = ">= 2.1.0 and < 3.0.0"
+dream_postgres_client = ">= 1.0.0 and < 2.0.0"
+```
+
+### The dev dependency of the database example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L19-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```toml
+[dev-dependencies]
+dream_model = ">= 1.0.0 and < 2.0.0"
+```
+
+2. In your code, replace `import pog` with `import dream_postgres_client`, and `pog.` with `dream_postgres_client.`.
+3. Move each query to a folder that has the name of its model, for example `src/models/user/get.sql`. Add the hints at the top of each file. The next section shows one query.
+4. Run `gleam run -m dream_model`. It writes `src/models/user.gleam`. Delete the `sql.gleam` of Squirrel and the functions that converted its rows.
+5. Give the `schema_fingerprint` of each generated module to `client.check_schema` when the app starts.
+
+### Check the schema at start-up <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/database.gleam#L42-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+  // Stop with a clear message when the schema changed after dream_model
+  // generated the models
+  use Nil <- result.try(
+    client.check_schema(connection, [
+      user.schema_fingerprint,
+      post.schema_fingerprint,
+    ])
+    |> result.map_error(client.format_schema_check_error),
+  )
+```
+
+The app stops with a message that names each changed table. Run `gleam run -m dream_model` again after a migration. In CI, `gleam run -m dream_model -- --check` fails when a generated module is out of date.
+
+### From Squirrel to dream_model
+
+In Dream 2, the database example kept the query of one user in a Squirrel `.sql` file. The model called the generated `sql.get_user`, then picked the row and converted it:
+
+### The model function with Squirrel <a href="https://github.com/TrustBound/dream/blob/2.4.1/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Code at 2.4.1" src="https://img.shields.io/badge/%F0%9F%93%9C_code_at-2.4.1-lightgrey.svg?style=flat-square"></a>
+
+```gleam
+pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
+  case sql.get_user(db, id) {
+    Ok(returned) -> extract_first_user(returned)
+    Error(_) -> Error(InternalServerError("Database error"))
+  }
+}
+```
+
+### The row helper with Squirrel <a href="https://github.com/TrustBound/dream/blob/2.4.1/examples/database/src/models/user.gleam#L73-L81"><img align="right" alt="Code at 2.4.1" src="https://img.shields.io/badge/%F0%9F%93%9C_code_at-2.4.1-lightgrey.svg?style=flat-square"></a>
+
+```gleam
+fn extract_first_user(
+  returned: pog.Returned(sql.GetUserRow),
+) -> Result(User, Error) {
+  case returned.rows {
+    [row] -> Ok(row_to_user(row))
+    [] -> Error(NotFound("User not found"))
+    _ -> Error(NotFound("User not found"))
+  }
+}
+```
+
+With dream_model, the query has hints. `returns: one User` makes the function return one `User`, and `not found` gives the text of the 404:
+
+### The query with dream_model <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user/get.sql"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```sql
+-- returns: one User
+-- not found: User not found
+SELECT id, name, email, created_at FROM users WHERE id = $1
+```
+
+dream_model generates `user.get(db, id) -> Result(User, Error)`. The helpers are gone, and the operation calls the generated function:
+
+### The call of the generated function <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L11-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+/// Get a user by ID
+pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
+  user.get(db, id)
+}
+```
+
+A unique violation now has a hint too. `-- unique users_email_key: Email already taken` in `create.sql` gives `Conflict` and a 409 answer. Squirrel gave a database error, which the example answered with 500.
 
 [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html) shows the full setup.
 

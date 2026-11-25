@@ -55,7 +55,7 @@ make run
 | You want to see the smallest working app | `examples/simplest` (this guide) | One file: a controller, a router and the server. |
 | You need path parameters, request bodies, cookies | `examples/simple`, with [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html) | Several controllers in their own modules. |
 | You need middleware and a per-request context | `examples/custom_context`, with [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html) | Shows the context type and auth middleware. |
-| You need a database | `examples/database`, with [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html) | PostgreSQL, `dream_sql_generator` and migrations. |
+| You need a database | `examples/database`, with [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html) | PostgreSQL, `dream_model` and migrations. |
 
 ## Step 1: Write the server
 

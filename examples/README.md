@@ -12,7 +12,7 @@ This directory contains comprehensive examples demonstrating Dream's features an
 | [static](./static) | Static file serving | No | Integration | 3000 |
 | [streaming](./streaming) | Streaming responses | No | Integration | 3003 |
 | [rate_limiter](./rate_limiter) | Rate limiting middleware with `dream_ets` | No | Unit + Integration | 3000 |
-| [database](./database) | PostgreSQL with Squirrel | Yes | Integration | 3002 |
+| [database](./database) | PostgreSQL with dream_model | Yes | Integration | 3002 |
 | [multi_format](./multi_format) | JSON/CSV/HTML/HTMX formats | Yes | Integration | 3000 |
 | [streaming_capabilities](./streaming_capabilities) | Advanced streaming patterns | No | Integration | 3001 |
 | [tasks](./tasks) | Full-featured task manager | Yes | Integration + Cypress | 3000 |
@@ -172,7 +172,7 @@ The `tasks` job runs `make test-tasks` with its own PostgreSQL service on port 5
 ## Best Practices Demonstrated
 
 1. **Flat controller pattern**: No nested cases, all named helper functions
-2. **Type-safe SQL**: Using Squirrel for compile-time query validation
+2. **Typed models**: dream_model generates the models from SQL files and checks the types against the database
 3. **Separation of concerns**: Models, Controllers, Views, Operations
 4. **Middleware composition**: Logging, authentication, rate limiting
 5. **Error handling**: Unified error type with proper status codes

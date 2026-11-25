@@ -120,12 +120,14 @@ pub type Services {
 
 Initialize it once at startup:
 
-### Initializing services <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/services.gleam#L14-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Initializing services <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/services.gleam#L15-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn initialize_services() -> Services {
-  let assert Ok(database_service) = database.init_database()
-  Services(database: database_service)
+  case database.init_database() {
+    Ok(database_service) -> Services(database: database_service)
+    Error(message) -> panic as message
+  }
 }
 ```
 
@@ -346,7 +348,7 @@ pub fn show(
 
 The operation holds the logic, with no HTTP. If the task does not exist, it returns the error. If the tags query fails, it shows the task with no tags:
 
-### Operation coordinates two models <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/operations/task_operations.gleam#L33-L45"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Operation coordinates two models <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/operations/task_operations.gleam#L54-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Get a task with its tags
@@ -354,13 +356,13 @@ pub fn get_task_with_tags(
   db: Connection,
   task_id: Int,
 ) -> Result(#(Task, List(Tag)), Error) {
-  use task <- result.try(task_model.get(db, task_id))
+  use found <- result.try(task.get(db, task_id))
 
   let tags =
-    tag_model.get_tags_for_task(db, task.id)
+    tag.for_task(db, found.id)
     |> result.unwrap([])
 
-  Ok(#(task, tags))
+  Ok(#(found, tags))
 }
 ```
 
@@ -386,51 +388,30 @@ Use operations when you coordinate 2 or more models, when an action has steps th
 
 ## Models
 
-Models handle data access. They take a database connection (explicit dependency, no globals), run queries, and convert database rows into your domain types. Controller actions call models, not SQL directly.
+Models handle data access. They take a database connection (explicit dependency, no globals), run queries, and return your domain types. Controller actions call models, not SQL directly.
 
-### Model functions <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L23-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+The examples do not write models by hand. [dream_model](https://github.com/TrustBound/dream_model) generates each model module from one `.sql` file for each query. The comment lines at the top of a file are hints:
+
+### A query of the user model <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user/get.sql"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```sql
+-- returns: one User
+-- not found: User not found
+SELECT id, name, email, created_at FROM users WHERE id = $1
+```
+
+dream_model writes `src/models/user.gleam` with a `User` record and the function `get(db, id) -> Result(User, Error)`. With no row, `get` returns `NotFound("User not found")`. A database failure gives `InternalServerError`. The operation calls it like any other function:
+
+### Calling the generated model <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L11-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-/// Get a single user by ID
-pub fn get(
-  db: dream_postgres_client.Connection,
-  id: Int,
-) -> Result(User, Error) {
-  case sql.get_user(db, id) {
-    Ok(returned) -> extract_first_user(returned)
-    Error(_) -> Error(InternalServerError("Database error"))
-  }
-}
-
-/// Create a new user
-pub fn create(
-  db: dream_postgres_client.Connection,
-  name: String,
-  email: String,
-) -> Result(User, Error) {
-  case sql.create_user(db, name, email) {
-    Ok(returned) -> extract_created_user(returned)
-    Error(_) -> Error(InternalServerError("Database error"))
-  }
+/// Get a user by ID
+pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
+  user.get(db, id)
 }
 ```
 
-A private function converts each `dream_sql_generator` row to the domain type:
-
-### Converting a row to a domain type <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L115-L122"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
-
-```gleam
-fn row_to_user(row: sql.GetUserRow) -> User {
-  User(
-    id: row.id,
-    name: row.name,
-    email: row.email,
-    created_at: option.unwrap(row.created_at, timestamp.system_time()),
-  )
-}
-```
-
-Models take connections as parameters, return domain types (not DB types), and handle the DB ↔ Domain conversion internally. Your controller actions stay clean—they just call `user.get(db, id)` and get a `User`, not a database row.
+Models take connections as parameters and return domain types. Your controller actions stay clean: they call `user.get(db, id)` and get a `User`, not a database row. When you change a query, run `make models` to generate the module again.
 
 **See:** [examples/database/src/models/](../examples/database/src/models/)
 

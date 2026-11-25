@@ -528,7 +528,7 @@ In development, or for a small number of files, `dream/controllers/static` can s
 Production security basics:
 - ✅ Use HTTPS (Let's Encrypt via reverse proxy)
 - ✅ Validate all input
-- ✅ Use parameterized SQL queries (`dream_sql_generator` does this)
+- ✅ Use parameterized SQL queries (`dream_model` does this)
 - ✅ Set secure headers (via middleware)
 - ✅ Rate limit APIs (via middleware)
 - ✅ Don't log secrets

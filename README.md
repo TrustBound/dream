@@ -220,7 +220,7 @@ Upgrading from Dream 2? [Upgrade from Dream 2 to 3](https://hexdocs.pm/dream/3.0
 - [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html) - Path parameters, custom methods, context and middleware.
 - [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html) - Query strings, JSON that reports every error, and forms.
 - [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html) - Redirects, downloads, cookies and static files.
-- [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html) - PostgreSQL with `dream_sql_generator`, migrations and operations.
+- [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html) - PostgreSQL with `dream_model`, migrations and operations.
 - [Grow a JSON API](https://hexdocs.pm/dream/3.0.0/guides/api-patterns.html) - Pagination, errors, versioning, filtering and CORS.
 - [Load configuration and fail early](https://hexdocs.pm/dream/3.0.0/guides/configuration.html) - Typed settings read one time at startup with `dream_config`, a clear error, and secrets kept out of logs.
 - [Call another API from a controller](https://hexdocs.pm/dream/3.0.0/guides/calling-other-apis.html) - `dream_http_client` in an app: timeouts, typed errors, 502 and 504 answers, JSON and a streamed reply.

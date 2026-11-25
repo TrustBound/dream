@@ -134,14 +134,15 @@ Based on visual analysis of Things 3, here are the key features and interaction 
 
 ## Data Model
 
-These types are in `src/types/`. The priority menu sets a task's `priority` to 1 (Urgent), 2 (High), 3 (Normal) or 4 (Low).
+dream_model generates the `Task`, `Project` and `Tag` records from the queries in `src/models/task/`, `src/models/project/` and `src/models/tag/`. Each record has the columns of its table in `priv/migrations/`. The priority menu sets a task's `priority` to 1 (Urgent), 2 (High), 3 (Normal) or 4 (Low).
 
-### Task <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/types/task.gleam#L5-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+The forms send the input types of `src/types/`:
+
+### Task input <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/types/task.gleam#L8-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub type Task {
-  Task(
-    id: Int,
+pub type TaskData {
+  TaskData(
     title: String,
     description: Option(String),
     completed: Bool,
@@ -149,31 +150,23 @@ pub type Task {
     due_date: Option(String),
     position: Int,
     project_id: Option(Int),
-    created_at: String,
-    updated_at: String,
   )
 }
 ```
 
-### Project/List <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/types/project.gleam#L5-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Project/List input <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/types/project.gleam#L8-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub type Project {
-  Project(
-    id: Int,
-    name: String,
-    description: Option(String),
-    color: Option(String),
-    created_at: String,
-  )
+pub type ProjectData {
+  ProjectData(name: String, description: Option(String), color: Option(String))
 }
 ```
 
-### Tag <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/types/tag.gleam#L5-L7"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Tag input <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/types/tag.gleam#L8-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub type Tag {
-  Tag(id: Int, name: String, color: Option(String))
+pub type TagData {
+  TagData(name: String, color: Option(String))
 }
 ```
 

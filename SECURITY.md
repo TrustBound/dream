@@ -100,7 +100,7 @@ Dream extracts and type-checks. You validate and authorize.
 Dream provides no built-in:
 - ❌ Authentication middleware
 - ❌ Authorization checks
-- ❌ SQL query builders (use Squirrel or raw SQL)
+- ❌ SQL query builders (use dream_model or raw SQL)
 - ❌ Input sanitization (beyond type validation)
 - ❌ Rate limiting
 - ❌ CSRF tokens

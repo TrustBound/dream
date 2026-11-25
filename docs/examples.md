@@ -46,7 +46,7 @@ Complete REST API with type-safe SQL, migrations, and validation.
 - Services pattern (database connection)
 - Models (data access)
 - Views (JSON formatting)
-- `dream_sql_generator` (type-safe SQL)
+- `dream_model` (typed models from SQL files)
 - Cigogne (migrations)
 - Makefile automation
 
@@ -83,7 +83,7 @@ Complete task management application with HTMX, semantic classless HTML, and com
 - Composable matcha templates (elements → components → views)
 - No raw HTML in Gleam code
 
-**Run:** `cd examples/tasks && make db-up && make migrate && make squirrel && make matcha && make run`
+**Run:** `cd examples/tasks && make db-up && make migrate && make models && make matcha && make run`
 **Test:** Comprehensive Cucumber integration tests
 
 ---

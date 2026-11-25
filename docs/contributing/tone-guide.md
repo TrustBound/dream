@@ -143,29 +143,23 @@ Now let's write some code.
 
 ✅ **Good:**
 ````markdown
-Step 3: Create the Model
+Step 3: Get a user
 
-In `src/models/user.gleam`, add a function that gets one user:
+In `src/operations/user_operations.gleam`, add a function that gets one user:
 
-### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L11-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn get(
-  db: dream_postgres_client.Connection,
-  id: Int,
-) -> Result(User, Error) {
-  case sql.get_user(db, id) {
-    Ok(returned) -> extract_first_user(returned)
-    Error(_) -> Error(InternalServerError("Database error"))
-  }
+/// Get a user by ID
+pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
+  user.get(db, id)
 }
 ```
 
 This function:
 1. Takes a database connection explicitly (no globals)
-2. Calls the generated SQL function
-3. Converts the database row to our domain type
-4. Returns a Result for error handling
+2. Calls `user.get`, which dream_model generates from `get.sql`
+3. Returns a Result for error handling
 
 **Why explicit parameters?** Without them, you'd need globals 
 or process dictionary, neither of which are type-safe in Gleam.
@@ -459,17 +453,12 @@ This code does X by doing Y.
 **Example:**
 
 ````markdown
-### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L11-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn get(
-  db: dream_postgres_client.Connection,
-  id: Int,
-) -> Result(User, Error) {
-  case sql.get_user(db, id) {
-    Ok(returned) -> extract_first_user(returned)
-    Error(_) -> Error(InternalServerError("Database error"))
-  }
+/// Get a user by ID
+pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
+  user.get(db, id)
 }
 ```
 
@@ -584,26 +573,21 @@ Here's an example:
 ### ✅ Code First, Explain After
 
 ````markdown
-## Models
+## Operations
 
-Here's a typical model:
+Here's a typical operation:
 
-### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L11-L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn get(
-  db: dream_postgres_client.Connection,
-  id: Int,
-) -> Result(User, Error) {
-  case sql.get_user(db, id) {
-    Ok(returned) -> extract_first_user(returned)
-    Error(_) -> Error(InternalServerError("Database error"))
-  }
+/// Get a user by ID
+pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
+  user.get(db, id)
 }
 ```
 
-This is the repository pattern: functions that handle data access 
-and return domain types.
+It calls the generated model and returns a domain type, so the
+controller never sees a database row.
 ````
 
 ---

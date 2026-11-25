@@ -86,21 +86,16 @@ fn user_to_json(user: User) -> String {
 
 ### Offset-based Pagination
 
-A database model wraps a `dream_sql_generator` query and returns domain types. This model from the database example lists all users:
+A database model runs a query and returns domain types. The database example writes one `.sql` file for each query, and dream_model generates the model function from it. This query lists all users:
 
-#### Users model <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L15-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The users query <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user/list.sql"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-```gleam
-/// List all users
-pub fn list(db: dream_postgres_client.Connection) -> Result(List(User), Error) {
-  case sql.list_users(db) {
-    Ok(returned) -> Ok(extract_all_users(returned))
-    Error(_) -> Error(InternalServerError("Database error"))
-  }
-}
+```sql
+-- returns: many User
+SELECT id, name, email, created_at FROM users ORDER BY id
 ```
 
-For offset pagination, add `offset` and `limit` parameters to the function, and pass them to an SQL query with `OFFSET $1 LIMIT $2`.
+For offset pagination, add `OFFSET $1 LIMIT $2` to the query, and the hint `-- params: offset, limit` to name the parameters of the generated function.
 
 #### Products controller with offset and limit <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/rest_api_guide_pagination.gleam#L6-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 

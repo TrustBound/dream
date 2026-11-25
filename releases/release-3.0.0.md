@@ -281,7 +281,7 @@ gleam deps update dream
 5. Add branches for `Connect`, `Trace` and `Other(String)` to a `case` over every `Method`.
 6. Answer the list of errors that `validate_json` returns.
 7. Move the work of a `ConnectionClosed` branch to `on_close`.
-8. Move from `pog` and `squirrel` to `dream_postgres_client` and `dream_sql_generator`, to follow the guides.
+8. Move from `pog` and `squirrel` to `dream_postgres_client` and `dream_model`, to follow the guides.
 9. Check the behavior changes that tests and clients can see, such as `405` for a wrong method and `413` for a body over the limit.
 10. Optionally, update your tests to `dream_test` 3.
 
