@@ -156,6 +156,10 @@ src/views/user_view.gleam
 - `src/views/`: JSON formatting. `src/operations/`: the steps of each action.
 - `priv/migrations/`: the database migrations. `docker-compose.yml` starts PostgreSQL.
 
+### Start-up needs the database
+
+At start-up, the app runs `client.check_schema`, which queries the database. When PostgreSQL cannot be reached, or the schema changed after `make models`, the app prints one message (from `client.format_schema_check_error`) and stops with exit status 1. Start the database first. After a schema change, run `make migrate` and `make models`.
+
 ## Database Commands
 
 Each target of the `Makefile` runs one command: `make db-up` starts PostgreSQL, `make db-down` stops it, `make db-logs` follows its log, `make db-shell` opens `psql`, `make db-reset` removes all data and starts it again, `make migrate` applies every migration, `make migrate-up` and `make migrate-down` apply or revert one, `make migrate-new name=my_migration` creates a new migration file, and `make models` generates the model modules from the `.sql` files.

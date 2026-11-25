@@ -147,6 +147,10 @@ src/views/products/view.gleam
 - `src/controllers/products_controller.gleam`: picks the format from the path extension.
 - `priv/migrations/`: the database migration. `docker-compose.yml` starts PostgreSQL.
 
+### Start-up needs the database
+
+At start-up, the app runs `client.check_schema`, which queries the database. When PostgreSQL cannot be reached, or the schema changed after `make models`, the app prints one message (from `client.format_schema_check_error`) and stops with exit status 1. Start the database first. After a schema change, run `make migrate` and `make models`.
+
 ## Key Takeaways
 
 1. **Format is explicit** - Extension in URL (`/products/1.json`)

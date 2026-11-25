@@ -41,6 +41,16 @@ pub fn initialize() -> dream_postgres_client.Connection {
     ])
   {
     Ok(Nil) -> connection
-    Error(error) -> panic as client.format_schema_check_error(error)
+    Error(error) -> stop(client.format_schema_check_error(error))
   }
 }
+
+/// Prints the message on standard error and stops the app with exit
+/// status 1, with no crash report
+fn stop(message: String) -> a {
+  io.println_error(message)
+  halt(1)
+}
+
+@external(erlang, "erlang", "halt")
+fn halt(status: Int) -> a

@@ -60,6 +60,10 @@ Server will start on `http://localhost:3000`.
 
 The migrations are already in `priv/migrations`. They were made with `make migrate-new name=create_projects`, and the same for `create_todos`, `create_tags` and `create_todo_tags`.
 
+### Start-up needs the database
+
+At start-up, the app runs `client.check_schema`, which queries the database. When PostgreSQL cannot be reached, or the schema changed after `make models`, the app prints one message (from `client.format_schema_check_error`) and stops with exit status 1. Start the database first. After a schema change, run `make migrate` and `make models`.
+
 When you change a query or a template, generate the code again. `make models` needs the database:
 
 ### Generate the models <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/models.sh#L8"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>

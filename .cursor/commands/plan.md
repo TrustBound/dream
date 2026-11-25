@@ -40,11 +40,8 @@ Pass dependencies explicitly as parameters, no globals or singletons.
 // pub const global_db = connect_db()  // ❌ Don't do this
 
 // Good - Pass dependencies as parameters
-pub fn get_user(db: pog.Connection, id: Int) -> Result(User, DataError) {
-  case sql.get_user(db, id) {
-    Ok(returned) -> extract_first_user(returned)
-    Error(err) -> Error(DatabaseError(err))
-  }
+pub fn get_user(db: client.Connection, id: Int) -> Result(User, Error) {
+  user.get(db, id)
 }
 
 pub fn send_email(
@@ -106,51 +103,41 @@ Route(
 ```
 
 ### 4. Model Pattern
-Data access layer, handles persistence.
+Data access layer, handles persistence. dream_model generates each model
+module from one `.sql` file for each query. Never edit the generated
+module: change the `.sql` file and run `gleam run -m dream_model`.
 
 **Example:**
+```sql
+-- src/models/user/get.sql
+-- returns: one User
+-- not found: User not found
+SELECT id, email, name, created_at FROM users WHERE id = $1
+```
+
+```sql
+-- src/models/user/create.sql
+-- returns: one User
+-- unique users_email_key: Email already taken
+INSERT INTO users (email, name) VALUES ($1, $2)
+RETURNING id, email, name, created_at
+```
+
+This gives `src/models/user.gleam` with the `User` record and these
+functions. Each one returns the Dream `Error`: `NotFound` for no row,
+`Conflict` for a named unique violation, `InternalServerError` otherwise.
+
 ```gleam
-// models/user/user.gleam
-import user/sql
-import pog
+// Generated: import models/user
+user.get(db, id)            // -> Result(User, Error)
+user.create(db, email, name) // -> Result(User, Error)
+```
 
-pub fn get(db: pog.Connection, id: Int) -> Result(User, DataError) {
-  case sql.get_user(db, id) {
-    Ok(returned) -> extract_first_user(returned)
-    Error(err) -> Error(DatabaseError(err))
-  }
-}
+Check the generated modules against the schema at start-up:
 
-pub fn list(db: pog.Connection) -> Result(List(User), DataError) {
-  case sql.list_users(db) {
-    Ok(returned) -> Ok(list.map(returned.rows, row_to_user))
-    Error(err) -> Error(DatabaseError(err))
-  }
-}
-
-pub fn create(db: pog.Connection, data: UserData) -> Result(User, DataError) {
-  case sql.create_user(db, data.email, data.name) {
-    Ok(returned) -> extract_first_user(returned)
-    Error(err) -> Error(DatabaseError(err))
-  }
-}
-
-fn extract_first_user(returned: pog.Returned(sql.GetUserRow)) -> Result(User, DataError) {
-  case list.first(returned.rows) {
-    Ok(row) -> Ok(row_to_user(row))
-    Error(_) -> Error(NotFound)
-  }
-}
-
-// Convert the generated row to the domain type
-fn row_to_user(row: sql.GetUserRow) -> User {
-  User(
-    id: row.id,
-    email: row.email,
-    name: row.name,
-    created_at: row.created_at,
-  )
-}
+```gleam
+client.check_schema(db, [user.schema_fingerprint])
+|> result.map_error(client.format_schema_check_error)
 ```
 
 ### 5. Services Pattern
@@ -161,7 +148,7 @@ External connections and clients.
 // services.gleam
 pub type Services {
   Services(
-    db: pog.Connection,
+    db: client.Connection,
     opensearch: opensearch.Client,
     http_client: http_client.Client,
     events: events_service.EventsService,

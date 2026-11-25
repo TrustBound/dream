@@ -110,7 +110,7 @@ Your controller actions need things like database connections, HTTP clients, and
 
 Services solves this with type-safe dependency injection. You define what your app needs as fields of one type. The database example needs one service:
 
-### The Services type <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/services.gleam#L8-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The Services type <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/services.gleam#L9-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type Services {
@@ -120,13 +120,13 @@ pub type Services {
 
 Initialize it once at startup:
 
-### Initializing services <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/services.gleam#L15-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Initializing services <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/services.gleam#L17-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn initialize_services() -> Services {
   case database.init_database() {
     Ok(database_service) -> Services(database: database_service)
-    Error(message) -> panic as message
+    Error(message) -> stop(message)
   }
 }
 ```

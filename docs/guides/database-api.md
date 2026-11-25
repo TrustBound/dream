@@ -397,10 +397,11 @@ pub fn init_database() -> Result(DatabaseService, String) {
 
 Then create `src/services.gleam`. It holds the database service:
 
-### Services with a database service <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/services.gleam#L5-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Services with a database service <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/services.gleam#L5-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import database.{type DatabaseService}
+import gleam/io
 
 /// Application services
 pub type Services {
@@ -408,14 +409,25 @@ pub type Services {
 }
 
 /// Initialize all services
-/// Panics with the error message if initialization fails, for example when
-/// the schema changed after dream_model generated the models
+/// Stops the app with the error message if initialization fails, for
+/// example when the database cannot be reached or the schema changed
+/// after dream_model generated the models
 pub fn initialize_services() -> Services {
   case database.init_database() {
     Ok(database_service) -> Services(database: database_service)
-    Error(message) -> panic as message
+    Error(message) -> stop(message)
   }
 }
+
+/// Prints the message on standard error and stops the app with exit
+/// status 1, with no crash report
+fn stop(message: String) -> a {
+  io.println_error(message)
+  halt(1)
+}
+
+@external(erlang, "erlang", "halt")
+fn halt(status: Int) -> a
 ```
 
 Last, create `src/context.gleam`. Context holds per-request data.
@@ -443,9 +455,11 @@ pub const context = DatabaseContext(request_id: "")
    generated model with the schema of the database. When a migration
    changed a table after the generation, it fails with a message that
    names the model and its tables. Run `make models` to fix it.
-3. `initialize_services()` runs once when the server starts. If the
-   database is not available or the schema changed, it stops the app
-   at startup with the message.
+3. `initialize_services()` runs once when the server starts. The
+   schema check runs a query, so the app needs the database at
+   start-up. If the database cannot be reached or the schema changed,
+   `stop` prints the message of `client.format_schema_check_error` and
+   ends the app with exit status 1, with no crash report.
 4. Every controller gets `services` as an argument, and reads the pool
    from `services.database.connection`.
 5. `DatabaseContext` is a custom context with one field. [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html)
@@ -646,15 +660,15 @@ The full file also has `update` and `delete` actions, which use the
 same form. At its end, a private decoder reads the name and the email
 of the request body:
 
-### The request decoder <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/controllers/users_controller.gleam#L106-L111"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The request decoder <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/controllers/users_controller.gleam#L107-L112"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-
 /// Decoder for user create/update requests
 fn user_decoder() -> decode.Decoder(#(String, String)) {
   use name <- decode.field("name", decode.string)
   use email <- decode.field("email", decode.string)
   decode.success(#(name, email))
+}
 ```
 
 The controller uses `utilities/response_helpers.gleam`, which maps a
@@ -1127,8 +1141,7 @@ pub fn create_and_attach(
 **What's happening:**
 
 1. `tag.get_or_create` finds the tag with that name, or creates it. A
-   tag with no color stores an empty color, as the tasks example did
-   before it used dream_model.
+   tag with no color stores an empty color.
 2. `tag.add_to_task` attaches the tag to the task. dream_model generated
    both functions from `src/models/tag/get_or_create.sql` and
    `src/models/tag/add_to_task.sql`.
@@ -1432,9 +1445,10 @@ so a task that does not exist gives a 404.
 - **Do Not Edit Generated Code:** Change the `.sql` file and run
   `make models`. Keep input rules in an operation.
 - **Explicit Connection:** Pass `db: Connection` explicitly.
-- **Name the Errors:** Use `-- not found:` for the text of a 404, and
-  `-- unique <constraint>:` for each unique constraint that a user can
-  break. Each one then answers 409.
+- **Name the Errors:** Use `-- not found:` for the text of the 404 when
+  a `returns: one` query finds no row. Use `-- unique <constraint>:`
+  for each unique constraint that a user can break: a violation of it
+  answers 409.
 - **Unified Errors:** The generated functions return
   `Result(_, dream.Error)`, which keeps error handling consistent
   across the application.
@@ -1556,7 +1570,7 @@ For the code that talks to PostgreSQL, test through HTTP against a real database
 ## Common pitfalls
 
 - **A generated model is out of date.** dream_model generates each model from its `.sql` files and the live schema. After you change a query or a migration, run `make migrate` and then `make models`. The app stops at start-up when the schema changed after the generation, and the example's integration run fails when a model isn't what `gleam run -m dream_model -- --check` expects.
-- **The app stops at start with a database error.** `initialize_services` panics when the pool or the schema check fails, so a database that isn't up stops the app at once. That's on purpose for the example. In production, start the pool in a supervisor or retry, and keep the health check.
+- **The app stops at start with a database error.** The schema check runs a query at start-up, so the app needs the database. When the database cannot be reached, or the schema changed after the generation, the app prints one message and stops with exit status 1. For a database that is down, the message starts with `The schema fingerprint query of models/user failed`. Start PostgreSQL first, or run `make migrate` and `make models` after a schema change. In production, let your supervisor or orchestrator restart the app, and keep the health check.
 - **One type, other columns.** Every query that returns one type must give the same columns, in the same order, with the same types. Otherwise dream_model stops with the first difference. A query with other columns, such as a count, needs another `returns:` hint, for example `-- returns: one` for one column.
 - **A side effect's result thrown away.** `let _ = search.index(post)` hides a failure. Return a `Result` from every step of an operation and chain them with `use`.
 - **Port 5432 is taken.** The example maps PostgreSQL to port 5435 on your machine, so it doesn't collide with a local PostgreSQL.

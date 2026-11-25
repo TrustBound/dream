@@ -64,8 +64,11 @@ dream_config = { git = "https://github.com/TrustBound/dream_config.git", ref = "
 dream_json = { git = "https://github.com/TrustBound/dream_json.git", ref = "d375862f3107194c6011879fb6492cd2ced8c533" }
 # Pinned to the module's move branch until it is on Hex.
 dream_opensearch = { git = "https://github.com/TrustBound/dream_opensearch.git", ref = "4af71e43c3d7d04d59c54f2ac6b43af44f3f2799" }
-# TODO: Pinned to the module's move branch until dream_postgres 2.0.0 is on
-# Hex. Then use the Hex version range ">= 2.0.0 and < 3.0.0".
+# TODO: Pinned to commit 6653fd4 of dream_postgres, which is version 2.0.0.
+# The test snippets of Dream use it. The database, multi_format and tasks
+# examples need 2.1.0, which adds the client module of dream_model and is
+# not on Hex yet. When 2.1.0 is on Hex, replace this pin with the range
+# ">= 2.1.0 and < 3.0.0" that the examples use.
 dream_postgres = { git = "https://github.com/TrustBound/dream_postgres.git", ref = "6653fd483ea6317a7ed20d176a1641cfea0dff29" }
 # Pinned to the module's move branch until it is on Hex.
 dream_snippets = { git = "https://github.com/TrustBound/dream_snippets.git", ref = "96cf9a146a608e5cf82afab23600eec852de3d6b" }

@@ -196,6 +196,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [dream_mock_server](https://github.com/TrustBound/dream_mock_server),
   [dream_opensearch](https://github.com/TrustBound/dream_opensearch) and
   [dream_postgres](https://github.com/TrustBound/dream_postgres).
+- The `database`, `multi_format` and `tasks` examples use
+  [dream_model](https://github.com/TrustBound/dream_model) in place of
+  `dream_sql_generator`. Each model folder holds one `.sql` file for each
+  query, with hints, and `make models` generates the model module. The
+  generated functions return Dream errors, so the hand-written row
+  converters and `sql.gleam` files are gone. The examples need
+  `dream_postgres` `>= 2.1.0` and `dream_model` `>= 1.0.0` (a dev
+  dependency). The guides and step 8 of the
+  [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html)
+  show the new layout.
+- The `database` example answers `409` with
+  `{"error": "Email already taken"}` when a create or an update uses an
+  email that another user has. It answered `500` before.
+- The `database`, `multi_format` and `tasks` examples call
+  `client.check_schema` at start-up with the fingerprints of their
+  models. When the database cannot be reached, or the schema changed after
+  `make models`, the app prints one message and stops with exit status 1.
+  Before, it started and answered `500` until the database was back.
 
 ### Fixed
 
