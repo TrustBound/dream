@@ -14,7 +14,7 @@ pub const schema_fingerprint =
   client.SchemaFingerprint(
     module: "models/tag",
     tables: ["public.tags", "public.task_tags"],
-    hash: "6382d4e16a1d9883de9bbc6d838cdaf9a81e92fc74534041a6abbde1bf300b11",
+    hash: "7ec012c78e592e6512adf7ce0bed6ec96020800d60c1d5ace12bfa0f36d97dc4",
   )
 
 /// A row of for_task.sql, get_or_create.sql and list.sql.

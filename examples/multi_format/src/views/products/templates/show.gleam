@@ -2,7 +2,6 @@
 
 import gleam/string_tree.{type StringTree}
 
-import gleam/float
 import gleam/int
 import models/product.{type Product}
 
@@ -67,7 +66,7 @@ pub fn render_tree(product product: Product) -> StringTree {
           <dt>Price</dt>
           <dd>$",
     )
-  let tree = string_tree.append(tree, float.to_string(product.price))
+  let tree = string_tree.append(tree, product.price)
   let tree =
     string_tree.append(
       tree,

@@ -35,7 +35,7 @@ pub fn to_csv(product: Product) -> String {
   <> ","
   <> product.name
   <> ","
-  <> float.to_string(product.price)
+  <> product.price
   <> ","
   <> int.to_string(product.stock)
 }
@@ -67,9 +67,19 @@ fn to_json_object(p: Product) -> json.Json {
   json.object([
     #("id", json.int(p.id)),
     #("name", json.string(p.name)),
-    #("price", json.float(p.price)),
+    #("price", price_json(p.price)),
     #("stock", json.int(p.stock)),
   ])
+}
+
+/// The price as a JSON number, as before the price became the exact text
+/// of the numeric column, for example "999.99". A text that is not a
+/// number with a decimal point (NaN) stays a JSON string.
+fn price_json(price: String) -> json.Json {
+  case float.parse(price) {
+    Ok(number) -> json.float(number)
+    Error(Nil) -> json.string(price)
+  }
 }
 
 fn product_to_csv_row(p: Product) -> String {
@@ -77,7 +87,7 @@ fn product_to_csv_row(p: Product) -> String {
   <> ","
   <> p.name
   <> ","
-  <> float.to_string(p.price)
+  <> p.price
   <> ","
   <> int.to_string(p.stock)
   <> "\n"

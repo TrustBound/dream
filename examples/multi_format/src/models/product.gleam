@@ -14,7 +14,7 @@ pub const schema_fingerprint =
   client.SchemaFingerprint(
     module: "models/product",
     tables: ["public.products"],
-    hash: "bd2fa2b0877be9af1a48ae541ed88abc7a99265d742142b6b80e9dd2272fc1dc",
+    hash: "9dc9362c88c91da07571dd2a1154e67c6be7d7e1b39792268b4e86f3ce73eb37",
   )
 
 /// A row of get.sql and list.sql.
@@ -22,7 +22,7 @@ pub type Product {
   Product(
     id: Int,
     name: String,
-    price: Float,
+    price: String,
     stock: Int,
     created_at: Option(client.Timestamp),
   )
@@ -41,6 +41,7 @@ WHERE id = $1
 LIMIT 1;"
   |> client.query
   |> client.parameter(client.int(id))
+  |> client.numeric_as_text
   |> client.returning(product_decoder())
   |> client.execute(db)
   |> one_row("product.get", "Product not found", [])
@@ -57,6 +58,7 @@ pub fn list(db: client.Connection) -> Result(List(Product), Error) {
 FROM products
 ORDER BY id;"
   |> client.query
+  |> client.numeric_as_text
   |> client.returning(product_decoder())
   |> client.execute(db)
   |> many_rows("product.list", [])
@@ -65,7 +67,7 @@ ORDER BY id;"
 fn product_decoder() -> decode.Decoder(Product) {
   use id <- decode.field(0, decode.int)
   use name <- decode.field(1, decode.string)
-  use price <- decode.field(2, client.numeric_decoder())
+  use price <- decode.field(2, client.numeric_text_decoder())
   use stock <- decode.field(3, decode.int)
   use created_at <- decode.field(
     4,

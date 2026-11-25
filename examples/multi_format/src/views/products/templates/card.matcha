@@ -1,6 +1,5 @@
 {> import models/product.{type Product}
 {> import gleam/int
-{> import gleam/float
 {> with product as Product
 
 <article>
@@ -10,7 +9,7 @@
   </header>
   <dl>
     <dt>Price</dt>
-    <dd>${{ float.to_string(product.price) }}</dd>
+    <dd>${{ product.price }}</dd>
     <dt>Stock</dt>
     <dd>{{ int.to_string(product.stock) }} units</dd>
   </dl>
