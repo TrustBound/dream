@@ -14,7 +14,7 @@ pub const schema_fingerprint =
   client.SchemaFingerprint(
     module: "models/tag",
     tables: ["public.tags", "public.task_tags"],
-    hash: "0a96fb4fd11eea196f37738cd3234ef376c2ed2c830e82f762c0ae85d200e7d4",
+    hash: "6382d4e16a1d9883de9bbc6d838cdaf9a81e92fc74534041a6abbde1bf300b11",
   )
 
 /// A row of for_task.sql, get_or_create.sql and list.sql.
@@ -171,10 +171,15 @@ fn query_error_to_error(
   unique: List(#(String, String)),
 ) -> Error {
   let conflict = unique_message(client.violated_constraint(query_error), unique)
-  case conflict, client.broken_promise(query_error) {
-    Ok(message), _ -> error.Conflict(message)
-    Error(Nil), Ok(message) -> error.InternalServerError(message)
-    Error(Nil), Error(Nil) -> error.InternalServerError(query_name <> " failed")
+  let promise = client.broken_promise(query_error)
+  let infinite = client.infinite_value(query_error)
+  case conflict, promise, infinite {
+    Ok(message), _, _ -> error.Conflict(message)
+    Error(Nil), Ok(message), _ -> error.InternalServerError(message)
+    Error(Nil), Error(Nil), Ok(message) ->
+      error.InternalServerError(query_name <> ": " <> message)
+    Error(Nil), Error(Nil), Error(Nil) ->
+      error.InternalServerError(query_name <> " failed")
   }
 }
 

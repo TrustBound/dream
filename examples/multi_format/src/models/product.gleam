@@ -14,7 +14,7 @@ pub const schema_fingerprint =
   client.SchemaFingerprint(
     module: "models/product",
     tables: ["public.products"],
-    hash: "00cb79d080bc780540a3f1faa7a645d726865ed9cb30c24d705ccca120ce835e",
+    hash: "bd2fa2b0877be9af1a48ae541ed88abc7a99265d742142b6b80e9dd2272fc1dc",
   )
 
 /// A row of get.sql and list.sql.
@@ -67,7 +67,13 @@ fn product_decoder() -> decode.Decoder(Product) {
   use name <- decode.field(1, decode.string)
   use price <- decode.field(2, client.numeric_decoder())
   use stock <- decode.field(3, decode.int)
-  use created_at <- decode.field(4, decode.optional(client.timestamp_decoder()))
+  use created_at <- decode.field(
+    4,
+    decode.optional(client.finite_timestamp(
+      client.timestamp_decoder(),
+      "created_at",
+    )),
+  )
   decode.success(Product(id:, name:, price:, stock:, created_at:))
 }
 
@@ -115,10 +121,15 @@ fn query_error_to_error(
   unique: List(#(String, String)),
 ) -> Error {
   let conflict = unique_message(client.violated_constraint(query_error), unique)
-  case conflict, client.broken_promise(query_error) {
-    Ok(message), _ -> error.Conflict(message)
-    Error(Nil), Ok(message) -> error.InternalServerError(message)
-    Error(Nil), Error(Nil) -> error.InternalServerError(query_name <> " failed")
+  let promise = client.broken_promise(query_error)
+  let infinite = client.infinite_value(query_error)
+  case conflict, promise, infinite {
+    Ok(message), _, _ -> error.Conflict(message)
+    Error(Nil), Ok(message), _ -> error.InternalServerError(message)
+    Error(Nil), Error(Nil), Ok(message) ->
+      error.InternalServerError(query_name <> ": " <> message)
+    Error(Nil), Error(Nil), Error(Nil) ->
+      error.InternalServerError(query_name <> " failed")
   }
 }
 

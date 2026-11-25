@@ -14,7 +14,7 @@ pub const schema_fingerprint =
   client.SchemaFingerprint(
     module: "models/task",
     tables: ["public.tasks"],
-    hash: "98719b731ddd1352e68d83c1e0c53311ba06b2817556fd176644ae03542f889c",
+    hash: "ad04fb51e2ff501f4eaa7986c64bafedae6c5452b2179509e6bca4c63337719d",
   )
 
 /// A row of create.sql, get.sql, list.sql, list_by_project.sql, toggle_completed.sql, update.sql and update_position.sql.
@@ -265,12 +265,21 @@ fn task_decoder() -> decode.Decoder(Task) {
   use priority <- decode.field(4, decode.int)
   use due_date <- decode.field(
     5,
-    decode.optional(client.calendar_date_decoder()),
+    decode.optional(client.finite_date(
+      client.calendar_date_decoder(),
+      "due_date",
+    )),
   )
   use position <- decode.field(6, decode.int)
   use project_id <- decode.field(7, decode.optional(decode.int))
-  use created_at <- decode.field(8, client.timestamp_decoder())
-  use updated_at <- decode.field(9, client.timestamp_decoder())
+  use created_at <- decode.field(
+    8,
+    client.finite_timestamp(client.timestamp_decoder(), "created_at"),
+  )
+  use updated_at <- decode.field(
+    9,
+    client.finite_timestamp(client.timestamp_decoder(), "updated_at"),
+  )
   decode.success(Task(
     id:,
     title:,
@@ -329,10 +338,15 @@ fn query_error_to_error(
   unique: List(#(String, String)),
 ) -> Error {
   let conflict = unique_message(client.violated_constraint(query_error), unique)
-  case conflict, client.broken_promise(query_error) {
-    Ok(message), _ -> error.Conflict(message)
-    Error(Nil), Ok(message) -> error.InternalServerError(message)
-    Error(Nil), Error(Nil) -> error.InternalServerError(query_name <> " failed")
+  let promise = client.broken_promise(query_error)
+  let infinite = client.infinite_value(query_error)
+  case conflict, promise, infinite {
+    Ok(message), _, _ -> error.Conflict(message)
+    Error(Nil), Ok(message), _ -> error.InternalServerError(message)
+    Error(Nil), Error(Nil), Ok(message) ->
+      error.InternalServerError(query_name <> ": " <> message)
+    Error(Nil), Error(Nil), Error(Nil) ->
+      error.InternalServerError(query_name <> " failed")
   }
 }
 
