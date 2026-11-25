@@ -49,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Method not allowed`. It used to get `404 Route not found`. A path that no
   route matches still gets `404`. `HEAD` and `OPTIONS` to a path with only
   a `GET` route get `405` too. `dream.route_request` gives the same answer.
-  See step 11 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+  See step 12 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
 - The WebSocket message `ConnectionClosed` is gone: it never arrived, and a
   close calls `on_close`. `dream_http_server` 2.0.0 removed the `Closed`
   and `Shutdown` messages that it came from. Delete the `ConnectionClosed`
@@ -67,6 +67,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `servers/mist/response.convert()` takes the Mist request first, and it
   converts a `Stream` body too. It used to panic on a `Stream` body.
   `convert_stream()` is private. See step 10 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+- `Error` has a new variant, `Conflict(String)`, which gives `409`. A
+  `case` over every `Error` value needs a `Conflict` branch. See step 11 of
+  the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
 - `src/` has no `panic` and no `let assert`.
 
 ### Added
@@ -90,6 +93,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SIGTERM` waits. The default is 30 seconds, the time that Kubernetes waits
   after `SIGTERM`. `dream.set_shutdown_timeout` and
   `dream.get_shutdown_timeout` are for server adapters.
+- `error.Conflict(String)` for `409 Conflict`: a request that clashes with
+  the current state of a resource, such as a unique value that is already
+  taken or an edit against a stale version.
 - `router.allowed_methods(router, request)` gives the methods of the routes
   that match the path of a request, in alphabetical order.
 

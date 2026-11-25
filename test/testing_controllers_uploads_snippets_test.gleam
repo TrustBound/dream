@@ -387,7 +387,7 @@ fn response_helpers_tests() -> UnitNode {
     }),
     it("handle_error escapes quotes in the message", fn() {
       // Arrange
-      let err = error.UnprocessableContent("name \"x\" is taken")
+      let err = error.Conflict("name \"x\" is taken")
 
       // Act
       let response = controllers_guide_response_helpers.handle_error(err)
@@ -395,7 +395,7 @@ fn response_helpers_tests() -> UnitNode {
       // Assert
       response
       |> should()
-      |> be_equal(json_response(422, "{\"error\":\"name \\\"x\\\" is taken\"}"))
+      |> be_equal(json_response(409, "{\"error\":\"name \\\"x\\\" is taken\"}"))
       |> or_fail_with("handle_error should return valid JSON")
     }),
   ])

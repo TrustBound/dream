@@ -17,6 +17,12 @@ pub fn bad_request(message: String) -> Response {
   html_response(status.bad_request, html)
 }
 
+pub fn conflict(message: String) -> Response {
+  let content = error.render(error_title: "Conflict", error_message: message)
+  let html = layout_components.build_page("Conflict", content)
+  html_response(status.conflict, html)
+}
+
 pub fn internal_error() -> Response {
   let content =
     error.render(

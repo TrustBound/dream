@@ -21,6 +21,7 @@ import snippets/doc_http_data_cookie_same_site
 import snippets/doc_http_data_cookie_type
 import snippets/doc_http_data_cookie_value
 import snippets/doc_http_data_error_bad_request
+import snippets/doc_http_data_error_conflict
 import snippets/doc_http_data_error_forbidden
 import snippets/doc_http_data_error_internal_server_error
 import snippets/doc_http_data_error_message
@@ -538,18 +539,28 @@ fn error_tests() -> UnitNode {
       |> be_equal(Error(error.NotFound("Post with ID 123 does not exist")))
       |> or_fail_with("find_post should name post 123")
     }),
-    it("UnprocessableContent example rejects a taken email", fn() {
+    it("Conflict example rejects a taken email", fn() {
       // Act
       let result =
-        doc_http_data_error_unprocessable_content.check_email("a@example.com", [
+        doc_http_data_error_conflict.check_email("a@example.com", [
           "a@example.com",
         ])
 
       // Assert
       result
       |> should()
-      |> be_equal(Error(error.UnprocessableContent("Email already registered")))
+      |> be_equal(Error(error.Conflict("Email already registered")))
       |> or_fail_with("check_email should reject a taken email")
+    }),
+    it("Conflict example rejects a stale version", fn() {
+      // Act
+      let result = doc_http_data_error_conflict.check_version(3, 4)
+
+      // Assert
+      result
+      |> should()
+      |> be_equal(Error(error.Conflict("The post changed after you loaded it")))
+      |> or_fail_with("check_version should reject version 3 against 4")
     }),
     it("UnprocessableContent example rejects reversed dates", fn() {
       // Act

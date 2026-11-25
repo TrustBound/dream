@@ -25,3 +25,11 @@ pub fn internal_error() -> Response {
 pub fn bad_request() -> Response {
   html_response(status.bad_request, "<h1>400 Bad Request</h1>")
 }
+
+/// 409 Conflict response
+pub fn conflict(message: String) -> Response {
+  html_response(
+    status.conflict,
+    "<h1>409 Conflict</h1><p>" <> message <> "</p>",
+  )
+}

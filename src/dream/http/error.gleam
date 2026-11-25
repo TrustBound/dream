@@ -80,6 +80,7 @@
 /// - `Unauthorized`: Authentication is required but not provided
 /// - `Forbidden`: Authenticated but lacks permission for this action
 /// - `NotFound`: Requested resource doesn't exist
+/// - `Conflict`: Request clashes with the current state of the resource
 /// - `UnprocessableContent`: Valid syntax but fails business logic validation
 /// - `InternalServerError`: Unexpected server error (database, external API, etc.)
 pub type Error {
@@ -194,17 +195,18 @@ pub type Error {
   /// ```
   NotFound(String)
 
-  /// 422 Unprocessable Content - Semantic validation failed
+  /// 409 Conflict - Request clashes with the current state of the resource
   ///
-  /// Use when request is syntactically valid but fails business logic
-  /// validation (e.g., date in past, email already taken, invalid state).
+  /// Use when the request is valid, but the current state of the resource
+  /// stops it (e.g., a unique value that is already taken, an edit against
+  /// a stale version, or a state change that the current state does not allow).
   ///
   /// ## Example
   ///
-  /// ### Return UnprocessableContent <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_unprocessable_content.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  /// ### Return Conflict <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_conflict.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
   ///
   /// ```gleam
-  /// import dream/http/error.{type Error, UnprocessableContent}
+  /// import dream/http/error.{type Error, Conflict}
   /// import gleam/list
   ///
   /// pub fn check_email(
@@ -212,10 +214,31 @@ pub type Error {
   ///   registered: List(String),
   /// ) -> Result(String, Error) {
   ///   case list.contains(registered, email) {
-  ///     True -> Error(UnprocessableContent("Email already registered"))
+  ///     True -> Error(Conflict("Email already registered"))
   ///     False -> Ok(email)
   ///   }
   /// }
+  ///
+  /// pub fn check_version(sent: Int, current: Int) -> Result(Nil, Error) {
+  ///   case sent == current {
+  ///     True -> Ok(Nil)
+  ///     False -> Error(Conflict("The post changed after you loaded it"))
+  ///   }
+  /// }
+  /// ```
+  Conflict(String)
+
+  /// 422 Unprocessable Content - Semantic validation failed
+  ///
+  /// Use when request is syntactically valid but fails business logic
+  /// validation (e.g., a start date after the end date, a date in the past).
+  ///
+  /// ## Example
+  ///
+  /// ### Return UnprocessableContent <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_unprocessable_content.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  ///
+  /// ```gleam
+  /// import dream/http/error.{type Error, UnprocessableContent}
   ///
   /// pub fn check_dates(start_date: Int, end_date: Int) -> Result(Nil, Error) {
   ///   case start_date < end_date {
@@ -285,6 +308,7 @@ pub fn to_status_code(error: Error) -> Int {
     Unauthorized(_) -> 401
     Forbidden(_) -> 403
     NotFound(_) -> 404
+    Conflict(_) -> 409
     UnprocessableContent(_) -> 422
     InternalServerError(_) -> 500
   }
@@ -321,6 +345,7 @@ pub fn message(error: Error) -> String {
     Unauthorized(message) -> message
     Forbidden(message) -> message
     NotFound(message) -> message
+    Conflict(message) -> message
     UnprocessableContent(message) -> message
     InternalServerError(message) -> message
   }

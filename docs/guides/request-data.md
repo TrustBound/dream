@@ -490,7 +490,7 @@ fn error_json(message: String) -> String {
 
 ## Turn errors into answers
 
-Dream's `Error` type has one variant for each common failure, and `error.to_status_code` maps them: `BadRequest` to 400, `Unauthorized` to 401, `Forbidden` to 403, `NotFound` to 404, `UnprocessableContent` to 422 and `InternalServerError` to 500. The example maps them to text answers in one helper, so every controller answers errors the same way:
+Dream's `Error` type has one variant for each common failure, and `error.to_status_code` maps them: `BadRequest` to 400, `Unauthorized` to 401, `Forbidden` to 403, `NotFound` to 404, `Conflict` to 409, `UnprocessableContent` to 422 and `InternalServerError` to 500. The example maps them to text answers in one helper, so every controller answers errors the same way:
 
 ### One place for error answers <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/src/utilities/response_helpers.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -513,6 +513,7 @@ pub fn handle_error(err: Error) -> Response {
       text_response(status.unauthorized, "Unauthorized")
     error.Forbidden(_msg) -> text_response(status.forbidden, "Forbidden")
     error.NotFound(msg) -> text_response(status.not_found, "Not Found: " <> msg)
+    error.Conflict(msg) -> text_response(status.conflict, "Conflict: " <> msg)
     error.UnprocessableContent(msg) ->
       text_response(status.unprocessable_content, "Unprocessable: " <> msg)
     error.InternalServerError(_msg) ->

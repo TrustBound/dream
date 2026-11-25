@@ -16,6 +16,7 @@ pub fn handle_error(err: Error) -> Response {
       text_response(status.unauthorized, "Unauthorized")
     error.Forbidden(_msg) -> text_response(status.forbidden, "Forbidden")
     error.NotFound(msg) -> text_response(status.not_found, "Not Found: " <> msg)
+    error.Conflict(msg) -> text_response(status.conflict, "Conflict: " <> msg)
     error.UnprocessableContent(msg) ->
       text_response(status.unprocessable_content, "Unprocessable: " <> msg)
     error.InternalServerError(_msg) ->

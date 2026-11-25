@@ -23,3 +23,8 @@ pub fn internal_error() -> Response {
 pub fn bad_request(message: String) -> Response {
   json_response(status.bad_request, "{\"error\": \"" <> message <> "\"}")
 }
+
+/// 409 Conflict response
+pub fn conflict(message: String) -> Response {
+  json_response(status.conflict, "{\"error\": \"" <> message <> "\"}")
+}

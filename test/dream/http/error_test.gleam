@@ -1,7 +1,7 @@
 //// Tests for dream/http/error module.
 
 import dream/http/error.{
-  BadRequest, Forbidden, InternalServerError, NotFound, Unauthorized,
+  BadRequest, Conflict, Forbidden, InternalServerError, NotFound, Unauthorized,
   UnprocessableContent, message, to_status_code,
 }
 import dream_test/matchers.{be_equal, or_fail_with, should}
@@ -68,6 +68,19 @@ fn to_status_code_tests() -> UnitNode {
       |> should()
       |> be_equal(404)
       |> or_fail_with("NotFound should return 404")
+    }),
+    it("Conflict returns 409", fn() {
+      // Arrange
+      let error = Conflict("Email already registered")
+
+      // Act
+      let result = to_status_code(error)
+
+      // Assert
+      result
+      |> should()
+      |> be_equal(409)
+      |> or_fail_with("Conflict should return 409")
     }),
     it("UnprocessableContent returns 422", fn() {
       // Arrange
@@ -151,6 +164,19 @@ fn message_tests() -> UnitNode {
       |> should()
       |> be_equal("Resource not found")
       |> or_fail_with("Should extract NotFound message")
+    }),
+    it("extracts Conflict message", fn() {
+      // Arrange
+      let error = Conflict("Email already registered")
+
+      // Act
+      let result = message(error)
+
+      // Assert
+      result
+      |> should()
+      |> be_equal("Email already registered")
+      |> or_fail_with("Should extract Conflict message")
     }),
     it("extracts UnprocessableContent message", fn() {
       // Arrange

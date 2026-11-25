@@ -19,8 +19,9 @@ Dream 3.0.0 has breaking changes. A request body is one `RequestBody` value, the
 - [Step 8: Move from pog and squirrel](#step-8-move-from-pog-and-squirrel)
 - [Step 9: Handle the result of listen](#step-9-handle-the-result-of-listen)
 - [Step 10: Update calls of get_server and response.convert](#step-10-update-calls-of-get_server-and-responseconvert)
-- [Step 11: Check the behavior changes](#step-11-check-the-behavior-changes)
-- [Step 12: Update your tests to dream_test 3](#step-12-update-your-tests-to-dream_test-3)
+- [Step 11: Answer the Conflict error](#step-11-answer-the-conflict-error)
+- [Step 12: Check the behavior changes](#step-12-check-the-behavior-changes)
+- [Step 13: Update your tests to dream_test 3](#step-13-update-your-tests-to-dream_test-3)
 - [Test your code](#test-your-code)
 - [Common pitfalls](#common-pitfalls)
 - [Where to go next](#where-to-go-next)
@@ -57,8 +58,9 @@ Do the steps in order. Steps 1 and 3 apply to most projects. The other steps app
 | `pog`, `squirrel` or `dream_postgres` | The guides use `dream_postgres_client` and `dream_sql_generator`. | [Step 8](#step-8-move-from-pog-and-squirrel) |
 | `server.listen` in `main` | It returns a `Result`. | [Step 9](#step-9-handle-the-result-of-listen) |
 | `dream.get_server` or `response.convert` | `get_server` takes `RisksUnderstood`. `convert` takes the Mist request. | [Step 10](#step-10-update-calls-of-get_server-and-responseconvert) |
-| Tests or clients that check status codes or error texts | Some answers and messages changed. | [Step 11](#step-11-check-the-behavior-changes) |
-| Tests from the Dream 2 testing guide | No change is necessary. The new guide uses `dream_test` 3. | [Step 12](#step-12-update-your-tests-to-dream_test-3) |
+| A `case` over every `Error` | `Error` has `Conflict(String)`, which gives 409. | [Step 11](#step-11-answer-the-conflict-error) |
+| Tests or clients that check status codes or error texts | Some answers and messages changed. | [Step 12](#step-12-check-the-behavior-changes) |
+| Tests from the Dream 2 testing guide | No change is necessary. The new guide uses `dream_test` 3. | [Step 13](#step-13-update-your-tests-to-dream_test-3) |
 
 ## Step 1: Update the dependency
 
@@ -691,7 +693,54 @@ pub fn convert(
 
 **How to fix it.** Give the Mist request as the first argument. `convert_stream` is private now: call `convert` for every body.
 
-## Step 11: Check the behavior changes
+## Step 11: Answer the Conflict error
+
+**What changed.** `Error` has one more variant: `Conflict(String)`. `to_status_code` gives `409` for it. Use it when a request clashes with the current state of a resource: a unique value that is already taken, an edit against a stale version, or a state change that the current state does not allow. A `case` that names every `Error` value does not compile until it has a `Conflict` branch. The `simple` example had this helper in Dream 2:
+
+### `handle_error` in Dream 2 <a href="https://github.com/TrustBound/dream/blob/2.4.1/examples/simple/src/utilities/response_helpers.gleam#L11-L24"><img align="right" alt="Code at 2.4.1" src="https://img.shields.io/badge/%F0%9F%93%9C_code_at-2.4.1-lightgrey.svg?style=flat-square"></a>
+
+```gleam
+pub fn handle_error(err: Error) -> Response {
+  case err {
+    error.BadRequest(msg) ->
+      text_response(status.bad_request, "Bad Request: " <> msg)
+    error.Unauthorized(_msg) ->
+      text_response(status.unauthorized, "Unauthorized")
+    error.Forbidden(_msg) -> text_response(status.forbidden, "Forbidden")
+    error.NotFound(msg) -> text_response(status.not_found, "Not Found: " <> msg)
+    error.UnprocessableContent(msg) ->
+      text_response(status.unprocessable_content, "Unprocessable: " <> msg)
+    error.InternalServerError(_msg) ->
+      text_response(status.internal_server_error, "Internal Server Error")
+  }
+}
+```
+
+**How to fix it.** Add a `Conflict` branch. In Dream 3 the helper answers `409` with the message:
+
+### `handle_error` in Dream 3 <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/src/utilities/response_helpers.gleam#L11-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn handle_error(err: Error) -> Response {
+  case err {
+    error.BadRequest(msg) ->
+      text_response(status.bad_request, "Bad Request: " <> msg)
+    error.Unauthorized(_msg) ->
+      text_response(status.unauthorized, "Unauthorized")
+    error.Forbidden(_msg) -> text_response(status.forbidden, "Forbidden")
+    error.NotFound(msg) -> text_response(status.not_found, "Not Found: " <> msg)
+    error.Conflict(msg) -> text_response(status.conflict, "Conflict: " <> msg)
+    error.UnprocessableContent(msg) ->
+      text_response(status.unprocessable_content, "Unprocessable: " <> msg)
+    error.InternalServerError(_msg) ->
+      text_response(status.internal_server_error, "Internal Server Error")
+  }
+}
+```
+
+If your code answered a taken unique value with `UnprocessableContent` or `InternalServerError`, return `Conflict` in its place, so the client gets `409`.
+
+## Step 12: Check the behavior changes
 
 These changes compile with no error, but a test or a client can see them:
 
@@ -709,7 +758,7 @@ These changes compile with no error, but a test or a client can see them:
 - **Binary static files.** `static.serve` sends a file that is not UTF-8 as `Bytes` with status 200. In Dream 2 it answered 404. A UTF-8 file is still `Text`.
 - **Connection after an unread body.** Over HTTP/1.1, the server closes the connection after it answers a request whose body it did not read to its end, and sends `connection: close`. A client that sends a body Dream refuses (`404`, `405`, `413`) opens a new connection for its next request. HTTP clients do that by themselves.
 
-## Step 12: Update your tests to dream_test 3
+## Step 13: Update your tests to dream_test 3
 
 The testing guide shows tests for `dream_test` 3.0.0. Dream 3.0.0 does not need a change to your tests, and they can stay on `dream_test` 1.x. To use the code of the new guide, set `dream_test = ">= 3.0.0 and < 4.0.0"` in `[dev-dependencies]` and run `gleam deps update dream_test`. Then change your tests as the [dream_test 2.0.0 release notes](https://github.com/TrustBound/dream_test/blob/2.0.0/releases/release-2.0.0.md) and the [dream_test upgrade guide](https://hexdocs.pm/dream_test/3.0.0/guides/upgrading-to-3.html) show.
 
@@ -721,7 +770,7 @@ Run your tests:
 gleam test
 ```
 
-A failure after the upgrade is one of the changes above. A test that expects `404` for a wrong method, `400` for a large body, or `Missing id parameter` belongs to [Step 11](#step-11-check-the-behavior-changes). A test that builds a `Request` belongs to [Step 3](#step-3-read-request-bodies-as-a-requestbody). [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html) shows how to test controllers, routes and a running server with Dream 3.
+A failure after the upgrade is one of the changes above. A test that expects `404` for a wrong method, `400` for a large body, or `Missing id parameter` belongs to [Step 12](#step-12-check-the-behavior-changes). A test that builds a `Request` belongs to [Step 3](#step-3-read-request-bodies-as-a-requestbody). [Test your controllers and your app](https://hexdocs.pm/dream/3.0.0/guides/testing.html) shows how to test controllers, routes and a running server with Dream 3.
 
 ## Common pitfalls
 

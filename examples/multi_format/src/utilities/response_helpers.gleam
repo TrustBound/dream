@@ -13,6 +13,7 @@ pub fn handle_error(err: Error) -> Response {
     error.Unauthorized(_msg) -> errors.bad_request()
     error.Forbidden(_msg) -> errors.bad_request()
     error.NotFound(msg) -> errors.not_found(msg)
+    error.Conflict(msg) -> errors.conflict(msg)
     error.UnprocessableContent(_msg) -> errors.bad_request()
     error.InternalServerError(_msg) -> errors.internal_error()
   }
