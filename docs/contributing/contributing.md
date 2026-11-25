@@ -236,6 +236,10 @@ For writing or improving user-facing documentation (guides, tutorials, examples)
 - Testing documentation
 - Review process
 
+Each guide in `docs/guides/` starts with a breadcrumb line above its title, so a reader can go back:
+
+`[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > <the title of the guide>`
+
 ## Pull Request Process
 
 1. **Fork the repository**

@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Upgrade from Dream 2 to 3
+
 # Upgrade from Dream 2 to 3
 
 Dream 3.0.0 has breaking changes. A request body is one `RequestBody` value, the compiler enforces the order of the server builder, `validate_json` returns every error, and Dream runs on its own HTTP server packages. Most projects need only the request body change. This guide takes you through the upgrade in order: update the dependency, let the compiler list what broke, then fix one area at a time, each with the Dream 2 code next to the Dream 3 code.

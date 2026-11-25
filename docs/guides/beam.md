@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > The BEAM for Dream developers
+
 # The BEAM for Dream developers
 
 Your first Dream server runs. Before you add more to it, learn how the BEAM, the virtual machine under Gleam, runs that server. The BEAM gives each connection its own process, copies each message, and starts processes again when they fail. These rules are different from most other runtimes, and code that is correct in Node.js or Go can be slow, leak memory or fail on the BEAM. This guide shows how the BEAM runs a Dream app, then the common traps, one at a time. Each trap shows the wrong code, what the runtime does with it, and the fix.

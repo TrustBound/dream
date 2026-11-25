@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Route requests and add middleware
+
 # Route requests and add middleware
 
 Your app has more than one page now. Some routes take values from the path, some are only for signed-in users, and one answers a method that isn't in the HTTP standard. You want each controller to stay small and the shared checks, like "is there a valid token?", written once. This guide builds that with Dream's router, a custom context and middleware, using the `simple`, `custom_context` and `rate_limiter` examples. Every output is what those servers really answer.

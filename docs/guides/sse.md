@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Push live updates with server-sent events
+
 # Push live updates with server-sent events
 
 You want the browser to see new data the moment the server has it: a counter, a progress bar, a feed of notifications. The browser doesn't need to send anything back on the same connection. That's what server-sent events (SSE) are for: one long HTTP response that carries events, which the browser's `EventSource` reads and reconnects on its own. This guide builds an SSE endpoint with Dream's typed SSE actors, using `examples/sse`, and every output is what that server answers.

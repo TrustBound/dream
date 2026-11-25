@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Build a chat with WebSockets
+
 # Build a chat with WebSockets
 
 You want a live feature where both sides talk at any time: a chat, a multiplayer cursor, a dashboard that also takes commands. HTTP requests can't do that, and server-sent events only go one way. A WebSocket keeps one connection open in both directions. This guide builds the WebSocket handlers of a chat room with Dream's typed WebSocket actors and its broadcaster, using `examples/websocket_chat`. The frames and answers shown are what that server really sends.

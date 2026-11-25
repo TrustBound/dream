@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Serve HTTPS and HTTP/2
+
 # Serve HTTPS and HTTP/2
 
 Browsers only use HTTP/2 over HTTPS, and they want HTTPS anyway. You want your Dream app to serve both, and to know which protocol a client really got. The good news: Dream serves HTTP/2 with no change to your application code. Routes, controllers, middleware, streaming responses and server-sent events work the same over HTTP/1.1 and HTTP/2. This guide turns HTTPS on, checks the protocol with curl against the `simple` example, and shows what happens when the certificate is missing.

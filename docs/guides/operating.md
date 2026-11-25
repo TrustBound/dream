@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Start, stop and troubleshoot the server
+
 # Start, stop and troubleshoot the server
 
 A server that runs on your laptop meets new problems in real use: the port is already taken, a certificate path is wrong, a client posts a body far bigger than you expected, a test needs to start and stop a server of its own, and the platform stops your app to deploy a new version. This guide shows what Dream does in each case, with the real errors and answers of the `simplest` and `simple` examples.

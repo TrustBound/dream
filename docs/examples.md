@@ -272,6 +272,23 @@ A controller answers 202 with a job id and a status route. The worker has a boun
 
 ---
 
+### [search/](../examples/search/)
+**A Dream app with an OpenSearch index of its records.**
+
+A notes app that keeps its notes in a store, the system of record, and a copy of them in OpenSearch with `dream_opensearch` 4.0.0. The client is built from a base request and held in services.
+
+**Demonstrates:**
+- An index created with a mapping at start
+- A note indexed when it is created or changed, and removed from the index when it is deleted
+- A search route with a query string, paging and a typed result that a view turns into JSON
+- 503 or 502 from a match on the typed OpenSearch errors, and writes that succeed with `"indexed": false` while search is down
+- Recorded OpenSearch calls with the times removed, and a closed port for search that is down
+
+**Test:** `make test` plays back, with no network and no OpenSearch. `make record` records again, with OpenSearch in Docker on port 19200.
+**Guide:** [Add search to a Dream app](guides/search.md)
+
+---
+
 ### [recorded_tests/](../examples/recorded_tests/)
 **Tests that play back recorded HTTP calls and queries.** (Best first example of tests with no network and no database.)
 

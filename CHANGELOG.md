@@ -105,12 +105,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rest get HTTP/1.1. A missing certificate or key file is a start error.
   Server adapters read the setting with `dream.get_tls`.
 - New guide: `docs/guides/http2.md`.
-- Five new task guides, each with a tested example app: "Load configuration
+- Six new task guides, each with a tested example app: "Load configuration
   and fail early" (`examples/configuration`), "Call another API from a
   controller" (`examples/outbound_http`), "Add a cache and a rate limit"
   (`examples/cache` and `examples/rate_limiter`), "Run background work"
-  (`examples/background_work`) and "Test a Dream app against a fake API"
-  (`examples/fake_api`).
+  (`examples/background_work`), "Test a Dream app against a fake API"
+  (`examples/fake_api`) and "Add search to a Dream app" (`examples/search`,
+  with `dream_opensearch` 4.0.0 and recorded OpenSearch calls).
+- Every guide starts with a breadcrumb: README > Guides > the title of the guide.
 - The `rate_limiter` example counts each request with the atomic
   `helpers.increment` of `dream_ets`, sends an exact `Retry-After`, deletes
   the rows of ended windows, and has unit tests with a fixed clock.

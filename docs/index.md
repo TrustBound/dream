@@ -35,6 +35,7 @@ After that, dip into the sections below whenever you need more detail.
 - [Call another API from a controller](guides/calling-other-apis.md)
 - [Add a cache and a rate limit](guides/caching-and-rate-limiting.md)
 - [Run background work](guides/background-work.md)
+- [Add search to a Dream app](guides/search.md)
 - [Render HTML and other formats](guides/templates.md)
 - [Stream responses and uploads](guides/streaming.md)
 - [Push live updates with server-sent events](guides/sse.md)

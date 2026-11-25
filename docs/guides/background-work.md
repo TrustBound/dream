@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Run background work
+
 # Run background work
 
 Some work is too slow for a request: a PDF, a large export, an email to a list of customers. When a controller does this work, the client waits for all of it, and the connection stays busy. The fix is to accept the job, answer at once, and do the work in another process. The [BEAM guide](https://hexdocs.pm/dream/3.0.0/guides/beam.html#slow-work-in-a-request) shows this in a few lines. This guide builds the full version: a job worker that a supervisor starts, a queue with a limit, a timeout for each job, a cleanup on a timer, and a stop that lets the running job finish. We use [`gleam_otp`](https://hexdocs.pm/gleam_otp/1.2.0/) and [`dream_ets`](https://hexdocs.pm/dream_ets/3.0.0/), and no job library, so each part is code that you can read.

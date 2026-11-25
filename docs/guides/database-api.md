@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Build a database-backed JSON API
+
 # Build a database-backed JSON API
 
 You want a JSON API whose data lives in PostgreSQL: create, read, update and delete users, with SQL you can read, queries the compiler checks, and migrations you can replay on any machine. You also want the failures to be clean: a `404` for a user that doesn't exist, a `400` for a body that isn't a user, and a health check that tells a load balancer when the database is gone. This guide builds `examples/database` from the dependencies to the running server, and every output is what that server answers.

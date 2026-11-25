@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Deploy with Docker
+
 # Deploy with Docker
 
 Your app works on your machine. Now it has to run somewhere else: in a container, with its settings from the environment, its database next to it, its migrations run before it starts, and a health check that tells the platform when to restart it. This guide does that with the real `Dockerfile` and `docker-compose.yml` of `examples/deployment`, which Dream's CI builds and starts on every change.

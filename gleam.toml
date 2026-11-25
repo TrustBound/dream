@@ -25,6 +25,7 @@ pages = [
     { title = "Call another API from a controller", path = "guides/calling-other-apis.html", source = "./docs/guides/calling-other-apis.md" },
     { title = "Add a cache and a rate limit", path = "guides/caching-and-rate-limiting.html", source = "./docs/guides/caching-and-rate-limiting.md" },
     { title = "Run background work", path = "guides/background-work.html", source = "./docs/guides/background-work.md" },
+    { title = "Add search to a Dream app", path = "guides/search.html", source = "./docs/guides/search.md" },
     { title = "Render HTML and other formats", path = "guides/templates.html", source = "./docs/guides/templates.md" },
     { title = "Stream responses and uploads", path = "guides/streaming.html", source = "./docs/guides/streaming.md" },
     { title = "Push live updates with server-sent events", path = "guides/sse.html", source = "./docs/guides/sse.md" },

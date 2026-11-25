@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Grow a JSON API
+
 # Grow a JSON API
 
 Your API answers single records. Now clients want pages of results, filters and sort orders, a way to call it from a browser on another origin, and a version number so you can change it without breaking them. They also want errors they can parse. This guide collects those patterns. Each piece is a tested snippet that runs without a database, so you can read it whole and then put the same logic behind your own models, like the ones in [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html).

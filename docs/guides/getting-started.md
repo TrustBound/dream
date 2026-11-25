@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Build your first Dream server
+
 # Build your first Dream server
 
 You want a web server in Gleam that answers a request, and you want to understand every line of it before you add more. This guide starts from an empty folder and ends with a running server, a look at what it answers when a request doesn't match, and a test that sends requests through your routes without opening a port. Everything here is the code of `examples/simplest` in the Dream repository, and every output is what that example's server really answers.

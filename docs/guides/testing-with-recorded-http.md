@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Test a Dream app that calls other APIs
+
 # Test a Dream app that calls other APIs
 
 Your app calls an outside API: a carrier that tracks parcels, a payment provider, a weather service. A test that calls the real API is slow, needs the network, and fails on the day that the API has a problem. Some APIs also cost money for each call. A recording fixes this. You run the tests one time against the API, and the HTTP client writes each request and its response to a file. You commit the files. After that, the tests play the files back, with no network, in CI and on every machine. This guide builds a small Dream app that calls a carrier API with [`dream_http_client`](https://hexdocs.pm/dream_http_client/6.0.0/), and tests it through its routes with recordings.

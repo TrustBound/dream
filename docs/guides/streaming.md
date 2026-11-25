@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Stream responses and uploads
+
 # Stream responses and uploads
 
 Some bodies are too big, or too slow, to hold in memory: a CSV export of a whole table, a log that grows while the client reads it, a video upload, an answer that you proxy from another service. You want to send them a chunk at a time, read uploads a chunk at a time, and handle the upload whose connection breaks halfway. This guide does each of those with Dream's `Yielder`-based streams, using `examples/streaming_capabilities` for the real requests and answers, and the tested snippets of Dream for the rest.

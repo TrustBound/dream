@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Call another API from a controller
+
 # Call another API from a controller
 
 Sooner or later, a controller needs data that your app does not have. A forecast service knows the weather, a payment provider knows the charges, a carrier knows where a parcel is. So the controller sends an HTTP request of its own, and waits for the answer. That call is the weak part of the request. The other service can be slow, it can fail, it can answer JSON of another shape, or it can be down. Each of these must become a clear answer to your own client, not a crash and not a request that hangs.

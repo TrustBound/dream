@@ -1,0 +1,8 @@
+Search notes
+  ✓ finds the notes that match the search text
+  ✓ gives the second page of the hits
+  ✓ answers an empty page when no note matches
+  ✓ answers 400 without a search text
+  ✓ answers 400 for a page past hit 10000
+
+Summary: 5 run, 0 failed, 5 passed in 0ms

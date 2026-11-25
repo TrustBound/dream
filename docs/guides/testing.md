@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Test your controllers and your app
+
 # Test your controllers and your app
 
 You want to change your app without fear: know that each route still answers what it should, that the middleware still refuses what it should, and that a failure tells you exactly what broke. Dream apps are plain functions and records, so most of that needs no server at all. This guide tests a Dream app with [Dream Test](https://hexdocs.pm/dream_test/3.0.0/), the framework that Dream's own tests use: controllers, middleware and models alone, the whole router with `dream.route_request`, and a real server when you need one. The reports shown are the real output of the tests shown.

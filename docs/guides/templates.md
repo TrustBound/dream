@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Render HTML and other formats
+
 # Render HTML and other formats
 
 Your app serves pages to browsers and data to scripts, often the same data. You want HTML that's type-checked like the rest of your Gleam, markup you write once and reuse, and one route that answers JSON, HTML, an HTMX fragment or CSV depending on what the client asks for. This guide uses Matcha templates in four layers, as the `tasks` example does, and the `multi_format` example for one controller with many formats. Every output is what the `multi_format` server answers.

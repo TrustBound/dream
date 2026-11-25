@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > Guides
+
 # Guides
 
 Each guide walks through one task, from an empty project to working, tested code. The outputs on the pages are the real answers of the example servers in the Dream repository.
@@ -15,6 +17,7 @@ Start with the first one, then pick the task you have:
 - [Call another API from a controller](https://hexdocs.pm/dream/3.0.0/guides/calling-other-apis.html) - `dream_http_client` in an app: timeouts, typed errors, 502 and 504 answers, JSON and a streamed reply.
 - [Add a cache and a rate limit](https://hexdocs.pm/dream/3.0.0/guides/caching-and-rate-limiting.html) - Shared state in ETS with `dream_ets`: a cache with expiry, and a per-client limit that answers 429.
 - [Run background work](https://hexdocs.pm/dream/3.0.0/guides/background-work.html) - Answer 202 at once, and run the job in a supervised worker with a bounded queue, timeouts and a clean stop.
+- [Add search to a Dream app](https://hexdocs.pm/dream/3.0.0/guides/search.html) - An OpenSearch index beside the system of record, and the answers when search is down.
 - [Render HTML and other formats](https://hexdocs.pm/dream/3.0.0/guides/templates.html) - Matcha templates, and one route in many formats.
 - [Stream responses and uploads](https://hexdocs.pm/dream/3.0.0/guides/streaming.html) - Streamed downloads and uploads, and a broken upload.
 - [Push live updates with server-sent events](https://hexdocs.pm/dream/3.0.0/guides/sse.html) - Typed SSE actors and a broadcaster.

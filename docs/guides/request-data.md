@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Read request data safely
+
 # Read request data safely
 
 Every value in a request comes from outside your program: the id in the path, the search term in the query string, the JSON a client posts, the fields of a form. Any of them can be missing or the wrong type, and your controller has to say so with a clear `400` instead of crashing or saving junk. This guide reads each kind of request data with Dream's helpers and shows the real answer for good input and for bad input. The code is the `request_data_controller` of `examples/simple`, and every output is what that server answers.

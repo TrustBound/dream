@@ -111,6 +111,7 @@ Run these before each commit:
 | Call another HTTP service | [Call another API from a controller](https://hexdocs.pm/dream/3.0.0/guides/calling-other-apis.html) |
 | Cache data or limit requests | [Add a cache and a rate limit](https://hexdocs.pm/dream/3.0.0/guides/caching-and-rate-limiting.html) |
 | Run work outside a request | [Run background work](https://hexdocs.pm/dream/3.0.0/guides/background-work.html) |
+| Add search to records | [Add search to a Dream app](https://hexdocs.pm/dream/3.0.0/guides/search.html) |
 | Test against a fake HTTP service | [Test a Dream app against a fake API](https://hexdocs.pm/dream/3.0.0/guides/testing-with-a-fake-api.html) |
 | Start, stop or limit the server | [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html) |
 | Deploy | [Deploy with Docker](https://hexdocs.pm/dream/3.0.0/guides/deployment.html) |

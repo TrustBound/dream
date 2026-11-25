@@ -22,6 +22,7 @@ set -eu
 (cd examples/rate_limiter && make test)
 (cd examples/fake_api && make test)
 (cd examples/background_work && make test)
+(cd examples/search && make test)
 # Plays back recorded HTTP calls and queries: no network and no database
 (cd examples/recorded_tests && make test)
 

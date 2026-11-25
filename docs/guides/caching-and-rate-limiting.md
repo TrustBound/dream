@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Add a cache and a rate limit
+
 # Add a cache and a rate limit
 
 Your app works, and now it has two new problems. One page reads a slow lookup, and every request waits for it again. One client sends a hundred requests in a second, and the other clients wait behind it. A cache fixes the first problem. A rate limit fixes the second. Both need state that every request can read and change, and this is where a Dream app on the BEAM differs from an app in other languages. This guide builds both in two small Dream apps, with an ETS table for the state, and tests them with a clock that the tests control.

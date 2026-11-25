@@ -1,0 +1,24 @@
+# The OpenSearch node for a record run of the notes tests. `make record`
+# starts it, and removes it with its data at the end. A playback run needs
+# no OpenSearch.
+
+name: dream_search
+
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.19.1
+    environment:
+      discovery.type: single-node
+      # No TLS and no login, for a node that only the tests use
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      # Port 19200 on this machine, so the record run does not use an
+      # OpenSearch that already listens on 9200.
+      - "19200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 60

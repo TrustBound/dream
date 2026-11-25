@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Send responses, cookies and files
+
 # Send responses, cookies and files
 
 A controller's job ends with a `Response`. Most of the time that's text or JSON, but a real app also redirects, answers with nothing, sends a file to download, sets a cookie and serves a folder of CSS and images. This guide builds each of those with Dream's response builders and its static file controller, and shows the real headers and bodies that come back. The code is from `examples/simple` and `examples/static`.

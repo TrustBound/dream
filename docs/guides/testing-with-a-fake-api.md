@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Test a Dream app against a fake API
+
 # Test a Dream app against a fake API
 
 Your app calls an outside service, and you want tests for the bad days too: the service answers `503`, sends HTML where you expect JSON, takes too long, or closes the connection in the middle of a stream. The real service does not fail when you ask it to. A fake does. In this guide, we start [`dream_mock_server`](https://hexdocs.pm/dream_mock_server/2.0.0/) on localhost as a stand-in for a news service. Then we point a Dream app at it, and test each answer that the app must handle, the bad ones included.

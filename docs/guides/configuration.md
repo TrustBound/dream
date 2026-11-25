@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Load configuration and fail early
+
 # Load configuration and fail early
 
 An app that runs in more than one place needs settings: the port, the public address of the site, a secret key. The same code runs on your laptop, in CI and in production, and only the settings change. The easy way is to read an environment variable where you need it. That works until a variable is missing. Then the app starts, looks healthy, and fails on the first request that reads the variable, maybe hours later, maybe for one user only. This guide moves every read to one place at startup. The app reads all its settings into one typed value before it opens the port. When a setting is missing or wrong, the app stops at once, prints which setting to fix, and exits with status 1, so that the deployment fails and not the request.

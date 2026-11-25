@@ -1,3 +1,5 @@
+[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > Test a Dream app's database code with recorded queries
+
 # Test a Dream app's database code with recorded queries
 
 Your app keeps its data in PostgreSQL, and its tests must check the SQL: the queries, the transactions, the constraints. A test against a real database is the true check, but it needs a server on each machine and in CI, and a schema in the right state. A recording gives you both. You run the tests one time against PostgreSQL in Docker, and the recorder of [`dream_postgres`](https://hexdocs.pm/dream_postgres/2.0.0/) writes each query and its result to a file. You commit the file. After that, the tests play the file back, with no database. This guide builds a small Dream app for shopping lists, and tests it through its routes with recorded queries.
