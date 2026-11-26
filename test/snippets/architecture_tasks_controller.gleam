@@ -10,6 +10,7 @@ import dream/http.{
 }
 import dream/http/error
 import dream/http/header.{get_header}
+import dream_errors
 import gleam/option.{Some}
 import gleam/result
 import snippets/architecture_task.{type Task}
@@ -28,12 +29,21 @@ pub fn show_task(
   let task_result = {
     use task_id <- result.try(require_int(request, "id"))
     task_model.get_task(services.tasks, task_id)
+    |> result.map_error(task_error)
   }
 
   case task_result {
     Ok(task) -> respond_with_task(request, task)
     Error(http_error) ->
       text_response(error.to_status_code(http_error), error.message(http_error))
+  }
+}
+
+/// The HTTP error of a model error. A missing task keeps its own text.
+fn task_error(model_error: dream_errors.Error(Nil)) -> error.Error {
+  case model_error {
+    dream_errors.NotFound(..) -> error.NotFound("Task not found")
+    _ -> error.from_shared(model_error)
   }
 }
 

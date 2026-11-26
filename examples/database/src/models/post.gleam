@@ -6,8 +6,8 @@ import dream_errors.{
 import dream_postgres/client.{
   type Connection, type QueryError, type Returned, type Timestamp,
   SchemaFingerprint, broken_promise, execute, finite_timestamp, infinite_value,
-  more_than_one_row, nullable, parameter, query, returning, text,
-  timestamp_decoder, to_error, violated_constraint,
+  more_than_one_row, nullable, parameter, promised_not_null, query, returning,
+  text, timestamp_decoder, to_error, violated_constraint,
 }
 import gleam/dynamic/decode.{type Decoder, field, optional, string, success}
 import gleam/option.{type Option}
@@ -20,9 +20,21 @@ import gleam/result.{map, map_error}
 pub const schema_fingerprint =
   SchemaFingerprint(
     module: "models/post",
-    tables: ["public.posts"],
-    hash: "917fd579b8279a8cadf277a8968a5b3a21005922393abb8c509f5895bbf35b5c",
+    tables: ["public.posts", "public.users"],
+    hash: "826d9676128f375a30d7ad09f55358dab217a20d95f51189bd7bfe47673dc32a",
   )
+
+/// A row of counts_by_user.sql.
+pub type PostCount {
+  PostCount(
+    id: Int,
+    email: Option(String),
+    posts: Int,
+    titles: String,
+    with_content: Int,
+    last_post_at: Option(Timestamp),
+  )
+}
 
 /// A row of create.sql, get.sql and list.sql.
 pub type Post {
@@ -33,6 +45,27 @@ pub type Post {
     content: Option(String),
     created_at: Option(Timestamp),
   )
+}
+
+/// Generated from counts_by_user.sql.
+pub fn counts_by_user(
+  db: Connection,
+) -> Result(List(PostCount), Error(QueryError)) {
+  "SELECT
+  users.id,
+  users.email,
+  count(posts.id) AS posts,
+  coalesce(string_agg(posts.title, ', ' ORDER BY posts.id), '') AS titles,
+  sum(CASE WHEN posts.content IS NULL THEN 0 ELSE 1 END)::int AS with_content,
+  max(posts.created_at) AS last_post_at
+FROM users
+LEFT JOIN posts ON posts.user_id = users.id
+GROUP BY users.id, users.email
+ORDER BY users.id"
+  |> query
+  |> returning(post_count_decoder())
+  |> execute(db)
+  |> many_rows("post.counts_by_user", [])
 }
 
 /// Generated from create.sql.
@@ -75,6 +108,26 @@ WHERE user_id = $1 ORDER BY id"
   |> returning(post_decoder())
   |> execute(db)
   |> many_rows("post.list", [])
+}
+
+fn post_count_decoder() -> Decoder(PostCount) {
+  use id <- field(0, decode.int)
+  use email <- field(1, optional(string))
+  use posts <- field(2, decode.int)
+  use titles <- field(3, string)
+  use with_content <- field(
+    4,
+    promised_not_null(
+      decode.int,
+      "src/models/post/counts_by_user.sql",
+      "with_content",
+    ),
+  )
+  use last_post_at <- field(
+    5,
+    optional(finite_timestamp(timestamp_decoder(), "last_post_at")),
+  )
+  success(PostCount(id:, email:, posts:, titles:, with_content:, last_post_at:))
 }
 
 fn post_decoder() -> Decoder(Post) {

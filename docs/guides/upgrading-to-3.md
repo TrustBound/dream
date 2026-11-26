@@ -555,7 +555,7 @@ pub type Message(custom) {
 
 ## Step 8: Move from pog and squirrel
 
-**What changed.** The guides and the examples use [`dream_postgres_client`](https://hex.pm/packages/dream_postgres_client) in place of `pog`, and [`dream_model`](https://github.com/TrustBound/dream_model) in place of `squirrel`. Squirrel generates one row type for each query, and your model converts each row by hand. dream_model generates the whole model module: one record type and one function for each `.sql` file. Each function returns a Dream `Error`, so a controller can give the result straight to its error handler. Your app can stay on `pog` and `squirrel`: Dream 3.0.0 does not depend on them. Do this step to follow the guides.
+**What changed.** The guides and the examples use [`dream_postgres_client`](https://hex.pm/packages/dream_postgres_client) in place of `pog`, and [`dream_model`](https://github.com/TrustBound/dream_model) in place of `squirrel`. Squirrel generates one row type for each query, and your model converts each row by hand. dream_model generates the whole model module: one record type and one function for each `.sql` file. Each function returns `dream_errors.Error(client.QueryError)`, a data error with no HTTP in it. Your app maps it to HTTP with `error.from_shared`, and keeps its own texts for specific cases, such as a missing row. Your app can stay on `pog` and `squirrel`: Dream 3.0.0 does not depend on them. Do this step to follow the guides.
 
 **What to do.**
 

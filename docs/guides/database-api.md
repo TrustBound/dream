@@ -23,6 +23,7 @@ You want a JSON API whose data lives in PostgreSQL: create, read, update and del
 - [Step 12: Send requests, and see the failures](#step-12-send-requests-and-see-the-failures)
 - [Step 13: Move a workflow into an operation](#step-13-move-a-workflow-into-an-operation)
 - [Models with more hints](#models-with-more-hints)
+- [Columns that can be NULL](#columns-that-can-be-null)
 - [Test your code](#test-your-code)
 - [Common pitfalls](#common-pitfalls)
 - [Where to go next](#where-to-go-next)
@@ -96,7 +97,7 @@ dream_model = ">= 1.0.0 and < 2.0.0"
 - [`dream_postgres_client`](https://hex.pm/packages/dream_postgres_client) - The PostgreSQL client for Gleam, with its connection pool. It is a fork of `pog`, maintained for Dream.
 - [`dream_postgres`](https://hex.pm/packages/dream_postgres) - The `dream_postgres/client` module that the generated models use, and `check_schema`.
 - [`dream_errors`](https://hex.pm/packages/dream_errors) - The shared error type that the generated models return.
-- [`dream_model`](https://github.com/TrustBound/dream_model) - Generates typed model modules from SQL files. Each function returns a Dream `Error`. It runs only when you develop, so it is a dev dependency.
+- [`dream_model`](https://github.com/TrustBound/dream_model) - Generates typed model modules from SQL files. Each function returns `dream_errors.Error(client.QueryError)`, a data error with no HTTP in it. Your app maps it to HTTP with `error.from_shared`. It runs only when you develop, so it is a dev dependency.
 - [`dream_postgres_driver`](https://hex.pm/packages/dream_postgres_driver) - The Erlang driver under `dream_postgres_client`. It is a fork of `pgo`, maintained for Dream. `dream_postgres_client` depends on it, so you do not add it yourself.
 - `cigogne` - Database migrations
 
@@ -1581,6 +1582,78 @@ so a task that does not exist gives a 404.
   controllers handle one error type, `dream.Error`.
 - **Check the Schema:** Give the `schema_fingerprint` of each model to
   `client.check_schema` at start-up.
+
+## Columns that can be NULL
+
+A field of a generated record is an `Option` when its column can be NULL. dream_model never guesses. A table column follows the schema: `NOT NULL` gives a plain type. A computed column is an `Option`, unless a rule or a hint proves that it is never NULL. These rules prove it:
+
+- `count(...)`
+- `coalesce(...)` with a last argument that is never NULL
+- a constant that is not NULL, such as `1`
+- `exists (...)`
+- `x is null` and `x is not null`
+- `x is distinct from y`, with a built-in operator
+
+An outer join can give a row with no match. Thus each column of the joined side of a `left join` is an `Option`, also when the table says `NOT NULL`.
+
+Two hints at the top of the `.sql` file change the result:
+
+- `-- not null: <column>` promises that a computed column is never NULL. The field is then a plain type, and the decoder checks the promise on each row. A NULL gives `dream_errors.Failed`.
+- `-- nullable: <column>` makes a column an `Option`, also when the schema says `NOT NULL`. Use it, for example, before a migration that drops the `NOT NULL` of the column.
+
+This query of the example counts the posts of each user:
+
+### src/models/post/counts_by_user.sql <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/post/counts_by_user.sql"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```sql
+-- returns: many PostCount
+-- not null: with_content
+-- nullable: email
+SELECT
+  users.id,
+  users.email,
+  count(posts.id) AS posts,
+  coalesce(string_agg(posts.title, ', ' ORDER BY posts.id), '') AS titles,
+  sum(CASE WHEN posts.content IS NULL THEN 0 ELSE 1 END)::int AS with_content,
+  max(posts.created_at) AS last_post_at
+FROM users
+LEFT JOIN posts ON posts.user_id = users.id
+GROUP BY users.id, users.email
+ORDER BY users.id
+```
+
+dream_model generates this record in `src/models/post.gleam`, and the function `counts_by_user(db)`, which returns `Result(List(PostCount), Error(QueryError))`:
+
+### The generated PostCount record <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/post.gleam#L27-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+/// A row of counts_by_user.sql.
+pub type PostCount {
+  PostCount(
+    id: Int,
+    email: Option(String),
+    posts: Int,
+    titles: String,
+    with_content: Int,
+    last_post_at: Option(Timestamp),
+  )
+}
+```
+
+The reason for each field:
+
+| Field | Type | Why |
+| --- | --- | --- |
+| `id` | `Int` | `NOT NULL` in the schema, and `users` is the side that the `left join` keeps |
+| `email` | `Option(String)` | The `nullable` hint |
+| `posts` | `Int` | `count(...)` never returns NULL |
+| `titles` | `String` | `coalesce(...)` with the constant `''` last |
+| `with_content` | `Int` | The `not null` hint. A user with no post gives a row with `content` NULL, so the `CASE` gives 0 |
+| `last_post_at` | `Option(Timestamp)` | `max(...)` is a computed value, and it is NULL for a user with no post |
+
+Do not put `not null` on `posts`: dream_model refuses the hint on a column that a rule already proves. It also refuses `not null` on a table column, because the schema decides it. The example does not route `counts_by_user`. In CI, `gleam run -m dream_model -- --check` fails when the generated module does not match the `.sql` file.
+
+For every reason that a column is an `Option`, see [Why is this column Option?](https://hexdocs.pm/dream_model/1.0.0/guides/why-option.html). For every hint, see [Hints](https://hexdocs.pm/dream_model/1.0.0/guides/hints.html).
 
 ## Test your code
 

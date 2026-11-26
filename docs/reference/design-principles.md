@@ -224,7 +224,7 @@ You won't find YAML files that magically configure routes. You won't find decora
 
 ### No ORM
 
-We use `dream_model` to generate typed model functions. You write SQL. `dream_model` makes it type-safe, and maps database errors to Dream errors.
+We use `dream_model` to generate typed model functions. You write SQL. `dream_model` makes it type-safe, and maps database errors to the shared `dream_errors.Error`. Your app maps that to HTTP with `error.from_shared`.
 
 **Why no ORM?** ORMs abstract SQL until they don't. Then you're debugging query generation at 2am. Just write SQL.
 

@@ -6,11 +6,11 @@
 
 import dream/context.{AppContext, EmptyContext}
 import dream/dream
-import dream/http/error.{NotFound}
 import dream/http/header.{Header}
 import dream/http/request.{type Method, type Request, Get, Post, Request}
 import dream/http/response.{type Response}
 import dream/router.{EmptyServices}
+import dream_errors
 import dream_http_client/client.{ResponseError}
 import dream_test/matchers.{be_equal, or_fail_with, should}
 import dream_test/suite.{type TestSuite}
@@ -301,7 +301,7 @@ fn architecture_tasks_tests() -> UnitNode {
       // Assert
       result
       |> should()
-      |> be_equal(Error(NotFound("Task not found")))
+      |> be_equal(Error(dream_errors.NotFound("no task with id 99")))
       |> or_fail_with("get_task should return NotFound")
     }),
     it("to_json formats a task", fn() {
