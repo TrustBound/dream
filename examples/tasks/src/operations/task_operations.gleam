@@ -8,7 +8,7 @@
 import dream/http/error.{type Error, NotFound, from_shared}
 import dream_errors
 import dream_postgres/client.{type Connection, type QueryError}
-import gleam/option.{type Option, None, Some, map, then, unwrap}
+import gleam/option.{type Option, None, Some, map, then}
 import gleam/result.{map_error, replace, try}
 import gleam/time/calendar.{type Date, Date, January}
 import models/tag.{type Tag, for_task}
@@ -29,7 +29,7 @@ pub fn create_task(db: Connection, data: TaskData) -> Result(Task, Error) {
     data.priority,
     Some(stored_due_date(data.due_date)),
     data.position,
-    unwrap(data.project_id, 0),
+    option.unwrap(data.project_id, 0),
   )
   |> map_error(task_error)
 }
@@ -48,7 +48,7 @@ pub fn update_task(
     data.completed,
     data.priority,
     Some(stored_due_date(data.due_date)),
-    unwrap(data.project_id, 0),
+    option.unwrap(data.project_id, 0),
   )
   |> map_error(task_error)
 }
@@ -169,7 +169,7 @@ pub fn update_field(
 
 // A task with no description stores an empty description.
 fn stored_description(description: Option(String)) -> Option(String) {
-  Some(unwrap(description, ""))
+  Some(option.unwrap(description, ""))
 }
 
 // A task with no due date, or with a date that does not parse, stores
@@ -177,7 +177,7 @@ fn stored_description(description: Option(String)) -> Option(String) {
 fn stored_due_date(due_date: Option(String)) -> Date {
   due_date
   |> then(parse_date)
-  |> unwrap(Date(year: 2025, month: January, day: 1))
+  |> option.unwrap(Date(year: 2025, month: January, day: 1))
 }
 
 fn non_empty(value: String) -> Option(String) {

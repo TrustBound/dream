@@ -6,8 +6,8 @@ import dream_errors.{
 import dream_postgres/client.{
   type Connection, type QueryError, type Returned, type Timestamp,
   SchemaFingerprint, broken_promise, execute, finite_timestamp, infinite_value,
-  int, more_than_one_row, numeric_as_text, numeric_text_decoder, parameter,
-  query, returning, timestamp_decoder, to_error, violated_constraint,
+  more_than_one_row, numeric_as_text, numeric_text_decoder, parameter, query,
+  returning, timestamp_decoder, to_error, violated_constraint,
 }
 import gleam/dynamic/decode.{type Decoder, field, optional, string, success}
 import gleam/option.{type Option}
@@ -47,7 +47,7 @@ FROM products
 WHERE id = $1
 LIMIT 1;"
   |> query
-  |> parameter(int(id))
+  |> parameter(client.int(id))
   |> numeric_as_text
   |> returning(product_decoder())
   |> execute(db)

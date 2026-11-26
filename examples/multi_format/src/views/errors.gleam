@@ -3,7 +3,7 @@
 //// Generic error responses used across the application.
 
 import dream/http/response.{type Response, html_response}
-import dream/http/status
+import dream/http/status.{internal_server_error}
 
 /// 404 Not Found response
 pub fn not_found(message: String) -> Response {
@@ -15,10 +15,7 @@ pub fn not_found(message: String) -> Response {
 
 /// 500 Internal Server Error response
 pub fn internal_error() -> Response {
-  html_response(
-    status.internal_server_error,
-    "<h1>500 Internal Server Error</h1>",
-  )
+  html_response(internal_server_error, "<h1>500 Internal Server Error</h1>")
 }
 
 /// 400 Bad Request response

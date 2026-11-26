@@ -6,13 +6,15 @@
 import context.{type DatabaseContext}
 import dream/http.{type Request, type Response, require_int, require_json}
 import dream/http/response.{json_response}
-import dream/http/status
+import dream/http/status.{created, ok}
 import gleam/dynamic/decode.{type Decoder, field, string, success}
 import gleam/result
-import operations/user_operations
+import operations/user_operations.{
+  create_user, delete_user, get_user, list_users, update_user,
+}
 import services.{type Services}
-import utilities/response_helpers
-import views/user_view
+import utilities/response_helpers.{handle_error}
+import views/user_view.{list_to_json, to_json}
 
 /// List all users
 pub fn index(
@@ -22,12 +24,12 @@ pub fn index(
 ) -> Response {
   let result = {
     let db = services.database.connection
-    user_operations.list_users(db)
+    list_users(db)
   }
 
   case result {
-    Ok(users) -> json_response(status.ok, user_view.list_to_json(users))
-    Error(err) -> response_helpers.handle_error(err)
+    Ok(users) -> json_response(ok, list_to_json(users))
+    Error(err) -> handle_error(err)
   }
 }
 
@@ -40,12 +42,12 @@ pub fn show(
   let result = {
     use id <- result.try(require_int(request, "id"))
     let db = services.database.connection
-    user_operations.get_user(db, id)
+    get_user(db, id)
   }
 
   case result {
-    Ok(user_data) -> json_response(status.ok, user_view.to_json(user_data))
-    Error(err) -> response_helpers.handle_error(err)
+    Ok(user_data) -> json_response(ok, to_json(user_data))
+    Error(err) -> handle_error(err)
   }
 }
 
@@ -58,12 +60,12 @@ pub fn create(
   let result = {
     use #(name, email) <- result.try(require_json(request, user_decoder()))
     let db = services.database.connection
-    user_operations.create_user(db, name, email)
+    create_user(db, name, email)
   }
 
   case result {
-    Ok(user_data) -> json_response(status.created, user_view.to_json(user_data))
-    Error(err) -> response_helpers.handle_error(err)
+    Ok(user_data) -> json_response(created, to_json(user_data))
+    Error(err) -> handle_error(err)
   }
 }
 
@@ -77,12 +79,12 @@ pub fn update(
     use id <- result.try(require_int(request, "id"))
     use #(name, email) <- result.try(require_json(request, user_decoder()))
     let db = services.database.connection
-    user_operations.update_user(db, id, name, email)
+    update_user(db, id, name, email)
   }
 
   case result {
-    Ok(user_data) -> json_response(status.ok, user_view.to_json(user_data))
-    Error(err) -> response_helpers.handle_error(err)
+    Ok(user_data) -> json_response(ok, to_json(user_data))
+    Error(err) -> handle_error(err)
   }
 }
 
@@ -95,12 +97,12 @@ pub fn delete(
   let result = {
     use id <- result.try(require_int(request, "id"))
     let db = services.database.connection
-    user_operations.delete_user(db, id)
+    delete_user(db, id)
   }
 
   case result {
-    Ok(_) -> json_response(status.ok, "{\"message\": \"User deleted\"}")
-    Error(err) -> response_helpers.handle_error(err)
+    Ok(_) -> json_response(ok, "{\"message\": \"User deleted\"}")
+    Error(err) -> handle_error(err)
   }
 }
 

@@ -4,44 +4,81 @@
 //// docs/reference/naming-conventions.md. Each test runs the code of one
 //// code block in that page.
 
-import dream/dream
+import dream/dream.{route_request}
 import dream/http/cookie.{type Cookie, Cookie}
 import dream/http/error.{NotFound}
 import dream/http/header.{Header}
 import dream/http/request.{Delete, Get, Post, Trace}
 import dream/http/response.{Text}
-import dream/servers/mist/server
+import dream/servers/mist/server.{stop}
 import dream_errors
 import dream_test/matchers.{be_equal, or_fail_with, should}
 import dream_test/suite.{type TestSuite}
 import dream_test/unit.{type UnitNode, describe, group, it}
-import fixtures/request as test_request
-import gleam/dict
+import fixtures/request.{
+  create_request, create_request_with_params, create_request_with_query,
+} as _
+import gleam/dict.{from_list, new, to_list}
 import gleam/http as gleam_http
-import gleam/json
-import gleam/list
+import gleam/json.{UnexpectedEndOfInput}
+import gleam/list.{map}
 import gleam/option.{None, Some}
 import gleam/result
-import gleam/string
-import simplifile
-import snippets/naming_auth
-import snippets/naming_builder
-import snippets/naming_checks
-import snippets/naming_conversion
-import snippets/naming_creation
-import snippets/naming_errors
-import snippets/naming_factory
-import snippets/naming_imports
-import snippets/naming_lifecycle
-import snippets/naming_modification
-import snippets/naming_module_namespace
-import snippets/naming_processing
-import snippets/naming_responses
-import snippets/naming_retrieval
-import snippets/naming_serialization
-import snippets/naming_state
+import gleam/string.{starts_with}
+import simplifile.{read, write}
+import snippets/naming_auth.{
+  Article, Credentials, EditArticles, Editor, Forbidden, InvalidToken, Reader,
+  authenticate_request, authenticate_token, authenticate_user, authorize_request,
+  authorize_user, check_request_permission, check_user_permission,
+}
+import snippets/naming_builder.{start}
+import snippets/naming_checks.{
+  has_cookie, has_header, has_json_body, is_json, is_post, is_secure,
+}
+import snippets/naming_conversion.{
+  ParsedRequest, convert_cookie_to_header, convert_http_method_to_method,
+  format_cookie_header, format_query_string, header_to_pair, pair_to_header,
+  parse_request,
+}
+import snippets/naming_creation.{
+  CookieBuilder, ResponseBuilder, build_cookie, build_response, create_cookie,
+  create_header, create_response,
+}
+import snippets/naming_errors.{
+  ConnectionRefused, ExpiredToken, handle_auth_error, handle_parse_error,
+  recover_from_connection_error, recover_from_timeout,
+}
+import snippets/naming_factory.{initialize, user}
+import snippets/naming_imports.{
+  error_response, error_response_qualified, not_found_response,
+  shared_error_response,
+}
+import snippets/naming_lifecycle.{
+  DatabaseConfig, init_database, init_services, shutdown_services, start_server,
+  stop_server,
+}
+import snippets/naming_modification.{
+  add_link_and_route, remove_tracking, set_cache_and_theme,
+}
+import snippets/naming_module_namespace.{show_user_with_module_prefix}
+import snippets/naming_processing.{
+  handle_request, match_method, match_path, respond,
+}
+import snippets/naming_responses.{example_responses}
+import snippets/naming_retrieval.{
+  RequestDetails, list_names, list_values, summarize_request,
+}
+import snippets/naming_serialization.{
+  deserialize_session, deserialize_user, serialize_session, serialize_user,
+}
+import snippets/naming_state.{
+  load_config, load_user, restore_config, restore_sessions, save_config,
+  save_user, store_session,
+}
 import snippets/naming_user
-import snippets/naming_validation
+import snippets/naming_validation.{
+  MissingEmail, PasswordTooShort, Signup, validate_cookie, validate_signup,
+}
 import snippets/naming_variables
 import snippets/naming_variables_abbreviated
 import snippets/naming_variables_good
@@ -91,9 +128,9 @@ fn import_tests() -> UnitNode {
       let failure = NotFound("User not found")
 
       // Act
-      let bare = naming_imports.error_response(failure)
-      let qualified = naming_imports.error_response_qualified(failure)
-      let not_found = naming_imports.not_found_response()
+      let bare = error_response(failure)
+      let qualified = error_response_qualified(failure)
+      let not_found = not_found_response()
 
       // Assert
       #(bare.status, bare.body, qualified.body, not_found.body)
@@ -108,10 +145,8 @@ fn import_tests() -> UnitNode {
     }),
     it("a clashing name stays qualified and still works", fn() {
       // Act
-      let missing =
-        naming_imports.shared_error_response(dream_errors.NotFound("gone"))
-      let slow =
-        naming_imports.shared_error_response(dream_errors.Timeout("slow", Nil))
+      let missing = shared_error_response(dream_errors.NotFound("gone"))
+      let slow = shared_error_response(dream_errors.Timeout("slow", Nil))
 
       // Assert
       #(missing.status, missing.body, slow.status, slow.body)
@@ -126,17 +161,12 @@ fn module_namespace_tests() -> UnitNode {
   group("module namespace", [
     it("user.find and router.route work without a module prefix", fn() {
       // Arrange
-      let request = test_request.create_request(Get, "/")
+      let request = create_request(Get, "/")
 
       // Act
       let found = naming_module_namespace.show_user(1)
       let response =
-        dream.route_request(
-          naming_module_namespace.app_router(),
-          request,
-          Nil,
-          Nil,
-        )
+        route_request(naming_module_namespace.app_router(), request, Nil, Nil)
 
       // Assert
       #(found, response.body)
@@ -146,7 +176,7 @@ fn module_namespace_tests() -> UnitNode {
     }),
     it("user.user_find finds the same user", fn() {
       // Act
-      let found = naming_module_namespace.show_user_with_module_prefix(1)
+      let found = show_user_with_module_prefix(1)
 
       // Assert
       found
@@ -162,9 +192,9 @@ fn creation_tests() -> UnitNode {
     it("create functions make a response, a cookie and a header", fn() {
       // Act
       let result = #(
-        naming_creation.create_response(204).status,
-        naming_creation.create_cookie("theme", "dark"),
-        naming_creation.create_header("Accept", "text/html"),
+        create_response(204).status,
+        create_cookie("theme", "dark"),
+        create_header("Accept", "text/html"),
       )
 
       // Assert
@@ -180,21 +210,17 @@ fn creation_tests() -> UnitNode {
     it("build functions turn builders into a response and a cookie", fn() {
       // Arrange
       let response_builder =
-        naming_creation.ResponseBuilder(
+        ResponseBuilder(
           status: 201,
           headers: [Header("Location", "/users/1")],
           body: "Created",
         )
       let cookie_builder =
-        naming_creation.CookieBuilder(
-          name: "session",
-          value: "abc123",
-          secure: True,
-        )
+        CookieBuilder(name: "session", value: "abc123", secure: True)
 
       // Act
-      let response = naming_creation.build_response(response_builder)
-      let cookie = naming_creation.build_cookie(cookie_builder)
+      let response = build_response(response_builder)
+      let cookie = build_cookie(cookie_builder)
 
       // Assert
       #(response.status, response.headers, response.body, cookie)
@@ -216,18 +242,18 @@ fn retrieval_tests() -> UnitNode {
       // Arrange
       let request =
         request.Request(
-          ..test_request.create_request_with_query(Get, "/", "page=2"),
+          ..create_request_with_query(Get, "/", "page=2"),
           headers: [Header("content-type", "application/json")],
           cookies: [simple_cookie("session", "abc123", False)],
         )
 
       // Act
-      let details = naming_retrieval.summarize_request(request)
+      let details = summarize_request(request)
 
       // Assert
       details
       |> should()
-      |> be_equal(naming_retrieval.RequestDetails(
+      |> be_equal(RequestDetails(
         content_type: Some("application/json"),
         session: Some(simple_cookie("session", "abc123", False)),
         page: Some("2"),
@@ -237,7 +263,7 @@ fn retrieval_tests() -> UnitNode {
     it("name functions read the cookie name and the header name", fn() {
       // Act
       let names =
-        naming_retrieval.list_names(
+        list_names(
           simple_cookie("theme", "dark", False),
           Header("Accept", "text/html"),
         )
@@ -251,7 +277,7 @@ fn retrieval_tests() -> UnitNode {
     it("value functions read the cookie value and the header value", fn() {
       // Act
       let values =
-        naming_retrieval.list_values(
+        list_values(
           simple_cookie("theme", "dark", False),
           Header("Accept", "text/html"),
         )
@@ -270,12 +296,12 @@ fn modification_tests() -> UnitNode {
     it("set functions replace a header and set a cookie", fn() {
       // Arrange
       let request =
-        request.Request(..test_request.create_request(Get, "/"), headers: [
+        request.Request(..create_request(Get, "/"), headers: [
           Header("cache-control", "max-age=60"),
         ])
 
       // Act
-      let result = naming_modification.set_cache_and_theme(request)
+      let result = set_cache_and_theme(request)
 
       // Assert
       result
@@ -290,14 +316,13 @@ fn modification_tests() -> UnitNode {
     it("add functions add a header and a route", fn() {
       // Arrange
       let request =
-        request.Request(..test_request.create_request(Get, "/"), headers: [
+        request.Request(..create_request(Get, "/"), headers: [
           Header("Accept", "text/html"),
         ])
 
       // Act
-      let #(headers, app_router) =
-        naming_modification.add_link_and_route(request)
-      let response = dream.route_request(app_router, request, Nil, Nil)
+      let #(headers, app_router) = add_link_and_route(request)
+      let response = route_request(app_router, request, Nil, Nil)
 
       // Assert
       #(headers, response.body)
@@ -315,7 +340,7 @@ fn modification_tests() -> UnitNode {
       // Arrange
       let request =
         request.Request(
-          ..test_request.create_request(Get, "/"),
+          ..create_request(Get, "/"),
           headers: [
             Header("X-Tracking-Id", "42"),
             Header("Accept", "text/html"),
@@ -327,7 +352,7 @@ fn modification_tests() -> UnitNode {
         )
 
       // Act
-      let result = naming_modification.remove_tracking(request)
+      let result = remove_tracking(request)
 
       // Assert
       result
@@ -347,13 +372,9 @@ fn conversion_tests() -> UnitNode {
     it("convert functions change a method and a cookie", fn() {
       // Act
       let result = #(
-        naming_conversion.convert_http_method_to_method(gleam_http.Post),
-        naming_conversion.convert_http_method_to_method(gleam_http.Trace),
-        naming_conversion.convert_cookie_to_header(simple_cookie(
-          "theme",
-          "dark",
-          False,
-        )),
+        convert_http_method_to_method(gleam_http.Post),
+        convert_http_method_to_method(gleam_http.Trace),
+        convert_cookie_to_header(simple_cookie("theme", "dark", False)),
       )
 
       // Assert
@@ -367,13 +388,13 @@ fn conversion_tests() -> UnitNode {
       let headers = [Header("Cookie", "session=abc123")]
 
       // Act
-      let parsed = naming_conversion.parse_request(headers)
+      let parsed = parse_request(headers)
 
       // Assert
       parsed
       |> should()
       |> be_equal(
-        naming_conversion.ParsedRequest(
+        ParsedRequest(
           cookies: [
             simple_cookie("theme", "dark", False),
             simple_cookie("session", "abc123", False),
@@ -387,12 +408,8 @@ fn conversion_tests() -> UnitNode {
     it("format functions write a cookie and a query string", fn() {
       // Act
       let result = #(
-        naming_conversion.format_cookie_header(simple_cookie(
-          "theme",
-          "dark",
-          False,
-        )),
-        naming_conversion.format_query_string([
+        format_cookie_header(simple_cookie("theme", "dark", False)),
+        format_query_string([
           #("q", "dream web"),
           #("page", "2"),
         ]),
@@ -407,8 +424,8 @@ fn conversion_tests() -> UnitNode {
     it("short conversions change a header to a pair and back", fn() {
       // Act
       let result = #(
-        naming_conversion.header_to_pair(Header("Accept", "text/html")),
-        naming_conversion.pair_to_header(#("Accept", "text/html")),
+        header_to_pair(Header("Accept", "text/html")),
+        pair_to_header(#("Accept", "text/html")),
       )
 
       // Assert
@@ -424,15 +441,15 @@ fn check_tests() -> UnitNode {
   group("boolean checks", [
     it("is functions check a request, a cookie and a response", fn() {
       // Arrange
-      let request = test_request.create_request(Post, "/")
+      let request = create_request(Post, "/")
       let cookie = simple_cookie("session", "abc123", True)
       let response = response.json_response(200, "{}")
 
       // Act
       let result = [
-        naming_checks.is_post(request),
-        naming_checks.is_secure(cookie),
-        naming_checks.is_json(response),
+        is_post(request),
+        is_secure(cookie),
+        is_json(response),
       ]
 
       // Assert
@@ -445,7 +462,7 @@ fn check_tests() -> UnitNode {
       // Arrange
       let request =
         request.Request(
-          ..test_request.create_request(Post, "/"),
+          ..create_request(Post, "/"),
           content_type: Some("application/json"),
         )
       let headers = [Header("Accept", "text/html")]
@@ -453,9 +470,9 @@ fn check_tests() -> UnitNode {
 
       // Act
       let result = [
-        naming_checks.has_json_body(request),
-        naming_checks.has_header(headers, "accept"),
-        naming_checks.has_cookie(cookies, "session"),
+        has_json_body(request),
+        has_header(headers, "accept"),
+        has_cookie(cookies, "session"),
       ]
 
       // Assert
@@ -471,7 +488,7 @@ fn processing_tests() -> UnitNode {
   group("processing", [
     it("handle functions answer 401 without and 200 with a token", fn() {
       // Arrange
-      let anonymous = test_request.create_request(Get, "/")
+      let anonymous = create_request(Get, "/")
       let signed_in =
         request.Request(..anonymous, headers: [
           Header("Authorization", "Bearer token-ada"),
@@ -479,8 +496,8 @@ fn processing_tests() -> UnitNode {
 
       // Act
       let statuses = [
-        naming_processing.handle_request(anonymous).status,
-        naming_processing.handle_request(signed_in).status,
+        handle_request(anonymous).status,
+        handle_request(signed_in).status,
       ]
 
       // Assert
@@ -491,10 +508,10 @@ fn processing_tests() -> UnitNode {
     }),
     it("route_request sends GET / to its controller", fn() {
       // Arrange
-      let request = test_request.create_request(Get, "/")
+      let request = create_request(Get, "/")
 
       // Act
-      let response = naming_processing.respond(request)
+      let response = respond(request)
 
       // Assert
       response.body
@@ -505,9 +522,9 @@ fn processing_tests() -> UnitNode {
     it("match functions compare paths and methods", fn() {
       // Act
       let result = [
-        naming_processing.match_path("/users/:id", "/users/42"),
-        naming_processing.match_path("/users/:id", "/posts/42"),
-        naming_processing.match_method([Get, Post], Delete),
+        match_path("/users/:id", "/users/42"),
+        match_path("/users/:id", "/posts/42"),
+        match_method([Get, Post], Delete),
       ]
 
       // Assert
@@ -523,10 +540,8 @@ fn error_tests() -> UnitNode {
   group("error handling", [
     it("handle error functions turn errors into responses", fn() {
       // Act
-      let parse_response =
-        naming_errors.handle_parse_error(json.UnexpectedEndOfInput)
-      let auth_response =
-        naming_errors.handle_auth_error(naming_errors.ExpiredToken)
+      let parse_response = handle_parse_error(UnexpectedEndOfInput)
+      let auth_response = handle_auth_error(ExpiredToken)
 
       // Assert
       #(parse_response.status, auth_response.body)
@@ -537,13 +552,8 @@ fn error_tests() -> UnitNode {
     it("recover functions retry and use the cached value", fn() {
       // Act
       let result = #(
-        naming_errors.recover_from_timeout(Error(naming_errors.Timeout), fn() {
-          Ok("fresh")
-        }),
-        naming_errors.recover_from_connection_error(
-          Error(naming_errors.ConnectionRefused),
-          "cached",
-        ),
+        recover_from_timeout(Error(naming_errors.Timeout), fn() { Ok("fresh") }),
+        recover_from_connection_error(Error(ConnectionRefused), "cached"),
       )
 
       // Assert
@@ -556,54 +566,51 @@ fn error_tests() -> UnitNode {
 }
 
 fn bearer_request() -> request.Request {
-  request.Request(..test_request.create_request(Get, "/"), headers: [
+  request.Request(..create_request(Get, "/"), headers: [
     Header("Authorization", "Bearer token-ada"),
   ])
 }
 
 fn auth_tests() -> UnitNode {
-  let ada = naming_auth.User(id: 1, name: "Ada", role: naming_auth.Editor)
-  let reader = naming_auth.User(id: 2, name: "Bo", role: naming_auth.Reader)
-  let article = naming_auth.Article(id: 7, author_id: 1)
+  let ada = naming_auth.User(id: 1, name: "Ada", role: Editor)
+  let reader = naming_auth.User(id: 2, name: "Bo", role: Reader)
+  let article = Article(id: 7, author_id: 1)
   group("authentication and authorization", [
     it("authenticate functions check credentials, tokens and requests", fn() {
       // Act
       let result = #(
-        naming_auth.authenticate_user(naming_auth.Credentials(
+        authenticate_user(Credentials(
           username: "ada",
           password: "correct-horse",
         )),
-        naming_auth.authenticate_token("unknown-token"),
-        naming_auth.authenticate_request(bearer_request()),
+        authenticate_token("unknown-token"),
+        authenticate_request(bearer_request()),
       )
 
       // Assert
       result
       |> should()
-      |> be_equal(#(Ok(ada), Error(naming_auth.InvalidToken), Ok(ada)))
+      |> be_equal(#(Ok(ada), Error(InvalidToken), Ok(ada)))
       |> or_fail_with("authenticate functions should find Ada")
     }),
     it("authorize functions refuse a reader and allow an editor", fn() {
       // Act
       let result = #(
-        naming_auth.authorize_user(reader, article),
-        naming_auth.authorize_request(bearer_request(), article),
+        authorize_user(reader, article),
+        authorize_request(bearer_request(), article),
       )
 
       // Assert
       result
       |> should()
-      |> be_equal(#(Error(naming_auth.Forbidden), Ok(Nil)))
+      |> be_equal(#(Error(Forbidden), Ok(Nil)))
       |> or_fail_with("authorize functions should check the role")
     }),
     it("check permission functions test one permission", fn() {
       // Act
       let result = [
-        naming_auth.check_user_permission(reader, naming_auth.EditArticles),
-        naming_auth.check_request_permission(
-          bearer_request(),
-          naming_auth.EditArticles,
-        ),
+        check_user_permission(reader, EditArticles),
+        check_request_permission(bearer_request(), EditArticles),
       ]
 
       // Assert
@@ -619,17 +626,12 @@ fn validation_tests() -> UnitNode {
   group("validation", [
     it("validate functions tell what is wrong", fn() {
       // Arrange
-      let signup =
-        naming_validation.Signup(email: "ada.example.com", password: "short")
+      let signup = Signup(email: "ada.example.com", password: "short")
 
       // Act
       let result = #(
-        naming_validation.validate_signup(signup),
-        naming_validation.validate_cookie(simple_cookie(
-          "session",
-          "abc123",
-          False,
-        )),
+        validate_signup(signup),
+        validate_cookie(simple_cookie("session", "abc123", False)),
       )
 
       // Assert
@@ -637,8 +639,8 @@ fn validation_tests() -> UnitNode {
       |> should()
       |> be_equal(#(
         Error([
-          naming_validation.MissingEmail,
-          naming_validation.PasswordTooShort,
+          MissingEmail,
+          PasswordTooShort,
         ]),
         Error("The session cookie must be secure"),
       ))
@@ -648,16 +650,12 @@ fn validation_tests() -> UnitNode {
 }
 
 fn lifecycle_tests() -> UnitNode {
-  let config =
-    naming_lifecycle.DatabaseConfig(
-      url: "postgres://localhost/app",
-      pool_size: 5,
-    )
+  let config = DatabaseConfig(url: "postgres://localhost/app", pool_size: 5)
   group("lifecycle", [
     it("start_server starts a server", fn() {
       // Act
-      let started = naming_lifecycle.start_server(free_port())
-      let result = result.map(started, server.stop)
+      let started = start_server(free_port())
+      let result = result.map(started, stop)
 
       // Assert
       result
@@ -667,10 +665,10 @@ fn lifecycle_tests() -> UnitNode {
     }),
     it("stop_server stops a server", fn() {
       // Arrange
-      let started = naming_lifecycle.start_server(free_port())
+      let started = start_server(free_port())
 
       // Act
-      let result = result.map(started, naming_lifecycle.stop_server)
+      let result = result.map(started, stop_server)
 
       // Assert
       result
@@ -681,10 +679,8 @@ fn lifecycle_tests() -> UnitNode {
     it("init functions prepare the database and the services", fn() {
       // Act
       let result = #(
-        naming_lifecycle.init_services(config),
-        naming_lifecycle.init_database(
-          naming_lifecycle.DatabaseConfig(..config, pool_size: 0),
-        ),
+        init_services(config),
+        init_database(DatabaseConfig(..config, pool_size: 0)),
       )
 
       // Assert
@@ -710,7 +706,7 @@ fn lifecycle_tests() -> UnitNode {
         ))
 
       // Act
-      let result = naming_lifecycle.shutdown_services(services)
+      let result = shutdown_services(services)
 
       // Assert
       result
@@ -731,14 +727,8 @@ fn serialization_tests() -> UnitNode {
     it("serialize functions encode a user and a session", fn() {
       // Act
       let result = #(
-        naming_serialization.serialize_user(naming_serialization.User(
-          id: 1,
-          name: "Ada",
-        )),
-        naming_serialization.serialize_session(naming_serialization.Session(
-          id: "abc123",
-          user_id: 1,
-        )),
+        serialize_user(naming_serialization.User(id: 1, name: "Ada")),
+        serialize_session(naming_serialization.Session(id: "abc123", user_id: 1)),
       )
 
       // Assert
@@ -750,8 +740,8 @@ fn serialization_tests() -> UnitNode {
     it("deserialize functions decode a user and a session", fn() {
       // Act
       let result = #(
-        naming_serialization.deserialize_user("{\"id\":1,\"name\":\"Ada\"}"),
-        naming_serialization.deserialize_session(<<"abc123:1":utf8>>),
+        deserialize_user("{\"id\":1,\"name\":\"Ada\"}"),
+        deserialize_session(<<"abc123:1":utf8>>),
       )
 
       // Assert
@@ -772,13 +762,13 @@ fn state_tests() -> UnitNode {
   group("state management", [
     it("load functions read a user and a config file", fn() {
       // Arrange
-      let database = naming_state.Database(users: dict.from_list([#(1, ada)]))
+      let database = naming_state.Database(users: from_list([#(1, ada)]))
 
       // Act
       let result = #(
-        naming_state.load_user(database, 1),
-        naming_state.load_config("gleam.toml")
-          |> result.map(string.starts_with(_, "name = \"dream\"")),
+        load_user(database, 1),
+        load_config("gleam.toml")
+          |> result.map(starts_with(_, "name = \"dream\"")),
       )
 
       // Assert
@@ -789,25 +779,25 @@ fn state_tests() -> UnitNode {
     }),
     it("save functions write a user and a config file", fn() {
       // Arrange
-      let database = naming_state.Database(users: dict.new())
+      let database = naming_state.Database(users: new())
       let path = "build/naming_snippets_saved_config.toml"
 
       // Act
-      let saved = naming_state.save_user(database, ada)
-      let written = naming_state.save_config("port = 3000", path)
+      let saved = save_user(database, ada)
+      let written = save_config("port = 3000", path)
 
       // Assert
-      #(naming_state.load_user(saved, 1), written, simplifile.read(path))
+      #(load_user(saved, 1), written, read(path))
       |> should()
       |> be_equal(#(Ok(ada), Ok(Nil), Ok("port = 3000")))
       |> or_fail_with("save functions should write the user and the file")
     }),
     it("store_session keeps a session in memory", fn() {
       // Act
-      let sessions = naming_state.store_session(dict.new(), session)
+      let sessions = store_session(new(), session)
 
       // Assert
-      dict.to_list(sessions)
+      to_list(sessions)
       |> should()
       |> be_equal([#("abc123", session)])
       |> or_fail_with("store_session should keep the session")
@@ -816,14 +806,14 @@ fn state_tests() -> UnitNode {
       // Arrange
       let backup_path = "build/naming_snippets_backup_config.toml"
       let path = "build/naming_snippets_restored_config.toml"
-      let _ = simplifile.write(to: backup_path, contents: "port = 4000")
+      let _ = write(to: backup_path, contents: "port = 4000")
 
       // Act
-      let sessions = naming_state.restore_sessions([session])
-      let restored = naming_state.restore_config(backup_path, path)
+      let sessions = restore_sessions([session])
+      let restored = restore_config(backup_path, path)
 
       // Assert
-      #(dict.to_list(sessions), restored, simplifile.read(path))
+      #(to_list(sessions), restored, read(path))
       |> should()
       |> be_equal(#([#("abc123", session)], Ok(Nil), Ok("port = 4000")))
       |> or_fail_with("restore functions should bring back the saved copies")
@@ -836,8 +826,8 @@ fn response_tests() -> UnitNode {
     it("type response functions set the status", fn() {
       // Act
       let statuses =
-        naming_responses.example_responses()
-        |> list.map(fn(response) { response.status })
+        example_responses()
+        |> map(fn(response) { response.status })
 
       // Assert
       statuses
@@ -852,8 +842,8 @@ fn builder_tests() -> UnitNode {
   group("builder pattern exception", [
     it("the server builder binds and listens", fn() {
       // Act
-      let started = naming_builder.start(free_port())
-      let result = result.map(started, server.stop)
+      let started = start(free_port())
+      let result = result.map(started, stop)
 
       // Assert
       result
@@ -868,11 +858,11 @@ fn factory_tests() -> UnitNode {
   group("factory function exception", [
     it("router.router() makes a router", fn() {
       // Arrange
-      let request = test_request.create_request(Get, "/")
+      let request = create_request(Get, "/")
 
       // Act
       let response =
-        dream.route_request(naming_factory.app_router(), request, Nil, Nil)
+        route_request(naming_factory.app_router(), request, Nil, Nil)
 
       // Assert
       response.body
@@ -882,7 +872,7 @@ fn factory_tests() -> UnitNode {
     }),
     it("the ambiguous factories still return values", fn() {
       // Act
-      let result = #(naming_factory.initialize(), naming_factory.user())
+      let result = #(initialize(), user())
 
       // Assert
       result
@@ -913,8 +903,7 @@ fn factory_tests() -> UnitNode {
 }
 
 fn variable_tests() -> UnitNode {
-  let request =
-    test_request.create_request_with_params(Get, "/users/1", [#("id", "1")])
+  let request = create_request_with_params(Get, "/users/1", [#("id", "1")])
   let services =
     naming_variables.Services(users: [naming_variables.User(id: 1, name: "Ada")])
   group("variable naming", [

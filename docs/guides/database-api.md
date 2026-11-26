@@ -356,37 +356,37 @@ First, create `src/database.gleam`. It starts the connection pool, then
 checks that the schema is still the one that dream_model generated the
 models from:
 
-### Starting the connection pool <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/database.gleam#L12-L113"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Starting the connection pool <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/database.gleam#L15-L116"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
+  password, pool_size, port, start,
 }
-import dream_postgres_client.{type Connection, ConnectionUnavailable, start}
-import gleam/erlang/process.{sleep}
+import gleam/erlang/process.{new_name, sleep}
 import gleam/int.{to_string}
 import gleam/io.{println_error}
-import gleam/option
+import gleam/option.{Some}
 import gleam/otp/actor.{Started}
 import gleam/result
-import models/post.{schema_fingerprint}
+import models/post
 import models/user
 
 pub type DatabaseService {
-  DatabaseService(connection: dream_postgres_client.Connection)
+  DatabaseService(connection: Connection)
 }
 
 pub fn init_database() -> Result(DatabaseService, String) {
   // Create connection pool name
-  let pool_name = process.new_name("dream_postgres_pool")
+  let pool_name = new_name("dream_postgres_pool")
 
   // Configure PostgreSQL connection
   let config =
-    dream_postgres_client.default_config(pool_name: pool_name)
-    |> dream_postgres_client.host("localhost")
-    |> dream_postgres_client.port(5435)
-    |> dream_postgres_client.database("dream_example_database_db")
+    default_config(pool_name: pool_name)
+    |> host("localhost")
+    |> port(5435)
+    |> database("dream_example_database_db")
     |> dream_postgres_client.user("postgres")
-    |> dream_postgres_client.password(option.Some("postgres"))
-    |> dream_postgres_client.pool_size(10)
+    |> password(Some("postgres"))
+    |> pool_size(10)
 
   // Start the connection pool
   use connection <- result.try(case start(config) {
@@ -399,7 +399,7 @@ pub fn init_database() -> Result(DatabaseService, String) {
   use Nil <- result.try(
     check_schema_waiting_for_database(connection, [
       user.schema_fingerprint,
-      schema_fingerprint,
+      post.schema_fingerprint,
     ])
     |> result.map_error(format_schema_check_error),
   )
@@ -711,19 +711,21 @@ This separation means:
 Create `src/controllers/users_controller.gleam`. Here are its
 imports and the first three actions:
 
-### The users controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/controllers/users_controller.gleam#L6-L68"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The users controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/controllers/users_controller.gleam#L6-L70"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import context.{type DatabaseContext}
 import dream/http.{type Request, type Response, require_int, require_json}
 import dream/http/response.{json_response}
-import dream/http/status
+import dream/http/status.{created, ok}
 import gleam/dynamic/decode.{type Decoder, field, string, success}
 import gleam/result
-import operations/user_operations
+import operations/user_operations.{
+  create_user, delete_user, get_user, list_users, update_user,
+}
 import services.{type Services}
-import utilities/response_helpers
-import views/user_view
+import utilities/response_helpers.{handle_error}
+import views/user_view.{list_to_json, to_json}
 
 /// List all users
 pub fn index(
@@ -733,12 +735,12 @@ pub fn index(
 ) -> Response {
   let result = {
     let db = services.database.connection
-    user_operations.list_users(db)
+    list_users(db)
   }
 
   case result {
-    Ok(users) -> json_response(status.ok, user_view.list_to_json(users))
-    Error(err) -> response_helpers.handle_error(err)
+    Ok(users) -> json_response(ok, list_to_json(users))
+    Error(err) -> handle_error(err)
   }
 }
 
@@ -751,12 +753,12 @@ pub fn show(
   let result = {
     use id <- result.try(require_int(request, "id"))
     let db = services.database.connection
-    user_operations.get_user(db, id)
+    get_user(db, id)
   }
 
   case result {
-    Ok(user_data) -> json_response(status.ok, user_view.to_json(user_data))
-    Error(err) -> response_helpers.handle_error(err)
+    Ok(user_data) -> json_response(ok, to_json(user_data))
+    Error(err) -> handle_error(err)
   }
 }
 
@@ -769,12 +771,12 @@ pub fn create(
   let result = {
     use #(name, email) <- result.try(require_json(request, user_decoder()))
     let db = services.database.connection
-    user_operations.create_user(db, name, email)
+    create_user(db, name, email)
   }
 
   case result {
-    Ok(user_data) -> json_response(status.created, user_view.to_json(user_data))
-    Error(err) -> response_helpers.handle_error(err)
+    Ok(user_data) -> json_response(created, to_json(user_data))
+    Error(err) -> handle_error(err)
   }
 }
 ```
@@ -783,7 +785,7 @@ The full file also has `update` and `delete` actions, which use the
 same form. At its end, a private decoder reads the name and the email
 of the request body:
 
-### The request decoder <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/controllers/users_controller.gleam#L107-L112"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The request decoder <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/controllers/users_controller.gleam#L109-L114"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Decoder for user create/update requests
@@ -1189,18 +1191,17 @@ The project list in
 [examples/tasks](https://github.com/TrustBound/dream/tree/3.0.0/examples/tasks/src)
 calls one model and formats the result. It needs no operation:
 
-#### One model, one action <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/controllers/projects_controller.gleam#L19-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### One model, one action <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/controllers/projects_controller.gleam#L22-L31"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn index(
-  _request: http.Request,
+  _request: Request,
   _context: TasksContext,
   services: Services,
-) -> http.Response {
+) -> Response {
   case list_projects(services.db) {
-    Ok(projects) ->
-      http.html_response(http.ok, project_view.list_page(projects))
-    Error(err) -> response_helpers.handle_error(err)
+    Ok(projects) -> html_response(ok, list_page(projects))
+    Error(err) -> handle_error(err)
   }
 }
 ```
@@ -1249,11 +1250,11 @@ pub fn create_and_attach(
   task_id: Int,
   tag_name: String,
 ) -> Result(Tag, Error) {
-  let data = TagData(name: tag_name, color: option.None)
+  let data = TagData(name: tag_name, color: None)
 
   // A tag with no color stores an empty color.
   use created <- try(
-    get_or_create(db, data.name, Some(unwrap(data.color, "")))
+    get_or_create(db, data.name, Some(option.unwrap(data.color, "")))
     |> map_error(tag_error),
   )
   use _ <- try(add_to_task(db, task_id, created.id) |> map_error(tag_error))

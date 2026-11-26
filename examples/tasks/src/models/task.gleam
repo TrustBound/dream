@@ -5,8 +5,8 @@ import dream_errors.{
 }
 import dream_postgres/client.{
   type Connection, type Date, type QueryError, type Returned, type Timestamp,
-  SchemaFingerprint, bool, broken_promise, calendar_date, calendar_date_decoder,
-  execute, finite_date, finite_timestamp, infinite_value, int, more_than_one_row,
+  SchemaFingerprint, broken_promise, calendar_date, calendar_date_decoder,
+  execute, finite_date, finite_timestamp, infinite_value, more_than_one_row,
   nullable, parameter, query, returning, text, timestamp_decoder, to_error,
   violated_constraint,
 }
@@ -76,11 +76,11 @@ RETURNING
   |> query
   |> parameter(text(title))
   |> parameter(nullable(text, description))
-  |> parameter(bool(completed))
-  |> parameter(int(priority))
+  |> parameter(client.bool(completed))
+  |> parameter(client.int(priority))
   |> parameter(nullable(calendar_date, due_date))
-  |> parameter(int(position))
-  |> parameter(int(project_id))
+  |> parameter(client.int(position))
+  |> parameter(client.int(project_id))
   |> returning(task_decoder())
   |> execute(db)
   |> one_row("task.create", [])
@@ -92,7 +92,7 @@ pub fn delete(db: Connection, id: Int) -> Result(Int, Error(QueryError)) {
 WHERE id = $1
 RETURNING id;"
   |> query
-  |> parameter(int(id))
+  |> parameter(client.int(id))
   |> returning(at([0], decode.int))
   |> execute(db)
   |> one_row("task.delete", [])
@@ -114,7 +114,7 @@ pub fn get(db: Connection, id: Int) -> Result(Task, Error(QueryError)) {
 FROM tasks
 WHERE id = $1;"
   |> query
-  |> parameter(int(id))
+  |> parameter(client.int(id))
   |> returning(task_decoder())
   |> execute(db)
   |> one_row("task.get", [])
@@ -161,7 +161,7 @@ FROM tasks
 WHERE project_id = $1
 ORDER BY position ASC, created_at DESC;"
   |> query
-  |> parameter(int(project_id))
+  |> parameter(client.int(project_id))
   |> returning(task_decoder())
   |> execute(db)
   |> many_rows("task.list_by_project", [])
@@ -189,7 +189,7 @@ RETURNING
   created_at,
   updated_at;"
   |> query
-  |> parameter(int(id))
+  |> parameter(client.int(id))
   |> returning(task_decoder())
   |> execute(db)
   |> one_row("task.toggle_completed", [])
@@ -228,13 +228,13 @@ RETURNING
   created_at,
   updated_at;"
   |> query
-  |> parameter(int(id))
+  |> parameter(client.int(id))
   |> parameter(text(title))
   |> parameter(nullable(text, description))
-  |> parameter(bool(completed))
-  |> parameter(int(priority))
+  |> parameter(client.bool(completed))
+  |> parameter(client.int(priority))
   |> parameter(nullable(calendar_date, due_date))
-  |> parameter(int(project_id))
+  |> parameter(client.int(project_id))
   |> returning(task_decoder())
   |> execute(db)
   |> one_row("task.update", [])
@@ -261,8 +261,8 @@ RETURNING
   created_at,
   updated_at;"
   |> query
-  |> parameter(int(id))
-  |> parameter(int(position))
+  |> parameter(client.int(id))
+  |> parameter(client.int(position))
   |> returning(task_decoder())
   |> execute(db)
   |> one_row("task.update_position", [])

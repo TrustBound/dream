@@ -1,12 +1,14 @@
 //// Task composition - calls task templates
 
-import gleam/int
-import gleam/option.{type Option, map, unwrap}
-import gleam/string
+import gleam/int.{to_string}
+import gleam/option.{type Option, None, Some, map, unwrap}
+import gleam/string.{join}
 import models/tag.{type Tag}
 import models/task.{type Task}
-import templates/components/form_components
-import templates/components/tag_components
+import templates/components/form_components.{
+  date_field, priority_select, text_area, text_field,
+}
+import templates/components/tag_components.{tag_list}
 import templates/components/task_card
 import templates/components/task_edit_form
 import templates/components/task_editor
@@ -24,7 +26,7 @@ import utilities/dates.{date_to_string}
 import utilities/html_helpers.{htmx_attribute, htmx_vals, join_attributes}
 
 pub fn task_card(task: Task, tags: List(Tag)) -> String {
-  let task_id = int.to_string(task.id)
+  let task_id = to_string(task.id)
 
   // Double-click is now handled via onclick in template
   let card_attrs = ""
@@ -60,14 +62,14 @@ pub fn task_card(task: Task, tags: List(Tag)) -> String {
   let priority_badge_html = priority_badge.render(badge_text: priority_text)
 
   let due_date_html = case map(task.due_date, date_to_string) {
-    option.Some(date) -> {
+    Some(date) -> {
       let icon_html = icon.render(icon_name: "calendar")
       date_display.render(icon_html: icon_html, date_text: date)
     }
-    option.None -> ""
+    None -> ""
   }
 
-  let tags_html = tag_components.tag_list(tags)
+  let tags_html = tag_list(tags)
 
   let edit_btn_attrs =
     join_attributes([
@@ -124,7 +126,7 @@ pub fn task_list(
       let card = task_card(task, task_tags)
       list_item.render(item_content: card)
     })
-    |> string.join("\n")
+    |> join("\n")
 
   task_list.render(list_items: items)
 }
@@ -145,13 +147,13 @@ fn find_tags_for_task(
 
 pub fn task_form(task: Option(Task)) -> String {
   case task {
-    option.Some(t) -> edit_form(t)
-    option.None -> create_form()
+    Some(t) -> edit_form(t)
+    None -> create_form()
   }
 }
 
 pub fn task_editor(task: Task, _tags: List(Tag)) -> String {
-  let task_id = int.to_string(task.id)
+  let task_id = to_string(task.id)
 
   let editor_attrs = ""
 
@@ -191,7 +193,7 @@ pub fn task_editor(task: Task, _tags: List(Tag)) -> String {
     )
 
   // Description textarea with auto-save
-  let description_value = option.unwrap(task.description, "")
+  let description_value = unwrap(task.description, "")
   let description_attrs =
     join_attributes([
       htmx_attribute("post", "/tasks/" <> task_id <> "/update-field"),
@@ -262,13 +264,11 @@ pub fn task_editor(task: Task, _tags: List(Tag)) -> String {
 }
 
 fn create_form() -> String {
-  let title_field = form_components.text_field("title", "title", "Title", "")
+  let title_field = text_field("title", "title", "Title", "")
   let description_field =
-    form_components.text_area("description", "description", "Description", "")
-  let priority_field =
-    form_components.priority_select("priority", "priority", 3)
-  let due_date_field =
-    form_components.date_field("due_date", "due_date", "Due Date", "")
+    text_area("description", "description", "Description", "")
+  let priority_field = priority_select("priority", "priority", 3)
+  let due_date_field = date_field("due_date", "due_date", "Due Date", "")
 
   let fields =
     title_field
@@ -291,29 +291,17 @@ fn create_form() -> String {
 }
 
 fn edit_form(task: Task) -> String {
-  let task_id = int.to_string(task.id)
+  let task_id = to_string(task.id)
   let title_value = task.title
-  let description_value = option.unwrap(task.description, "")
+  let description_value = unwrap(task.description, "")
   let due_date_value = map(task.due_date, date_to_string) |> unwrap("")
 
-  let title_field =
-    form_components.text_field("title", "title", "Title", title_value)
+  let title_field = text_field("title", "title", "Title", title_value)
   let description_field =
-    form_components.text_area(
-      "description",
-      "description",
-      "Description",
-      description_value,
-    )
-  let priority_field =
-    form_components.priority_select("priority", "priority", task.priority)
+    text_area("description", "description", "Description", description_value)
+  let priority_field = priority_select("priority", "priority", task.priority)
   let due_date_field =
-    form_components.date_field(
-      "due_date",
-      "due_date",
-      "Due Date",
-      due_date_value,
-    )
+    date_field("due_date", "due_date", "Due Date", due_date_value)
 
   let fields =
     title_field

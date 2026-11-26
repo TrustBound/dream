@@ -3,7 +3,7 @@
 import dream/http/error.{type Error, NotFound, from_shared}
 import dream_errors
 import dream_postgres/client.{type Connection, type QueryError}
-import gleam/list
+import gleam/list.{reverse}
 import gleam/result.{map_error, try}
 import models/task.{type Task, update_position}
 
@@ -34,7 +34,7 @@ fn batch_reorder_recursive(
   results: List(Task),
 ) -> Result(List(Task), Error) {
   case updates {
-    [] -> Ok(list.reverse(results))
+    [] -> Ok(reverse(results))
     [#(task_id, position), ..rest] -> {
       use task_item <- try(
         update_position(db, task_id, position)

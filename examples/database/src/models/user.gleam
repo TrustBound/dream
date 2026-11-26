@@ -6,7 +6,7 @@ import dream_errors.{
 import dream_postgres/client.{
   type Connection, type QueryError, type Returned, type Timestamp,
   SchemaFingerprint, broken_promise, execute, finite_timestamp, infinite_value,
-  int, more_than_one_row, parameter, query, returning, text, timestamp_decoder,
+  more_than_one_row, parameter, query, returning, text, timestamp_decoder,
   to_error, violated_constraint,
 }
 import gleam/dynamic/decode.{type Decoder, field, optional, string, success}
@@ -49,7 +49,7 @@ RETURNING id, name, email, created_at"
 pub fn delete(db: Connection, id: Int) -> Result(Nil, Error(QueryError)) {
   "DELETE FROM users WHERE id = $1"
   |> query
-  |> parameter(int(id))
+  |> parameter(client.int(id))
   |> execute(db)
   |> no_rows("user.delete", [])
 }
@@ -58,7 +58,7 @@ pub fn delete(db: Connection, id: Int) -> Result(Nil, Error(QueryError)) {
 pub fn get(db: Connection, id: Int) -> Result(User, Error(QueryError)) {
   "SELECT id, name, email, created_at FROM users WHERE id = $1"
   |> query
-  |> parameter(int(id))
+  |> parameter(client.int(id))
   |> returning(user_decoder())
   |> execute(db)
   |> one_row("user.get", [])
@@ -85,7 +85,7 @@ RETURNING id, name, email, created_at"
   |> query
   |> parameter(text(name))
   |> parameter(text(email))
-  |> parameter(int(id))
+  |> parameter(client.int(id))
   |> returning(user_decoder())
   |> execute(db)
   |> one_row("user.update", ["users_email_key"])

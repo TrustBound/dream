@@ -181,12 +181,12 @@ The controller called the helper:
 
 In Dream 3 the helper is gone, and the controller calls `require_json`:
 
-### Parse a JSON body with `require_json` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/controllers/users_controller.gleam#L23-L27"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Parse a JSON body with `require_json` <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/controllers/users_controller.gleam#L25-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   let result = {
     let db = services.database.connection
-    user_operations.list_users(db)
+    list_users(db)
   }
 
 ```
@@ -581,7 +581,7 @@ dream_model = ">= 1.0.0 and < 2.0.0"
 4. Run `gleam run -m dream_model`. It writes `src/models/user.gleam`. Delete the `sql.gleam` of Squirrel and the functions that converted its rows.
 5. Give the `schema_fingerprint` of each generated module to `client.check_schema` when the app starts.
 
-### Check the schema at start-up <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/database.gleam#L47-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Check the schema at start-up <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/database.gleam#L50-L58"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   // Wait for the database, then stop with a clear message when the schema
@@ -589,7 +589,7 @@ dream_model = ">= 1.0.0 and < 2.0.0"
   use Nil <- result.try(
     check_schema_waiting_for_database(connection, [
       user.schema_fingerprint,
-      schema_fingerprint,
+      post.schema_fingerprint,
     ])
     |> result.map_error(format_schema_check_error),
   )
@@ -802,22 +802,20 @@ pub fn handle_error(err: Error) -> Response {
 
 **How to fix it.** Add the three branches. In Dream 3 the helper answers `409` with the message, and `503` and `504` with a fixed text:
 
-### `handle_error` in Dream 3 <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/src/utilities/response_helpers.gleam#L11-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### `handle_error` in Dream 3 <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/src/utilities/response_helpers.gleam#L17-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_error(err: Error) -> Response {
   case err {
-    error.BadRequest(msg) ->
-      text_response(status.bad_request, "Bad Request: " <> msg)
-    error.Unauthorized(_msg) ->
-      text_response(status.unauthorized, "Unauthorized")
-    error.Forbidden(_msg) -> text_response(status.forbidden, "Forbidden")
-    error.NotFound(msg) -> text_response(status.not_found, "Not Found: " <> msg)
-    error.Conflict(msg) -> text_response(status.conflict, "Conflict: " <> msg)
-    error.UnprocessableContent(msg) ->
-      text_response(status.unprocessable_content, "Unprocessable: " <> msg)
-    error.InternalServerError(_msg) ->
-      text_response(status.internal_server_error, "Internal Server Error")
+    BadRequest(msg) -> text_response(bad_request, "Bad Request: " <> msg)
+    Unauthorized(_msg) -> text_response(unauthorized, "Unauthorized")
+    Forbidden(_msg) -> text_response(forbidden, "Forbidden")
+    NotFound(msg) -> text_response(not_found, "Not Found: " <> msg)
+    Conflict(msg) -> text_response(conflict, "Conflict: " <> msg)
+    UnprocessableContent(msg) ->
+      text_response(unprocessable_content, "Unprocessable: " <> msg)
+    InternalServerError(_msg) ->
+      text_response(internal_server_error, "Internal Server Error")
     ServiceUnavailable(_msg) ->
       text_response(service_unavailable, "Service Unavailable")
     GatewayTimeout(_msg) -> text_response(gateway_timeout, "Gateway Timeout")

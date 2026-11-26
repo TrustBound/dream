@@ -1,19 +1,21 @@
 //// Project view - presentation layer
 
-import gleam/json.{string}
-import gleam/option
+import gleam/json.{type Json, array, int, null, object, string, to_string}
+import gleam/option.{type Option, None, Some, unwrap}
 import models/project.{type Project}
 import models/tag.{type Tag}
 import models/task.{type Task}
-import templates/components/layout_components
-import templates/components/project_components
+import templates/components/layout_components.{build_page}
+import templates/components/project_components.{
+  project_card, project_form_html, project_list,
+}
 import templates/components/task_components
-import templates/pages/project as project_page
+import templates/pages/project.{render} as _
 import utilities/dates.{timestamp_to_string}
 
 /// Render project card for HTMX swap
 pub fn card(project: Project) -> String {
-  project_components.project_card(project)
+  project_card(project)
 }
 
 /// Render project detail page
@@ -22,23 +24,23 @@ pub fn show_page(
   tasks: List(Task),
   tags_by_task: List(#(Int, List(Tag))),
 ) -> String {
-  let description = option.unwrap(project.description, "")
+  let description = unwrap(project.description, "")
   let task_list = task_components.task_list(tasks, tags_by_task)
 
   let content =
-    project_page.render(
+    render(
       project_name: project.name,
       project_description: description,
       task_list: task_list,
     )
 
-  layout_components.build_page(project.name, content)
+  build_page(project.name, content)
 }
 
 /// Render list of projects
 pub fn list_page(projects: List(Project)) -> String {
-  let form = project_components.project_form_html()
-  let list = project_components.project_list(projects)
+  let form = project_form_html()
+  let list = project_list(projects)
   let content =
     "<section>"
     <> "<header><h1>Projects</h1></header>"
@@ -46,40 +48,40 @@ pub fn list_page(projects: List(Project)) -> String {
     <> list
     <> "</section>"
 
-  layout_components.build_page("Projects", content)
+  build_page("Projects", content)
 }
 
 /// Convert project to JSON
 pub fn to_json(project: Project) -> String {
-  json.object([
-    #("id", json.int(project.id)),
-    #("name", json.string(project.name)),
+  object([
+    #("id", int(project.id)),
+    #("name", string(project.name)),
     #("description", json_option_string(project.description)),
     #("color", json_option_string(project.color)),
     #("created_at", string(timestamp_to_string(project.created_at))),
   ])
-  |> json.to_string
+  |> to_string
 }
 
 /// Convert list of projects to JSON
 pub fn list_to_json(projects: List(Project)) -> String {
-  json.array(projects, project_to_json_object)
-  |> json.to_string
+  array(projects, project_to_json_object)
+  |> to_string
 }
 
-fn project_to_json_object(project: Project) -> json.Json {
-  json.object([
-    #("id", json.int(project.id)),
-    #("name", json.string(project.name)),
+fn project_to_json_object(project: Project) -> Json {
+  object([
+    #("id", int(project.id)),
+    #("name", string(project.name)),
     #("description", json_option_string(project.description)),
     #("color", json_option_string(project.color)),
     #("created_at", string(timestamp_to_string(project.created_at))),
   ])
 }
 
-fn json_option_string(opt: option.Option(String)) -> json.Json {
+fn json_option_string(opt: Option(String)) -> Json {
   case opt {
-    option.Some(val) -> json.string(val)
-    option.None -> json.null()
+    Some(val) -> string(val)
+    None -> null()
   }
 }

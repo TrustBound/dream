@@ -6,7 +6,7 @@ import dream_errors.{
 import dream_postgres/client.{
   type Connection, type QueryError, type Returned, type Timestamp,
   SchemaFingerprint, broken_promise, execute, finite_timestamp, infinite_value,
-  int, more_than_one_row, nullable, parameter, query, returning, text,
+  more_than_one_row, nullable, parameter, query, returning, text,
   timestamp_decoder, to_error, violated_constraint,
 }
 import gleam/dynamic/decode.{type Decoder, field, optional, string, success}
@@ -45,7 +45,7 @@ pub fn create(
   "INSERT INTO posts (user_id, title, content) VALUES ($1, $2, $3)
 RETURNING id, user_id, title, content, created_at"
   |> query
-  |> parameter(int(user_id))
+  |> parameter(client.int(user_id))
   |> parameter(text(title))
   |> parameter(nullable(text, content))
   |> returning(post_decoder())
@@ -57,7 +57,7 @@ RETURNING id, user_id, title, content, created_at"
 pub fn get(db: Connection, id: Int) -> Result(Post, Error(QueryError)) {
   "SELECT id, user_id, title, content, created_at FROM posts WHERE id = $1"
   |> query
-  |> parameter(int(id))
+  |> parameter(client.int(id))
   |> returning(post_decoder())
   |> execute(db)
   |> one_row("post.get", [])
@@ -71,7 +71,7 @@ pub fn list(
   "SELECT id, user_id, title, content, created_at FROM posts
 WHERE user_id = $1 ORDER BY id"
   |> query
-  |> parameter(int(user_id))
+  |> parameter(client.int(user_id))
   |> returning(post_decoder())
   |> execute(db)
   |> many_rows("post.list", [])

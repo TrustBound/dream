@@ -7,32 +7,35 @@ import dream_postgres/client.{
   type SchemaCheckError, type SchemaFingerprint, SchemaUnreadable, check_schema,
   format_schema_check_error,
 }
-import dream_postgres_client.{type Connection, ConnectionUnavailable, start}
-import gleam/erlang/process.{sleep}
+import dream_postgres_client.{
+  type Connection, ConnectionUnavailable, database, default_config, host,
+  password, pool_size, port, start, user,
+}
+import gleam/erlang/process.{new_name, sleep}
 import gleam/int.{to_string}
 import gleam/io.{println_error}
-import gleam/option
+import gleam/option.{Some}
 import gleam/otp/actor.{Started}
 import gleam/result
 import models/product.{schema_fingerprint}
 
 pub type DatabaseService {
-  DatabaseService(connection: dream_postgres_client.Connection)
+  DatabaseService(connection: Connection)
 }
 
 pub fn init_database() -> Result(DatabaseService, String) {
   // Create connection pool name
-  let pool_name = process.new_name("multi_format_postgres_pool")
+  let pool_name = new_name("multi_format_postgres_pool")
 
   // Configure PostgreSQL connection
   let config =
-    dream_postgres_client.default_config(pool_name: pool_name)
-    |> dream_postgres_client.host("localhost")
-    |> dream_postgres_client.port(5435)
-    |> dream_postgres_client.database("dream_example_multi_format_db")
-    |> dream_postgres_client.user("postgres")
-    |> dream_postgres_client.password(option.Some("postgres"))
-    |> dream_postgres_client.pool_size(10)
+    default_config(pool_name: pool_name)
+    |> host("localhost")
+    |> port(5435)
+    |> database("dream_example_multi_format_db")
+    |> user("postgres")
+    |> password(Some("postgres"))
+    |> pool_size(10)
 
   // Start the connection pool
   use connection <- result.try(case start(config) {

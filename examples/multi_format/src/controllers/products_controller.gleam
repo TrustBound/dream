@@ -9,15 +9,18 @@ import dream/http/request.{type PathParam, get_param}
 import dream/http/response.{
   html_response, json_response, stream_response, text_response,
 }
-import dream/http/status
-import gleam/option
+import dream/http/status.{ok}
+import gleam/option.{type Option, Some}
 import gleam/result
-import gleam/string
+import gleam/string.{ends_with}
 import models/product.{type Product}
-import operations/product_operations
+import operations/product_operations.{get_product, list_products}
 import services.{type Services}
-import utilities/response_helpers
-import views/products/view as product_view
+import utilities/response_helpers.{handle_error}
+import views/products/view.{
+  list_to_csv_stream, list_to_html, list_to_json, to_csv, to_html, to_htmx,
+  to_json,
+}
 
 fn parse_int_param(param: PathParam) -> Result(Int, Error) {
   case param.as_int {
@@ -44,27 +47,22 @@ pub fn show(
     use id <- result.try(parse_int_param(param))
     let format = param.format
     let db = services.database.connection
-    use product <- result.try(product_operations.get_product(db, id))
+    use product <- result.try(get_product(db, id))
     Ok(#(product, format))
   }
 
   case result {
     Ok(#(product, format)) -> respond_with_format(product, format)
-    Error(err) -> response_helpers.handle_error(err)
+    Error(err) -> handle_error(err)
   }
 }
 
-fn respond_with_format(
-  product: Product,
-  format: option.Option(String),
-) -> Response {
+fn respond_with_format(product: Product, format: Option(String)) -> Response {
   case format {
-    option.Some("json") ->
-      json_response(status.ok, product_view.to_json(product))
-    option.Some("htmx") ->
-      html_response(status.ok, product_view.to_htmx(product))
-    option.Some("csv") -> text_response(status.ok, product_view.to_csv(product))
-    _ -> html_response(status.ok, product_view.to_html(product))
+    Some("json") -> json_response(ok, to_json(product))
+    Some("htmx") -> html_response(ok, to_htmx(product))
+    Some("csv") -> text_response(ok, to_csv(product))
+    _ -> html_response(ok, to_html(product))
   }
 }
 
@@ -76,12 +74,12 @@ pub fn index(
 ) -> Response {
   let result = {
     let db = services.database.connection
-    product_operations.list_products(db)
+    list_products(db)
   }
 
   case result {
     Ok(products) -> respond_with_format_from_path(products, request.path)
-    Error(err) -> response_helpers.handle_error(err)
+    Error(err) -> handle_error(err)
   }
 }
 
@@ -89,20 +87,15 @@ fn respond_with_format_from_path(
   products: List(Product),
   path: String,
 ) -> Response {
-  case string.ends_with(path, ".json") {
-    True -> json_response(status.ok, product_view.list_to_json(products))
+  case ends_with(path, ".json") {
+    True -> json_response(ok, list_to_json(products))
     False -> respond_html_or_csv(products, path)
   }
 }
 
 fn respond_html_or_csv(products: List(Product), path: String) -> Response {
-  case string.ends_with(path, ".csv") {
-    True ->
-      stream_response(
-        status.ok,
-        product_view.list_to_csv_stream(products),
-        "text/csv",
-      )
-    False -> html_response(status.ok, product_view.list_to_html(products))
+  case ends_with(path, ".csv") {
+    True -> stream_response(ok, list_to_csv_stream(products), "text/csv")
+    False -> html_response(ok, list_to_html(products))
   }
 }

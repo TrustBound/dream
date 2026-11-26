@@ -5,41 +5,43 @@ import dream_postgres/client.{
   type SchemaCheckError, type SchemaFingerprint, SchemaUnreadable, check_schema,
   format_schema_check_error,
 }
-import dream_postgres_client.{type Connection, ConnectionUnavailable}
-import gleam/erlang/process.{sleep}
+import dream_postgres_client.{
+  type Connection, ConnectionUnavailable, database, default_config, host,
+  password, pool_size, port, start, user,
+}
+import gleam/erlang/process.{new_name, sleep}
 import gleam/int.{to_string}
-import gleam/io.{println_error}
-import gleam/option
-import gleam/otp/actor
-import models/project.{schema_fingerprint}
+import gleam/io.{println, println_error}
+import gleam/option.{Some}
+import gleam/otp/actor.{Started}
+import models/project
 import models/tag
 import models/task
 
-pub fn initialize() -> dream_postgres_client.Connection {
-  io.println("Connecting to database...")
+pub fn initialize() -> Connection {
+  println("Connecting to database...")
 
   // Use direct dream_postgres_client configuration like other examples
-  let pool_name = process.new_name("tasks_postgres_pool")
+  let pool_name = new_name("tasks_postgres_pool")
 
   let config =
-    dream_postgres_client.default_config(pool_name: pool_name)
-    |> dream_postgres_client.host("localhost")
-    |> dream_postgres_client.port(5437)
-    |> dream_postgres_client.database("tasks_db")
-    |> dream_postgres_client.user("postgres")
-    |> dream_postgres_client.password(option.Some("postgres"))
-    |> dream_postgres_client.pool_size(10)
+    default_config(pool_name: pool_name)
+    |> host("localhost")
+    |> port(5437)
+    |> database("tasks_db")
+    |> user("postgres")
+    |> password(Some("postgres"))
+    |> pool_size(10)
 
-  let assert Ok(actor.Started(_pid, connection)) =
-    dream_postgres_client.start(config)
+  let assert Ok(Started(_pid, connection)) = start(config)
 
-  io.println("Database connection pool started")
+  println("Database connection pool started")
 
   // Wait for the database, then stop with a clear message when the schema
   // changed after dream_model generated the models
   case
     check_schema_waiting_for_database(connection, [
-      schema_fingerprint,
+      project.schema_fingerprint,
       tag.schema_fingerprint,
       task.schema_fingerprint,
     ])

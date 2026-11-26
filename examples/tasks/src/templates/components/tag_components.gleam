@@ -1,7 +1,7 @@
 //// Tag composition - calls tag templates
 
-import gleam/int
-import gleam/string
+import gleam/int.{to_string}
+import gleam/string.{join}
 import models/tag.{type Tag}
 import templates/components/tag_list
 import templates/components/tag_selector
@@ -20,24 +20,24 @@ pub fn tag_list(tags: List(Tag)) -> String {
       let badges =
         tags
         |> list_map(tag_badge)
-        |> string.join(" ")
+        |> join(" ")
       tag_list.render(badges_html: badges)
     }
   }
 }
 
 pub fn tag_selector_html(tags: List(Tag), task_id: Int) -> String {
-  let task_id_str = int.to_string(task_id)
+  let task_id_str = to_string(task_id)
   let options =
     tags
     |> list_map(fn(tag) {
       tag_button.render(
         task_id: task_id_str,
-        tag_id: int.to_string(tag.id),
+        tag_id: to_string(tag.id),
         tag_name: tag.name,
       )
     })
-    |> string.join("")
+    |> join("")
 
   // Create tag form - creates tag and adds to task, then refreshes selector
   let create_form_attrs =

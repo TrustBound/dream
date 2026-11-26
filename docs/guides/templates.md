@@ -374,7 +374,7 @@ This layered approach provides:
 
 The `multi_format` example has one `show` controller for `/products/:id`. The router puts the extension of the last segment in `PathParam.format`, so `/products/1.json` gives the id `1` and the format `json`:
 
-### One controller, four formats <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/multi_format/src/controllers/products_controller.gleam#L33-L69"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### One controller, four formats <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/multi_format/src/controllers/products_controller.gleam#L36-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Show single product - supports .json, .htmx, .csv extensions
@@ -391,27 +391,22 @@ pub fn show(
     use id <- result.try(parse_int_param(param))
     let format = param.format
     let db = services.database.connection
-    use product <- result.try(product_operations.get_product(db, id))
+    use product <- result.try(get_product(db, id))
     Ok(#(product, format))
   }
 
   case result {
     Ok(#(product, format)) -> respond_with_format(product, format)
-    Error(err) -> response_helpers.handle_error(err)
+    Error(err) -> handle_error(err)
   }
 }
 
-fn respond_with_format(
-  product: Product,
-  format: option.Option(String),
-) -> Response {
+fn respond_with_format(product: Product, format: Option(String)) -> Response {
   case format {
-    option.Some("json") ->
-      json_response(status.ok, product_view.to_json(product))
-    option.Some("htmx") ->
-      html_response(status.ok, product_view.to_htmx(product))
-    option.Some("csv") -> text_response(status.ok, product_view.to_csv(product))
-    _ -> html_response(status.ok, product_view.to_html(product))
+    Some("json") -> json_response(ok, to_json(product))
+    Some("htmx") -> html_response(ok, to_htmx(product))
+    Some("csv") -> text_response(ok, to_csv(product))
+    _ -> html_response(ok, to_html(product))
   }
 }
 ```

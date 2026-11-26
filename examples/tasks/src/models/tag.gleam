@@ -5,7 +5,7 @@ import dream_errors.{
 }
 import dream_postgres/client.{
   type Connection, type QueryError, type Returned, SchemaFingerprint,
-  broken_promise, execute, infinite_value, int, more_than_one_row, nullable,
+  broken_promise, execute, infinite_value, more_than_one_row, nullable,
   parameter, query, returning, text, to_error, violated_constraint,
 }
 import gleam/dynamic/decode.{type Decoder, at, field, optional, string, success}
@@ -38,8 +38,8 @@ pub fn add_to_task(
 VALUES ($1, $2)
 ON CONFLICT (task_id, tag_id) DO NOTHING;"
   |> query
-  |> parameter(int(task_id))
-  |> parameter(int(tag_id))
+  |> parameter(client.int(task_id))
+  |> parameter(client.int(tag_id))
   |> execute(db)
   |> no_rows("tag.add_to_task", [])
 }
@@ -58,7 +58,7 @@ INNER JOIN task_tags tt ON t.id = tt.tag_id
 WHERE tt.task_id = $1
 ORDER BY t.name ASC;"
   |> query
-  |> parameter(int(task_id))
+  |> parameter(client.int(task_id))
   |> returning(tag_decoder())
   |> execute(db)
   |> many_rows("tag.for_task", [])
@@ -109,8 +109,8 @@ pub fn remove_from_task(
 WHERE task_id = $1 AND tag_id = $2
 RETURNING tag_id;"
   |> query
-  |> parameter(int(task_id))
-  |> parameter(int(tag_id))
+  |> parameter(client.int(task_id))
+  |> parameter(client.int(tag_id))
   |> returning(at([0], decode.int))
   |> execute(db)
   |> one_row("tag.remove_from_task", [])

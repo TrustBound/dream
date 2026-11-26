@@ -3,7 +3,7 @@
 //// The generated models give `client.Date` and `client.Timestamp` values.
 //// The views show a date as YYYY-MM-DD and a time as Unix seconds.
 
-import dream_postgres/client.{type Date, type Timestamp}
+import dream_postgres/client.{type Timestamp}
 import gleam/float.{truncate}
 import gleam/int.{parse, to_string}
 import gleam/option.{type Option, None, from_result, map}
@@ -12,7 +12,7 @@ import gleam/time/calendar.{month_from_int, month_to_int}
 import gleam/time/timestamp.{to_unix_seconds}
 
 /// A date as YYYY-MM-DD
-pub fn date_to_string(date: Date) -> String {
+pub fn date_to_string(date: client.Date) -> String {
   let calendar.Date(year: y, month: m, day: d) = date
   to_string(y)
   <> "-"
@@ -29,7 +29,7 @@ pub fn timestamp_to_string(ts: Timestamp) -> String {
 }
 
 /// Parse a date string (YYYY-MM-DD). Returns None if parsing fails.
-pub fn parse_date(date_str: String) -> Option(Date) {
+pub fn parse_date(date_str: String) -> Option(client.Date) {
   case split(date_str, "-") {
     [year_str, month_str, day_str] ->
       case parse(year_str), parse(month_str), parse(day_str) {

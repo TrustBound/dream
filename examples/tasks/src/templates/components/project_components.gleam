@@ -1,8 +1,8 @@
 //// Project composition - calls project templates
 
-import gleam/int
-import gleam/option
-import gleam/string
+import gleam/int.{to_string}
+import gleam/option.{None, Some}
+import gleam/string.{join}
 import models/project.{type Project}
 import templates/components/project_card
 import templates/components/project_form
@@ -13,12 +13,12 @@ import templates/elements/paragraph
 import utilities/html_helpers.{htmx_attribute, join_attributes}
 
 pub fn project_card(project: Project) -> String {
-  let project_id = int.to_string(project.id)
+  let project_id = to_string(project.id)
   let project_link = "/projects/" <> project_id
 
   let description_html = case project.description {
-    option.Some(desc) -> paragraph.render(text_content: desc)
-    option.None -> ""
+    Some(desc) -> paragraph.render(text_content: desc)
+    None -> ""
   }
 
   let delete_btn_attrs =
@@ -53,7 +53,7 @@ pub fn project_list(projects: List(Project)) -> String {
       let card = project_card(project)
       list_item.render(item_content: card)
     })
-    |> string.join("\n")
+    |> join("\n")
 
   project_list.render(list_items: items)
 }

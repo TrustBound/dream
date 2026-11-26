@@ -8,7 +8,7 @@
 import dream/http/error.{type Error, NotFound, from_shared}
 import dream_errors
 import dream_postgres/client.{type Connection, type QueryError}
-import gleam/option.{Some, unwrap}
+import gleam/option.{None, Some}
 import gleam/result.{map_error, replace, try}
 import models/tag.{
   type Tag, add_to_task, for_task, get_or_create, list, remove_from_task,
@@ -24,11 +24,11 @@ pub fn create_and_attach(
   task_id: Int,
   tag_name: String,
 ) -> Result(Tag, Error) {
-  let data = TagData(name: tag_name, color: option.None)
+  let data = TagData(name: tag_name, color: None)
 
   // A tag with no color stores an empty color.
   use created <- try(
-    get_or_create(db, data.name, Some(unwrap(data.color, "")))
+    get_or_create(db, data.name, Some(option.unwrap(data.color, "")))
     |> map_error(tag_error),
   )
   use _ <- try(add_to_task(db, task_id, created.id) |> map_error(tag_error))

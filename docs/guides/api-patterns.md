@@ -267,20 +267,24 @@ import dream/http.{
   internal_server_error, json_response, not_found, service_unavailable,
   unauthorized, unprocessable_content,
 }
-import dream/http/error.{type Error, GatewayTimeout, ServiceUnavailable}
-import gleam/json
+import dream/http/error.{
+  type Error, BadRequest, Conflict, Forbidden, GatewayTimeout,
+  InternalServerError, NotFound, ServiceUnavailable, Unauthorized,
+  UnprocessableContent,
+}
+import gleam/json.{object, string, to_string}
 
 pub fn handle_error(err: Error) -> Response {
   case err {
-    error.BadRequest(msg) -> json_response(bad_request, error_json(msg))
-    error.Unauthorized(_msg) ->
+    BadRequest(msg) -> json_response(bad_request, error_json(msg))
+    Unauthorized(_msg) ->
       json_response(unauthorized, error_json("Unauthorized"))
-    error.Forbidden(_msg) -> json_response(forbidden, error_json("Forbidden"))
-    error.NotFound(msg) -> json_response(not_found, error_json(msg))
-    error.Conflict(msg) -> json_response(conflict, error_json(msg))
-    error.UnprocessableContent(msg) ->
+    Forbidden(_msg) -> json_response(forbidden, error_json("Forbidden"))
+    NotFound(msg) -> json_response(not_found, error_json(msg))
+    Conflict(msg) -> json_response(conflict, error_json(msg))
+    UnprocessableContent(msg) ->
       json_response(unprocessable_content, error_json(msg))
-    error.InternalServerError(_msg) ->
+    InternalServerError(_msg) ->
       json_response(internal_server_error, error_json("Internal server error"))
     ServiceUnavailable(_msg) ->
       json_response(service_unavailable, error_json("Service unavailable"))
@@ -290,8 +294,8 @@ pub fn handle_error(err: Error) -> Response {
 }
 
 fn error_json(message: String) -> String {
-  json.object([#("error", json.string(message))])
-  |> json.to_string()
+  object([#("error", string(message))])
+  |> to_string()
 }
 ```
 

@@ -6,13 +6,13 @@
 import context.{type DatabaseContext}
 import dream/http.{type Request, type Response, require_int, require_json}
 import dream/http/response.{json_response}
-import dream/http/status
+import dream/http/status.{created, ok}
 import gleam/dynamic/decode.{type Decoder, field, string, success}
 import gleam/result
-import operations/post_operations
+import operations/post_operations.{create_post, get_post, list_posts}
 import services.{type Services}
-import utilities/response_helpers
-import views/post_view
+import utilities/response_helpers.{handle_error}
+import views/post_view.{list_to_json, to_json}
 
 /// List all posts for a user
 pub fn index(
@@ -23,12 +23,12 @@ pub fn index(
   let result = {
     use user_id <- result.try(require_int(request, "user_id"))
     let db = services.database.connection
-    post_operations.list_posts(db, user_id)
+    list_posts(db, user_id)
   }
 
   case result {
-    Ok(posts) -> json_response(status.ok, post_view.list_to_json(posts))
-    Error(err) -> response_helpers.handle_error(err)
+    Ok(posts) -> json_response(ok, list_to_json(posts))
+    Error(err) -> handle_error(err)
   }
 }
 
@@ -41,12 +41,12 @@ pub fn show(
   let result = {
     use id <- result.try(require_int(request, "id"))
     let db = services.database.connection
-    post_operations.get_post(db, id)
+    get_post(db, id)
   }
 
   case result {
-    Ok(post_data) -> json_response(status.ok, post_view.to_json(post_data))
-    Error(err) -> response_helpers.handle_error(err)
+    Ok(post_data) -> json_response(ok, to_json(post_data))
+    Error(err) -> handle_error(err)
   }
 }
 
@@ -60,12 +60,12 @@ pub fn create(
     use user_id <- result.try(require_int(request, "user_id"))
     use #(title, content) <- result.try(require_json(request, post_decoder()))
     let db = services.database.connection
-    post_operations.create_post(db, user_id, title, content)
+    create_post(db, user_id, title, content)
   }
 
   case result {
-    Ok(post_data) -> json_response(status.created, post_view.to_json(post_data))
-    Error(err) -> response_helpers.handle_error(err)
+    Ok(post_data) -> json_response(created, to_json(post_data))
+    Error(err) -> handle_error(err)
   }
 }
 
