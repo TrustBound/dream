@@ -57,3 +57,19 @@ pub fn conflict(message: String) -> Response {
     "<h1>409 Conflict</h1><p>" <> message <> "</p>",
   )
 }
+
+/// 503 Service Unavailable response
+pub fn service_unavailable(message: String) -> Response {
+  html_response(
+    status.service_unavailable,
+    "<h1>503 Service Unavailable</h1><p>" <> message <> "</p>",
+  )
+}
+
+/// 504 Gateway Timeout response
+pub fn gateway_timeout(message: String) -> Response {
+  html_response(
+    status.gateway_timeout,
+    "<h1>504 Gateway Timeout</h1><p>" <> message <> "</p>",
+  )
+}

@@ -19,7 +19,7 @@ Dream 3.0.0 has breaking changes. A request body is one `RequestBody` value, the
 - [Step 8: Move from pog and squirrel](#step-8-move-from-pog-and-squirrel)
 - [Step 9: Handle the result of listen](#step-9-handle-the-result-of-listen)
 - [Step 10: Update calls of get_server and response.convert](#step-10-update-calls-of-get_server-and-responseconvert)
-- [Step 11: Answer the Conflict error](#step-11-answer-the-conflict-error)
+- [Step 11: Answer the new errors](#step-11-answer-the-new-errors)
 - [Step 12: Check the behavior changes](#step-12-check-the-behavior-changes)
 - [Step 13: Update your tests to dream_test 3](#step-13-update-your-tests-to-dream_test-3)
 - [Test your code](#test-your-code)
@@ -58,7 +58,7 @@ Do the steps in order. Steps 1 and 3 apply to most projects. The other steps app
 | `pog`, `squirrel` or `dream_postgres` | The guides use `dream_postgres_client` and `dream_model`. | [Step 8](#step-8-move-from-pog-and-squirrel) |
 | `server.listen` in `main` | It returns a `Result`. | [Step 9](#step-9-handle-the-result-of-listen) |
 | `dream.get_server` or `response.convert` | `get_server` takes `RisksUnderstood`. `convert` takes the Mist request. | [Step 10](#step-10-update-calls-of-get_server-and-responseconvert) |
-| A `case` over every `Error` | `Error` has `Conflict(String)`, which gives 409. | [Step 11](#step-11-answer-the-conflict-error) |
+| A `case` over every `Error` | `Error` has `Conflict(String)`, `ServiceUnavailable(String)` and `GatewayTimeout(String)`, which give 409, 503 and 504. | [Step 11](#step-11-answer-the-new-errors) |
 | Tests or clients that check status codes or error texts | Some answers and messages changed. | [Step 12](#step-12-check-the-behavior-changes) |
 | Tests from the Dream 2 testing guide | No change is necessary. The new guide uses `dream_test` 3. | [Step 13](#step-13-update-your-tests-to-dream_test-3) |
 
@@ -776,9 +776,9 @@ pub fn convert(
 
 **How to fix it.** Give the Mist request as the first argument. `convert_stream` is private now: call `convert` for every body.
 
-## Step 11: Answer the Conflict error
+## Step 11: Answer the new errors
 
-**What changed.** `Error` has one more variant: `Conflict(String)`. `to_status_code` gives `409` for it. Use it when a request clashes with the current state of a resource: a unique value that is already taken, an edit against a stale version, or a state change that the current state does not allow. A `case` that names every `Error` value does not compile until it has a `Conflict` branch. The `simple` example had this helper in Dream 2:
+**What changed.** `Error` has three more variants. `Conflict(String)` gives `409`. Use it when a request clashes with the current state of a resource: a unique value that is already taken, an edit against a stale version, or a state change that the current state does not allow. `ServiceUnavailable(String)` gives `503`, for a service that the server needs and that is down or full. `GatewayTimeout(String)` gives `504`, for a call to a service that did not answer in time. A `case` that names every `Error` value does not compile until it has a branch for each of them. The `simple` example had this helper in Dream 2:
 
 ### `handle_error` in Dream 2 <a href="https://github.com/TrustBound/dream/blob/2.4.1/examples/simple/src/utilities/response_helpers.gleam#L11-L24"><img align="right" alt="Code at 2.4.1" src="https://img.shields.io/badge/%F0%9F%93%9C_code_at-2.4.1-lightgrey.svg?style=flat-square"></a>
 
@@ -799,9 +799,9 @@ pub fn handle_error(err: Error) -> Response {
 }
 ```
 
-**How to fix it.** Add a `Conflict` branch. In Dream 3 the helper answers `409` with the message:
+**How to fix it.** Add the three branches. In Dream 3 the helper answers `409` with the message, and `503` and `504` with a fixed text:
 
-### `handle_error` in Dream 3 <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/src/utilities/response_helpers.gleam#L11-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### `handle_error` in Dream 3 <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/src/utilities/response_helpers.gleam#L11-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_error(err: Error) -> Response {
@@ -817,11 +817,15 @@ pub fn handle_error(err: Error) -> Response {
       text_response(status.unprocessable_content, "Unprocessable: " <> msg)
     error.InternalServerError(_msg) ->
       text_response(status.internal_server_error, "Internal Server Error")
+    error.ServiceUnavailable(_msg) ->
+      text_response(status.service_unavailable, "Service Unavailable")
+    error.GatewayTimeout(_msg) ->
+      text_response(status.gateway_timeout, "Gateway Timeout")
   }
 }
 ```
 
-If your code answered a taken unique value with `UnprocessableContent` or `InternalServerError`, return `Conflict` in its place, so the client gets `409`.
+If your code answered a taken unique value with `UnprocessableContent` or `InternalServerError`, return `Conflict` in its place, so the client gets `409`. `error.from_shared` converts the shared error of dream_errors, which dream_postgres and the models of dream_model return, to these variants.
 
 ## Step 12: Check the behavior changes
 

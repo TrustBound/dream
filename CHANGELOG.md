@@ -67,9 +67,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `servers/mist/response.convert()` takes the Mist request first, and it
   converts a `Stream` body too. It used to panic on a `Stream` body.
   `convert_stream()` is private. See step 10 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
-- `Error` has a new variant, `Conflict(String)`, which gives `409`. A
-  `case` over every `Error` value needs a `Conflict` branch. See step 11 of
-  the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+- `Error` has three new variants: `Conflict(String)`, which gives `409`,
+  `ServiceUnavailable(String)`, which gives `503`, and
+  `GatewayTimeout(String)`, which gives `504`. A `case` over every `Error`
+  value needs a branch for each. See step 11 of the
+  [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
 - `src/` has no `panic` and no `let assert`.
 
 ### Added
@@ -96,6 +98,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `error.Conflict(String)` for `409 Conflict`: a request that clashes with
   the current state of a resource, such as a unique value that is already
   taken or an edit against a stale version.
+- `error.ServiceUnavailable(String)` for `503 Service Unavailable` and
+  `error.GatewayTimeout(String)` for `504 Gateway Timeout`, and the status
+  `gateway_timeout` in `dream/http/status` and `dream/http`.
+- `error.from_shared(error)` converts `dream_errors.Error(cause)`, the
+  shared error of the Dream ecosystem, to an `Error`: `NotFound`,
+  `Conflict`, `Invalid` (422), `Unavailable` (503), `Timeout` (504) and
+  `Failed` (500). Each gets a fixed, generic text, never the message of
+  the shared error, which is for developers and logs. Dream depends on
+  `dream_errors` 1.0.0.
 - `router.allowed_methods(router, request)` gives the methods of the routes
   that match the path of a request, in alphabetical order.
 

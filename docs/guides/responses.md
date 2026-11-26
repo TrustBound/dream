@@ -37,7 +37,7 @@ Both examples run from the Dream repository with `make run` in their folder, on 
 
 ## Which builder to use
 
-Each builder takes the status first. `dream/http/status` has a name for each common code: `ok`, `created`, `accepted`, `no_content`, `moved_permanently`, `found`, `see_other`, `temporary_redirect`, `bad_request`, `unauthorized`, `forbidden`, `not_found`, `method_not_allowed`, `conflict`, `teapot`, `unprocessable_content`, `too_many_requests`, `internal_server_error`, `not_implemented` and `service_unavailable`. `dream/http` has the same names, so `import dream/http.{ok}` works too.
+Each builder takes the status first. `dream/http/status` has a name for each common code: `ok`, `created`, `accepted`, `no_content`, `moved_permanently`, `found`, `see_other`, `temporary_redirect`, `bad_request`, `unauthorized`, `forbidden`, `not_found`, `method_not_allowed`, `conflict`, `teapot`, `unprocessable_content`, `too_many_requests`, `internal_server_error`, `not_implemented`, `service_unavailable` and `gateway_timeout`. `dream/http` has the same names, so `import dream/http.{ok}` works too.
 
 | You want to send | Use | What it sets |
 |:---|:---|:---|

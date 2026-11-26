@@ -633,7 +633,7 @@ fn user_error(model_error: client.ModelQueryError) -> Error {
 text becomes `error.Conflict`, and the rest becomes
 `error.InternalServerError`:
 
-### Map a model error to a Dream error <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/utilities/response_helpers.gleam#L25-L47"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Map a model error to a Dream error <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/utilities/response_helpers.gleam#L27-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Turn the error of a generated model function into a Dream error.

@@ -19,6 +19,8 @@ pub fn handle_error(err: Error) -> Response {
     error.Conflict(msg) -> errors.conflict(msg)
     error.UnprocessableContent(msg) -> errors.unprocessable_content(msg)
     error.InternalServerError(_msg) -> errors.internal_error()
+    error.ServiceUnavailable(msg) -> errors.service_unavailable(msg)
+    error.GatewayTimeout(msg) -> errors.gateway_timeout(msg)
   }
 }
 

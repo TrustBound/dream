@@ -52,3 +52,19 @@ pub fn internal_error() -> Response {
   let html = layout_components.build_page("Internal Server Error", content)
   html_response(status.internal_server_error, html)
 }
+
+/// 503 Service Unavailable page
+pub fn service_unavailable(message: String) -> Response {
+  let content =
+    error.render(error_title: "Service Unavailable", error_message: message)
+  let html = layout_components.build_page("Service Unavailable", content)
+  html_response(status.service_unavailable, html)
+}
+
+/// 504 Gateway Timeout page
+pub fn gateway_timeout(message: String) -> Response {
+  let content =
+    error.render(error_title: "Gateway Timeout", error_message: message)
+  let html = layout_components.build_page("Gateway Timeout", content)
+  html_response(status.gateway_timeout, html)
+}

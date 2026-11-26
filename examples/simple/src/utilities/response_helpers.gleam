@@ -21,5 +21,9 @@ pub fn handle_error(err: Error) -> Response {
       text_response(status.unprocessable_content, "Unprocessable: " <> msg)
     error.InternalServerError(_msg) ->
       text_response(status.internal_server_error, "Internal Server Error")
+    error.ServiceUnavailable(_msg) ->
+      text_response(status.service_unavailable, "Service Unavailable")
+    error.GatewayTimeout(_msg) ->
+      text_response(status.gateway_timeout, "Gateway Timeout")
   }
 }

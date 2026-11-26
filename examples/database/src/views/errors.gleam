@@ -46,3 +46,16 @@ pub fn unprocessable_content(message: String) -> Response {
 pub fn conflict(message: String) -> Response {
   json_response(status.conflict, "{\"error\": \"" <> message <> "\"}")
 }
+
+/// 503 Service Unavailable response
+pub fn service_unavailable(message: String) -> Response {
+  json_response(
+    status.service_unavailable,
+    "{\"error\": \"" <> message <> "\"}",
+  )
+}
+
+/// 504 Gateway Timeout response
+pub fn gateway_timeout(message: String) -> Response {
+  json_response(status.gateway_timeout, "{\"error\": \"" <> message <> "\"}")
+}

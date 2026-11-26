@@ -12,6 +12,10 @@
 //// and business logic, Dream uses one unified Error type. This means you can return
 //// errors from any layer without conversion, and the type system tracks them naturally.
 ////
+//// Packages of the Dream ecosystem, such as dream_postgres, return the shared
+//// error `dream_errors.Error(cause)`. `from_shared` converts it to an `Error`
+//// with a generic text for the client.
+////
 //// ## Usage
 ////
 //// Return errors from controllers, models, or operations using the same type:
@@ -69,6 +73,8 @@
 //// }
 //// ```
 
+import dream_errors
+
 /// Unified error type for Dream applications
 ///
 /// Maps semantic error types to HTTP status codes. Each variant includes
@@ -83,6 +89,8 @@
 /// - `Conflict`: Request clashes with the current state of the resource
 /// - `UnprocessableContent`: Valid syntax but fails business logic validation
 /// - `InternalServerError`: Unexpected server error (database, external API, etc.)
+/// - `ServiceUnavailable`: A service that the server needs is down or full
+/// - `GatewayTimeout`: A service that the server called did not answer in time
 pub type Error {
   /// 400 Bad Request - Invalid or missing parameter, validation failure
   ///
@@ -277,6 +285,49 @@ pub type Error {
   /// }
   /// ```
   InternalServerError(String)
+
+  /// 503 Service Unavailable - A service that the server needs is down
+  ///
+  /// Use when the server cannot answer now because a service that it needs
+  /// is down or has no free capacity: no database connection, a full pool,
+  /// or a dependency in maintenance. The client can try again later.
+  ///
+  /// ## Example
+  ///
+  /// ### Return ServiceUnavailable <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_service_unavailable.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  ///
+  /// ```gleam
+  /// import dream/http/error.{type Error, ServiceUnavailable}
+  /// import gleam/result
+  ///
+  /// pub fn load_rates(cache_result: Result(Float, Nil)) -> Result(Float, Error) {
+  ///   cache_result
+  ///   |> result.replace_error(ServiceUnavailable("Rate service is down"))
+  /// }
+  /// ```
+  ServiceUnavailable(String)
+
+  /// 504 Gateway Timeout - A service that the server called did not answer
+  ///
+  /// Use when the server called a database or an external service, and the
+  /// call did not finish in time.
+  ///
+  /// ## Example
+  ///
+  /// ### Return GatewayTimeout <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_gateway_timeout.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  ///
+  /// ```gleam
+  /// import dream/http/error.{type Error, GatewayTimeout}
+  /// import gleam/result
+  ///
+  /// pub fn fetch_quote(
+  ///   upstream_result: Result(String, Nil),
+  /// ) -> Result(String, Error) {
+  ///   upstream_result
+  ///   |> result.replace_error(GatewayTimeout("Quote service did not answer"))
+  /// }
+  /// ```
+  GatewayTimeout(String)
 }
 
 /// Convert Error to HTTP status code
@@ -311,6 +362,8 @@ pub fn to_status_code(error: Error) -> Int {
     Conflict(_) -> 409
     UnprocessableContent(_) -> 422
     InternalServerError(_) -> 500
+    ServiceUnavailable(_) -> 503
+    GatewayTimeout(_) -> 504
   }
 }
 
@@ -348,5 +401,59 @@ pub fn message(error: Error) -> String {
     Conflict(message) -> message
     UnprocessableContent(message) -> message
     InternalServerError(message) -> message
+    ServiceUnavailable(message) -> message
+    GatewayTimeout(message) -> message
+  }
+}
+
+/// Convert the shared error of the Dream ecosystem to an HTTP error
+///
+/// Packages such as dream_postgres and the models of dream_model return
+/// `dream_errors.Error(cause)`. This function gives each kind its status:
+///
+/// - `NotFound` gives `NotFound("Not found")`, a 404.
+/// - `Conflict` gives `Conflict("Conflict")`, a 409.
+/// - `Invalid` gives `UnprocessableContent("Invalid input")`, a 422.
+/// - `Unavailable` gives `ServiceUnavailable("Service unavailable")`, a 503.
+/// - `Timeout` gives `GatewayTimeout("Timed out")`, a 504.
+/// - `Failed` gives `InternalServerError("Internal server error")`, a 500.
+///
+/// The text is a fixed, generic phrase. It is never the `message` of the
+/// shared error. That message is for developers and logs: it can name
+/// tables, constraints, hosts and values, and a client must not see it.
+/// Log the shared error before you convert it, and match a case first when
+/// the client needs a specific text, for example `User not found`.
+///
+/// ## Example
+///
+/// ### Give a missing profile its own text <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_from_shared.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/error.{type Error}
+/// import dream_errors
+///
+/// pub type StoreError {
+///   StoreDown
+/// }
+///
+/// pub fn load_profile(
+///   store_result: Result(String, dream_errors.Error(StoreError)),
+/// ) -> Result(String, Error) {
+///   case store_result {
+///     Ok(profile) -> Ok(profile)
+///     Error(dream_errors.NotFound(..)) ->
+///       Error(error.NotFound("Profile not found"))
+///     Error(shared) -> Error(error.from_shared(shared))
+///   }
+/// }
+/// ```
+pub fn from_shared(error: dream_errors.Error(cause)) -> Error {
+  case error {
+    dream_errors.NotFound(..) -> NotFound("Not found")
+    dream_errors.Conflict(..) -> Conflict("Conflict")
+    dream_errors.Invalid(..) -> UnprocessableContent("Invalid input")
+    dream_errors.Unavailable(..) -> ServiceUnavailable("Service unavailable")
+    dream_errors.Timeout(..) -> GatewayTimeout("Timed out")
+    dream_errors.Failed(..) -> InternalServerError("Internal server error")
   }
 }

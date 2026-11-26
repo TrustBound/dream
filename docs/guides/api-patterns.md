@@ -263,8 +263,9 @@ Create a `utilities/response_helpers.gleam` module to centralize error handling:
 
 ```gleam
 import dream/http.{
-  type Response, bad_request, conflict, forbidden, internal_server_error,
-  json_response, not_found, unauthorized, unprocessable_content,
+  type Response, bad_request, conflict, forbidden, gateway_timeout,
+  internal_server_error, json_response, not_found, service_unavailable,
+  unauthorized, unprocessable_content,
 }
 import dream/http/error.{type Error}
 import gleam/json
@@ -281,6 +282,10 @@ pub fn handle_error(err: Error) -> Response {
       json_response(unprocessable_content, error_json(msg))
     error.InternalServerError(_msg) ->
       json_response(internal_server_error, error_json("Internal server error"))
+    error.ServiceUnavailable(_msg) ->
+      json_response(service_unavailable, error_json("Service unavailable"))
+    error.GatewayTimeout(_msg) ->
+      json_response(gateway_timeout, error_json("Timed out"))
   }
 }
 

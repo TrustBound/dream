@@ -256,6 +256,9 @@ pub const not_implemented = status.not_implemented
 /// Status code 503 Service Unavailable. Re-exported from `dream/http/status`.
 pub const service_unavailable = status.service_unavailable
 
+/// Status code 504 Gateway Timeout. Re-exported from `dream/http/status`.
+pub const gateway_timeout = status.gateway_timeout
+
 // Re-export unified error type
 /// The error type for Dream applications. Re-exported from `dream/http/error`.
 pub type Error =

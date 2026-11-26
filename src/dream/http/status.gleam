@@ -148,3 +148,9 @@ pub const not_implemented = 501
 /// Server temporarily unable to handle request due to overload or maintenance.
 /// Retry-After header may indicate when to retry.
 pub const service_unavailable = 503
+
+/// 504 Gateway Timeout - An upstream service did not answer in time
+///
+/// Server called another service, such as a database or an external API,
+/// and the call did not finish in time.
+pub const gateway_timeout = 504
