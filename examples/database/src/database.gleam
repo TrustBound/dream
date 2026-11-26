@@ -6,15 +6,18 @@
 //// After the pool starts, the app checks that the schema is still the one
 //// that dream_model generated the models from.
 
-import dream_postgres/client
-import dream_postgres_client
-import gleam/erlang/process
-import gleam/int
-import gleam/io
+import dream_postgres/client.{
+  type SchemaCheckError, type SchemaFingerprint, SchemaUnreadable, check_schema,
+  format_schema_check_error,
+}
+import dream_postgres_client.{type Connection, ConnectionUnavailable, start}
+import gleam/erlang/process.{sleep}
+import gleam/int.{to_string}
+import gleam/io.{println_error}
 import gleam/option
-import gleam/otp/actor
+import gleam/otp/actor.{Started}
 import gleam/result
-import models/post
+import models/post.{schema_fingerprint}
 import models/user
 
 pub type DatabaseService {
@@ -36,8 +39,8 @@ pub fn init_database() -> Result(DatabaseService, String) {
     |> dream_postgres_client.pool_size(10)
 
   // Start the connection pool
-  use connection <- result.try(case dream_postgres_client.start(config) {
-    Ok(actor.Started(_pid, connection)) -> Ok(connection)
+  use connection <- result.try(case start(config) {
+    Ok(Started(_pid, connection)) -> Ok(connection)
     Error(_) -> Error("Failed to start PostgreSQL connection pool")
   })
 
@@ -46,9 +49,9 @@ pub fn init_database() -> Result(DatabaseService, String) {
   use Nil <- result.try(
     check_schema_waiting_for_database(connection, [
       user.schema_fingerprint,
-      post.schema_fingerprint,
+      schema_fingerprint,
     ])
-    |> result.map_error(client.format_schema_check_error),
+    |> result.map_error(format_schema_check_error),
   )
   Ok(DatabaseService(connection: connection))
 }
@@ -68,37 +71,32 @@ const schema_check_delay_ms = 2000
 /// `schema_check_deadline_ms` passed since the first check. A changed
 /// schema and the other database errors give the error at once.
 pub fn check_schema_waiting_for_database(
-  connection: dream_postgres_client.Connection,
-  expected: List(client.SchemaFingerprint),
-) -> Result(Nil, client.SchemaCheckError) {
+  connection: Connection,
+  expected: List(SchemaFingerprint),
+) -> Result(Nil, SchemaCheckError) {
   check_schema_until(connection, expected, monotonic_time(Millisecond))
 }
 
 fn check_schema_until(
-  connection: dream_postgres_client.Connection,
-  expected: List(client.SchemaFingerprint),
+  connection: Connection,
+  expected: List(SchemaFingerprint),
   started_ms: Int,
-) -> Result(Nil, client.SchemaCheckError) {
-  let result = client.check_schema(connection, expected)
+) -> Result(Nil, SchemaCheckError) {
+  let result = check_schema(connection, expected)
   let elapsed_ms = monotonic_time(Millisecond) - started_ms
   case result {
-    Error(
-      client.SchemaUnreadable(
-        error: dream_postgres_client.ConnectionUnavailable,
-        ..,
-      ) as error,
-    )
+    Error(SchemaUnreadable(error: ConnectionUnavailable, ..) as error)
       if elapsed_ms + schema_check_delay_ms < schema_check_deadline_ms
     -> {
-      io.println_error(
+      println_error(
         "Waiting for the database ("
-        <> int.to_string(elapsed_ms / 1000)
+        <> to_string(elapsed_ms / 1000)
         <> "s of "
-        <> int.to_string(schema_check_deadline_ms / 1000)
+        <> to_string(schema_check_deadline_ms / 1000)
         <> "s): "
-        <> client.format_schema_check_error(error),
+        <> format_schema_check_error(error),
       )
-      process.sleep(schema_check_delay_ms)
+      sleep(schema_check_delay_ms)
       check_schema_until(connection, expected, started_ms)
     }
     _ -> result

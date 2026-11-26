@@ -73,7 +73,7 @@
 //// }
 //// ```
 
-import dream_errors
+import dream_errors.{Failed, Invalid, Timeout, Unavailable}
 
 /// Unified error type for Dream applications
 ///
@@ -298,11 +298,11 @@ pub type Error {
   ///
   /// ```gleam
   /// import dream/http/error.{type Error, ServiceUnavailable}
-  /// import gleam/result
+  /// import gleam/result.{replace_error}
   ///
   /// pub fn load_rates(cache_result: Result(Float, Nil)) -> Result(Float, Error) {
   ///   cache_result
-  ///   |> result.replace_error(ServiceUnavailable("Rate service is down"))
+  ///   |> replace_error(ServiceUnavailable("Rate service is down"))
   /// }
   /// ```
   ServiceUnavailable(String)
@@ -318,13 +318,13 @@ pub type Error {
   ///
   /// ```gleam
   /// import dream/http/error.{type Error, GatewayTimeout}
-  /// import gleam/result
+  /// import gleam/result.{replace_error}
   ///
   /// pub fn fetch_quote(
   ///   upstream_result: Result(String, Nil),
   /// ) -> Result(String, Error) {
   ///   upstream_result
-  ///   |> result.replace_error(GatewayTimeout("Quote service did not answer"))
+  ///   |> replace_error(GatewayTimeout("Quote service did not answer"))
   /// }
   /// ```
   GatewayTimeout(String)
@@ -429,7 +429,7 @@ pub fn message(error: Error) -> String {
 /// ### Give a missing profile its own text <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_from_shared.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
-/// import dream/http/error.{type Error}
+/// import dream/http/error.{type Error, NotFound, from_shared}
 /// import dream_errors
 ///
 /// pub type StoreError {
@@ -441,9 +441,8 @@ pub fn message(error: Error) -> String {
 /// ) -> Result(String, Error) {
 ///   case store_result {
 ///     Ok(profile) -> Ok(profile)
-///     Error(dream_errors.NotFound(..)) ->
-///       Error(error.NotFound("Profile not found"))
-///     Error(shared) -> Error(error.from_shared(shared))
+///     Error(dream_errors.NotFound(..)) -> Error(NotFound("Profile not found"))
+///     Error(shared) -> Error(from_shared(shared))
 ///   }
 /// }
 /// ```
@@ -451,9 +450,9 @@ pub fn from_shared(error: dream_errors.Error(cause)) -> Error {
   case error {
     dream_errors.NotFound(..) -> NotFound("Not found")
     dream_errors.Conflict(..) -> Conflict("Conflict")
-    dream_errors.Invalid(..) -> UnprocessableContent("Invalid input")
-    dream_errors.Unavailable(..) -> ServiceUnavailable("Service unavailable")
-    dream_errors.Timeout(..) -> GatewayTimeout("Timed out")
-    dream_errors.Failed(..) -> InternalServerError("Internal server error")
+    Invalid(..) -> UnprocessableContent("Invalid input")
+    Unavailable(..) -> ServiceUnavailable("Service unavailable")
+    Timeout(..) -> GatewayTimeout("Timed out")
+    Failed(..) -> InternalServerError("Internal server error")
   }
 }

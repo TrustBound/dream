@@ -2,8 +2,8 @@
 
 import dream/http/response.{type Response, html_response}
 import dream/http/status
-import templates/components/layout_components
-import templates/pages/error
+import templates/components/layout_components.{build_page}
+import templates/pages/error.{render}
 
 pub fn not_found(message: String) -> Response {
   let content = error.render(error_title: "Not Found", error_message: message)
@@ -56,15 +56,14 @@ pub fn internal_error() -> Response {
 /// 503 Service Unavailable page
 pub fn service_unavailable(message: String) -> Response {
   let content =
-    error.render(error_title: "Service Unavailable", error_message: message)
-  let html = layout_components.build_page("Service Unavailable", content)
+    render(error_title: "Service Unavailable", error_message: message)
+  let html = build_page("Service Unavailable", content)
   html_response(status.service_unavailable, html)
 }
 
 /// 504 Gateway Timeout page
 pub fn gateway_timeout(message: String) -> Response {
-  let content =
-    error.render(error_title: "Gateway Timeout", error_message: message)
-  let html = layout_components.build_page("Gateway Timeout", content)
+  let content = render(error_title: "Gateway Timeout", error_message: message)
+  let html = build_page("Gateway Timeout", content)
   html_response(status.gateway_timeout, html)
 }

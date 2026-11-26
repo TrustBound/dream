@@ -7,7 +7,7 @@ import context.{type DatabaseContext}
 import dream/http.{type Request, type Response, require_int, require_json}
 import dream/http/response.{json_response}
 import dream/http/status
-import gleam/dynamic/decode
+import gleam/dynamic/decode.{type Decoder, field, string, success}
 import gleam/result
 import operations/user_operations
 import services.{type Services}
@@ -105,8 +105,8 @@ pub fn delete(
 }
 
 /// Decoder for user create/update requests
-fn user_decoder() -> decode.Decoder(#(String, String)) {
-  use name <- decode.field("name", decode.string)
-  use email <- decode.field("email", decode.string)
-  decode.success(#(name, email))
+fn user_decoder() -> Decoder(#(String, String)) {
+  use name <- field("name", string)
+  use email <- field("email", string)
+  success(#(name, email))
 }

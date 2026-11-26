@@ -3,13 +3,13 @@
 //// Pure formatting functions: Product → String
 //// No Result types, no Response types, no error handling.
 
-import gleam/float
+import gleam/float.{parse}
 import gleam/int
-import gleam/json
+import gleam/json.{type Json, string}
 import gleam/list
 import gleam/yielder
 import models/product.{type Product}
-import views/products/templates/card
+import views/products/templates/card.{render}
 import views/products/templates/index as index_view
 import views/products/templates/show as show_view
 
@@ -26,7 +26,7 @@ pub fn to_html(product: Product) -> String {
 
 /// Format single product as HTMX partial string
 pub fn to_htmx(product: Product) -> String {
-  card.render(product)
+  render(product)
 }
 
 /// Format single product as CSV row string
@@ -75,10 +75,10 @@ fn to_json_object(p: Product) -> json.Json {
 /// The price as a JSON number, as before the price became the exact text
 /// of the numeric column, for example "999.99". A text that is not a
 /// number with a decimal point (NaN) stays a JSON string.
-fn price_json(price: String) -> json.Json {
-  case float.parse(price) {
+fn price_json(price: String) -> Json {
+  case parse(price) {
     Ok(number) -> json.float(number)
-    Error(Nil) -> json.string(price)
+    Error(Nil) -> string(price)
   }
 }
 

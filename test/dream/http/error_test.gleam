@@ -5,11 +5,11 @@ import dream/http/error.{
   ServiceUnavailable, Unauthorized, UnprocessableContent, from_shared, message,
   to_status_code,
 }
-import dream_errors
+import dream_errors.{Failed, Invalid, Timeout, Unavailable}
 import dream_test/matchers.{be_equal, or_fail_with, should}
 import dream_test/suite.{type TestSuite}
 import dream_test/unit.{type UnitNode, describe, group, it}
-import gleam/list
+import gleam/list.{map}
 
 pub fn tests() -> TestSuite {
   describe("error", [
@@ -292,14 +292,14 @@ fn from_shared_tests() -> UnitNode {
       let shared = [
         dream_errors.NotFound("users.get found no row"),
         dream_errors.Conflict("users_email_key violated", "cause"),
-        dream_errors.Invalid("age -1 is out of range", "cause"),
-        dream_errors.Unavailable("no connection to db.internal", "cause"),
-        dream_errors.Timeout("query on users took 5000 ms", "cause"),
-        dream_errors.Failed("relation users does not exist", "cause"),
+        Invalid("age -1 is out of range", "cause"),
+        Unavailable("no connection to db.internal", "cause"),
+        Timeout("query on users took 5000 ms", "cause"),
+        Failed("relation users does not exist", "cause"),
       ]
 
       // Act
-      let result = shared |> list.map(from_shared)
+      let result = shared |> map(from_shared)
 
       // Assert
       result
@@ -319,15 +319,15 @@ fn from_shared_tests() -> UnitNode {
       let shared = [
         dream_errors.NotFound("a"),
         dream_errors.Conflict("b", Nil),
-        dream_errors.Invalid("c", Nil),
-        dream_errors.Unavailable("d", Nil),
-        dream_errors.Timeout("e", Nil),
-        dream_errors.Failed("f", Nil),
+        Invalid("c", Nil),
+        Unavailable("d", Nil),
+        Timeout("e", Nil),
+        Failed("f", Nil),
       ]
 
       // Act
       let result =
-        shared |> list.map(fn(error) { to_status_code(from_shared(error)) })
+        shared |> map(fn(error) { to_status_code(from_shared(error)) })
 
       // Assert
       result

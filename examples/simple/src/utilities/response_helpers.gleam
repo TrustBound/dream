@@ -3,9 +3,9 @@
 //// Common helpers for handling responses in controllers.
 
 import dream/http.{type Error, type Response}
-import dream/http/error
+import dream/http/error.{GatewayTimeout, ServiceUnavailable}
 import dream/http/response.{text_response}
-import dream/http/status
+import dream/http/status.{gateway_timeout, service_unavailable}
 
 /// Handle Dream errors and convert to appropriate HTTP responses
 pub fn handle_error(err: Error) -> Response {
@@ -21,9 +21,8 @@ pub fn handle_error(err: Error) -> Response {
       text_response(status.unprocessable_content, "Unprocessable: " <> msg)
     error.InternalServerError(_msg) ->
       text_response(status.internal_server_error, "Internal Server Error")
-    error.ServiceUnavailable(_msg) ->
-      text_response(status.service_unavailable, "Service Unavailable")
-    error.GatewayTimeout(_msg) ->
-      text_response(status.gateway_timeout, "Gateway Timeout")
+    ServiceUnavailable(_msg) ->
+      text_response(service_unavailable, "Service Unavailable")
+    GatewayTimeout(_msg) -> text_response(gateway_timeout, "Gateway Timeout")
   }
 }

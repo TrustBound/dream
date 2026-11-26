@@ -3,7 +3,7 @@
 //// Application-specific services for the database example
 
 import database.{type DatabaseService}
-import gleam/io
+import gleam/io.{println_error}
 
 /// Application services
 pub type Services {
@@ -24,7 +24,7 @@ pub fn initialize_services() -> Services {
 /// Prints the message on standard error and stops the app with exit
 /// status 1, with no crash report
 fn stop(message: String) -> a {
-  io.println_error(message)
+  println_error(message)
   halt(1)
 }
 

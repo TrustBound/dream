@@ -5,8 +5,8 @@
 
 import gleam/json
 import gleam/list
-import gleam/option
-import gleam/time/timestamp
+import gleam/option.{type Option, unwrap}
+import gleam/time/timestamp.{type Timestamp, system_time}
 import models/user.{type User}
 import views/time_text
 
@@ -40,8 +40,6 @@ fn identity(x: a) -> a {
 
 // The created_at column has a default but can be NULL. A NULL time shows
 // the current time.
-fn created_at(
-  value: option.Option(timestamp.Timestamp),
-) -> timestamp.Timestamp {
-  option.unwrap(value, timestamp.system_time())
+fn created_at(value: Option(Timestamp)) -> Timestamp {
+  unwrap(value, system_time())
 }

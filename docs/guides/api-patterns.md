@@ -267,7 +267,7 @@ import dream/http.{
   internal_server_error, json_response, not_found, service_unavailable,
   unauthorized, unprocessable_content,
 }
-import dream/http/error.{type Error}
+import dream/http/error.{type Error, GatewayTimeout, ServiceUnavailable}
 import gleam/json
 
 pub fn handle_error(err: Error) -> Response {
@@ -282,9 +282,9 @@ pub fn handle_error(err: Error) -> Response {
       json_response(unprocessable_content, error_json(msg))
     error.InternalServerError(_msg) ->
       json_response(internal_server_error, error_json("Internal server error"))
-    error.ServiceUnavailable(_msg) ->
+    ServiceUnavailable(_msg) ->
       json_response(service_unavailable, error_json("Service unavailable"))
-    error.GatewayTimeout(_msg) ->
+    GatewayTimeout(_msg) ->
       json_response(gateway_timeout, error_json("Timed out"))
   }
 }

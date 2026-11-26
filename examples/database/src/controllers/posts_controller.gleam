@@ -7,7 +7,7 @@ import context.{type DatabaseContext}
 import dream/http.{type Request, type Response, require_int, require_json}
 import dream/http/response.{json_response}
 import dream/http/status
-import gleam/dynamic/decode
+import gleam/dynamic/decode.{type Decoder, field, string, success}
 import gleam/result
 import operations/post_operations
 import services.{type Services}
@@ -70,8 +70,8 @@ pub fn create(
 }
 
 /// Decoder for post create requests
-fn post_decoder() -> decode.Decoder(#(String, String)) {
-  use title <- decode.field("title", decode.string)
-  use content <- decode.field("content", decode.string)
-  decode.success(#(title, content))
+fn post_decoder() -> Decoder(#(String, String)) {
+  use title <- field("title", string)
+  use content <- field("content", string)
+  success(#(title, content))
 }

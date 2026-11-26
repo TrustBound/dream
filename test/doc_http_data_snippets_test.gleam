@@ -3,11 +3,11 @@
 //// test/snippets/doc_http_data_*.gleam.
 
 import dream/http/cookie.{Cookie, Lax, Strict}
-import dream/http/error
+import dream/http/error.{GatewayTimeout, NotFound, ServiceUnavailable}
 import dream/http/request.{type Request, Get, Post, Request}
 import dream/http/transaction
 import dream/http/validation
-import dream_errors
+import dream_errors.{Unavailable}
 import dream_test/matchers.{be_equal, or_fail_with, should}
 import dream_test/suite.{type TestSuite}
 import dream_test/unit.{type UnitNode, describe, group, it}
@@ -24,17 +24,17 @@ import snippets/doc_http_data_cookie_value
 import snippets/doc_http_data_error_bad_request
 import snippets/doc_http_data_error_conflict
 import snippets/doc_http_data_error_forbidden
-import snippets/doc_http_data_error_gateway_timeout
+import snippets/doc_http_data_error_gateway_timeout.{fetch_quote}
 import snippets/doc_http_data_error_internal_server_error
 import snippets/doc_http_data_error_message
 import snippets/doc_http_data_error_module
 import snippets/doc_http_data_error_not_found
 import snippets/doc_http_data_error_response
-import snippets/doc_http_data_error_service_unavailable
+import snippets/doc_http_data_error_service_unavailable.{load_rates}
 import snippets/doc_http_data_error_unauthorized
 import snippets/doc_http_data_error_unprocessable_content
 import snippets/doc_http_data_field_optional
-import snippets/doc_http_data_from_shared
+import snippets/doc_http_data_from_shared.{StoreDown, load_profile}
 import snippets/doc_http_data_get_cookie
 import snippets/doc_http_data_get_cookie_value
 import snippets/doc_http_data_remove_cookie
@@ -605,57 +605,54 @@ fn error_tests() -> UnitNode {
     }),
     it("ServiceUnavailable example answers a down rate service", fn() {
       // Act
-      let result =
-        doc_http_data_error_service_unavailable.load_rates(Error(Nil))
+      let result = load_rates(Error(Nil))
 
       // Assert
       result
       |> should()
-      |> be_equal(Error(error.ServiceUnavailable("Rate service is down")))
+      |> be_equal(Error(ServiceUnavailable("Rate service is down")))
       |> or_fail_with("load_rates should return ServiceUnavailable")
     }),
     it("GatewayTimeout example answers a slow quote service", fn() {
       // Act
-      let result = doc_http_data_error_gateway_timeout.fetch_quote(Error(Nil))
+      let result = fetch_quote(Error(Nil))
 
       // Assert
       result
       |> should()
-      |> be_equal(Error(error.GatewayTimeout("Quote service did not answer")))
+      |> be_equal(Error(GatewayTimeout("Quote service did not answer")))
       |> or_fail_with("fetch_quote should return GatewayTimeout")
     }),
     it("from_shared example gives a missing profile its own text", fn() {
       // Act
       let result =
-        doc_http_data_from_shared.load_profile(
-          Error(dream_errors.NotFound("profiles.get found no row")),
-        )
+        load_profile(Error(dream_errors.NotFound("profiles.get found no row")))
 
       // Assert
       result
       |> should()
-      |> be_equal(Error(error.NotFound("Profile not found")))
+      |> be_equal(Error(NotFound("Profile not found")))
       |> or_fail_with("load_profile should return its own NotFound text")
     }),
     it("from_shared example hides the message of another error", fn() {
       // Act
       let result =
-        doc_http_data_from_shared.load_profile(
-          Error(dream_errors.Unavailable(
+        load_profile(
+          Error(Unavailable(
             "store at 10.0.0.5 refused the connection",
-            doc_http_data_from_shared.StoreDown,
+            StoreDown,
           )),
         )
 
       // Assert
       result
       |> should()
-      |> be_equal(Error(error.ServiceUnavailable("Service unavailable")))
+      |> be_equal(Error(ServiceUnavailable("Service unavailable")))
       |> or_fail_with("load_profile should return the generic 503")
     }),
     it("from_shared example keeps the profile", fn() {
       // Act
-      let result = doc_http_data_from_shared.load_profile(Ok("Ann"))
+      let result = load_profile(Ok("Ann"))
 
       // Assert
       result

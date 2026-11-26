@@ -356,18 +356,18 @@ First, create `src/database.gleam`. It starts the connection pool, then
 checks that the schema is still the one that dream_model generated the
 models from:
 
-### Starting the connection pool <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/database.gleam#L9-L115"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Starting the connection pool <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/database.gleam#L12-L113"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream_postgres/client
-import dream_postgres_client
-import gleam/erlang/process
-import gleam/int
-import gleam/io
+}
+import dream_postgres_client.{type Connection, ConnectionUnavailable, start}
+import gleam/erlang/process.{sleep}
+import gleam/int.{to_string}
+import gleam/io.{println_error}
 import gleam/option
-import gleam/otp/actor
+import gleam/otp/actor.{Started}
 import gleam/result
-import models/post
+import models/post.{schema_fingerprint}
 import models/user
 
 pub type DatabaseService {
@@ -389,8 +389,8 @@ pub fn init_database() -> Result(DatabaseService, String) {
     |> dream_postgres_client.pool_size(10)
 
   // Start the connection pool
-  use connection <- result.try(case dream_postgres_client.start(config) {
-    Ok(actor.Started(_pid, connection)) -> Ok(connection)
+  use connection <- result.try(case start(config) {
+    Ok(Started(_pid, connection)) -> Ok(connection)
     Error(_) -> Error("Failed to start PostgreSQL connection pool")
   })
 
@@ -399,9 +399,9 @@ pub fn init_database() -> Result(DatabaseService, String) {
   use Nil <- result.try(
     check_schema_waiting_for_database(connection, [
       user.schema_fingerprint,
-      post.schema_fingerprint,
+      schema_fingerprint,
     ])
-    |> result.map_error(client.format_schema_check_error),
+    |> result.map_error(format_schema_check_error),
   )
   Ok(DatabaseService(connection: connection))
 }
@@ -421,37 +421,32 @@ const schema_check_delay_ms = 2000
 /// `schema_check_deadline_ms` passed since the first check. A changed
 /// schema and the other database errors give the error at once.
 pub fn check_schema_waiting_for_database(
-  connection: dream_postgres_client.Connection,
-  expected: List(client.SchemaFingerprint),
-) -> Result(Nil, client.SchemaCheckError) {
+  connection: Connection,
+  expected: List(SchemaFingerprint),
+) -> Result(Nil, SchemaCheckError) {
   check_schema_until(connection, expected, monotonic_time(Millisecond))
 }
 
 fn check_schema_until(
-  connection: dream_postgres_client.Connection,
-  expected: List(client.SchemaFingerprint),
+  connection: Connection,
+  expected: List(SchemaFingerprint),
   started_ms: Int,
-) -> Result(Nil, client.SchemaCheckError) {
-  let result = client.check_schema(connection, expected)
+) -> Result(Nil, SchemaCheckError) {
+  let result = check_schema(connection, expected)
   let elapsed_ms = monotonic_time(Millisecond) - started_ms
   case result {
-    Error(
-      client.SchemaUnreadable(
-        error: dream_postgres_client.ConnectionUnavailable,
-        ..,
-      ) as error,
-    )
+    Error(SchemaUnreadable(error: ConnectionUnavailable, ..) as error)
       if elapsed_ms + schema_check_delay_ms < schema_check_deadline_ms
     -> {
-      io.println_error(
+      println_error(
         "Waiting for the database ("
-        <> int.to_string(elapsed_ms / 1000)
+        <> to_string(elapsed_ms / 1000)
         <> "s of "
-        <> int.to_string(schema_check_deadline_ms / 1000)
+        <> to_string(schema_check_deadline_ms / 1000)
         <> "s): "
-        <> client.format_schema_check_error(error),
+        <> format_schema_check_error(error),
       )
-      process.sleep(schema_check_delay_ms)
+      sleep(schema_check_delay_ms)
       check_schema_until(connection, expected, started_ms)
     }
     _ -> result
@@ -474,7 +469,7 @@ Then create `src/services.gleam`. It holds the database service:
 
 ```gleam
 import database.{type DatabaseService}
-import gleam/io
+import gleam/io.{println_error}
 
 /// Application services
 pub type Services {
@@ -495,7 +490,7 @@ pub fn initialize_services() -> Services {
 /// Prints the message on standard error and stops the app with exit
 /// status 1, with no crash report
 fn stop(message: String) -> a {
-  io.println_error(message)
+  println_error(message)
   halt(1)
 }
 
@@ -588,25 +583,27 @@ calls `src/operations/user_operations.gleam`. In this app, each
 operation calls the generated model and maps its error to a Dream
 error:
 
-### User operations <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L8-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### User operations <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L8-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/error.{type Error}
+import dream/http/error.{type Error, Conflict, NotFound, from_shared}
 import dream_errors
-import dream_postgres/client.{type Connection}
-import gleam/result
-import models/user.{type User}
+import dream_postgres/client.{
+  type Connection, type QueryError, violated_constraint,
+}
+import gleam/result.{map_error}
+import models/user.{type User, create, delete, get, list, update}
 
 /// Get a user by ID
 pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
-  user.get(db, id)
-  |> result.map_error(user_error)
+  get(db, id)
+  |> map_error(user_error)
 }
 
 /// List all users
 pub fn list_users(db: Connection) -> Result(List(User), Error) {
-  user.list(db)
-  |> result.map_error(user_error)
+  list(db)
+  |> map_error(user_error)
 }
 
 /// Create a new user
@@ -615,8 +612,8 @@ pub fn create_user(
   name: String,
   email: String,
 ) -> Result(User, Error) {
-  user.create(db, name, email)
-  |> result.map_error(user_error)
+  create(db, name, email)
+  |> map_error(user_error)
 }
 ```
 
@@ -624,21 +621,21 @@ The file also has `update_user` and `delete_user`. `user_error` gives
 the texts for the client: the text of a missing user and the text of a
 taken email:
 
-### The texts of the user errors <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L53-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The texts of the user errors <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L55-L68"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// The Dream error of a model error. A missing row and a taken email keep
 /// their own texts. Every other error goes through `error.from_shared`,
 /// which never shows the developer message of the model error.
-fn user_error(model_error: dream_errors.Error(client.QueryError)) -> Error {
+fn user_error(model_error: dream_errors.Error(QueryError)) -> Error {
   case model_error {
-    dream_errors.NotFound(..) -> error.NotFound("User not found")
+    dream_errors.NotFound(..) -> NotFound("User not found")
     dream_errors.Conflict(cause:, ..) ->
-      case client.violated_constraint(cause) {
-        Ok("users_email_key") -> error.Conflict("Email already taken")
-        _ -> error.from_shared(model_error)
+      case violated_constraint(cause) {
+        Ok("users_email_key") -> Conflict("Email already taken")
+        _ -> from_shared(model_error)
       }
-    _ -> error.from_shared(model_error)
+    _ -> from_shared(model_error)
   }
 }
 ```
@@ -721,7 +718,7 @@ import context.{type DatabaseContext}
 import dream/http.{type Request, type Response, require_int, require_json}
 import dream/http/response.{json_response}
 import dream/http/status
-import gleam/dynamic/decode
+import gleam/dynamic/decode.{type Decoder, field, string, success}
 import gleam/result
 import operations/user_operations
 import services.{type Services}
@@ -790,10 +787,10 @@ of the request body:
 
 ```gleam
 /// Decoder for user create/update requests
-fn user_decoder() -> decode.Decoder(#(String, String)) {
-  use name <- decode.field("name", decode.string)
-  use email <- decode.field("email", decode.string)
-  decode.success(#(name, email))
+fn user_decoder() -> Decoder(#(String, String)) {
+  use name <- field("name", string)
+  use email <- field("email", string)
+  success(#(name, email))
 }
 ```
 
@@ -1192,7 +1189,7 @@ The project list in
 [examples/tasks](https://github.com/TrustBound/dream/tree/3.0.0/examples/tasks/src)
 calls one model and formats the result. It needs no operation:
 
-#### One model, one action <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/controllers/projects_controller.gleam#L17-L27"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### One model, one action <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/controllers/projects_controller.gleam#L19-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn index(
@@ -1200,7 +1197,7 @@ pub fn index(
   _context: TasksContext,
   services: Services,
 ) -> http.Response {
-  case project_operations.list_projects(services.db) {
+  case list_projects(services.db) {
     Ok(projects) ->
       http.html_response(http.ok, project_view.list_page(projects))
     Error(err) -> response_helpers.handle_error(err)
@@ -1241,7 +1238,7 @@ pub fn show(
 
 The tag workflow lives in `src/operations/tag_operations.gleam`:
 
-#### Create and attach a tag <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/operations/tag_operations.gleam#L17-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Create and attach a tag <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/operations/tag_operations.gleam#L19-L37"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Create a new tag and attach it to a task
@@ -1255,13 +1252,11 @@ pub fn create_and_attach(
   let data = TagData(name: tag_name, color: option.None)
 
   // A tag with no color stores an empty color.
-  use created <- result.try(
-    tag.get_or_create(db, data.name, option.Some(option.unwrap(data.color, "")))
-    |> result.map_error(tag_error),
+  use created <- try(
+    get_or_create(db, data.name, Some(unwrap(data.color, "")))
+    |> map_error(tag_error),
   )
-  use _ <- result.try(
-    tag.add_to_task(db, task_id, created.id) |> result.map_error(tag_error),
-  )
+  use _ <- try(add_to_task(db, task_id, created.id) |> map_error(tag_error))
 
   Ok(created)
 }
@@ -1547,13 +1542,13 @@ pub fn create_project(
   db: Connection,
   data: ProjectData,
 ) -> Result(Project, Error) {
-  project.create(
+  create(
     db,
     data.name,
-    option.Some(option.unwrap(data.description, "")),
-    option.Some(option.unwrap(data.color, "")),
+    Some(unwrap(data.description, "")),
+    Some(unwrap(data.color, "")),
   )
-  |> result.map_error(project_error)
+  |> map_error(project_error)
 }
 ```
 

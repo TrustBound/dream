@@ -1,13 +1,13 @@
 //// Task view - presentation layer
 
-import gleam/json
-import gleam/option
+import gleam/json.{string}
+import gleam/option.{map}
 import models/tag.{type Tag}
 import models/task.{type Task}
 import templates/components/layout_components
 import templates/components/task_components
 import templates/pages/index
-import utilities/dates
+import utilities/dates.{date_to_string, timestamp_to_string}
 
 /// Render task card for HTMX swap
 pub fn card(task: Task, tags: List(Tag)) -> String {
@@ -43,14 +43,11 @@ pub fn to_json(task: Task) -> String {
     #("description", json_option_string(task.description)),
     #("completed", json.bool(task.completed)),
     #("priority", json.int(task.priority)),
-    #(
-      "due_date",
-      json_option_string(option.map(task.due_date, dates.date_to_string)),
-    ),
+    #("due_date", json_option_string(map(task.due_date, date_to_string))),
     #("position", json.int(task.position)),
     #("project_id", json_option_int(task.project_id)),
-    #("created_at", json.string(dates.timestamp_to_string(task.created_at))),
-    #("updated_at", json.string(dates.timestamp_to_string(task.updated_at))),
+    #("created_at", string(timestamp_to_string(task.created_at))),
+    #("updated_at", string(timestamp_to_string(task.updated_at))),
   ])
   |> json.to_string
 }
@@ -68,14 +65,11 @@ fn task_to_json_object(task: Task) -> json.Json {
     #("description", json_option_string(task.description)),
     #("completed", json.bool(task.completed)),
     #("priority", json.int(task.priority)),
-    #(
-      "due_date",
-      json_option_string(option.map(task.due_date, dates.date_to_string)),
-    ),
+    #("due_date", json_option_string(map(task.due_date, date_to_string))),
     #("position", json.int(task.position)),
     #("project_id", json_option_int(task.project_id)),
-    #("created_at", json.string(dates.timestamp_to_string(task.created_at))),
-    #("updated_at", json.string(dates.timestamp_to_string(task.updated_at))),
+    #("created_at", string(timestamp_to_string(task.created_at))),
+    #("updated_at", string(timestamp_to_string(task.updated_at))),
   ])
 }
 

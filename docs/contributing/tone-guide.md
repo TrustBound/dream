@@ -147,13 +147,13 @@ Step 3: Get a user
 
 In `src/operations/user_operations.gleam`, add a function that gets one user:
 
-### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L14-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L16-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Get a user by ID
 pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
-  user.get(db, id)
-  |> result.map_error(user_error)
+  get(db, id)
+  |> map_error(user_error)
 }
 ```
 
@@ -454,13 +454,13 @@ This code does X by doing Y.
 **Example:**
 
 ````markdown
-### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L14-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L16-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Get a user by ID
 pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
-  user.get(db, id)
-  |> result.map_error(user_error)
+  get(db, id)
+  |> map_error(user_error)
 }
 ```
 
@@ -579,13 +579,13 @@ Here's an example:
 
 Here's a typical operation:
 
-### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L14-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L16-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Get a user by ID
 pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
-  user.get(db, id)
-  |> result.map_error(user_error)
+  get(db, id)
+  |> map_error(user_error)
 }
 ```
 

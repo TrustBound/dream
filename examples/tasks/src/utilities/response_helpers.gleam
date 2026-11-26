@@ -3,10 +3,10 @@
 //// Common helpers for handling responses in controllers.
 
 import dream/http.{type Error, type Response}
-import dream/http/error
+import dream/http/error.{GatewayTimeout, ServiceUnavailable}
 import models/tag.{type Tag}
 import models/task.{type Task}
-import views/errors
+import views/errors.{gateway_timeout, service_unavailable}
 
 /// Handle Dream errors and convert to appropriate HTTP responses
 pub fn handle_error(err: Error) -> Response {
@@ -18,8 +18,8 @@ pub fn handle_error(err: Error) -> Response {
     error.Conflict(msg) -> errors.conflict(msg)
     error.UnprocessableContent(msg) -> errors.unprocessable_content(msg)
     error.InternalServerError(_msg) -> errors.internal_error()
-    error.ServiceUnavailable(msg) -> errors.service_unavailable(msg)
-    error.GatewayTimeout(msg) -> errors.gateway_timeout(msg)
+    ServiceUnavailable(msg) -> service_unavailable(msg)
+    GatewayTimeout(msg) -> gateway_timeout(msg)
   }
 }
 

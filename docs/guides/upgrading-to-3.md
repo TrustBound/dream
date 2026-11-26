@@ -581,7 +581,7 @@ dream_model = ">= 1.0.0 and < 2.0.0"
 4. Run `gleam run -m dream_model`. It writes `src/models/user.gleam`. Delete the `sql.gleam` of Squirrel and the functions that converted its rows.
 5. Give the `schema_fingerprint` of each generated module to `client.check_schema` when the app starts.
 
-### Check the schema at start-up <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/database.gleam#L44-L52"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Check the schema at start-up <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/database.gleam#L47-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
   // Wait for the database, then stop with a clear message when the schema
@@ -589,9 +589,9 @@ dream_model = ">= 1.0.0 and < 2.0.0"
   use Nil <- result.try(
     check_schema_waiting_for_database(connection, [
       user.schema_fingerprint,
-      post.schema_fingerprint,
+      schema_fingerprint,
     ])
-    |> result.map_error(client.format_schema_check_error),
+    |> result.map_error(format_schema_check_error),
   )
 ```
 
@@ -637,13 +637,13 @@ SELECT id, name, email, created_at FROM users WHERE id = $1
 
 dream_model generates `user.get(db, id) -> Result(User, dream_errors.Error(client.QueryError))`. The error is data, the shared error of the Dream ecosystem, with no HTTP status and no text for the client. The helpers are gone. The operation calls the generated function, and `user_error` maps its error to a Dream error with the text, `NotFound("User not found")` for no row:
 
-### The call of the generated function <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L14-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The call of the generated function <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L16-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Get a user by ID
 pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
-  user.get(db, id)
-  |> result.map_error(user_error)
+  get(db, id)
+  |> map_error(user_error)
 }
 ```
 
@@ -802,7 +802,7 @@ pub fn handle_error(err: Error) -> Response {
 
 **How to fix it.** Add the three branches. In Dream 3 the helper answers `409` with the message, and `503` and `504` with a fixed text:
 
-### `handle_error` in Dream 3 <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/src/utilities/response_helpers.gleam#L11-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### `handle_error` in Dream 3 <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/src/utilities/response_helpers.gleam#L11-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn handle_error(err: Error) -> Response {
@@ -818,10 +818,9 @@ pub fn handle_error(err: Error) -> Response {
       text_response(status.unprocessable_content, "Unprocessable: " <> msg)
     error.InternalServerError(_msg) ->
       text_response(status.internal_server_error, "Internal Server Error")
-    error.ServiceUnavailable(_msg) ->
-      text_response(status.service_unavailable, "Service Unavailable")
-    error.GatewayTimeout(_msg) ->
-      text_response(status.gateway_timeout, "Gateway Timeout")
+    ServiceUnavailable(_msg) ->
+      text_response(service_unavailable, "Service Unavailable")
+    GatewayTimeout(_msg) -> text_response(gateway_timeout, "Gateway Timeout")
   }
 }
 ```
