@@ -1,19 +1,18 @@
 //// Naming conventions: Imports
 ////
 //// Import the types, constructors and functions you use, and call them
-//// bare. Keep a name qualified only when the bare name would clash.
+//// bare. Keep a name qualified only when the bare name would clash. When
+//// two imports offer the same name, qualify it on both sides.
 
-import dream/http/error.{
-  type Error, NotFound, from_shared, message, to_status_code,
-}
+import dream/http/error.{from_shared, message, to_status_code}
 import dream/http/response.{type Response, text_response}
 import dream_errors
 
 pub fn not_found_response() -> Response {
-  error_response(NotFound("User not found"))
+  error_response(error.NotFound("User not found"))
 }
 
-pub fn error_response(failure: Error) -> Response {
+pub fn error_response(failure: error.Error) -> Response {
   text_response(to_status_code(failure), message(failure))
 }
 
@@ -29,6 +28,6 @@ pub fn shared_error_response(shared: dream_errors.Error(Nil)) -> Response {
 }
 
 pub fn not_found_with_message(message: String) -> Response {
-  let failure = NotFound(message)
+  let failure = error.NotFound(message)
   text_response(to_status_code(failure), error.message(failure))
 }

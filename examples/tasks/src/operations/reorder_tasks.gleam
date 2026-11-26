@@ -1,6 +1,6 @@
 //// Reorder tasks operation - business logic for drag-and-drop reordering
 
-import dream/http/error.{type Error, NotFound, from_shared}
+import dream/http/error.{from_shared}
 import dream_errors
 import dream_postgres/client.{type Connection, type QueryError}
 import gleam/list.{reverse}
@@ -14,7 +14,7 @@ pub fn execute(
   db: Connection,
   task_id: Int,
   new_position: Int,
-) -> Result(Task, Error) {
+) -> Result(Task, error.Error) {
   update_position(db, task_id, new_position)
   |> map_error(task_error)
 }
@@ -24,7 +24,7 @@ pub fn execute(
 pub fn batch_reorder(
   db: Connection,
   updates: List(#(Int, Int)),
-) -> Result(List(Task), Error) {
+) -> Result(List(Task), error.Error) {
   batch_reorder_recursive(db, updates, [])
 }
 
@@ -32,7 +32,7 @@ fn batch_reorder_recursive(
   db: Connection,
   updates: List(#(Int, Int)),
   results: List(Task),
-) -> Result(List(Task), Error) {
+) -> Result(List(Task), error.Error) {
   case updates {
     [] -> Ok(reverse(results))
     [#(task_id, position), ..rest] -> {
@@ -48,9 +48,9 @@ fn batch_reorder_recursive(
 /// The Dream error of a model error. A missing row keeps its own text.
 /// Every other error goes through `error.from_shared`, which never shows
 /// the developer message of the model error.
-fn task_error(model_error: dream_errors.Error(QueryError)) -> Error {
+fn task_error(model_error: dream_errors.Error(QueryError)) -> error.Error {
   case model_error {
-    dream_errors.NotFound(..) -> NotFound("Task not found")
+    dream_errors.NotFound(..) -> error.NotFound("Task not found")
     _ -> from_shared(model_error)
   }
 }

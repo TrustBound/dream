@@ -4,7 +4,7 @@
 //// which return data errors, and maps them to Dream errors with the texts
 //// for the client.
 
-import dream/http/error.{type Error, NotFound, from_shared}
+import dream/http/error.{from_shared}
 import dream_errors
 import dream_postgres/client.{type Connection, type QueryError}
 import gleam/option.{Some, unwrap}
@@ -17,7 +17,7 @@ import types/project.{type ProjectData} as _project_data
 pub fn create_project(
   db: Connection,
   data: ProjectData,
-) -> Result(Project, Error) {
+) -> Result(Project, error.Error) {
   create(
     db,
     data.name,
@@ -28,19 +28,25 @@ pub fn create_project(
 }
 
 /// List all projects
-pub fn list_projects(db: Connection) -> Result(List(Project), Error) {
+pub fn list_projects(db: Connection) -> Result(List(Project), error.Error) {
   list(db)
   |> map_error(project_error)
 }
 
 /// Get a project by ID. A project that does not exist gives NotFound.
-pub fn get_project(db: Connection, project_id: Int) -> Result(Project, Error) {
+pub fn get_project(
+  db: Connection,
+  project_id: Int,
+) -> Result(Project, error.Error) {
   get(db, project_id)
   |> map_error(project_error)
 }
 
 /// Delete a project
-pub fn delete_project(db: Connection, project_id: Int) -> Result(Nil, Error) {
+pub fn delete_project(
+  db: Connection,
+  project_id: Int,
+) -> Result(Nil, error.Error) {
   delete(db, project_id)
   |> map_error(project_error)
 }
@@ -48,9 +54,9 @@ pub fn delete_project(db: Connection, project_id: Int) -> Result(Nil, Error) {
 /// The Dream error of a model error. A missing row keeps its own text.
 /// Every other error goes through `error.from_shared`, which never shows
 /// the developer message of the model error.
-fn project_error(model_error: dream_errors.Error(QueryError)) -> Error {
+fn project_error(model_error: dream_errors.Error(QueryError)) -> error.Error {
   case model_error {
-    dream_errors.NotFound(..) -> NotFound("Project not found")
+    dream_errors.NotFound(..) -> error.NotFound("Project not found")
     _ -> from_shared(model_error)
   }
 }

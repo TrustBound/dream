@@ -5,7 +5,7 @@
 //// which return data errors, and maps them to Dream errors with the texts
 //// for the client.
 
-import dream/http/error.{type Error, NotFound, from_shared}
+import dream/http/error.{from_shared}
 import dream_errors
 import dream_postgres/client.{type Connection, type QueryError}
 import gleam/option.{Some}
@@ -13,13 +13,16 @@ import gleam/result.{map_error}
 import models/post.{type Post, create, get, list}
 
 /// Get a post by ID
-pub fn get_post(db: Connection, id: Int) -> Result(Post, Error) {
+pub fn get_post(db: Connection, id: Int) -> Result(Post, error.Error) {
   get(db, id)
   |> map_error(post_error)
 }
 
 /// List posts for a user
-pub fn list_posts(db: Connection, user_id: Int) -> Result(List(Post), Error) {
+pub fn list_posts(
+  db: Connection,
+  user_id: Int,
+) -> Result(List(Post), error.Error) {
   list(db, user_id)
   |> map_error(post_error)
 }
@@ -30,7 +33,7 @@ pub fn create_post(
   user_id: Int,
   title: String,
   content: String,
-) -> Result(Post, Error) {
+) -> Result(Post, error.Error) {
   create(db, user_id, title, Some(content))
   |> map_error(post_error)
 }
@@ -38,9 +41,9 @@ pub fn create_post(
 /// The Dream error of a model error. A missing row keeps its own text.
 /// Every other error goes through `error.from_shared`, which never shows
 /// the developer message of the model error.
-fn post_error(model_error: dream_errors.Error(QueryError)) -> Error {
+fn post_error(model_error: dream_errors.Error(QueryError)) -> error.Error {
   case model_error {
-    dream_errors.NotFound(..) -> NotFound("Post not found")
+    dream_errors.NotFound(..) -> error.NotFound("Post not found")
     _ -> from_shared(model_error)
   }
 }

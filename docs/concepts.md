@@ -348,14 +348,14 @@ pub fn show(
 
 The operation holds the logic, with no HTTP. If the task does not exist, it returns the error. If the tags query fails, it shows the task with no tags:
 
-### Operation coordinates two models <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/operations/task_operations.gleam#L61-L74"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Operation coordinates two models <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/src/operations/task_operations.gleam#L64-L77"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Get a task with its tags
 pub fn get_task_with_tags(
   db: Connection,
   task_id: Int,
-) -> Result(#(Task, List(Tag)), Error) {
+) -> Result(#(Task, List(Tag)), error.Error) {
   use found <- try(get(db, task_id) |> map_error(task_error))
 
   let tags =
@@ -406,7 +406,7 @@ dream_model writes `src/models/user.gleam` with a `User` record and the function
 
 ```gleam
 /// Get a user by ID
-pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
+pub fn get_user(db: Connection, id: Int) -> Result(User, error.Error) {
   get(db, id)
   |> map_error(user_error)
 }

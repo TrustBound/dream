@@ -151,7 +151,7 @@ In `src/operations/user_operations.gleam`, add a function that gets one user:
 
 ```gleam
 /// Get a user by ID
-pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
+pub fn get_user(db: Connection, id: Int) -> Result(User, error.Error) {
   get(db, id)
   |> map_error(user_error)
 }
@@ -458,7 +458,7 @@ This code does X by doing Y.
 
 ```gleam
 /// Get a user by ID
-pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
+pub fn get_user(db: Connection, id: Int) -> Result(User, error.Error) {
   get(db, id)
   |> map_error(user_error)
 }
@@ -583,7 +583,7 @@ Here's a typical operation:
 
 ```gleam
 /// Get a user by ID
-pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
+pub fn get_user(db: Connection, id: Int) -> Result(User, error.Error) {
   get(db, id)
   |> map_error(user_error)
 }

@@ -5,7 +5,7 @@
 //// which return data errors, and maps them to Dream errors with the texts
 //// for the client.
 
-import dream/http/error.{type Error, NotFound, from_shared}
+import dream/http/error.{from_shared}
 import dream_errors
 import dream_postgres/client.{type Connection, type QueryError}
 import gleam/option.{None, Some}
@@ -23,7 +23,7 @@ pub fn create_and_attach(
   db: Connection,
   task_id: Int,
   tag_name: String,
-) -> Result(Tag, Error) {
+) -> Result(Tag, error.Error) {
   let data = TagData(name: tag_name, color: None)
 
   // A tag with no color stores an empty color.
@@ -41,7 +41,7 @@ pub fn add_tag_to_task(
   db: Connection,
   task_id: Int,
   tag_id: Int,
-) -> Result(Nil, Error) {
+) -> Result(Nil, error.Error) {
   add_to_task(db, task_id, tag_id) |> map_error(tag_error)
 }
 
@@ -50,14 +50,14 @@ pub fn remove_tag_from_task(
   db: Connection,
   task_id: Int,
   tag_id: Int,
-) -> Result(Nil, Error) {
+) -> Result(Nil, error.Error) {
   remove_from_task(db, task_id, tag_id)
   |> map_error(tag_on_task_error)
   |> replace(Nil)
 }
 
 /// Get all available tags
-pub fn list_all(db: Connection) -> Result(List(Tag), Error) {
+pub fn list_all(db: Connection) -> Result(List(Tag), error.Error) {
   list(db) |> map_error(tag_error)
 }
 
@@ -65,7 +65,7 @@ pub fn list_all(db: Connection) -> Result(List(Tag), Error) {
 pub fn get_tags_for_task(
   db: Connection,
   task_id: Int,
-) -> Result(List(Tag), Error) {
+) -> Result(List(Tag), error.Error) {
   for_task(db, task_id) |> map_error(tag_error)
 }
 
@@ -76,7 +76,7 @@ pub fn get_tags_for_task(
 pub fn get_task_with_tags(
   db: Connection,
   task_id: Int,
-) -> Result(#(Task, List(Tag)), Error) {
+) -> Result(#(Task, List(Tag)), error.Error) {
   use found <- try(get(db, task_id) |> map_error(task_error))
 
   let tags =
@@ -90,9 +90,9 @@ pub fn get_task_with_tags(
 /// The Dream error of a model error. A missing row keeps its own text.
 /// Every other error goes through `error.from_shared`, which never shows
 /// the developer message of the model error.
-fn tag_error(model_error: dream_errors.Error(QueryError)) -> Error {
+fn tag_error(model_error: dream_errors.Error(QueryError)) -> error.Error {
   case model_error {
-    dream_errors.NotFound(..) -> NotFound("Tag not found")
+    dream_errors.NotFound(..) -> error.NotFound("Tag not found")
     _ -> from_shared(model_error)
   }
 }
@@ -100,9 +100,11 @@ fn tag_error(model_error: dream_errors.Error(QueryError)) -> Error {
 /// The Dream error of a model error. A missing row keeps its own text.
 /// Every other error goes through `error.from_shared`, which never shows
 /// the developer message of the model error.
-fn tag_on_task_error(model_error: dream_errors.Error(QueryError)) -> Error {
+fn tag_on_task_error(
+  model_error: dream_errors.Error(QueryError),
+) -> error.Error {
   case model_error {
-    dream_errors.NotFound(..) -> NotFound("Tag not found on task")
+    dream_errors.NotFound(..) -> error.NotFound("Tag not found on task")
     _ -> from_shared(model_error)
   }
 }
@@ -110,9 +112,9 @@ fn tag_on_task_error(model_error: dream_errors.Error(QueryError)) -> Error {
 /// The Dream error of a model error. A missing row keeps its own text.
 /// Every other error goes through `error.from_shared`, which never shows
 /// the developer message of the model error.
-fn task_error(model_error: dream_errors.Error(QueryError)) -> Error {
+fn task_error(model_error: dream_errors.Error(QueryError)) -> error.Error {
   case model_error {
-    dream_errors.NotFound(..) -> NotFound("Task not found")
+    dream_errors.NotFound(..) -> error.NotFound("Task not found")
     _ -> from_shared(model_error)
   }
 }

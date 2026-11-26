@@ -5,20 +5,20 @@
 //// which return data errors, and maps them to Dream errors with the texts
 //// for the client.
 
-import dream/http/error.{type Error, NotFound, from_shared}
+import dream/http/error.{from_shared}
 import dream_errors
 import dream_postgres/client.{type Connection, type QueryError}
 import gleam/result.{map_error}
 import models/product.{type Product, get, list}
 
 /// Get a product by ID
-pub fn get_product(db: Connection, id: Int) -> Result(Product, Error) {
+pub fn get_product(db: Connection, id: Int) -> Result(Product, error.Error) {
   get(db, id)
   |> map_error(product_error)
 }
 
 /// List all products
-pub fn list_products(db: Connection) -> Result(List(Product), Error) {
+pub fn list_products(db: Connection) -> Result(List(Product), error.Error) {
   list(db)
   |> map_error(product_error)
 }
@@ -26,9 +26,9 @@ pub fn list_products(db: Connection) -> Result(List(Product), Error) {
 /// The Dream error of a model error. A missing row keeps its own text.
 /// Every other error goes through `error.from_shared`, which never shows
 /// the developer message of the model error.
-fn product_error(model_error: dream_errors.Error(QueryError)) -> Error {
+fn product_error(model_error: dream_errors.Error(QueryError)) -> error.Error {
   case model_error {
-    dream_errors.NotFound(..) -> NotFound("Product not found")
+    dream_errors.NotFound(..) -> error.NotFound("Product not found")
     _ -> from_shared(model_error)
   }
 }

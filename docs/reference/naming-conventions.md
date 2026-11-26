@@ -39,27 +39,27 @@ pub fn show_user_with_module_prefix(id: Int) -> Result(User, Nil) {
 
 Gleam code uses unqualified imports by default. Import the types, constructors and functions you use, and call them bare.
 
-### ✅ Good: import the names and call them bare <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_imports.gleam#L6-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ✅ Good: import the names and call them bare <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_imports.gleam#L5-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/error.{
-  type Error, NotFound, from_shared, message, to_status_code,
-}
+//// two imports offer the same name, qualify it on both sides.
+
+import dream/http/error.{from_shared, message, to_status_code}
 import dream/http/response.{type Response, text_response}
 import dream_errors
 
 pub fn not_found_response() -> Response {
-  error_response(NotFound("User not found"))
+  error_response(error.NotFound("User not found"))
 }
 
-pub fn error_response(failure: Error) -> Response {
+pub fn error_response(failure: error.Error) -> Response {
   text_response(to_status_code(failure), message(failure))
 }
 ```
 
-The import line names each thing the code uses. The calls stay short. `dream_errors` is for the clash example below.
+The import line names each thing the code uses. The calls stay short. `dream_errors` is for the clash example below. It also offers `NotFound` and `Error`, so those keep their module on both sides.
 
-### ❌ Bad: needlessly qualified <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_imports.gleam#L20-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ❌ Bad: needlessly qualified <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_imports.gleam#L19-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn error_response_qualified(failure: error.Error) -> response.Response {
@@ -67,9 +67,9 @@ pub fn error_response_qualified(failure: error.Error) -> response.Response {
 }
 ```
 
-No name here clashes, so the `error.` and `response.` prefixes only add noise.
+`error.Error` keeps its module because `dream_errors` also offers `Error`. No other name here clashes, so the `response.` prefixes and `error.to_status_code` and `error.message` only add noise.
 
-### ✅ Good: qualified because the name clashes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_imports.gleam#L24-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### ✅ Good: qualified because the name clashes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_imports.gleam#L23-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn shared_error_response(shared: dream_errors.Error(Nil)) -> Response {
@@ -80,14 +80,14 @@ pub fn shared_error_response(shared: dream_errors.Error(Nil)) -> Response {
 }
 
 pub fn not_found_with_message(message: String) -> Response {
-  let failure = NotFound(message)
+  let failure = error.NotFound(message)
   text_response(to_status_code(failure), error.message(failure))
 }
 ```
 
 Qualify a name only when the bare name would clash with one of these:
 
-- **Another import.** `dream_errors.NotFound` stays qualified because the code imports `error.NotFound` from Dream bare. The bare name can only mean one of them.
+- **Another import.** When two imports offer the same name, qualify it on both sides. Dream and `dream_errors` both offer `NotFound` and `Error`, so the code writes `error.NotFound` and `dream_errors.NotFound`, and `error.Error` and `dream_errors.Error`. A bare name would hide which one it means.
 - **A local definition or a parameter.** The parameter `message` hides the imported `message` function, so the call is `error.message`.
 - **A module name in scope.** If the code imports `gleam/int` as a module, write `client.int`. A bare `int` would read as the module.
 
@@ -1011,7 +1011,7 @@ Each name repeats what the types and the function already say. The extra words m
 
 1. **Always use `{verb}_{noun}` pattern** for function names
 2. **Never prefix with module name** - the module provides the namespace
-3. **Import names unqualified** - qualify a name only when the bare name would clash
+3. **Import names unqualified** - qualify a name only when the bare name would clash. When two imports offer the same name, qualify it on both sides
 4. **Each prefix has a distinct purpose** - no overlaps allowed
 5. **Use descriptive verbs**: `create`, `get`, `set`, `add`, `remove`, `convert`, `parse`, `format`, `handle`, `route`, `validate`, `start`, `stop`, etc.
 6. **Use descriptive nouns**: be specific about what is being acted upon

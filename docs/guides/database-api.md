@@ -586,7 +586,7 @@ error:
 ### User operations <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L8-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/error.{type Error, Conflict, NotFound, from_shared}
+import dream/http/error.{from_shared}
 import dream_errors
 import dream_postgres/client.{
   type Connection, type QueryError, violated_constraint,
@@ -595,13 +595,13 @@ import gleam/result.{map_error}
 import models/user.{type User, create, delete, get, list, update}
 
 /// Get a user by ID
-pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
+pub fn get_user(db: Connection, id: Int) -> Result(User, error.Error) {
   get(db, id)
   |> map_error(user_error)
 }
 
 /// List all users
-pub fn list_users(db: Connection) -> Result(List(User), Error) {
+pub fn list_users(db: Connection) -> Result(List(User), error.Error) {
   list(db)
   |> map_error(user_error)
 }
@@ -611,7 +611,7 @@ pub fn create_user(
   db: Connection,
   name: String,
   email: String,
-) -> Result(User, Error) {
+) -> Result(User, error.Error) {
   create(db, name, email)
   |> map_error(user_error)
 }
@@ -627,12 +627,12 @@ taken email:
 /// The Dream error of a model error. A missing row and a taken email keep
 /// their own texts. Every other error goes through `error.from_shared`,
 /// which never shows the developer message of the model error.
-fn user_error(model_error: dream_errors.Error(QueryError)) -> Error {
+fn user_error(model_error: dream_errors.Error(QueryError)) -> error.Error {
   case model_error {
-    dream_errors.NotFound(..) -> NotFound("User not found")
+    dream_errors.NotFound(..) -> error.NotFound("User not found")
     dream_errors.Conflict(cause:, ..) ->
       case violated_constraint(cause) {
-        Ok("users_email_key") -> Conflict("Email already taken")
+        Ok("users_email_key") -> error.Conflict("Email already taken")
         _ -> from_shared(model_error)
       }
     _ -> from_shared(model_error)
@@ -1249,7 +1249,7 @@ pub fn create_and_attach(
   db: Connection,
   task_id: Int,
   tag_name: String,
-) -> Result(Tag, Error) {
+) -> Result(Tag, error.Error) {
   let data = TagData(name: tag_name, color: None)
 
   // A tag with no color stores an empty color.
@@ -1542,7 +1542,7 @@ generated function:
 pub fn create_project(
   db: Connection,
   data: ProjectData,
-) -> Result(Project, Error) {
+) -> Result(Project, error.Error) {
   create(
     db,
     data.name,

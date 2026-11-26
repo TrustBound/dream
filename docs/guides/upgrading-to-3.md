@@ -641,7 +641,7 @@ dream_model generates `user.get(db, id) -> Result(User, dream_errors.Error(clien
 
 ```gleam
 /// Get a user by ID
-pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
+pub fn get_user(db: Connection, id: Int) -> Result(User, error.Error) {
   get(db, id)
   |> map_error(user_error)
 }

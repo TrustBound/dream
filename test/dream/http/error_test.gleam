@@ -1,9 +1,8 @@
 //// Tests for dream/http/error module.
 
 import dream/http/error.{
-  BadRequest, Conflict, Forbidden, GatewayTimeout, InternalServerError, NotFound,
-  ServiceUnavailable, Unauthorized, UnprocessableContent, from_shared, message,
-  to_status_code,
+  BadRequest, Forbidden, GatewayTimeout, InternalServerError, ServiceUnavailable,
+  Unauthorized, UnprocessableContent, from_shared, message, to_status_code,
 }
 import dream_errors.{Failed, Invalid, Timeout, Unavailable}
 import dream_test/matchers.{be_equal, or_fail_with, should}
@@ -63,7 +62,7 @@ fn to_status_code_tests() -> UnitNode {
     }),
     it("NotFound returns 404", fn() {
       // Arrange
-      let error = NotFound("Resource not found")
+      let error = error.NotFound("Resource not found")
 
       // Act
       let result = to_status_code(error)
@@ -76,7 +75,7 @@ fn to_status_code_tests() -> UnitNode {
     }),
     it("Conflict returns 409", fn() {
       // Arrange
-      let error = Conflict("Email already registered")
+      let error = error.Conflict("Email already registered")
 
       // Act
       let result = to_status_code(error)
@@ -159,7 +158,7 @@ fn message_tests() -> UnitNode {
     }),
     it("extracts NotFound message", fn() {
       // Arrange
-      let error = NotFound("Resource not found")
+      let error = error.NotFound("Resource not found")
 
       // Act
       let result = message(error)
@@ -172,7 +171,7 @@ fn message_tests() -> UnitNode {
     }),
     it("extracts Conflict message", fn() {
       // Arrange
-      let error = Conflict("Email already registered")
+      let error = error.Conflict("Email already registered")
 
       // Act
       let result = message(error)
@@ -226,7 +225,7 @@ fn message_tests() -> UnitNode {
       // Arrange
       let long_message =
         "This is a very long error message that contains multiple words and should be preserved exactly as provided"
-      let error = NotFound(long_message)
+      let error = error.NotFound(long_message)
 
       // Act
       let result = message(error)
@@ -305,8 +304,8 @@ fn from_shared_tests() -> UnitNode {
       result
       |> should()
       |> be_equal([
-        NotFound("Not found"),
-        Conflict("Conflict"),
+        error.NotFound("Not found"),
+        error.Conflict("Conflict"),
         UnprocessableContent("Invalid input"),
         ServiceUnavailable("Service unavailable"),
         GatewayTimeout("Timed out"),

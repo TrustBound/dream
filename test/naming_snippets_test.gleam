@@ -6,7 +6,7 @@
 
 import dream/dream.{route_request}
 import dream/http/cookie.{type Cookie, Cookie}
-import dream/http/error.{NotFound}
+import dream/http/error
 import dream/http/header.{Header}
 import dream/http/request.{Delete, Get, Post, Trace}
 import dream/http/response.{Text}
@@ -125,7 +125,7 @@ fn import_tests() -> UnitNode {
   group("imports", [
     it("bare and qualified calls make the same response", fn() {
       // Arrange
-      let failure = NotFound("User not found")
+      let failure = error.NotFound("User not found")
 
       // Act
       let bare = error_response(failure)

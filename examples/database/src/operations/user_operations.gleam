@@ -5,7 +5,7 @@
 //// which return data errors, and maps them to Dream errors with the texts
 //// for the client.
 
-import dream/http/error.{type Error, Conflict, NotFound, from_shared}
+import dream/http/error.{from_shared}
 import dream_errors
 import dream_postgres/client.{
   type Connection, type QueryError, violated_constraint,
@@ -14,13 +14,13 @@ import gleam/result.{map_error}
 import models/user.{type User, create, delete, get, list, update}
 
 /// Get a user by ID
-pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
+pub fn get_user(db: Connection, id: Int) -> Result(User, error.Error) {
   get(db, id)
   |> map_error(user_error)
 }
 
 /// List all users
-pub fn list_users(db: Connection) -> Result(List(User), Error) {
+pub fn list_users(db: Connection) -> Result(List(User), error.Error) {
   list(db)
   |> map_error(user_error)
 }
@@ -30,7 +30,7 @@ pub fn create_user(
   db: Connection,
   name: String,
   email: String,
-) -> Result(User, Error) {
+) -> Result(User, error.Error) {
   create(db, name, email)
   |> map_error(user_error)
 }
@@ -41,13 +41,13 @@ pub fn update_user(
   id: Int,
   name: String,
   email: String,
-) -> Result(User, Error) {
+) -> Result(User, error.Error) {
   update(db, name, email, id)
   |> map_error(user_error)
 }
 
 /// Delete a user
-pub fn delete_user(db: Connection, id: Int) -> Result(Nil, Error) {
+pub fn delete_user(db: Connection, id: Int) -> Result(Nil, error.Error) {
   delete(db, id)
   |> map_error(user_error)
 }
@@ -55,12 +55,12 @@ pub fn delete_user(db: Connection, id: Int) -> Result(Nil, Error) {
 /// The Dream error of a model error. A missing row and a taken email keep
 /// their own texts. Every other error goes through `error.from_shared`,
 /// which never shows the developer message of the model error.
-fn user_error(model_error: dream_errors.Error(QueryError)) -> Error {
+fn user_error(model_error: dream_errors.Error(QueryError)) -> error.Error {
   case model_error {
-    dream_errors.NotFound(..) -> NotFound("User not found")
+    dream_errors.NotFound(..) -> error.NotFound("User not found")
     dream_errors.Conflict(cause:, ..) ->
       case violated_constraint(cause) {
-        Ok("users_email_key") -> Conflict("Email already taken")
+        Ok("users_email_key") -> error.Conflict("Email already taken")
         _ -> from_shared(model_error)
       }
     _ -> from_shared(model_error)

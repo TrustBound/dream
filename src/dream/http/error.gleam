@@ -429,7 +429,7 @@ pub fn message(error: Error) -> String {
 /// ### Give a missing profile its own text <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_from_shared.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
-/// import dream/http/error.{type Error, NotFound, from_shared}
+/// import dream/http/error.{from_shared}
 /// import dream_errors
 ///
 /// pub type StoreError {
@@ -438,10 +438,11 @@ pub fn message(error: Error) -> String {
 ///
 /// pub fn load_profile(
 ///   store_result: Result(String, dream_errors.Error(StoreError)),
-/// ) -> Result(String, Error) {
+/// ) -> Result(String, error.Error) {
 ///   case store_result {
 ///     Ok(profile) -> Ok(profile)
-///     Error(dream_errors.NotFound(..)) -> Error(NotFound("Profile not found"))
+///     Error(dream_errors.NotFound(..)) ->
+///       Error(error.NotFound("Profile not found"))
 ///     Error(shared) -> Error(from_shared(shared))
 ///   }
 /// }

@@ -4,7 +4,7 @@
 
 import dream/http/cookie.{Cookie, Lax, Strict}
 import dream/http/error.{
-  BadRequest, Conflict, Forbidden, GatewayTimeout, InternalServerError, NotFound,
+  BadRequest, Conflict, Forbidden, GatewayTimeout, InternalServerError,
   ServiceUnavailable, Unauthorized, UnprocessableContent,
 }
 import dream/http/request.{type Request, Get, Post, Request}
@@ -398,7 +398,7 @@ fn error_tests() -> UnitNode {
       // Assert
       result
       |> should()
-      |> be_equal(Error(NotFound("User not found")))
+      |> be_equal(Error(error.NotFound("User not found")))
       |> or_fail_with("get_user should return NotFound")
     }),
     it("module example rejects an empty name", fn() {
@@ -443,7 +443,7 @@ fn error_tests() -> UnitNode {
     }),
     it("response example maps the error status", fn() {
       // Arrange
-      let result = Error(NotFound("User not found"))
+      let result = Error(error.NotFound("User not found"))
 
       // Act
       let response = user_response(result)
@@ -456,7 +456,7 @@ fn error_tests() -> UnitNode {
     }),
     it("response example sends the error message", fn() {
       // Arrange
-      let result = Error(NotFound("User not found"))
+      let result = Error(error.NotFound("User not found"))
 
       // Act
       let response = user_response(result)
@@ -535,7 +535,7 @@ fn error_tests() -> UnitNode {
       // Assert
       result
       |> should()
-      |> be_equal(Error(NotFound("User not found")))
+      |> be_equal(Error(error.NotFound("User not found")))
       |> or_fail_with("find_user should return NotFound")
     }),
     it("NotFound example names the missing post", fn() {
@@ -545,7 +545,7 @@ fn error_tests() -> UnitNode {
       // Assert
       result
       |> should()
-      |> be_equal(Error(NotFound("Post with ID 123 does not exist")))
+      |> be_equal(Error(error.NotFound("Post with ID 123 does not exist")))
       |> or_fail_with("find_post should name post 123")
     }),
     it("Conflict example rejects a taken email", fn() {
@@ -633,7 +633,7 @@ fn error_tests() -> UnitNode {
       // Assert
       result
       |> should()
-      |> be_equal(Error(NotFound("Profile not found")))
+      |> be_equal(Error(error.NotFound("Profile not found")))
       |> or_fail_with("load_profile should return its own NotFound text")
     }),
     it("from_shared example hides the message of another error", fn() {
