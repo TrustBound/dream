@@ -211,15 +211,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [dream_model](https://github.com/TrustBound/dream_model) in place of
   `dream_sql_generator`. Each model folder holds one `.sql` file for each
   query, with hints, and `make models` generates the model module. The
-  generated functions return data errors (`client.ModelQueryError` of
-  `dream_postgres`: `NotFound`, `Conflict(constraint)` or
-  `QueryFailed(message, cause)`), so the hand-written row converters and
-  `sql.gleam` files are gone. The operations map these errors to Dream
-  errors, with the texts for the client, through `model_error_to_error`
-  in `src/utilities/response_helpers.gleam` of each example. The HTTP
-  answers are the same as before. The examples need
-  `dream_postgres` `>= 2.1.0` and `dream_model` `>= 1.0.0` (a dev
-  dependency). The guides and step 8 of the
+  generated functions return the shared data error
+  `dream_errors.Error(client.QueryError)`: `NotFound`, `Conflict`,
+  `Timeout`, `Unavailable` or `Failed`, with the database error as the
+  cause. The hand-written row converters and `sql.gleam` files are gone.
+  The operations give a missing row (`User not found`, `Post not found`,
+  `Product not found`, `Project not found`, `Task not found`, `Tag not
+  found`, `Tag not found on task`) and a taken email (`Email already
+  taken`) their own texts, and send every other error through
+  `error.from_shared`. The HTTP answers are the same as before, except
+  that a database timeout now gives `504` and no free connection gives
+  `503`, where they gave `500`. The examples need `dream_errors`
+  `>= 1.0.0`, `dream_postgres` `>= 2.1.0` and `dream_model` `>= 1.0.0`
+  (a dev dependency). The guides and step 8 of the
   [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html)
   show the new layout.
 - The `database` example answers `409` with

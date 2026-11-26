@@ -96,7 +96,7 @@ curl -X DELETE http://localhost:3002/users/1
 
 ## A taken email
 
-The email column is unique. A second user with the same email gets a 409 answer. The `-- unique: users_email_key` hint of `src/models/user/create.sql` makes the model return `client.Conflict("users_email_key")`. `src/operations/user_operations.gleam` gives the message, `Email already taken`.
+The email column is unique. A second user with the same email gets a 409 answer. The `-- unique: users_email_key` hint of `src/models/user/create.sql` makes the model return a `dream_errors.Conflict` with the database error as its cause. `src/operations/user_operations.gleam` reads the constraint with `client.violated_constraint` and gives the message, `Email already taken`.
 
 ### Create a user with a taken email <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/test/integration/readme.sh#L63-L65"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -220,7 +220,7 @@ models:
 ## Key Concepts
 
 - **Database Service** - Singleton pattern for connection management
-- **dream_model** - Generates typed model functions from SQL files. They return data errors: `NotFound` for a missing row, `Conflict` for a taken email. The operations map them to Dream errors, with the texts for the client, through `model_error_to_error` in `src/utilities/response_helpers.gleam`
+- **dream_model** - Generates typed model functions from SQL files. They return the shared data error `dream_errors.Error`: `NotFound` for a missing row, `Conflict` for a taken email, `Timeout`, `Unavailable` or `Failed` for the rest. The operations give a missing row and a taken email their texts, and send every other error through `error.from_shared` of Dream (503, 504 or 500 with a generic text)
 - **Migrations** - Using Cigogne for database schema management
 - **Models** - Generated data access, one `.sql` file for each function
 - **Controllers** - HTTP request handling and routing to models

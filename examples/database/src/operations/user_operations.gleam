@@ -6,10 +6,10 @@
 //// for the client.
 
 import dream/http/error.{type Error}
+import dream_errors
 import dream_postgres/client.{type Connection}
 import gleam/result
 import models/user.{type User}
-import utilities/response_helpers
 
 /// Get a user by ID
 pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
@@ -50,11 +50,17 @@ pub fn delete_user(db: Connection, id: Int) -> Result(Nil, Error) {
   |> result.map_error(user_error)
 }
 
-/// The Dream error of a user model error, with the texts for the client.
-fn user_error(model_error: client.ModelQueryError) -> Error {
-  response_helpers.model_error_to_error(
-    model_error,
-    not_found: "User not found",
-    conflicts: [#("users_email_key", "Email already taken")],
-  )
+/// The Dream error of a model error. A missing row and a taken email keep
+/// their own texts. Every other error goes through `error.from_shared`,
+/// which never shows the developer message of the model error.
+fn user_error(model_error: dream_errors.Error(client.QueryError)) -> Error {
+  case model_error {
+    dream_errors.NotFound(..) -> error.NotFound("User not found")
+    dream_errors.Conflict(cause:, ..) ->
+      case client.violated_constraint(cause) {
+        Ok("users_email_key") -> error.Conflict("Email already taken")
+        _ -> error.from_shared(model_error)
+      }
+    _ -> error.from_shared(model_error)
+  }
 }

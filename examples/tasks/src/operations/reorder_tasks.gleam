@@ -1,11 +1,11 @@
 //// Reorder tasks operation - business logic for drag-and-drop reordering
 
 import dream/http/error.{type Error}
+import dream_errors
 import dream_postgres/client.{type Connection}
 import gleam/list
 import gleam/result
 import models/task.{type Task}
-import utilities/response_helpers
 
 /// Reorder a task by moving it to a new position
 /// This operation could be extended to handle complex reordering logic,
@@ -45,11 +45,12 @@ fn batch_reorder_recursive(
   }
 }
 
-/// The Dream error of a model error, with the texts for the client.
-fn task_error(model_error: client.ModelQueryError) -> Error {
-  response_helpers.model_error_to_error(
-    model_error,
-    not_found: "Task not found",
-    conflicts: [],
-  )
+/// The Dream error of a model error. A missing row keeps its own text.
+/// Every other error goes through `error.from_shared`, which never shows
+/// the developer message of the model error.
+fn task_error(model_error: dream_errors.Error(client.QueryError)) -> Error {
+  case model_error {
+    dream_errors.NotFound(..) -> error.NotFound("Task not found")
+    _ -> error.from_shared(model_error)
+  }
 }

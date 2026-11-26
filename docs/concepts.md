@@ -400,7 +400,7 @@ The examples do not write models by hand. [dream_model](https://github.com/Trust
 SELECT id, name, email, created_at FROM users WHERE id = $1
 ```
 
-dream_model writes `src/models/user.gleam` with a `User` record and the function `get(db, id) -> Result(User, client.ModelQueryError)`. The error is data, with no HTTP status: with no row, `get` returns `client.NotFound`, and a database failure gives `client.QueryFailed`. The operation calls it, and maps the error to a Dream error with the text for the client:
+dream_model writes `src/models/user.gleam` with a `User` record and the function `get(db, id) -> Result(User, dream_errors.Error(client.QueryError))`. The error is data, the shared error of the Dream ecosystem, with no HTTP status: with no row, `get` returns `dream_errors.NotFound`, and a database failure gives `dream_errors.Failed`. The operation calls it, and maps the error to a Dream error: its own text for a missing user, and `error.from_shared` for the rest:
 
 ### Calling the generated model <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L14-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 

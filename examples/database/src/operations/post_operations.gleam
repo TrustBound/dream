@@ -6,11 +6,11 @@
 //// for the client.
 
 import dream/http/error.{type Error}
+import dream_errors
 import dream_postgres/client.{type Connection}
 import gleam/option
 import gleam/result
 import models/post.{type Post}
-import utilities/response_helpers
 
 /// Get a post by ID
 pub fn get_post(db: Connection, id: Int) -> Result(Post, Error) {
@@ -35,11 +35,12 @@ pub fn create_post(
   |> result.map_error(post_error)
 }
 
-/// The Dream error of a post model error, with the texts for the client.
-fn post_error(model_error: client.ModelQueryError) -> Error {
-  response_helpers.model_error_to_error(
-    model_error,
-    not_found: "Post not found",
-    conflicts: [],
-  )
+/// The Dream error of a model error. A missing row keeps its own text.
+/// Every other error goes through `error.from_shared`, which never shows
+/// the developer message of the model error.
+fn post_error(model_error: dream_errors.Error(client.QueryError)) -> Error {
+  case model_error {
+    dream_errors.NotFound(..) -> error.NotFound("Post not found")
+    _ -> error.from_shared(model_error)
+  }
 }

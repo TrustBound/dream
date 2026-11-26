@@ -5,6 +5,7 @@ licences = ["MIT"]
 
 [dependencies]
 dream = { path = "../.." }
+dream_errors = ">= 1.0.0 and < 2.0.0"
 dream_postgres = ">= 2.1.0 and < 3.0.0"
 # Pinned to the module's move branch until it is on Hex.
 dream_config = { git = "https://github.com/TrustBound/dream_config.git", ref = "f68cc45f32b4aa21234f254118f3e18ae4c9cf49" }

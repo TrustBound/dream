@@ -559,16 +559,17 @@ pub type Message(custom) {
 
 **What to do.**
 
-1. In `[dependencies]`, replace `pog` with `dream_postgres` and `dream_postgres_client`. In `[dev-dependencies]`, replace `squirrel` with `dream_model`. The database example has these lines:
+1. In `[dependencies]`, replace `pog` with `dream_postgres` and `dream_postgres_client`, and add `dream_errors`, because the generated models import it. In `[dev-dependencies]`, replace `squirrel` with `dream_model`. The database example has these lines:
 
-### The dependencies of the database example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L10-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The dependencies of the database example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L10-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```toml
+dream_errors = ">= 1.0.0 and < 2.0.0"
 dream_postgres = ">= 2.1.0 and < 3.0.0"
 dream_postgres_client = ">= 1.0.0 and < 2.0.0"
 ```
 
-### The dev dependency of the database example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L19-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The dev dependency of the database example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L20-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```toml
 [dev-dependencies]
@@ -625,7 +626,7 @@ fn extract_first_user(
 }
 ```
 
-With dream_model, the query has hints. `returns: one User` makes the function return one `User`, or `client.NotFound` when there is no row:
+With dream_model, the query has hints. `returns: one User` makes the function return one `User`, or `dream_errors.NotFound` when there is no row:
 
 ### The query with dream_model <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user/get.sql"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -634,7 +635,7 @@ With dream_model, the query has hints. `returns: one User` makes the function re
 SELECT id, name, email, created_at FROM users WHERE id = $1
 ```
 
-dream_model generates `user.get(db, id) -> Result(User, client.ModelQueryError)`. The error is data, with no HTTP status and no text for the client. The helpers are gone. The operation calls the generated function, and `user_error` maps its error to a Dream error with the text, `NotFound("User not found")` for no row:
+dream_model generates `user.get(db, id) -> Result(User, dream_errors.Error(client.QueryError))`. The error is data, the shared error of the Dream ecosystem, with no HTTP status and no text for the client. The helpers are gone. The operation calls the generated function, and `user_error` maps its error to a Dream error with the text, `NotFound("User not found")` for no row:
 
 ### The call of the generated function <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L14-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -646,7 +647,7 @@ pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
 }
 ```
 
-A unique violation now has a hint too. `-- unique: users_email_key` in `create.sql` gives `client.Conflict("users_email_key")`. `user_error` maps it to `Conflict("Email already taken")`, and the client gets a 409 answer. Squirrel gave a database error, which the example answered with 500. The mapping is `model_error_to_error` in `src/utilities/response_helpers.gleam` of the example.
+A unique violation now has a hint too. `-- unique: users_email_key` in `create.sql` gives a `dream_errors.Conflict` with the database error as its cause. `user_error` reads the constraint with `client.violated_constraint` and maps it to `Conflict("Email already taken")`, and the client gets a 409 answer. Squirrel gave a database error, which the example answered with 500. Every other model error goes through `error.from_shared`: 503 for no connection, 504 for a timeout and 500 for the rest, each with a generic text.
 
 [Build a database-backed JSON API](https://hexdocs.pm/dream/3.0.0/guides/database-api.html) shows the full setup.
 

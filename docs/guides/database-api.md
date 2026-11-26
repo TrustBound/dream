@@ -70,20 +70,23 @@ The server listens on port 3002.
 
 ## Step 1: Add the dependencies
 
-Add `dream_postgres`, `dream_postgres_client` and `cigogne` with
-`gleam add dream_postgres dream_postgres_client cigogne`, and
+Add `dream_errors`, `dream_postgres`, `dream_postgres_client` and
+`cigogne` with
+`gleam add dream_errors dream_postgres dream_postgres_client cigogne`,
+and
 `dream_model` as a dev dependency with `gleam add --dev dream_model`.
 In `examples/database` they are these lines of `gleam.toml`:
 
-#### The dependencies <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L10-L12"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The dependencies <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L10-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```toml
+dream_errors = ">= 1.0.0 and < 2.0.0"
 dream_postgres = ">= 2.1.0 and < 3.0.0"
 dream_postgres_client = ">= 1.0.0 and < 2.0.0"
 cigogne = ">= 5.0.0 and < 6.0.0"
 ```
 
-#### The dev dependency <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L19-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### The dev dependency <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L20-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```toml
 [dev-dependencies]
@@ -92,6 +95,7 @@ dream_model = ">= 1.0.0 and < 2.0.0"
 
 - [`dream_postgres_client`](https://hex.pm/packages/dream_postgres_client) - The PostgreSQL client for Gleam, with its connection pool. It is a fork of `pog`, maintained for Dream.
 - [`dream_postgres`](https://hex.pm/packages/dream_postgres) - The `dream_postgres/client` module that the generated models use, and `check_schema`.
+- [`dream_errors`](https://hex.pm/packages/dream_errors) - The shared error type that the generated models return.
 - [`dream_model`](https://github.com/TrustBound/dream_model) - Generates typed model modules from SQL files. Each function returns a Dream `Error`. It runs only when you develop, so it is a dev dependency.
 - [`dream_postgres_driver`](https://hex.pm/packages/dream_postgres_driver) - The Erlang driver under `dream_postgres_client`. It is a fork of `pgo`, maintained for Dream. `dream_postgres_client` depends on it, so you do not add it yourself.
 - `cigogne` - Database migrations
@@ -304,12 +308,15 @@ SELECT id, name, email, created_at FROM users ORDER BY id
 The hints say what each function returns and which errors it gives:
 
 - `-- returns: one User` returns one `User`. With no row, the function
-  returns `client.NotFound`.
+  returns `dream_errors.NotFound`.
 - `-- returns: many User` returns a `List(User)`.
 - `-- unique: users_email_key` turns a violation of that unique
-  constraint into `client.Conflict("users_email_key")`.
-- Every other database error gives `client.QueryFailed` with a message
-  and the original error as its cause.
+  constraint into `dream_errors.Conflict`, with the database error as
+  its cause.
+- A timeout gives `dream_errors.Timeout`, no free connection gives
+  `dream_errors.Unavailable`, and every other database error gives
+  `dream_errors.Failed`. Each one has a message for developers and the
+  original error as its cause.
 
 A hint holds no text for the client. The operation gives each error its
 text, in [Step 7](#step-7-call-the-model-from-an-operation).
@@ -561,14 +568,16 @@ Services solves this with type safety. The compiler verifies every controller ge
   `Option(client.Timestamp)`.
 - One function for each `.sql` file. Each one takes the connection
   first, then the parameters of the query, and returns
-  `Result(_, client.ModelQueryError)`. For example
-  `get(db, id) -> Result(User, client.ModelQueryError)` and
-  `create(db, name, email) -> Result(User, client.ModelQueryError)`.
+  `Result(_, dream_errors.Error(client.QueryError))`, the shared error
+  of the Dream ecosystem. For example
+  `get(db, id) -> Result(User, dream_errors.Error(client.QueryError))`
+  and `create(db, name, email)` with the same error type.
 - `schema_fingerprint`, the value that `check_schema` uses.
 
 The functions already turn the database answers into data errors: no
-row gives `NotFound`, a taken email gives `Conflict("users_email_key")`,
-and any other failure gives `QueryFailed` with no SQL in its message.
+row gives `NotFound`, a taken email gives `Conflict`, a timeout gives
+`Timeout`, no connection gives `Unavailable`, and any other failure
+gives `Failed`. Each message is for developers and logs.
 The model has no HTTP status and no text for the client, and needs no
 hand-written code.
 
@@ -583,10 +592,10 @@ error:
 
 ```gleam
 import dream/http/error.{type Error}
+import dream_errors
 import dream_postgres/client.{type Connection}
 import gleam/result
 import models/user.{type User}
-import utilities/response_helpers
 
 /// Get a user by ID
 pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
@@ -612,54 +621,37 @@ pub fn create_user(
 ```
 
 The file also has `update_user` and `delete_user`. `user_error` gives
-the texts for the client: the text of a missing user, and the text of
-each unique constraint:
+the texts for the client: the text of a missing user and the text of a
+taken email:
 
-### The texts of the user errors <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L53-L60"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
-
-```gleam
-/// The Dream error of a user model error, with the texts for the client.
-fn user_error(model_error: client.ModelQueryError) -> Error {
-  response_helpers.model_error_to_error(
-    model_error,
-    not_found: "User not found",
-    conflicts: [#("users_email_key", "Email already taken")],
-  )
-}
-```
-
-`model_error_to_error` is in `src/utilities/response_helpers.gleam`.
-`NotFound` becomes `error.NotFound` with the text, a `Conflict` with a
-text becomes `error.Conflict`, and the rest becomes
-`error.InternalServerError`:
-
-### Map a model error to a Dream error <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/utilities/response_helpers.gleam#L27-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### The texts of the user errors <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/operations/user_operations.gleam#L53-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-/// Turn the error of a generated model function into a Dream error.
-///
-/// The model gives data: `NotFound`, `Conflict` with the name of a unique
-/// constraint, or `QueryFailed`. This function gives the text for the
-/// client. `not_found` is the text of a missing row. `conflicts` gives the
-/// text of each unique constraint of the `-- unique:` hints. A conflict
-/// with no text, and a failed query, give an internal server error.
-pub fn model_error_to_error(
-  model_error: client.ModelQueryError,
-  not_found not_found: String,
-  conflicts conflicts: List(#(String, String)),
-) -> Error {
+/// The Dream error of a model error. A missing row and a taken email keep
+/// their own texts. Every other error goes through `error.from_shared`,
+/// which never shows the developer message of the model error.
+fn user_error(model_error: dream_errors.Error(client.QueryError)) -> Error {
   case model_error {
-    client.NotFound -> error.NotFound(not_found)
-    client.Conflict(constraint:) ->
-      case list.key_find(conflicts, constraint) {
-        Ok(message) -> error.Conflict(message)
-        Error(Nil) ->
-          error.InternalServerError("no conflict text for " <> constraint)
+    dream_errors.NotFound(..) -> error.NotFound("User not found")
+    dream_errors.Conflict(cause:, ..) ->
+      case client.violated_constraint(cause) {
+        Ok("users_email_key") -> error.Conflict("Email already taken")
+        _ -> error.from_shared(model_error)
       }
-    client.QueryFailed(message:, cause: _) -> error.InternalServerError(message)
+    _ -> error.from_shared(model_error)
   }
 }
 ```
+
+A missing user and a taken email keep their own texts. The cause of a
+`Conflict` is the database error, and `client.violated_constraint`
+gives the name of its constraint. Every other error goes through
+`error.from_shared`: a timeout gives `GatewayTimeout` (504), no free
+connection gives `ServiceUnavailable` (503), and a failed query gives
+`InternalServerError` (500). `from_shared` gives a fixed, generic text
+and never the message of the model error. That message is for
+developers and logs, because it can name tables, constraints and
+values.
 
 The controller then gets one error type, `dream.Error`, from the
 operation and from `require_int` and `require_json`. An operation is the
@@ -1093,7 +1085,7 @@ connection: keep-alive
 {"error": "Expected Field but found Nothing at email"}
 ```
 
-The model turned "no row" into `client.NotFound`, the operation turned it into `NotFound("User not found")`, `require_int` turned `abc` into a `BadRequest`, and `require_json` turned the decoder's first error into a `BadRequest`. `response_helpers.handle_error` mapped each one to its status and a JSON body.
+The model turned "no row" into `dream_errors.NotFound`, the operation turned it into `NotFound("User not found")`, `require_int` turned `abc` into a `BadRequest`, and `require_json` turned the decoder's first error into a `BadRequest`. `response_helpers.handle_error` mapped each one to its status and a JSON body.
 
 Last, the health check, which runs `SELECT 1` on the pool:
 
@@ -1162,7 +1154,7 @@ curl -i -X POST http://localhost:3002/users \
 ```
 
 The `-- unique: users_email_key` hint of `create.sql` turned the unique
-violation into `client.Conflict("users_email_key")`. The operation
+violation into a `dream_errors.Conflict`. The operation
 turned it into `Conflict("Email already taken")`, and
 `response_helpers.handle_error` answered 409:
 
@@ -1485,7 +1477,7 @@ Models handle data access. They are functions that:
 
 1.  Take a database connection.
 2.  Run one SQL query each.
-3.  Return domain types and data errors (`client.ModelQueryError`).
+3.  Return domain types and data errors (`dream_errors.Error(client.QueryError)`).
 
 dream_model generates all three parts. These examples come from the
 project model in the tasks example. Each `.sql` file of
@@ -1584,11 +1576,12 @@ so a task that does not exist gives a 404.
 - **Explicit Connection:** Pass `db: Connection` explicitly.
 - **Name the Unique Constraints:** Use `-- unique: <constraint>` for
   each unique constraint that a user can break. A violation of it gives
-  `client.Conflict` with the name of the constraint.
+  `dream_errors.Conflict`, and `client.violated_constraint` reads the
+  name of the constraint from its cause.
 - **Texts in the Operations:** The generated functions return data
   errors, with no HTTP status and no text for the client. Map them in
-  the operation with `response_helpers.model_error_to_error`, which
-  gives the text of a missing row and of each constraint, so the
+  the operation: give a missing row and a taken unique value their own
+  texts, and send every other error through `error.from_shared`, so the
   controllers handle one error type, `dream.Error`.
 - **Check the Schema:** Give the `schema_fingerprint` of each model to
   `client.check_schema` at start-up.

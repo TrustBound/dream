@@ -6,6 +6,7 @@
 //// for the client.
 
 import dream/http/error.{type Error}
+import dream_errors
 import dream_postgres/client.{type Connection}
 import gleam/option.{type Option}
 import gleam/result
@@ -14,7 +15,6 @@ import models/tag.{type Tag}
 import models/task.{type Task}
 import types/task.{type TaskData, TaskData} as _task_data
 import utilities/dates
-import utilities/response_helpers
 
 /// Create a new task
 pub fn create_task(db: Connection, data: TaskData) -> Result(Task, Error) {
@@ -184,20 +184,22 @@ fn non_empty(value: String) -> Option(String) {
   }
 }
 
-/// The Dream error of a model error, with the texts for the client.
-fn tag_error(model_error: client.ModelQueryError) -> Error {
-  response_helpers.model_error_to_error(
-    model_error,
-    not_found: "Tag not found",
-    conflicts: [],
-  )
+/// The Dream error of a model error. A missing row keeps its own text.
+/// Every other error goes through `error.from_shared`, which never shows
+/// the developer message of the model error.
+fn tag_error(model_error: dream_errors.Error(client.QueryError)) -> Error {
+  case model_error {
+    dream_errors.NotFound(..) -> error.NotFound("Tag not found")
+    _ -> error.from_shared(model_error)
+  }
 }
 
-/// The Dream error of a model error, with the texts for the client.
-fn task_error(model_error: client.ModelQueryError) -> Error {
-  response_helpers.model_error_to_error(
-    model_error,
-    not_found: "Task not found",
-    conflicts: [],
-  )
+/// The Dream error of a model error. A missing row keeps its own text.
+/// Every other error goes through `error.from_shared`, which never shows
+/// the developer message of the model error.
+fn task_error(model_error: dream_errors.Error(client.QueryError)) -> Error {
+  case model_error {
+    dream_errors.NotFound(..) -> error.NotFound("Task not found")
+    _ -> error.from_shared(model_error)
+  }
 }
