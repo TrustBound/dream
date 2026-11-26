@@ -35,6 +35,62 @@ pub fn show_user_with_module_prefix(id: Int) -> Result(User, Nil) {
 
 `user.user_find(id)` says "user" two times. The module name already says it, so the name `find` is enough.
 
+## Imports
+
+Gleam code uses unqualified imports by default. Import the types, constructors and functions you use, and call them bare.
+
+### ✅ Good: import the names and call them bare <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_imports.gleam#L6-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+import dream/http/error.{
+  type Error, NotFound, from_shared, message, to_status_code,
+}
+import dream/http/response.{type Response, text_response}
+import dream_errors
+
+pub fn not_found_response() -> Response {
+  error_response(NotFound("User not found"))
+}
+
+pub fn error_response(failure: Error) -> Response {
+  text_response(to_status_code(failure), message(failure))
+}
+```
+
+The import line names each thing the code uses. The calls stay short. `dream_errors` is for the clash example below.
+
+### ❌ Bad: needlessly qualified <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_imports.gleam#L20-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn error_response_qualified(failure: error.Error) -> response.Response {
+  response.text_response(error.to_status_code(failure), error.message(failure))
+}
+```
+
+No name here clashes, so the `error.` and `response.` prefixes only add noise.
+
+### ✅ Good: qualified because the name clashes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_imports.gleam#L24-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
+pub fn shared_error_response(shared: dream_errors.Error(Nil)) -> Response {
+  case shared {
+    dream_errors.NotFound(..) -> not_found_with_message("User not found")
+    other -> error_response(from_shared(other))
+  }
+}
+
+pub fn not_found_with_message(message: String) -> Response {
+  let failure = NotFound(message)
+  text_response(to_status_code(failure), error.message(failure))
+}
+```
+
+Qualify a name only when the bare name would clash with one of these:
+
+- **Another import.** `dream_errors.NotFound` stays qualified because the code imports `error.NotFound` from Dream bare. The bare name can only mean one of them.
+- **A local definition or a parameter.** The parameter `message` hides the imported `message` function, so the call is `error.message`.
+- **A module name in scope.** If the code imports `gleam/int` as a module, write `client.int`. A bare `int` would read as the module.
+
 ## Prefix Categories
 
 ### 1. Creation & Construction
@@ -955,10 +1011,11 @@ Each name repeats what the types and the function already say. The extra words m
 
 1. **Always use `{verb}_{noun}` pattern** for function names
 2. **Never prefix with module name** - the module provides the namespace
-3. **Each prefix has a distinct purpose** - no overlaps allowed
-4. **Use descriptive verbs**: `create`, `get`, `set`, `add`, `remove`, `convert`, `parse`, `format`, `handle`, `route`, `validate`, `start`, `stop`, etc.
-5. **Use descriptive nouns**: be specific about what is being acted upon
-6. **Exceptions allowed**: 
+3. **Import names unqualified** - qualify a name only when the bare name would clash
+4. **Each prefix has a distinct purpose** - no overlaps allowed
+5. **Use descriptive verbs**: `create`, `get`, `set`, `add`, `remove`, `convert`, `parse`, `format`, `handle`, `route`, `validate`, `start`, `stop`, etc.
+6. **Use descriptive nouns**: be specific about what is being acted upon
+7. **Exceptions allowed**: 
    - Builder pattern: Simple verbs in fluent APIs when context is clear
    - Factory functions: `create_{noun}` can be shortened to `{noun}` when context makes it unambiguous what's being created
-7. **Consistency**: Follow these patterns consistently across the codebase
+8. **Consistency**: Follow these patterns consistently across the codebase

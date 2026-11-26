@@ -6,10 +6,12 @@
 
 import dream/dream
 import dream/http/cookie.{type Cookie, Cookie}
+import dream/http/error.{NotFound}
 import dream/http/header.{Header}
 import dream/http/request.{Delete, Get, Post, Trace}
 import dream/http/response.{Text}
 import dream/servers/mist/server
+import dream_errors
 import dream_test/matchers.{be_equal, or_fail_with, should}
 import dream_test/suite.{type TestSuite}
 import dream_test/unit.{type UnitNode, describe, group, it}
@@ -29,6 +31,7 @@ import snippets/naming_conversion
 import snippets/naming_creation
 import snippets/naming_errors
 import snippets/naming_factory
+import snippets/naming_imports
 import snippets/naming_lifecycle
 import snippets/naming_modification
 import snippets/naming_module_namespace
@@ -47,6 +50,7 @@ import snippets/naming_variables_verbose
 pub fn tests() -> TestSuite {
   describe("naming conventions", [
     module_namespace_tests(),
+    import_tests(),
     creation_tests(),
     retrieval_tests(),
     modification_tests(),
@@ -78,6 +82,44 @@ fn simple_cookie(name: String, value: String, secure: Bool) -> Cookie {
     http_only: False,
     same_site: None,
   )
+}
+
+fn import_tests() -> UnitNode {
+  group("imports", [
+    it("bare and qualified calls make the same response", fn() {
+      // Arrange
+      let failure = NotFound("User not found")
+
+      // Act
+      let bare = naming_imports.error_response(failure)
+      let qualified = naming_imports.error_response_qualified(failure)
+      let not_found = naming_imports.not_found_response()
+
+      // Assert
+      #(bare.status, bare.body, qualified.body, not_found.body)
+      |> should()
+      |> be_equal(#(
+        404,
+        Text("User not found"),
+        Text("User not found"),
+        Text("User not found"),
+      ))
+      |> or_fail_with("bare and qualified calls should match")
+    }),
+    it("a clashing name stays qualified and still works", fn() {
+      // Act
+      let missing =
+        naming_imports.shared_error_response(dream_errors.NotFound("gone"))
+      let slow =
+        naming_imports.shared_error_response(dream_errors.Timeout("slow", Nil))
+
+      // Assert
+      #(missing.status, missing.body, slow.status, slow.body)
+      |> should()
+      |> be_equal(#(404, Text("User not found"), 504, Text("Timed out")))
+      |> or_fail_with("shared errors should map to responses")
+    }),
+  ])
 }
 
 fn module_namespace_tests() -> UnitNode {
