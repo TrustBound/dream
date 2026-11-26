@@ -4,6 +4,8 @@
 
 Dream is a web toolkit that gets out of your way. It provides type-safe routing, explicit dependency injection, and composable middleware. No magic. No global state. Just functions and data.
 
+**Erlang target only.** Dream 3.0.0 runs on the Erlang target. It does not support the JavaScript target yet. JavaScript support is planned for a future release.
+
 ---
 
 ## Where to start

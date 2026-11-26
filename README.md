@@ -24,6 +24,8 @@ Dream is a web toolkit for building servers. It's not a framework—you control 
 
 **Built for Gleam** (a type-safe functional language) and **runs on the BEAM** (the same runtime that powers WhatsApp, Discord, and millions of concurrent connections).
 
+**Erlang target only.** Dream 3.0.0 runs on the Erlang target. It does not support the JavaScript target yet. JavaScript support is planned for a future release.
+
 ## A Quick Example
 
 Here is the smallest useful Dream server. It responds with `"Hello, world!"`.

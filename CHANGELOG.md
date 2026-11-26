@@ -74,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The README and the docs index say that Dream runs on the Erlang target
+  only. JavaScript support is planned for a future release.
 - `router.scope(path:, with:, routes:)` adds every route of a second router
   under a path prefix. `with` runs before the route's own middleware, and its
   `next` can take a different context type, so controllers in the scope can
