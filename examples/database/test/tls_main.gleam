@@ -16,11 +16,15 @@ import router.{create_router}
 import services.{initialize_services}
 
 pub fn main() {
-  dream.new()
-  |> context(db_context.context)
-  |> services(initialize_services())
-  |> router(create_router())
-  |> bind("localhost")
-  |> tls(certfile: "build/test_tls/cert.pem", keyfile: "build/test_tls/key.pem")
-  |> listen(3002)
+  let assert Ok(Nil) =
+    dream.new()
+    |> context(db_context.context)
+    |> services(initialize_services())
+    |> router(create_router())
+    |> bind("localhost")
+    |> tls(
+      certfile: "build/test_tls/cert.pem",
+      keyfile: "build/test_tls/key.pem",
+    )
+    |> listen(3002)
 }

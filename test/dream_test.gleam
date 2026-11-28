@@ -1,14 +1,15 @@
 //// Main test entry point using dream_test framework.
 
+import beam_snippets_test
 import benchmarks/router_benchmark
 import contributing_snippets_test
 import doc_core_snippets_test
 import doc_http_data_snippets_test
 import doc_http_snippets_test
 import doc_server_snippets_test
-import docs_snippet_check_test
 import docs_snippet_pages_test
 import dream/context_test
+import dream/controllers/static_test
 import dream/dream_test as dream_module_test
 import dream/http/cookie_test
 import dream/http/error_test
@@ -17,30 +18,38 @@ import dream/http/params_test
 import dream/http/request_test
 import dream/http/response_test
 import dream/http/status_test
+import dream/http/transaction_test
 import dream/http/validation_test
+import dream/method_not_allowed_test
 import dream/router/parser_test
+import dream/router/trie_test
+import dream/router_scope_test
 import dream/router_test
 import dream/servers/mist/builder_order_test
 import dream/servers/mist/chunked_stream_test
+import dream/servers/mist/graceful_stop_test
 import dream/servers/mist/h2c_test
 import dream/servers/mist/handler_test
+import dream/servers/mist/listen_test
 import dream/servers/mist/request_body_test
 import dream/servers/mist/request_test as mist_request_test
 import dream/servers/mist/response_test as mist_response_test
 import dream/servers/mist/server_test
 import dream/servers/mist/sse_test
 import dream/servers/mist/tls_test
+import dream/servers/mist/unread_body_test
+import dream/servers/mist/websocket_test
 import dream/services/broadcaster_test
 import dream/streaming_test
-import dream_test/reporter/bdd
+import dream_test/coverage
+import dream_test/reporters/bdd
 import dream_test/runner
-import dream_test/unit
 import fixtures/port_ffi_test
-import gleam/io
-import gleam/list
+import guide_reports_test
 import guides_deployment_templates_snippets_test
 import guides_sse_websockets_rest_snippets_test
 import learning_snippets_test
+import module_snippets_test
 import naming_snippets_test
 import reference_snippets_test
 import security_snippets_test
@@ -51,93 +60,70 @@ import testing_controllers_uploads_snippets_test
 import websocket_chat_readme_snippets_test
 
 pub fn main() {
-  let all_tests =
-    [
-      unit.to_test_cases("dream/context", context_test.tests()),
-      unit.to_test_cases("dream/dream", dream_module_test.tests()),
-      unit.to_test_cases("dream/http/cookie", cookie_test.tests()),
-      unit.to_test_cases("dream/http/error", error_test.tests()),
-      unit.to_test_cases("dream/http/header", header_test.tests()),
-      unit.to_test_cases("dream/http/params", params_test.tests()),
-      unit.to_test_cases("dream/http/request", request_test.tests()),
-      unit.to_test_cases("dream/http/response", response_test.tests()),
-      unit.to_test_cases("dream/http/status", status_test.tests()),
-      unit.to_test_cases("dream/http/validation", validation_test.tests()),
-      unit.to_test_cases("dream/router", router_test.tests()),
-      unit.to_test_cases("dream/router/parser", parser_test.tests()),
-      unit.to_test_cases(
-        "dream/servers/mist/builder_order",
-        builder_order_test.tests(),
-      ),
-      unit.to_test_cases(
-        "dream/servers/mist/chunked_stream",
-        chunked_stream_test.tests(),
-      ),
-      unit.to_test_cases("dream/servers/mist/h2c", h2c_test.tests()),
-      unit.to_test_cases("dream/servers/mist/handler", handler_test.tests()),
-      unit.to_test_cases(
-        "dream/servers/mist/request",
-        mist_request_test.tests(),
-      ),
-      unit.to_test_cases(
-        "dream/servers/mist/request_body",
-        request_body_test.tests(),
-      ),
-      unit.to_test_cases(
-        "dream/servers/mist/response",
-        mist_response_test.tests(),
-      ),
-      unit.to_test_cases("dream/servers/mist/server", server_test.tests()),
-      unit.to_test_cases("dream/servers/mist/tls", tls_test.tests()),
-      unit.to_test_cases("fixtures/port_ffi", port_ffi_test.tests()),
-      unit.to_test_cases("dream/servers/mist/sse", sse_test.tests()),
-      unit.to_test_cases("dream/services/broadcaster", broadcaster_test.tests()),
-      unit.to_test_cases("dream/streaming", streaming_test.tests()),
-      unit.to_test_cases("benchmarks/router", router_benchmark.tests()),
-      unit.to_test_cases("snippets", snippets_test.tests()),
-      unit.to_test_cases("doc_http_snippets", doc_http_snippets_test.tests()),
-      unit.to_test_cases(
-        "doc http data snippets",
-        doc_http_data_snippets_test.tests(),
-      ),
-      unit.to_test_cases(
-        "doc_server_snippets",
-        doc_server_snippets_test.tests(),
-      ),
-      unit.to_test_cases("doc_core_snippets", doc_core_snippets_test.tests()),
-      unit.to_test_cases("snippets/naming", naming_snippets_test.tests()),
-      unit.to_test_cases("reference snippets", reference_snippets_test.tests()),
-      unit.to_test_cases("security snippets", security_snippets_test.tests()),
-      unit.to_test_cases("snippets/streaming_api", streaming_api_test.tests()),
-      unit.to_test_cases("streaming_snippets", streaming_snippets_test.tests()),
-      unit.to_test_cases(
-        "guide snippets",
-        guides_sse_websockets_rest_snippets_test.tests(),
-      ),
-      unit.to_test_cases(
-        "testing_controllers_uploads_snippets",
-        testing_controllers_uploads_snippets_test.tests(),
-      ),
-      unit.to_test_cases(
-        "guides_deployment_templates_snippets",
-        guides_deployment_templates_snippets_test.tests(),
-      ),
-      unit.to_test_cases("learning snippets", learning_snippets_test.tests()),
-      unit.to_test_cases(
-        "contributing_snippets",
-        contributing_snippets_test.tests(),
-      ),
-      unit.to_test_cases(
-        "websocket_chat_readme_snippets",
-        websocket_chat_readme_snippets_test.tests(),
-      ),
-      unit.to_test_cases("docs_snippet_check", docs_snippet_check_test.tests()),
-      unit.to_test_cases("docs_snippet_pages", docs_snippet_pages_test.tests()),
-    ]
-    |> list.flatten
-
-  all_tests
-  |> runner.run_all()
-  |> bdd.report(io.println)
+  runner.new([
+    context_test.tests(),
+    dream_module_test.tests(),
+    cookie_test.tests(),
+    error_test.tests(),
+    header_test.tests(),
+    params_test.tests(),
+    request_test.tests(),
+    response_test.tests(),
+    status_test.tests(),
+    validation_test.tests(),
+    transaction_test.tests(),
+    static_test.tests(),
+    router_test.tests(),
+    router_scope_test.tests(),
+    method_not_allowed_test.tests(),
+    parser_test.tests(),
+    trie_test.tests(),
+    builder_order_test.tests(),
+    chunked_stream_test.tests(),
+    h2c_test.tests(),
+    handler_test.tests(),
+    mist_request_test.tests(),
+    request_body_test.tests(),
+    mist_response_test.tests(),
+    server_test.tests(),
+    graceful_stop_test.tests(),
+    listen_test.tests(),
+    websocket_test.tests(),
+    tls_test.tests(),
+    unread_body_test.tests(),
+    port_ffi_test.tests(),
+    sse_test.tests(),
+    broadcaster_test.tests(),
+    streaming_test.tests(),
+    router_benchmark.tests(),
+    snippets_test.tests(),
+    doc_http_snippets_test.tests(),
+    doc_http_data_snippets_test.tests(),
+    doc_server_snippets_test.tests(),
+    doc_core_snippets_test.tests(),
+    naming_snippets_test.tests(),
+    reference_snippets_test.tests(),
+    security_snippets_test.tests(),
+    streaming_api_test.tests(),
+    streaming_snippets_test.tests(),
+    guides_sse_websockets_rest_snippets_test.tests(),
+    testing_controllers_uploads_snippets_test.tests(),
+    guides_deployment_templates_snippets_test.tests(),
+    learning_snippets_test.tests(),
+    module_snippets_test.tests(),
+    contributing_snippets_test.tests(),
+    websocket_chat_readme_snippets_test.tests(),
+    docs_snippet_pages_test.tests(),
+    guide_reports_test.tests(),
+    beam_snippets_test.tests(),
+  ])
+  |> runner.results_reporters([bdd.new()])
+  |> runner.coverage(
+    coverage.new()
+    |> coverage.show_missing()
+    |> coverage.minimum_percent(100.0)
+    |> coverage.json_path("build/coverage/coverage.json"),
+  )
   |> runner.exit_on_failure()
+  |> runner.run()
 }

@@ -1,7 +1,7 @@
 # Dream Library Development Makefile
 # For example-specific commands, see individual example directories
 
-.PHONY: test test-dream test-unit test-integration setup-integration-dbs clean build format docs check check-snippets install-hooks
+.PHONY: test test-dream test-unit test-integration setup-integration-dbs clean build format docs check check-snippets check-templates test-docker test-tasks install-hooks
 
 # Run all tests (unit + integration)
 test:
@@ -13,16 +13,11 @@ test:
 test-dream:
 	@gleam test
 
-# Run all unit tests (core + modules)
+# Run all unit tests. The run measures line coverage of src/ and fails when
+# it is below 100% (see test/dream_test.gleam).
 test-unit:
 	@echo "=== Testing Dream Core ==="
 	@gleam test
-	@echo ""
-	@echo "=== Testing dream_http_client ==="
-	@cd modules/http_client && make test
-	@echo ""
-	@echo "=== Testing dream_mock_server ==="
-	@cd modules/mock_server && make test
 	@echo ""
 	@echo "✅ All unit tests passed!"
 
@@ -46,17 +41,31 @@ docs:
 	@gleam docs build
 	@gleam run -m docs_snippet_pages
 
-# Run format check and build (useful for CI)
+# Format check, build, unit tests and snippet check (what the unit job of CI runs)
 check:
-	@gleam format --check
-	@gleam build
-	@gleam test
-	@make check-snippets
+	@sh scripts/check.sh
 
-# Check that every Gleam code block in the docs matches the tested snippet
-# that its badge links to (see docs/contributing/contributing.md)
+# Check that every code block in the docs is proven: Gleam blocks match the
+# tested snippet that their badge links to, and file, command and output
+# blocks match a file that the tests or CI use (see
+# docs/contributing/contributing.md)
 check-snippets:
-	@gleam run -m docs_snippet_check
+	@gleam run -m dream_snippets
+
+# Check that the generated Matcha template modules of the docs and the
+# examples are up to date (needs the matcha binary)
+check-templates:
+	@sh scripts/check-templates.sh
+
+# Build the Docker image of examples/deployment and start it with Docker
+# Compose (needs Docker and the port 3000 free)
+test-docker:
+	@sh scripts/test-docker.sh
+
+# Run the integration and Cypress E2E tests of examples/tasks (needs Docker,
+# the matcha binary and Node.js)
+test-tasks:
+	@sh scripts/test-tasks.sh
 
 # Install repo-managed git hooks into .git/hooks/
 # (Git does not version-control .git/hooks, so this must be run per-clone.)
@@ -66,22 +75,10 @@ install-hooks:
 	@cp -f .githooks/* .git/hooks/
 	@echo "✅ Installed git hooks into .git/hooks/"
 
-# Run all integration tests (modules + examples, requires PostgreSQL on port 5435)
+# Run all example integration tests (requires PostgreSQL on port 5435)
 test-integration:
-	@echo "=== Running Module Integration Tests ==="
-	@echo ""
-	@echo "=== Testing dream_mock_server ==="
-	@cd modules/mock_server && make test-integration || exit 1
-	@echo ""
 	@echo "=== Running Example Integration Tests ==="
-	@for example in simple custom_context static streaming rate_limiter database multi_format streaming_capabilities websocket_chat sse; do \
-		echo ""; \
-		echo "=== Testing $$example ==="; \
-		cd examples/$$example && make test-integration || exit 1; \
-		cd ../..; \
-	done
-	@echo ""
-	@echo "✅ All integration tests passed!"
+	@sh scripts/test-integration.sh
 
 # Set up local PostgreSQL and migrations for examples that require it
 setup-integration-dbs:

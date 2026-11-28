@@ -4,7 +4,7 @@
 
 Here's a complete Dream app structure with models, views, controllers, and more:
 
-```
+```text illustration
 your_app/
 ├── src/
 │   ├── main.gleam          # Application entry point
@@ -23,7 +23,7 @@ your_app/
 │   ├── models/             # Data access layer
 │   │   ├── user/
 │   │   │   ├── user_model.gleam
-│   │   │   └── sql.gleam   # Squirrel-generated SQL queries
+│   │   │   └── sql.gleam   # SQL queries from dream_sql_generator
 │   │   └── task/
 │   │       ├── task_model.gleam
 │   │       └── sql.gleam
@@ -37,7 +37,7 @@ your_app/
 │   │
 │   ├── templates/          # HTML templates (optional)
 │   │   ├── components/     # Reusable UI components
-│   │   ├── elements/        # Low-level HTML elements
+│   │   ├── elements/       # Low-level HTML elements
 │   │   ├── layouts/        # Page layouts (nav, footer)
 │   │   └── pages/          # Full page templates
 │   │

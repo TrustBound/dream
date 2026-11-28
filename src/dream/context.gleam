@@ -1,5 +1,7 @@
 //// Request context for your application
 ////
+//// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
+////
 //// Context holds per-request data that changes with every request—user authentication,
 //// session info, request IDs, etc. It's passed to every middleware and controller.
 ////
@@ -14,9 +16,10 @@
 //// import dream/servers/mist/server.{listen, router}
 ////
 //// pub fn start(my_router) {
-////   server.new()
-////   |> router(my_router)
-////   |> listen(3000)
+////   let assert Ok(Nil) =
+////     server.new()
+////     |> router(my_router)
+////     |> listen(3000)
 //// }
 //// ```
 ////
@@ -29,10 +32,11 @@
 //// import dream/servers/mist/server.{context, listen, router}
 ////
 //// pub fn start(my_router) {
-////   server.new()
-////   |> context(EmptyContext)
-////   |> router(my_router)
-////   |> listen(3000)
+////   let assert Ok(Nil) =
+////     server.new()
+////     |> context(EmptyContext)
+////     |> router(my_router)
+////     |> listen(3000)
 //// }
 //// ```
 ////
@@ -48,10 +52,11 @@
 //// import dream/servers/mist/server.{context, listen, router}
 ////
 //// pub fn start(my_router) {
-////   server.new()
-////   |> context(AppContext(request_id: ""))
-////   |> router(my_router)
-////   |> listen(3000)
+////   let assert Ok(Nil) =
+////     server.new()
+////     |> context(AppContext(request_id: ""))
+////     |> router(my_router)
+////     |> listen(3000)
 //// }
 //// ```
 ////
@@ -79,22 +84,23 @@
 ////
 //// Then pass it to your server:
 ////
-//// ### Start a server with your context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_context_custom.gleam#L16-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+//// ### Start a server with your context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_context_custom.gleam#L16-L30"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ////
 //// ```gleam
 //// pub fn start(my_services, my_router) {
-////   server.new()
-////   |> context(
-////     MyContext(
-////       request_id: "",
-////       user: None,
-////       session: empty_session(),
-////       permissions: [],
-////     ),
-////   )
-////   |> services(my_services)
-////   |> router(my_router)
-////   |> listen(3000)
+////   let assert Ok(Nil) =
+////     server.new()
+////     |> context(
+////       MyContext(
+////         request_id: "",
+////         user: None,
+////         session: empty_session(),
+////         permissions: [],
+////       ),
+////     )
+////     |> services(my_services)
+////     |> router(my_router)
+////     |> listen(3000)
 //// }
 //// ```
 ////
@@ -151,6 +157,19 @@ pub type AppContext {
 ///
 /// Helper for creating the default context. If you're using a custom context,
 /// you'll create it directly without this function.
+///
+/// ## Example
+///
+/// ### Create the default context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_context_new_context.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/context.{type AppContext, new_context}
+///
+/// pub fn request_context() -> AppContext {
+///   // AppContext(request_id: "req-123")
+///   new_context("req-123")
+/// }
+/// ```
 pub fn new_context(request_id: String) -> AppContext {
   AppContext(request_id: request_id)
 }

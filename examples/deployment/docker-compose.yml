@@ -1,0 +1,42 @@
+services:
+  app:
+    build: .
+    # Longer than the 30 second shutdown timeout of the server, so that
+    # running requests finish before Docker kills the app
+    stop_grace_period: 35s
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/yourapp
+      SECRET_KEY: dev-secret-key
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  migrate:
+    # The build stage has Gleam and the source, which the migrations need
+    build:
+      context: .
+      target: build
+    command: gleam run -m cigogne all
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/yourapp
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: yourapp
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

@@ -1,0 +1,13 @@
+name = "dream_example_deployment"
+version = "0.1.0"
+description = "A Dream app in a Docker image, started with Docker Compose"
+licences = ["MIT"]
+
+[dependencies]
+dream = { path = "../.." }
+gleam_stdlib = ">= 0.44.0 and < 2.0.0"
+gleam_erlang = ">= 1.0.0 and < 2.0.0"
+gleam_otp = ">= 1.2.0 and < 2.0.0"
+envoy = ">= 1.0.0 and < 2.0.0"
+dream_postgres_client = ">= 1.0.0 and < 2.0.0"
+cigogne = ">= 5.0.0 and < 6.0.0"

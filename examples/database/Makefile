@@ -1,13 +1,13 @@
 # Docker Compose database connection URL
 DATABASE_URL = postgres://postgres:postgres@localhost:5435/dream_example_database_db
 
-.PHONY: run test test-integration clean db-up db-down db-logs db-shell db-reset migrate migrate-up migrate-down migrate-new
+.PHONY: run test test-integration clean db-up db-down db-logs db-shell db-reset migrate migrate-up migrate-down migrate-new squirrel
 
 run:
 	@gleam run -m main
 
 test:
-	@gleam test
+	@make test-integration
 
 test-integration:
 	@echo "=== Running integration tests ==="
@@ -17,11 +17,8 @@ test-integration:
 			echo "ERROR: Docker is not running. Please start Docker Desktop and try again."; \
 			exit 1; \
 		fi; \
-		echo "Killing any existing servers..."; \
-		pkill -9 -f "gleam run.*main" 2>/dev/null || true; \
-		pkill -9 -f "dream_example_database" 2>/dev/null || true; \
-		lsof -ti:3002 | xargs kill -9 2>/dev/null || true; \
-		sleep 2; \
+		echo "Stopping the server of an earlier run..."; \
+		../../integration/example-server.sh stop build/server.pid; \
 		echo "Setting up database..."; \
 		docker-compose down -v > /dev/null 2>&1 || true; \
 		sleep 1; \
@@ -54,6 +51,8 @@ test-integration:
 	echo "Building Gleam application..."; \
 	rm -rf build/dev build/prod; \
 	output=$$(gleam build 2>&1) || { echo "$$output"; exit 1; }; \
+	echo "Checking that src/sql.gleam is the code that dream_sql_generator generates..."; \
+	sh test/integration/sql.sh || exit 1; \
 	echo "Starting server in background..."; \
 	../../integration/run-scenarios.sh database 3002 main http1; \
 	FIRST_EXIT=$$?; \
@@ -71,10 +70,15 @@ clean:
 	@find build -name "*.beam" -type f -delete 2>/dev/null || true
 
 # Docker Compose commands for PostgreSQL
+# In CI, PostgreSQL is a service of the job, on the same port.
 db-up:
-	@docker-compose up -d postgres
-	@echo "Waiting for PostgreSQL to be ready..."
-	@timeout 30 bash -c 'until docker-compose exec -T postgres pg_isready -U postgres; do sleep 1; done' || true
+	@if [ -n "$$CI" ]; then \
+		echo "PostgreSQL runs as a service of the CI job"; \
+	else \
+		docker-compose up -d postgres; \
+		echo "Waiting for PostgreSQL to be ready..."; \
+		timeout 30 bash -c 'until docker-compose exec -T postgres pg_isready -U postgres; do sleep 1; done' || true; \
+	fi
 
 db-down:
 	@docker-compose down
@@ -104,3 +108,6 @@ migrate-down:
 migrate-new:
 	@gleam run -m cigogne new --name $(name)
 
+# Generate src/sql.gleam from the queries in src/sql/ with dream_sql_generator
+squirrel:
+	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m dream_sql_generator

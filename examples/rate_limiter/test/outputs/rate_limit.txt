@@ -1,0 +1,13 @@
+after 0 s: 200, remaining 9
+after 0 s: 200, remaining 8
+after 0 s: 200, remaining 7
+after 0 s: 200, remaining 6
+after 0 s: 200, remaining 5
+after 0 s: 200, remaining 4
+after 0 s: 200, remaining 3
+after 0 s: 200, remaining 2
+after 0 s: 200, remaining 1
+after 0 s: 200, remaining 0
+after 0 s: 429, remaining 0, retry after 60
+after 30 s: 429, remaining 0, retry after 30
+after 60 s: 200, remaining 9

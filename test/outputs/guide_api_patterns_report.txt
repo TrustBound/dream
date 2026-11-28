@@ -1,0 +1,6 @@
+list_after
+  ✓ gives the first two products on the first page
+  ✓ gives the rest, and no cursor, on the last page
+  ✓ refuses a cursor that it did not make
+
+Summary: 3 run, 0 failed, 3 passed in 0ms

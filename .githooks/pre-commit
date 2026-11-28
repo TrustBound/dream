@@ -91,17 +91,7 @@ echo "🎯 Building Dream core..."
 build_component "Dream core" ""
 echo ""
 
-# Step 3: Build all modules
-echo "📦 Building modules..."
-for module_dir in modules/*/; do
-  module_name=$(basename "$module_dir")
-  if [ -f "$module_dir/Makefile" ] || [ -f "$module_dir/gleam.toml" ]; then
-    build_component "module: $module_name" "$module_dir"
-  fi
-done
-echo ""
-
-# Step 4: Build all examples
+# Step 3: Build all examples
 echo "📚 Building examples..."
 for example_dir in examples/*/; do
   example_name=$(basename "$example_dir")
@@ -112,9 +102,9 @@ for example_dir in examples/*/; do
 done
 echo ""
 
-# Step 5: Check docs code blocks against tested snippets
+# Step 4: Check docs code blocks against tested snippets
 echo "🧪 Checking docs code blocks against tested snippets..."
-if ! gleam run -m docs_snippet_check; then
+if ! gleam run -m dream_snippets; then
   echo ""
   echo -e "${RED}❌ A docs code block does not match its tested snippet. See docs/contributing/contributing.md.${NC}"
   exit 1

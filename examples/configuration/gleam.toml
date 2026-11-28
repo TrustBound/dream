@@ -1,0 +1,13 @@
+name = "dream_example_configuration"
+version = "0.1.0"
+description = "Configuration - a Dream app that loads its settings at startup and stops early on a bad setting"
+licences = ["MIT"]
+
+[dependencies]
+dream = { path = "../.." }
+dream_config = ">= 2.0.0 and < 3.0.0"
+gleam_crypto = ">= 1.5.0 and < 2.0.0"
+gleam_stdlib = ">= 1.0.0 and < 2.0.0"
+
+[dev-dependencies]
+dream_test = ">= 3.0.0 and < 4.0.0"

@@ -10,21 +10,23 @@ import dream/http/response.{type Response, json_response, text_response}
 import dream/router.{route, router}
 import dream/servers/mist/server
 import dream_http_client/client.{Http2Only, ResponseError}
+import dream_test/suite.{type TestSuite}
 import dream_test/types.{
   type AssertionResult, AssertionFailed, AssertionFailure, AssertionOk,
 }
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/unit.{describe, it}
 import gleam/erlang/process
 import gleam/http
 import gleam/list
 import gleam/option.{None}
+import gleam/result
 import gleam/string
 
 // ============================================================================
 // Tests
 // ============================================================================
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("h2c", [
     it("GET returns correct body over h2c", fn() {
       let port = free_port()
@@ -38,15 +40,18 @@ pub fn tests() -> UnitTest {
 
       case result {
         Ok(resp) -> {
-          case resp.status == 200 && resp.body == "hello from dream over h2c" {
-            True -> AssertionOk
+          case
+            resp.status == 200
+            && resp.body == <<"hello from dream over h2c":utf8>>
+          {
+            True -> Ok(AssertionOk)
             False ->
               assertion_failed(
                 "h2c_get",
                 "Expected status 200 and body 'hello from dream over h2c', got status "
                   <> string.inspect(resp.status)
                   <> " body '"
-                  <> resp.body
+                  <> string.inspect(resp.body)
                   <> "'",
               )
           }
@@ -67,15 +72,15 @@ pub fn tests() -> UnitTest {
 
       case result {
         Ok(resp) -> {
-          case resp.status == 200 && string.contains(resp.body, "test-value") {
-            True -> AssertionOk
+          case resp.status == 200 && body_contains(resp, "test-value") {
+            True -> Ok(AssertionOk)
             False ->
               assertion_failed(
                 "h2c_path_params",
                 "Expected status 200 with body containing 'test-value', got status "
                   <> string.inspect(resp.status)
                   <> " body '"
-                  <> resp.body
+                  <> string.inspect(resp.body)
                   <> "'",
               )
           }
@@ -99,7 +104,7 @@ pub fn tests() -> UnitTest {
 
       case result {
         Ok(resp) -> {
-          let has_json_body = string.contains(resp.body, "\"greeting\"")
+          let has_json_body = body_contains(resp, "\"greeting\"")
           let has_json_ct =
             list.any(resp.headers, fn(h) {
               let client.Header(name, value) = h
@@ -108,14 +113,14 @@ pub fn tests() -> UnitTest {
             })
 
           case resp.status == 200 && has_json_body && has_json_ct {
-            True -> AssertionOk
+            True -> Ok(AssertionOk)
             False ->
               assertion_failed(
                 "h2c_json",
                 "Expected status 200, JSON body with 'greeting', and application/json content-type. Got status "
                   <> string.inspect(resp.status)
                   <> " body '"
-                  <> resp.body
+                  <> string.inspect(resp.body)
                   <> "' headers "
                   <> string.inspect(resp.headers),
               )
@@ -140,7 +145,7 @@ pub fn tests() -> UnitTest {
 
       case result {
         Error(ResponseError(response: client.HttpResponse(status: 404, ..))) ->
-          AssertionOk
+          Ok(AssertionOk)
         Error(ResponseError(response: client.HttpResponse(status: status, ..))) ->
           assertion_failed(
             "h2c_404",
@@ -174,8 +179,8 @@ pub fn tests() -> UnitTest {
 
       case result {
         Ok(resp) -> {
-          case resp.status == 200 && string.contains(resp.body, payload) {
-            True -> AssertionOk
+          case resp.status == 200 && body_contains(resp, payload) {
+            True -> Ok(AssertionOk)
             False ->
               assertion_failed(
                 "h2c_post_body",
@@ -184,7 +189,7 @@ pub fn tests() -> UnitTest {
                   <> "', got status "
                   <> string.inspect(resp.status)
                   <> " body '"
-                  <> resp.body
+                  <> string.inspect(resp.body)
                   <> "'",
               )
           }
@@ -240,11 +245,11 @@ pub fn tests() -> UnitTest {
             resp1.status == 200
             && resp2.status == 200
             && resp3.status == 200
-            && resp1.body == "hello from dream over h2c"
-            && resp2.body == "hello from dream over h2c"
-            && resp3.body == "hello from dream over h2c"
+            && resp1.body == <<"hello from dream over h2c":utf8>>
+            && resp2.body == <<"hello from dream over h2c":utf8>>
+            && resp3.body == <<"hello from dream over h2c":utf8>>
           {
-            True -> AssertionOk
+            True -> Ok(AssertionOk)
             False ->
               assertion_failed(
                 "h2c_concurrent",
@@ -330,18 +335,15 @@ fn echo_body_controller(request: Request, _context, _services) -> Response {
 
 fn with_h2c_server(
   port: Int,
-  test_fn: fn(server.ServerHandle) -> AssertionResult,
-) -> AssertionResult {
+  test_fn: fn(server.ServerHandle) -> Result(AssertionResult, String),
+) -> Result(AssertionResult, String) {
   let result =
     server.new()
     |> server.router(h2c_router())
     |> server.listen_with_handle(port)
 
   case result {
-    Ok(handle) -> {
-      process.sleep(100)
-      test_fn(handle)
-    }
+    Ok(handle) -> test_fn(handle)
     Error(start_error) ->
       assertion_failed(
         "with_h2c_server",
@@ -353,13 +355,25 @@ fn with_h2c_server(
   }
 }
 
-fn assertion_failed(operator: String, message: String) -> AssertionResult {
-  AssertionFailed(AssertionFailure(
-    operator: operator,
-    message: message,
-    payload: None,
-  ))
+fn assertion_failed(
+  operator: String,
+  message: String,
+) -> Result(AssertionResult, String) {
+  Ok(
+    AssertionFailed(AssertionFailure(
+      operator: operator,
+      message: message,
+      payload: None,
+    )),
+  )
 }
 
 @external(erlang, "port_ffi", "free_port")
 fn free_port() -> Int
+
+// The response body is bytes. A body that is not text contains no text.
+fn body_contains(response: client.HttpResponse, text: String) -> Bool {
+  client.body_text(response)
+  |> result.map(string.contains(_, text))
+  |> result.unwrap(False)
+}

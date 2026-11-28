@@ -1,5 +1,7 @@
 //// Pattern Parser - Convert string paths to structured segments
 ////
+//// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
+////
 //// Parses route pattern strings (like "/users/:id/posts/**path") into
 //// structured segment lists that the radix trie can use for matching.
 ////

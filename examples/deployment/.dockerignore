@@ -1,0 +1,4 @@
+# Your local build stays out of the image. The packages that gleam has
+# downloaded go in, so the image build does not download them again.
+build
+!build/packages

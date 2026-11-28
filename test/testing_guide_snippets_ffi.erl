@@ -2,12 +2,14 @@
 -export([run_main_in_new_vm/1]).
 
 %% Run Module:main() in a new Erlang VM with the same code path, and return
-%% its exit status. A test entry point ends with dream_test's
-%% exit_on_failure, which halts the VM, so it cannot run in this VM.
+%% its exit status. A test entry point uses dream_test's exit_on_failure.
+%% When a test fails, it stops the VM with status 1, so it cannot run in
+%% this VM. When the tests pass, main returns, and the new VM stops with
+%% status 0, as `gleam test` does.
 run_main_in_new_vm(Module) ->
     Erl = os:find_executable("erl"),
     CodePath = lists:append([["-pa", Dir] || Dir <- code:get_path()]),
-    Eval = io_lib:format("~s:main().", [Module]),
+    Eval = io_lib:format("~s:main(), init:stop(0).", [Module]),
     Port = open_port(
         {spawn_executable, Erl},
         [exit_status, stderr_to_stdout, binary,

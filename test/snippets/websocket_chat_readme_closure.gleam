@@ -38,8 +38,7 @@ pub fn handle_upgrade(
           let _ = websocket.send_text(connection, chat_line)
           websocket.continue_connection(state)
         }
-        websocket.BinaryMessage(_) | websocket.ConnectionClosed ->
-          websocket.continue_connection(state)
+        websocket.BinaryMessage(_) -> websocket.continue_connection(state)
       }
     },
     on_close: fn(_state, _dependencies) {

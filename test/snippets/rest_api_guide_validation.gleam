@@ -1,7 +1,7 @@
 //// REST API guide: input validation
 ////
 //// A decoder for product data, and a check that runs on the decoded value,
-//// as shown in docs/guides/rest-api.md.
+//// as shown in docs/guides/request-data.md.
 
 import gleam/dynamic/decode.{type Decoder, field, int, string, success}
 import gleam/string.{is_empty}

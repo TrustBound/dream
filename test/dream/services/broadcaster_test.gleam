@@ -1,8 +1,9 @@
 //// Tests for dream/services/broadcaster subscriber cleanup.
 
 import dream/services/broadcaster.{type Broadcaster}
-import dream_test/assertions/should.{be_ok, equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, be_ok, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, it}
 import gleam/erlang/process
 import gleam/result
 
@@ -15,8 +16,27 @@ const receive_timeout_milliseconds = 1000
 /// asks again until the count is the expected count.
 const count_attempts = 1000
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("dream/services/broadcaster", [
+    it("unsubscribes a channel that is not the newest subscriber", fn() {
+      // Arrange
+      let started = start_test_broadcaster()
+
+      // Act
+      let count = {
+        use chat_bus <- result.try(started)
+        let first_channel = broadcaster.subscribe(chat_bus)
+        let _second_channel = broadcaster.subscribe(chat_bus)
+        broadcaster.unsubscribe(chat_bus, first_channel)
+        broadcaster.count_subscribers(chat_bus)
+      }
+
+      // Assert
+      count
+      |> should()
+      |> be_equal(Ok(1))
+      |> or_fail_with("Only the second channel should stay subscribed")
+    }),
     it("removes a subscriber whose process stops without unsubscribing", fn() {
       // Arrange
       let started = start_test_broadcaster()
@@ -32,7 +52,7 @@ pub fn tests() -> UnitTest {
       count
       |> should()
       |> be_ok()
-      |> equal(0)
+      |> be_equal(0)
       |> or_fail_with("A stopped subscriber should be removed")
     }),
     it("removes a live subscriber when it unsubscribes", fn() {
@@ -51,7 +71,7 @@ pub fn tests() -> UnitTest {
       count
       |> should()
       |> be_ok()
-      |> equal(0)
+      |> be_equal(0)
       |> or_fail_with("An unsubscribed channel should be removed")
     }),
     it("delivers to a live subscriber after another subscriber stops", fn() {
@@ -77,7 +97,7 @@ pub fn tests() -> UnitTest {
       received
       |> should()
       |> be_ok()
-      |> equal("hello")
+      |> be_equal("hello")
       |> or_fail_with("The live subscriber should receive 'hello'")
     }),
     it("removes both subscriptions of a process that subscribed twice", fn() {
@@ -95,7 +115,7 @@ pub fn tests() -> UnitTest {
       count
       |> should()
       |> be_ok()
-      |> equal(0)
+      |> be_equal(0)
       |> or_fail_with("Both subscriptions of a stopped process should go")
     }),
   ])

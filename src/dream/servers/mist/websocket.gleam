@@ -1,5 +1,7 @@
 //// WebSocket support for Dream (Mist server adapter)
 ////
+//// Guide: [Build a chat with WebSockets](https://hexdocs.pm/dream/3.0.0/guides/websockets.html).
+////
 //// This module provides Dream's WebSocket abstraction for the Mist server
 //// adapter. It upgrades an HTTP request to a WebSocket connection and runs
 //// a typed message loop driven by your handler functions.
@@ -17,7 +19,8 @@
 //// - `Connection` – opaque handle to the WebSocket. Use it to send messages
 ////   back to the client.
 //// - `Message(custom)` – messages received from the client or from your
-////   application via a `Selector(custom)` (text, binary, custom, closed).
+////   application via a `Selector(custom)` (text, binary, custom).
+////   A close is not a message: `on_close` runs for it.
 //// - `Action(state, custom)` – the next step in the WebSocket state machine,
 ////   returned from your `on_message` handler.
 ////
@@ -82,7 +85,6 @@
 ////       let _ = websocket.send_text(connection, reply)
 ////       websocket.continue_connection(state)
 ////     }
-////     websocket.ConnectionClosed -> websocket.stop_connection()
 ////     _ -> websocket.continue_connection(state)
 ////   }
 //// }
@@ -109,6 +111,8 @@ pub opaque type Connection {
 }
 
 /// Messages that can be received over a WebSocket connection.
+///
+/// A close is not a message: when the connection closes, `on_close` runs.
 pub type Message(custom) {
   /// A text frame received from the client
   TextMessage(String)
@@ -116,8 +120,6 @@ pub type Message(custom) {
   BinaryMessage(BitArray)
   /// A custom message from the application (via selector)
   CustomMessage(custom)
-  /// The connection was closed
-  ConnectionClosed
 }
 
 /// Errors that can occur when sending WebSocket messages.
@@ -150,7 +152,7 @@ pub opaque type Action(state, custom) {
 ///
 /// ## Example
 ///
-/// ### Upgrade to a WebSocket <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_websocket_upgrade.gleam#L6-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Upgrade to a WebSocket <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_websocket_upgrade.gleam#L6-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn connect(request, _context, services) {
@@ -179,7 +181,6 @@ pub opaque type Action(state, custom) {
 ///       let _ = websocket.send_text(connection, custom_message)
 ///       websocket.continue_connection(state)
 ///     }
-///     websocket.ConnectionClosed -> websocket.stop_connection()
 ///     _ -> websocket.continue_connection(state)
 ///   }
 /// }
@@ -188,6 +189,8 @@ pub opaque type Action(state, custom) {
 ///   Nil
 /// }
 /// ```
+///
+/// Guide: [Build a chat with WebSockets](https://hexdocs.pm/dream/3.0.0/guides/websockets.html).
 pub fn upgrade_websocket(
   request _request: Request,
   dependencies dependencies: deps,
@@ -244,11 +247,121 @@ pub fn upgrade_websocket(
 }
 
 /// Continue the WebSocket loop with the current state.
+///
+/// ## Example
+///
+/// ### Keep the socket open <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_websocket_upgrade.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/servers/mist/websocket
+/// import gleam/option.{None}
+///
+/// pub fn connect(request, _context, services) {
+///   websocket.upgrade_websocket(
+///     request,
+///     dependencies: services,
+///     on_init: init_handler,
+///     on_message: message_handler,
+///     on_close: close_handler,
+///   )
+/// }
+///
+/// fn init_handler(_connection, _services) {
+///   #(0, None)
+/// }
+///
+/// fn message_handler(state, message, connection, _services) {
+///   case message {
+///     websocket.TextMessage(text) -> {
+///       // Handle text message
+///       let _ = websocket.send_text(connection, text)
+///       websocket.continue_connection(state + 1)
+///     }
+///     websocket.CustomMessage(custom_message) -> {
+///       // Handle custom message from selector
+///       let _ = websocket.send_text(connection, custom_message)
+///       websocket.continue_connection(state)
+///     }
+///     _ -> websocket.continue_connection(state)
+///   }
+/// }
+///
+/// fn close_handler(_state, _services) {
+///   Nil
+/// }
+/// ```
 pub fn continue_connection(state: state) -> Action(state, custom) {
   Action(internal: mist.continue(state))
 }
 
 /// Continue the WebSocket loop with a selector for receiving custom messages.
+///
+/// ## Example
+///
+/// ### Listen to a new subject <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_websocket_selector.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/request.{type Request}
+/// import dream/http/response.{type Response}
+/// import dream/servers/mist/websocket
+/// import gleam/erlang/process.{type Selector}
+/// import gleam/option.{type Option, None}
+///
+/// pub fn notifications(request: Request, _context, _services) -> Response {
+///   websocket.upgrade_websocket(
+///     request,
+///     dependencies: Nil,
+///     on_init: start,
+///     on_message: handle_message,
+///     on_close: close,
+///   )
+/// }
+///
+/// fn start(
+///   _connection: websocket.Connection,
+///   _dependencies: Nil,
+/// ) -> #(Nil, Option(Selector(String))) {
+///   #(Nil, None)
+/// }
+///
+/// fn handle_message(
+///   state: Nil,
+///   message: websocket.Message(String),
+///   connection: websocket.Connection,
+///   _dependencies: Nil,
+/// ) -> websocket.Action(Nil, String) {
+///   case message {
+///     websocket.TextMessage("subscribe") -> subscribe(state)
+///     websocket.CustomMessage(text) -> forward(state, connection, text)
+///     _ -> websocket.continue_connection(state)
+///   }
+/// }
+///
+/// fn subscribe(state: Nil) -> websocket.Action(Nil, String) {
+///   let notifications = process.new_subject()
+///   process.send(notifications, "You are subscribed")
+///   // From now on the loop also receives the messages sent to notifications
+///   let selector =
+///     process.new_selector()
+///     |> process.select(notifications)
+///   websocket.continue_connection_with_selector(state, selector)
+/// }
+///
+/// fn forward(
+///   state: Nil,
+///   connection: websocket.Connection,
+///   text: String,
+/// ) -> websocket.Action(Nil, String) {
+///   case websocket.send_text(connection, text) {
+///     Ok(Nil) -> websocket.continue_connection(state)
+///     Error(_send_error) -> websocket.stop_connection()
+///   }
+/// }
+///
+/// fn close(_state: Nil, _dependencies: Nil) -> Nil {
+///   Nil
+/// }
+/// ```
 pub fn continue_connection_with_selector(
   state: state,
   selector: Selector(custom),
@@ -257,6 +370,52 @@ pub fn continue_connection_with_selector(
 }
 
 /// Stop the WebSocket loop normally.
+///
+/// ## Example
+///
+/// ### Close the socket <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_websocket_stop.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/request.{type Request}
+/// import dream/http/response.{type Response}
+/// import dream/servers/mist/websocket
+/// import gleam/erlang/process.{type Selector}
+/// import gleam/option.{type Option, None}
+///
+/// pub fn conversation(request: Request, _context, _services) -> Response {
+///   websocket.upgrade_websocket(
+///     request,
+///     dependencies: Nil,
+///     on_init: start,
+///     on_message: handle_message,
+///     on_close: close,
+///   )
+/// }
+///
+/// fn start(
+///   _connection: websocket.Connection,
+///   _dependencies: Nil,
+/// ) -> #(Nil, Option(Selector(Nil))) {
+///   #(Nil, None)
+/// }
+///
+/// fn handle_message(
+///   state: Nil,
+///   message: websocket.Message(Nil),
+///   _connection: websocket.Connection,
+///   _dependencies: Nil,
+/// ) -> websocket.Action(Nil, Nil) {
+///   case message {
+///     // The client sent "bye": stop the loop, and the server closes the socket
+///     websocket.TextMessage("bye") -> websocket.stop_connection()
+///     _ -> websocket.continue_connection(state)
+///   }
+/// }
+///
+/// fn close(_state: Nil, _dependencies: Nil) -> Nil {
+///   Nil
+/// }
+/// ```
 pub fn stop_connection() -> Action(state, custom) {
   Action(internal: mist.stop())
 }
@@ -325,7 +484,6 @@ fn convert_mist_message_to_dream(
     mist.Text(text) -> TextMessage(text)
     mist.Binary(data) -> BinaryMessage(data)
     mist.Custom(custom) -> CustomMessage(custom)
-    mist.Closed | mist.Shutdown -> ConnectionClosed
   }
 }
 

@@ -1,5 +1,7 @@
 //// HTTP response types and builders
 ////
+//// Guides: [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html), [Render HTML and other formats](https://hexdocs.pm/dream/3.0.0/guides/templates.html) and [Stream responses and uploads](https://hexdocs.pm/dream/3.0.0/guides/streaming.html).
+////
 //// Core response types and convenient functions for building common HTTP responses.
 //// This module provides builders for text, JSON, HTML, binary, and streaming responses.
 ////
@@ -216,6 +218,8 @@ pub fn json_response(status: Int, body: String) -> Response {
 ///   response.html_response(status.ok, html)
 /// }
 /// ```
+///
+/// Guide: [Render HTML and other formats](https://hexdocs.pm/dream/3.0.0/guides/templates.html).
 pub fn html_response(status: Int, body: String) -> Response {
   Response(
     status: status,
@@ -254,6 +258,8 @@ pub fn html_response(status: Int, body: String) -> Response {
 ///   )
 /// }
 /// ```
+///
+/// Guide: [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html).
 pub fn redirect_response(status: Int, location: String) -> Response {
   Response(
     status: status,
@@ -374,6 +380,8 @@ pub fn binary_response(
 ///   name <> "\n"
 /// }
 /// ```
+///
+/// Guide: [Stream responses and uploads](https://hexdocs.pm/dream/3.0.0/guides/streaming.html).
 pub fn stream_response(
   status: Int,
   stream: yielder.Yielder(BitArray),
@@ -404,6 +412,23 @@ pub fn stream_response(
 /// - `Content-Type: text/event-stream`
 /// - `Cache-Control: no-cache`
 /// - `Connection: keep-alive`
+///
+/// ## Example
+///
+/// ### Create an SSE response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_sse_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/response.{type Response, sse_response}
+/// import dream/http/status.{ok}
+/// import gleam/yielder
+///
+/// pub fn events() -> Response {
+///   let stream = yielder.from_list([<<"data: hello\n\n":utf8>>])
+///   // Headers: Content-Type: text/event-stream, Cache-Control: no-cache,
+///   // Connection: keep-alive
+///   sse_response(ok, stream, "text/event-stream")
+/// }
+/// ```
 pub fn sse_response(
   status: Int,
   stream: yielder.Yielder(BitArray),

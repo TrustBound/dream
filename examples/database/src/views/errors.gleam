@@ -23,3 +23,26 @@ pub fn internal_error() -> Response {
 pub fn bad_request(message: String) -> Response {
   json_response(status.bad_request, "{\"error\": \"" <> message <> "\"}")
 }
+
+/// 401 Unauthorized response
+pub fn unauthorized(message: String) -> Response {
+  json_response(status.unauthorized, "{\"error\": \"" <> message <> "\"}")
+}
+
+/// 403 Forbidden response
+pub fn forbidden(message: String) -> Response {
+  json_response(status.forbidden, "{\"error\": \"" <> message <> "\"}")
+}
+
+/// 422 Unprocessable Content response
+pub fn unprocessable_content(message: String) -> Response {
+  json_response(
+    status.unprocessable_content,
+    "{\"error\": \"" <> message <> "\"}",
+  )
+}
+
+/// 409 Conflict response
+pub fn conflict(message: String) -> Response {
+  json_response(status.conflict, "{\"error\": \"" <> message <> "\"}")
+}

@@ -1,5 +1,6 @@
 -module(raw_http_ffi).
--export([request_until_closed/3, read_events/4, exchange/3]).
+-export([request_until_closed/3, read_events/4, exchange/3, response_text/1,
+         send_after_response/4]).
 
 %% Sends Payload to 127.0.0.1:Port in one TCP packet, then reads until the
 %% server closes the socket or Timeout milliseconds pass with no data.
@@ -65,12 +66,48 @@ read_until_events(Socket, EventCount, Timeout, Received) ->
 complete_body(Received, EventCount) ->
     case binary:split(Received, <<"\r\n\r\n">>) of
         [_Headers, Body] ->
-            case length(binary:matches(Body, <<"\n\n">>)) >= EventCount of
-                true -> {ok, Body};
+            Events = dechunk(Body),
+            case length(binary:matches(Events, <<"\n\n">>)) >= EventCount of
+                true -> {ok, Events};
                 false -> incomplete
             end;
         [_Incomplete] ->
             incomplete
+    end.
+
+%% The server sends an event stream with chunked transfer encoding, one
+%% chunk for each event. Returns the data of the complete chunks, joined, so
+%% the tests read the events as an event stream client gets them.
+dechunk(Body) ->
+    dechunk(Body, <<>>).
+
+dechunk(Body, Events) ->
+    case binary:split(Body, <<"\r\n">>) of
+        [SizeHex, Rest] ->
+            Size = binary_to_integer(SizeHex, 16),
+            case Rest of
+                <<Chunk:Size/binary, "\r\n", More/binary>> when Size > 0 ->
+                    dechunk(More, <<Events/binary, Chunk/binary>>);
+                _LastOrIncomplete ->
+                    Events
+            end;
+        [_Incomplete] ->
+            Events
+    end.
+
+%% Returns the body of a raw HTTP/1.1 response as a client reads it. The
+%% server sends an event stream with chunked transfer encoding, so the body
+%% of an event stream response is the joined data of its chunks. Every other
+%% response keeps its body bytes as the server wrote them.
+response_text(Received) ->
+    case binary:split(Received, <<"\r\n\r\n">>) of
+        [Head, Body] ->
+            case binary:match(Head, <<"content-type: text/event-stream">>) of
+                nomatch -> {ok, Body};
+                _Found -> {ok, dechunk(Body)}
+            end;
+        [_NoHeaderEnd] ->
+            {error, nil}
     end.
 
 describe(Reason) ->
@@ -157,4 +194,67 @@ recv_more(Socket, Timeout, Received) ->
     case gen_tcp:recv(Socket, 0, Timeout) of
         {ok, Data} -> {ok, <<Received/binary, Data/binary>>};
         {error, Reason} -> {error, <<"response body cut short: ", (describe(Reason))/binary>>}
+    end.
+
+%% Sends First to 127.0.0.1:Port and reads one HTTP/1.1 response to it: the
+%% header block and content-length bytes of body. Then, on the same
+%% connection, it sends Second and reads until the server closes the
+%% connection or Timeout milliseconds pass with no data. This is what a
+%% client does that sends the text of a second request as the body that the
+%% server did not read. Returns {ok, {Received, End}}: Received is every byte
+%% the server wrote, and End is <<"closed">> when the server closed the
+%% connection, <<"open">> when it was still open after Timeout, or the
+%% reason of another socket error.
+send_after_response(Port, First, Second, Timeout) ->
+    Options = [binary, {active, false}, {packet, raw}, {nodelay, true}],
+    case gen_tcp:connect({127, 0, 0, 1}, Port, Options, Timeout) of
+        {ok, Socket} ->
+            Result = case gen_tcp:send(Socket, First) of
+                ok -> read_one_then_send(Socket, Second, Timeout);
+                {error, Reason} -> {error, describe(Reason)}
+            end,
+            gen_tcp:close(Socket),
+            Result;
+        {error, Reason} ->
+            {error, describe(Reason)}
+    end.
+
+read_one_then_send(Socket, Second, Timeout) ->
+    case read_response(Socket, Timeout, <<>>) of
+        {ok, Response} ->
+            %% A server that has closed the connection can refuse the send;
+            %% the read below reports how the connection ended.
+            _ = gen_tcp:send(Socket, Second),
+            {After, End} = read_to_end(Socket, Timeout, <<>>),
+            {ok, {<<Response/binary, After/binary>>, End}};
+        Error ->
+            Error
+    end.
+
+%% Reads until Received holds a header block and its content-length bytes
+%% of body. Returns all of Received, also bytes after that body.
+read_response(Socket, Timeout, Received) ->
+    case binary:split(Received, <<"\r\n\r\n">>) of
+        [Head, Body] ->
+            Lines = binary:split(string:lowercase(Head), <<"\r\n">>, [global]),
+            case byte_size(Body) >= content_length(Lines) of
+                true -> {ok, Received};
+                false -> read_response_more(Socket, Timeout, Received)
+            end;
+        [_Incomplete] ->
+            read_response_more(Socket, Timeout, Received)
+    end.
+
+read_response_more(Socket, Timeout, Received) ->
+    case recv_more(Socket, Timeout, Received) of
+        {ok, More} -> read_response(Socket, Timeout, More);
+        Error -> Error
+    end.
+
+read_to_end(Socket, Timeout, Received) ->
+    case gen_tcp:recv(Socket, 0, Timeout) of
+        {ok, Data} -> read_to_end(Socket, Timeout, <<Received/binary, Data/binary>>);
+        {error, closed} -> {Received, <<"closed">>};
+        {error, timeout} -> {Received, <<"open">>};
+        {error, Reason} -> {Received, describe(Reason)}
     end.

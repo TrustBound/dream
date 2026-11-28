@@ -2,6 +2,13 @@
 <script src="https://unpkg.com/lucide@latest"></script>
 <script>lucide.createIcons();</script>
 <script>
+// A DELETE answers 204 No Content. htmx 2 does not swap a 204 answer by
+// default, so the Delete buttons swap in its empty body here, which removes
+// the article.
+htmx.config.responseHandling = [{code: '204', swap: true}].concat(
+  htmx.config.responseHandling.filter(rule => rule.code !== '204')
+);
+
 document.addEventListener('keydown', function(e) {
   const isTyping = ['INPUT', 'TEXTAREA'].includes(e.target.tagName);
   const isTitleInput = e.target.matches('input[name="title"]');
@@ -28,7 +35,9 @@ document.addEventListener('keydown', function(e) {
       const values = { field: 'title' };
       values['title'] = value;
       
+      // htmx 2 rejects an ajax call that has neither a source nor a target
       htmx.ajax('POST', '/tasks/' + taskId + '/update-field', {
+        source: editor,
         values: values,
         swap: 'none'
       }).then(() => {

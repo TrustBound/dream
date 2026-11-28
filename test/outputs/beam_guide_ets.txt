@@ -1,0 +1,2 @@
+cache_for_request, after the request process ended, the table exists: False
+start_table_owner, after the request process ended, the table exists: True, sku-1: Ok(100)

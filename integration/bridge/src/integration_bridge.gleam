@@ -32,7 +32,7 @@ pub fn request(
   body: String,
   protocol: String,
   certificate_authority_file: String,
-) -> Result(#(Int, List(#(String, String)), String), String) {
+) -> Result(#(Int, List(#(String, String)), BitArray), String) {
   use method <- result.try(
     http.parse_method(method)
     |> result.replace_error("Unknown HTTP method: " <> method),
@@ -142,7 +142,7 @@ fn send(receiver: Pid, message: message) -> message
 
 fn to_tuple(
   response: client.HttpResponse,
-) -> #(Int, List(#(String, String)), String) {
+) -> #(Int, List(#(String, String)), BitArray) {
   #(
     response.status,
     list.map(response.headers, fn(header) { #(header.name, header.value) }),

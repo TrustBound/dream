@@ -1,0 +1,20 @@
+name = "dream_example_recorded_tests"
+version = "0.1.0"
+description = "Recorded tests - a Dream app tested with recorded HTTP calls and recorded queries"
+licences = ["MIT"]
+
+[dependencies]
+dream = { path = "../.." }
+dream_http_client = ">= 6.0.0 and < 7.0.0"
+envoy = ">= 1.0.2 and < 2.0.0"
+dream_postgres = ">= 2.0.0 and < 3.0.0"
+dream_postgres_client = ">= 1.0.0 and < 2.0.0"
+gleam_erlang = ">= 1.0.0 and < 2.0.0"
+gleam_http = ">= 4.3.0 and < 5.0.0"
+gleam_json = ">= 2.2.0 and < 4.0.0"
+gleam_stdlib = ">= 0.44.0 and < 2.0.0"
+
+[dev-dependencies]
+dream_mock_server = ">= 2.0.0 and < 3.0.0"
+dream_test = ">= 3.0.0 and < 4.0.0"
+simplifile = ">= 2.3.0 and < 3.0.0"

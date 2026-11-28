@@ -1,5 +1,7 @@
 //// HTTP requests and responses
 ////
+//// Guides: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html) and [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html).
+////
 //// Core HTTP types for Dream applications. For response builders and status codes,
 //// see the `dream/http/response` and `dream/http/status` modules.
 ////
@@ -54,18 +56,22 @@
 //// Use this for content negotiation without query strings.
 
 import dream/http/request
+import dream/internal/path_parameter
 import gleam/float
+import gleam/http
 import gleam/int
 import gleam/list
 import gleam/option
+import gleam/result
 import gleam/string
 import gleam/uri
 import gleam/yielder
 
 /// HTTP request methods
 ///
-/// The standard HTTP methods your routes can handle. Use these in your router
-/// to specify which method a route responds to.
+/// The nine standard methods each have a constructor. Every other method is
+/// `Other`, with its name exactly as the client sent it. Method names are
+/// case-sensitive (RFC 9110, section 9.1).
 pub type Method {
   Post
   Get
@@ -74,6 +80,9 @@ pub type Method {
   Patch
   Options
   Head
+  Connect
+  Trace
+  Other(String)
 }
 
 /// HTTP header type
@@ -193,12 +202,40 @@ pub type Response {
 // Cookie constructors
 
 /// Get the name of a cookie
+///
+/// ## Example
+///
+/// ### Get the cookie name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_cookie_name.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{cookie_name, simple_cookie}
+///
+/// pub fn theme_cookie_name() -> String {
+///   let cookie = simple_cookie("theme", "dark")
+///   // "theme"
+///   cookie_name(cookie)
+/// }
+/// ```
 pub fn cookie_name(cookie: Cookie) -> String {
   let Cookie(name, _, _, _, _, _, _, _, _) = cookie
   name
 }
 
 /// Get the value of a cookie
+///
+/// ## Example
+///
+/// ### Get the cookie value <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_cookie_value.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{cookie_value, simple_cookie}
+///
+/// pub fn theme_cookie_value() -> String {
+///   let cookie = simple_cookie("theme", "dark")
+///   // "dark"
+///   cookie_value(cookie)
+/// }
+/// ```
 pub fn cookie_value(cookie: Cookie) -> String {
   let Cookie(_, value, _, _, _, _, _, _, _) = cookie
   value
@@ -208,6 +245,19 @@ pub fn cookie_value(cookie: Cookie) -> String {
 ///
 /// Creates an unsecured cookie with no expiration. Use `secure_cookie()` for
 /// sensitive data like sessions or authentication tokens.
+///
+/// ## Example
+///
+/// ### Create a simple cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_simple_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{type Cookie, simple_cookie}
+///
+/// pub fn theme_cookie() -> Cookie {
+///   // Not secure, not httpOnly, no SameSite, no expiry
+///   simple_cookie("theme", "dark")
+/// }
+/// ```
 pub fn simple_cookie(name: String, value: String) -> Cookie {
   Cookie(
     name: name,
@@ -227,6 +277,19 @@ pub fn simple_cookie(name: String, value: String) -> Cookie {
 /// Sets `secure=True`, `httpOnly=True`, and `sameSite=Strict`. Use this for
 /// session IDs, authentication tokens, or any sensitive data. The httpOnly flag
 /// prevents JavaScript access, protecting against XSS attacks.
+///
+/// ## Example
+///
+/// ### Create a secure cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_secure_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{type Cookie, secure_cookie}
+///
+/// pub fn session_cookie() -> Cookie {
+///   // secure: True, http_only: True, same_site: Some(Strict)
+///   secure_cookie("session_id", "abc123")
+/// }
+/// ```
 pub fn secure_cookie(name: String, value: String) -> Cookie {
   Cookie(
     name: name,
@@ -244,6 +307,20 @@ pub fn secure_cookie(name: String, value: String) -> Cookie {
 // Header utilities
 
 /// Get the name of a header
+///
+/// ## Example
+///
+/// ### Get the header name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_header_name.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{Header, header_name}
+///
+/// pub fn content_type_name() -> String {
+///   let header = Header("Content-Type", "text/html")
+///   // "Content-Type"
+///   header_name(header)
+/// }
+/// ```
 pub fn header_name(header: Header) -> String {
   case header {
     Header(name, _) -> name
@@ -251,6 +328,20 @@ pub fn header_name(header: Header) -> String {
 }
 
 /// Get the value of a header
+///
+/// ## Example
+///
+/// ### Get the header value <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_header_value.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{Header, header_value}
+///
+/// pub fn content_type_value() -> String {
+///   let header = Header("Content-Type", "text/html")
+///   // "text/html"
+///   header_value(header)
+/// }
+/// ```
 pub fn header_value(header: Header) -> String {
   case header {
     Header(_, value) -> value
@@ -258,6 +349,21 @@ pub fn header_value(header: Header) -> String {
 }
 
 /// Get the value of a header by name (case-insensitive)
+///
+/// ## Example
+///
+/// ### Find a header <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_get_header.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{Header, get_header}
+/// import gleam/option.{type Option}
+///
+/// pub fn content_type() -> Option(String) {
+///   let headers = [Header("Content-Type", "application/json")]
+///   // The name match ignores case: Some("application/json")
+///   get_header(headers, "content-type")
+/// }
+/// ```
 pub fn get_header(
   headers: List(Header),
   name: String,
@@ -318,6 +424,22 @@ fn header_name_mismatch(normalized_name: String) -> fn(Header) -> Bool {
 }
 
 /// Add a header without removing existing ones with the same name
+///
+/// ## Example
+///
+/// ### Add headers with the same name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_add_header.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{type Header, add_header}
+///
+/// pub fn set_cookie_headers() -> List(Header) {
+///   // Both headers stay, the newest first:
+///   // [Header("Set-Cookie", "b=2"), Header("Set-Cookie", "a=1")]
+///   []
+///   |> add_header("Set-Cookie", "a=1")
+///   |> add_header("Set-Cookie", "b=2")
+/// }
+/// ```
 pub fn add_header(
   headers: List(Header),
   name: String,
@@ -327,6 +449,23 @@ pub fn add_header(
 }
 
 /// Remove a header by name (case-insensitive)
+///
+/// ## Example
+///
+/// ### Remove a header <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_remove_header.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{type Header, Header, remove_header}
+///
+/// pub fn public_headers() -> List(Header) {
+///   let headers = [
+///     Header("Server", "dream"),
+///     Header("Content-Type", "text/plain"),
+///   ]
+///   // The name match ignores case: [Header("Content-Type", "text/plain")]
+///   remove_header(headers, "server")
+/// }
+/// ```
 pub fn remove_header(headers: List(Header), name: String) -> List(Header) {
   let normalized_name = string.lowercase(name)
   list.filter(headers, header_name_mismatch(normalized_name))
@@ -335,6 +474,26 @@ pub fn remove_header(headers: List(Header), name: String) -> List(Header) {
 // Cookie utilities
 
 /// Get a cookie by name (case-insensitive)
+///
+/// ## Example
+///
+/// ### Find a cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_get_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{
+///   type Cookie, get_cookie, secure_cookie, simple_cookie,
+/// }
+/// import gleam/option.{type Option}
+///
+/// pub fn session() -> Option(Cookie) {
+///   let cookies = [
+///     simple_cookie("theme", "dark"),
+///     secure_cookie("session_id", "abc123"),
+///   ]
+///   // The name match ignores case: Some(secure_cookie("session_id", "abc123"))
+///   get_cookie(cookies, "SESSION_ID")
+/// }
+/// ```
 pub fn get_cookie(
   cookies: List(Cookie),
   name: String,
@@ -362,6 +521,21 @@ fn get_cookie_recursive(
 }
 
 /// Get a cookie value by name
+///
+/// ## Example
+///
+/// ### Read a cookie value <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_get_cookie_value.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{get_cookie_value, simple_cookie}
+/// import gleam/option.{type Option}
+///
+/// pub fn theme() -> Option(String) {
+///   let cookies = [simple_cookie("theme", "dark")]
+///   // Some("dark")
+///   get_cookie_value(cookies, "theme")
+/// }
+/// ```
 pub fn get_cookie_value(
   cookies: List(Cookie),
   name: String,
@@ -373,6 +547,20 @@ pub fn get_cookie_value(
 }
 
 /// Set or replace a cookie
+///
+/// ## Example
+///
+/// ### Replace a cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_set_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{type Cookie, set_cookie, simple_cookie}
+///
+/// pub fn dark_theme() -> List(Cookie) {
+///   let cookies = [simple_cookie("theme", "light")]
+///   // The new cookie replaces the old one: [simple_cookie("theme", "dark")]
+///   set_cookie(cookies, simple_cookie("theme", "dark"))
+/// }
+/// ```
 pub fn set_cookie(cookies: List(Cookie), cookie: Cookie) -> List(Cookie) {
   let normalized_name = string.lowercase(cookie_name(cookie))
   let filtered = list.filter(cookies, cookie_name_mismatch(normalized_name))
@@ -380,6 +568,20 @@ pub fn set_cookie(cookies: List(Cookie), cookie: Cookie) -> List(Cookie) {
 }
 
 /// Remove a cookie by name
+///
+/// ## Example
+///
+/// ### Remove a cookie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_remove_cookie.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{type Cookie, remove_cookie, simple_cookie}
+///
+/// pub fn without_theme() -> List(Cookie) {
+///   let cookies = [simple_cookie("theme", "dark"), simple_cookie("lang", "en")]
+///   // [simple_cookie("lang", "en")]
+///   remove_cookie(cookies, "theme")
+/// }
+/// ```
 pub fn remove_cookie(cookies: List(Cookie), name: String) -> List(Cookie) {
   let normalized_name = string.lowercase(name)
   list.filter(cookies, cookie_name_mismatch(normalized_name))
@@ -399,6 +601,22 @@ fn check_cookie_name_mismatch(normalized_name: String) -> fn(Cookie) -> Bool {
 // Method conversion utilities
 
 /// Convert Method to its string representation
+///
+/// A standard method gives its upper-case name. `Other` gives its name
+/// exactly as it is.
+///
+/// ## Example
+///
+/// ### Get the method name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_method_to_string.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{Post, method_to_string}
+///
+/// pub fn post_name() -> String {
+///   // "POST"
+///   method_to_string(Post)
+/// }
+/// ```
 pub fn method_to_string(method: Method) -> String {
   case method {
     Get -> "GET"
@@ -408,10 +626,31 @@ pub fn method_to_string(method: Method) -> String {
     Patch -> "PATCH"
     Options -> "OPTIONS"
     Head -> "HEAD"
+    Connect -> "CONNECT"
+    Trace -> "TRACE"
+    Other(name) -> name
   }
 }
 
 /// Parse a string to Method (case-insensitive)
+///
+/// The match ignores case for the nine standard names. Another valid method
+/// token gives `Some(Other(name))` with the name exactly as given. Text that
+/// is not a method token, for example `"GET /"`, gives `None`.
+///
+/// ## Example
+///
+/// ### Parse a method name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_parse_method.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{type Method, parse_method}
+/// import gleam/option.{type Option}
+///
+/// pub fn delete_method() -> Option(Method) {
+///   // The match ignores case: Some(Delete)
+///   parse_method("delete")
+/// }
+/// ```
 pub fn parse_method(method_name: String) -> option.Option(Method) {
   case string.lowercase(method_name) {
     "get" -> option.Some(Get)
@@ -421,7 +660,18 @@ pub fn parse_method(method_name: String) -> option.Option(Method) {
     "patch" -> option.Some(Patch)
     "options" -> option.Some(Options)
     "head" -> option.Some(Head)
-    _ -> option.None
+    "connect" -> option.Some(Connect)
+    "trace" -> option.Some(Trace)
+    _ -> parse_other_method(method_name)
+  }
+}
+
+/// A valid method token that is no standard method name becomes `Other` with
+/// the exact name. gleam/http checks the token rules of RFC 9110.
+fn parse_other_method(method_name: String) -> option.Option(Method) {
+  case http.parse_method(method_name) {
+    Ok(_token) -> option.Some(Other(method_name))
+    Error(Nil) -> option.None
   }
 }
 
@@ -431,6 +681,21 @@ pub fn parse_method(method_name: String) -> option.Option(Method) {
 ///
 /// Properly decodes URL-encoded values (e.g., %20 → space, %26 → &)
 /// Returns None if the parameter is not found.
+///
+/// ## Example
+///
+/// ### Read a query parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_get_query_param.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{get_query_param}
+/// import gleam/option.{type Option}
+///
+/// pub fn search_term() -> Option(String) {
+///   let query = "q=hello%20world&page=2"
+///   // The value is decoded: Some("hello world")
+///   get_query_param(query, "q")
+/// }
+/// ```
 pub fn get_query_param(query: String, name: String) -> option.Option(String) {
   get_query_param_recursive(string.split(query, "&"), name)
 }
@@ -494,6 +759,19 @@ fn decode_url_component(component: String) -> String {
 }
 
 /// Check if request has a specific content type
+///
+/// ## Example
+///
+/// ### Check for JSON <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_has_content_type.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{type Request, has_content_type}
+///
+/// pub fn is_json(request: Request) -> Bool {
+///   // True for "application/json; charset=utf-8"
+///   has_content_type(request, "application/json")
+/// }
+/// ```
 pub fn has_content_type(request: Request, content_type: String) -> Bool {
   case request.content_type {
     option.Some(actual_content_type) ->
@@ -503,6 +781,19 @@ pub fn has_content_type(request: Request, content_type: String) -> Bool {
 }
 
 /// Check if request method matches
+///
+/// ## Example
+///
+/// ### Check for POST <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_is_method.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{type Request, Post, is_method}
+///
+/// pub fn is_post(request: Request) -> Bool {
+///   // True only for a POST request
+///   is_method(request, Post)
+/// }
+/// ```
 pub fn is_method(request: Request, method: Method) -> Bool {
   request.method == method
 }
@@ -528,7 +819,8 @@ fn parse_path_param(raw: String) -> PathParam {
 /// Extract a path parameter by name
 ///
 /// Returns a `PathParam` with automatic type conversion and format detection.
-/// If the parameter doesn't exist, returns an error message.
+/// If the parameter doesn't exist, returns
+/// `Error("Missing required path parameter: <name>")`.
 ///
 /// For common cases, use `get_int_param()` or `get_string_param()` instead,
 /// which return `Result(Int, String)` or `Result(String, String)` with
@@ -580,16 +872,15 @@ fn parse_path_param(raw: String) -> PathParam {
 /// }
 /// ```
 pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
-  case list.key_find(request.params, name) {
-    Ok(value) -> Ok(parse_path_param(value))
-    Error(_) -> Error("Missing required path parameter: " <> name)
-  }
+  path_parameter.find(request.params, name)
+  |> result.map(parse_path_param)
 }
 
 /// Extract a path parameter as an integer
 ///
-/// Returns a Result with a custom error message if the parameter is missing
-/// or cannot be converted to an integer.
+/// Returns `Error("Missing required path parameter: <name>")` when the route
+/// has no such parameter, the same message as `get_param`, and
+/// `Error("<name> must be an integer")` when the value is not an integer.
 ///
 /// ## Examples
 ///
@@ -608,7 +899,7 @@ pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
 pub fn get_int_param(request: Request, name: String) -> Result(Int, String) {
   case get_param(request, name) {
     Ok(param) -> param_to_int(param, name)
-    Error(_) -> Error("Missing " <> name <> " parameter")
+    Error(message) -> Error(message)
   }
 }
 
@@ -621,7 +912,8 @@ fn param_to_int(param: PathParam, name: String) -> Result(Int, String) {
 
 /// Extract a path parameter as a string
 ///
-/// Returns a Result with a custom error message if the parameter is missing.
+/// Returns `Error("Missing required path parameter: <name>")` when the route
+/// has no such parameter, the same message as `get_param`.
 ///
 /// ## Examples
 ///
@@ -643,7 +935,7 @@ pub fn get_string_param(
 ) -> Result(String, String) {
   case get_param(request, name) {
     Ok(param) -> param_to_string(param, name)
-    Error(_) -> Error("Missing " <> name <> " parameter")
+    Error(message) -> Error(message)
   }
 }
 
@@ -652,6 +944,19 @@ fn param_to_string(param: PathParam, _name: String) -> Result(String, String) {
 }
 
 /// Create a new request with updated params
+///
+/// ## Example
+///
+/// ### Set the path parameters <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_set_params.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/transaction.{type Request, set_params}
+///
+/// pub fn with_user_id(request: Request) -> Request {
+///   // The new request has params [#("id", "42")]
+///   set_params(request, [#("id", "42")])
+/// }
+/// ```
 pub fn set_params(
   request: Request,
   new_params: List(#(String, String)),

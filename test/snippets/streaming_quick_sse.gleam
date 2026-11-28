@@ -1,7 +1,7 @@
 //// Streaming quick reference: Server-Sent Events
 ////
 //// SSE controllers that use `upgrade_to_sse`, as shown in
-//// docs/guides/streaming-quick-reference.md.
+//// the Recipes section of docs/reference/streaming-api.md.
 
 import dream/http/request.{type Request}
 import dream/http/response.{type Response}

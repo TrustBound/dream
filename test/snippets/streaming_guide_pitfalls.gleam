@@ -4,11 +4,12 @@
 //// docs/guides/streaming.md. The bad functions compile and run, but they do
 //// extra work or hide a missing request body.
 
-import dream/http/request.{type Request, Stream}
+import dream/http/request.{type BodyReadError, type Request, Stream}
 import dream/http/response.{type Response, stream_response, text_response}
 import dream/http/status
 import gleam/bit_array
 import gleam/int
+import gleam/result
 import gleam/yielder.{type Yielder}
 
 // BAD: the stream is read twice
@@ -57,11 +58,23 @@ pub fn upload_with_check(request: Request, _context, _services) -> Response {
   }
 }
 
-fn save_stream(stream: Yielder(BitArray)) -> Response {
-  let total_bytes = yielder.fold(stream, 0, add_chunk_size)
-  text_response(status.ok, "Saved " <> int.to_string(total_bytes) <> " bytes")
+fn save_stream(stream: Yielder(Result(BitArray, BodyReadError))) -> Response {
+  case yielder.try_fold(stream, 0, add_chunk_size) {
+    Ok(total_bytes) ->
+      text_response(
+        status.ok,
+        "Saved " <> int.to_string(total_bytes) <> " bytes",
+      )
+    // The connection broke before the end of the body
+    Error(_read_error) ->
+      text_response(status.bad_request, "The upload stopped before its end")
+  }
 }
 
-fn add_chunk_size(total_bytes: Int, chunk: BitArray) -> Int {
+fn add_chunk_size(
+  total_bytes: Int,
+  item: Result(BitArray, BodyReadError),
+) -> Result(Int, BodyReadError) {
+  use chunk <- result.map(item)
   total_bytes + bit_array.byte_size(chunk)
 }

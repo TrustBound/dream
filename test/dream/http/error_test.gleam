@@ -1,21 +1,22 @@
 //// Tests for dream/http/error module.
 
 import dream/http/error.{
-  BadRequest, Forbidden, InternalServerError, NotFound, Unauthorized,
+  BadRequest, Conflict, Forbidden, InternalServerError, NotFound, Unauthorized,
   UnprocessableContent, message, to_status_code,
 }
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("error", [
     to_status_code_tests(),
     message_tests(),
   ])
 }
 
-fn to_status_code_tests() -> UnitTest {
-  describe("to_status_code", [
+fn to_status_code_tests() -> UnitNode {
+  group("to_status_code", [
     it("BadRequest returns 400", fn() {
       // Arrange
       let error = BadRequest("Invalid parameter")
@@ -26,7 +27,7 @@ fn to_status_code_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("BadRequest should return 400")
     }),
     it("Unauthorized returns 401", fn() {
@@ -39,7 +40,7 @@ fn to_status_code_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(401)
+      |> be_equal(401)
       |> or_fail_with("Unauthorized should return 401")
     }),
     it("Forbidden returns 403", fn() {
@@ -52,7 +53,7 @@ fn to_status_code_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(403)
+      |> be_equal(403)
       |> or_fail_with("Forbidden should return 403")
     }),
     it("NotFound returns 404", fn() {
@@ -65,8 +66,21 @@ fn to_status_code_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("NotFound should return 404")
+    }),
+    it("Conflict returns 409", fn() {
+      // Arrange
+      let error = Conflict("Email already registered")
+
+      // Act
+      let result = to_status_code(error)
+
+      // Assert
+      result
+      |> should()
+      |> be_equal(409)
+      |> or_fail_with("Conflict should return 409")
     }),
     it("UnprocessableContent returns 422", fn() {
       // Arrange
@@ -78,7 +92,7 @@ fn to_status_code_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(422)
+      |> be_equal(422)
       |> or_fail_with("UnprocessableContent should return 422")
     }),
     it("InternalServerError returns 500", fn() {
@@ -91,14 +105,14 @@ fn to_status_code_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(500)
+      |> be_equal(500)
       |> or_fail_with("InternalServerError should return 500")
     }),
   ])
 }
 
-fn message_tests() -> UnitTest {
-  describe("message", [
+fn message_tests() -> UnitNode {
+  group("message", [
     it("extracts BadRequest message", fn() {
       // Arrange
       let error = BadRequest("Invalid parameter")
@@ -109,7 +123,7 @@ fn message_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal("Invalid parameter")
+      |> be_equal("Invalid parameter")
       |> or_fail_with("Should extract BadRequest message")
     }),
     it("extracts Unauthorized message", fn() {
@@ -122,7 +136,7 @@ fn message_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal("Authentication required")
+      |> be_equal("Authentication required")
       |> or_fail_with("Should extract Unauthorized message")
     }),
     it("extracts Forbidden message", fn() {
@@ -135,7 +149,7 @@ fn message_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal("Access denied")
+      |> be_equal("Access denied")
       |> or_fail_with("Should extract Forbidden message")
     }),
     it("extracts NotFound message", fn() {
@@ -148,8 +162,21 @@ fn message_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal("Resource not found")
+      |> be_equal("Resource not found")
       |> or_fail_with("Should extract NotFound message")
+    }),
+    it("extracts Conflict message", fn() {
+      // Arrange
+      let error = Conflict("Email already registered")
+
+      // Act
+      let result = message(error)
+
+      // Assert
+      result
+      |> should()
+      |> be_equal("Email already registered")
+      |> or_fail_with("Should extract Conflict message")
     }),
     it("extracts UnprocessableContent message", fn() {
       // Arrange
@@ -161,7 +188,7 @@ fn message_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal("Validation failed")
+      |> be_equal("Validation failed")
       |> or_fail_with("Should extract UnprocessableContent message")
     }),
     it("extracts InternalServerError message", fn() {
@@ -174,7 +201,7 @@ fn message_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal("Database error")
+      |> be_equal("Database error")
       |> or_fail_with("Should extract InternalServerError message")
     }),
     it("handles empty string message", fn() {
@@ -187,7 +214,7 @@ fn message_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal("")
+      |> be_equal("")
       |> or_fail_with("Should handle empty message")
     }),
     it("handles long message", fn() {
@@ -202,7 +229,7 @@ fn message_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(long_message)
+      |> be_equal(long_message)
       |> or_fail_with("Should preserve long message")
     }),
     it("handles special characters", fn() {
@@ -216,7 +243,7 @@ fn message_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(special_message)
+      |> be_equal(special_message)
       |> or_fail_with("Should preserve special characters")
     }),
   ])

@@ -1,10 +1,11 @@
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, group, it}
 import gleam/string
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("slug", [
-    describe("create_slug", [
+    group("create_slug", [
       it("joins lowercase words with dashes", fn() {
         // Arrange
         let title = "Hello World"
@@ -15,7 +16,7 @@ pub fn tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal("hello-world")
+        |> be_equal("hello-world")
         |> or_fail_with("Should return a lowercase slug")
       }),
     ]),

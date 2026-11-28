@@ -5,18 +5,30 @@ All notable changes to Dream will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
 ## [3.0.0] - Unreleased
 
 ### Breaking
 
 - `Request.body` is now a `RequestBody`: `Text(String)`, `Bytes(BitArray)`
-  or `Stream(Yielder(BitArray))`, and the `Request.stream` field is gone. On
+  or `Stream(Yielder(Result(BitArray, BodyReadError)))`, and the
+  `Request.stream` field is gone. On
   a `route`, a valid UTF-8 body arrives as `Text` and any other body as
   `Bytes`; on a `stream_route`, the body arrives as `Stream`. A binary body
-  used to arrive as `""`. See the Migration Guide in
-  `releases/release-3.0.0.md`.
+  used to arrive as `""`. See step 3 of the
+  [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+- Each item of a `Stream` body is a `Result`. When a read from the
+  connection fails, the stream gives one `Error(MalformedBody)` item and then
+  ends. Every reader of a `Stream` body must handle the `Error` item: the
+  controller owns the answer. See step 3 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+- `Method` has three more variants: `Connect`, `Trace` and `Other(String)`.
+  A `case` over every `Method` value needs three more branches.
+  `parse_method` gives `Some(Connect)`, `Some(Trace)`, and
+  `Some(Other(name))` for another valid method token. It gives `None` only
+  for text that is not a method token. See step 5 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+- `validate_json` returns `Result(a, List(ValidationError))`: one error for
+  each decode error, in the order of the decoder, or the one syntax error.
+  It used to give only the first error. `require_json` joins the messages
+  with `"; "`. See step 6 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
 - `require_form` returns `BadRequest("Request body is not text")` for a body
   that is not text, and now also reads a `Stream` body.
 - The router tries the next route when a route fits the start of a path but
@@ -30,13 +42,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with no error, and `listen()` crashed at start, as it did with no router.
   `dream.get_router` and `dream.get_services` no longer return an `Option`,
   and `dream.create` takes the router state and the services without an
-  `Option`. See the Migration Guide in `releases/release-3.0.0.md`.
+  `Option`. See step 4 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+- A request whose path matches a route, with a method that no route of that
+  path has, gets `405 Method Not Allowed` with an `Allow` header that lists
+  the methods of the path in alphabetical order, and the plain-text body
+  `Method not allowed`. It used to get `404 Route not found`. A path that no
+  route matches still gets `404`. `HEAD` and `OPTIONS` to a path with only
+  a `GET` route get `405` too. `dream.route_request` gives the same answer.
+  See step 12 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+- The WebSocket message `ConnectionClosed` is gone: it never arrived, and a
+  close calls `on_close`. `dream_http_server` 2.0.0 removed the `Closed`
+  and `Shutdown` messages that it came from. Delete the `ConnectionClosed`
+  branch, and do its work in `on_close`. See step 7 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+
+- `server.listen()` returns `Result(Nil, actor.StartError)`. It still
+  blocks when the server starts, and it returns the start error when the
+  server cannot start. It used to panic. A `main` that ends with `listen()`
+  does not compile: write `let assert Ok(Nil) =` in front of it, so a failed
+  start still stops the program with a non-zero exit code. The examples, the
+  README and the guides do this. See step 9 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+- `dream.get_server()` takes `risks_understood: RisksUnderstood`, a type with
+  one value, in place of a `Bool`. A call with `False` used to panic. Now it
+  does not compile. See step 10 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+- `servers/mist/response.convert()` takes the Mist request first, and it
+  converts a `Stream` body too. It used to panic on a `Stream` body.
+  `convert_stream()` is private. See step 10 of the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+- `Error` has a new variant, `Conflict(String)`, which gives `409`. A
+  `case` over every `Error` value needs a `Conflict` branch. See step 11 of
+  the [upgrade guide](https://hexdocs.pm/dream/3.0.0/guides/upgrading-to-3.html).
+- `src/` has no `panic` and no `let assert`.
 
 ### Added
+
+- The README and the docs index say that Dream runs on the Erlang target
+  only. JavaScript support is planned for a future release.
+- `router.scope(path:, with:, routes:)` adds every route of a second router
+  under a path prefix. `with` runs before the route's own middleware, and its
+  `next` can take a different context type, so controllers in the scope can
+  get, for example, a context with the signed-in user. Use `path: ""` to group
+  routes with no prefix. Scoped routes give the same `404` and `405` answers as
+  other routes and keep their streaming flag. A later route with the same
+  method and path replaces an earlier one.
+- `server.stop_gracefully(handle, within: milliseconds)` stops a server and
+  lets its running requests finish first. The server refuses new
+  connections and closes idle keep-alive connections at once. Each running
+  request gets its full response with `connection: close`. When the time
+  ends, the server closes the requests that still run.
+- A server that `listen` started drains on `SIGTERM` before the Erlang VM
+  stops, so a deploy no longer cuts off running requests. Before this, the
+  VM closed the running requests at once.
+- `server.shutdown_timeout(app, milliseconds)` sets how long the drain on
+  `SIGTERM` waits. The default is 30 seconds, the time that Kubernetes waits
+  after `SIGTERM`. `dream.set_shutdown_timeout` and
+  `dream.get_shutdown_timeout` are for server adapters.
+- `error.Conflict(String)` for `409 Conflict`: a request that clashes with
+  the current state of a resource, such as a unique value that is already
+  taken or an edit against a stale version.
+- `router.allowed_methods(router, request)` gives the methods of the routes
+  that match the path of a request, in alphabetical order.
 
 - `require_json(request, decoder)` reads a JSON body, decodes it and returns
   `BadRequest` with the reason when a step fails.
 - `body_as_string(request)` returns the body as text, or `Error(Nil)`.
+- `BodyReadError` in `dream/http/request`, with the one cause the server
+  reports: `MalformedBody`.
 - `broadcaster.count_subscribers`.
 
 - `server.tls(certfile:, keyfile:)` serves HTTPS. Clients that ask for
@@ -44,12 +113,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rest get HTTP/1.1. A missing certificate or key file is a start error.
   Server adapters read the setting with `dream.get_tls`.
 - New guide: `docs/guides/http2.md`.
+- Six new task guides, each with a tested example app: "Load configuration
+  and fail early" (`examples/configuration`), "Call another API from a
+  controller" (`examples/outbound_http`), "Add a cache and a rate limit"
+  (`examples/cache` and `examples/rate_limiter`), "Run background work"
+  (`examples/background_work`), "Test a Dream app against a fake API"
+  (`examples/fake_api`) and "Add search to a Dream app" (`examples/search`,
+  with `dream_opensearch` 4.0.0 and recorded OpenSearch calls).
+- Every guide starts with a breadcrumb: README > Guides > the title of the guide.
+- The `rate_limiter` example counts each request with the atomic
+  `helpers.increment` of `dream_ets`, sends an exact `Retry-After`, deletes
+  the rows of ended windows, and has unit tests with a fixed clock.
+- The guides are rewritten as task guides: 14 guides in `docs/guides/`, each
+  with numbered steps, the real answers of an example server, failure
+  cases, a test with its real report, and common pitfalls. New:
+  `getting-started.md`, `routing.md`, `request-data.md`, `responses.md`,
+  `database-api.md`, `api-patterns.md` and `operating.md`. The quickstart,
+  the four `docs/learn/` lessons and the authentication, controllers and
+  models, file uploads, multiple formats, operations, REST API and
+  streaming quick reference pages are folded into them; the streaming
+  recipes are in `docs/reference/streaming-api.md`.
+- The `simple` example shows path parameters, the query string, JSON
+  validation that reports every error, forms, cookies, redirects, a CSV
+  download, a `PURGE` route and a body limit. The example READMEs' request
+  scripts also run the failure cases that the guides show.
 - Every code block in the guides, READMEs, doc comments and SECURITY.md
   comes from a tested snippet, with a "tested snippet" badge that links to
   it.
+- The SSE and WebSockets guides test the reader's handlers with no server,
+  and show the real report. The folder trees of the example READMEs and the
+  contributing guides are the real output of `find`, which the integration
+  run compares.
+- Every public function has a tested example in its doc comment: 51
+  functions got a new one, so all 138 have one. Every public type and
+  constant has a doc comment.
 - `make check-snippets` checks that every Gleam code block in the docs has
   a heading with the badge and matches its snippet file. It runs in the
   pre-commit hook, in CI, and before every publish.
+- Every other code block of the docs is proven too: commands are lines of
+  scripts that CI or a test runs, output is a file that a test compares
+  with the real output, and files are copies of the files that the tests
+  and CI use. The integration run of each example runs the commands of its
+  README. New `examples/deployment` (Dockerfile and Compose file of the
+  deployment guide, built by `make test-docker`), `scripts/check.sh`,
+  `scripts/ci-integration.sh`, `scripts/test-integration.sh`,
+  `scripts/check-templates.sh`, `scripts/test-tasks.sh` and
+  `scripts/install-matcha.sh`. CI runs them: the unit job runs
+  `scripts/check.sh`, the integration job `scripts/ci-integration.sh`, and
+  new jobs run `make check-templates`, `make test-docker` and
+  `make test-tasks`.
+- The snippet check moved to the [`dream_snippets`](https://github.com/TrustBound/dream_snippets) package.
+- Each example in the README has a "read guide" badge that links to the
+  docs section that shows the same example. The guides in `docs/guides/`
+  are also pages on HexDocs.
 
 ### Changed
 
@@ -63,10 +179,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a project must not depend on both Dream and the `mist` or `glisten` Hex
   packages; run `gleam deps update dream` once if an existing lock file
   still lists them. See `docs/contributing/http-server-packages.md`.
+- Dream requires `dream_http_server` `>= 2.1.0 and < 3.0.0`, and so
+  `dream_socket_server` 1.0.1.
+- The Dockerfile of `examples/deployment` has two stages: the Gleam image
+  runs `gleam export erlang-shipment`, and `erlang:29.1.1-alpine` runs the
+  shipment's `entrypoint.sh`. The image is 89.6 MB for arm64, down from 128 MB. The
+  migration service of its Compose file uses the build stage. Its
+  `.dockerignore` lets `build/packages` into the image.
 - Updated mist streaming adapter to use actor-based `mist.chunked()` API
   instead of the removed `mist.Streaming` response variant. Dream's public
   streaming API (`stream_response`, `sse_response`, `ResponseBody.Stream`)
   is unchanged.
+- The modules moved to their own repositories, with their own releases:
+  [dream_config](https://github.com/TrustBound/dream_config),
+  [dream_ets](https://github.com/TrustBound/dream_ets),
+  [dream_http_client](https://github.com/TrustBound/dream_http_client),
+  [dream_json](https://github.com/TrustBound/dream_json),
+  [dream_mock_server](https://github.com/TrustBound/dream_mock_server),
+  [dream_opensearch](https://github.com/TrustBound/dream_opensearch) and
+  [dream_postgres](https://github.com/TrustBound/dream_postgres).
 
 ### Fixed
 
@@ -75,6 +206,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mist hands the socket to the chunk actor. The first drain message is now
   sent only after `mist.chunked()` has returned, so a keep-alive client no
   longer reads that 500 as the answer to its next request.
+- Over HTTP/1.1 the connection stays open for the next request after a
+  streamed response or an event stream. The server used to close it with no
+  `connection: close` header, so a client that kept the connection got no
+  answer to its next request. An event stream is now sent with chunked
+  transfer encoding.
+- Over HTTP/1.1 a request with a `connection: close` header gets
+  `connection: close` in the response, and the server closes the connection
+  after it. The server used to answer `connection: keep-alive` and hold the
+  connection open for 10 seconds.
 - `server.stop` stops the server from any process, and returns after the
   server is down. It used to do nothing unless the starting process called
   it.
@@ -83,14 +223,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   It used to be dropped or empty.
 - Parameter and variable names in `src/` use full words. No labelled
   argument changed.
+- A cookie `Expires` is written as an HTTP date (`Tue, 14 Nov 2023 22:13:20 GMT`), not as a number of seconds.
+- `remote_address` gives the real IPv6 client address in RFC 5952 form. It used to be `::1` for every IPv6 client.
+- A streamed request body that breaks before its end gives the controller one `Error(MalformedBody)` item, and then the stream ends. It used to end like a complete body.
+- CONNECT, TRACE and every other method keep their name. They used to become `Get`, so `PURGE /` and `TRACE /` ran the `GET /` controller. They now get the route of their method, `405 Method Not Allowed` when the path has routes of other methods, or `404 Route not found`.
+- `static.serve` sends binary files with their exact bytes. It used to answer 404 for each file that is not UTF-8.
+- The `static` directory listing escapes file names and the request path, and percent-encodes each link.
+- A buffered body over `max_body_size` gets `413 Content Too Large` with the plain-text body `Request body too large` (RFC 9110, section 15.5.14). It used to get `400 Bad Request` with an empty body. A chunked HTTP/1.1 body over the limit used to reach the controller; the server now stops reading it at the limit. A body that cannot be read still gets `400`, now with the plain-text body `Request body could not be read`.
+- `get_int_param` and `get_string_param` (in `dream/http/request` and `dream/http/transaction`), and so `require_int` and `require_string`, give `Missing required path parameter: <name>` for a missing parameter, the message of `get_param`. They used to give `Missing <name> parameter`.
+- The `tasks` example: Enter in a task title saves the title and opens a new editor (htmx 2 refused the save, which had no target). The due date of the editor is saved. A Delete button removes the task or the project from the page (htmx 2 does not swap a `204` answer by default). The title of a new task has the focus. `make e2e-test` stops its server; it used to leave it running on port 3000. The Cypress tests empty the tables with `make db-clear` before each test, and match the editor of the app; 26 of them pass.
+- Over HTTP/1.1, after an answer to a request whose body Dream did not read
+  to its end (`404`, `405`, `413`, or a `stream_route` controller that did
+  not read the stream), the server sends `connection: close` and closes the
+  connection. It used to read the body as the next request, so a body that
+  held a second request got an answer (request smuggling). The fix is in
+  `dream_http_server` 2.0.0; Dream's tests send the attack through a real
+  server.
+- `examples/deployment` stops on `SIGTERM`: the Erlang VM is the first
+  process of the container. Under `CMD ["gleam", "run"]`, `docker stop`
+  waited 10 seconds and killed the container (exit status 137). Now it
+  takes about 0.2 seconds, with exit status 0.
+- `make test-docker` asks Hex for nothing in the image build. The test copy
+  of the manifest pointed only one of its two `dream` lines at the copy of
+  Dream, and had no fingerprint of Dream's `gleam.toml`, so each cold build
+  resolved versions against the Hex API with no key. The script now
+  downloads the packages on the host and builds the image with no network.
+- `make test-docker` removes the images that it builds. Each run used to leave two images named after its temporary folder.
+- The `database`, `tasks` and `multi_format` examples answer `Unauthorized`, `Forbidden` and `UnprocessableContent` with `401`, `403` and `422`, not `400`.
 
 ### Testing
 
-- CI and the publish workflows use Gleam 1.19.2. Dream, its modules and the
+- CI and the publish workflows use Gleam 1.19.2. Dream and the
   examples build and pass their tests on Gleam 1.19.2.
-- 952 tests run, 0 failed, in about 7 seconds (MacBook, OTP 28, Gleam
-  1.17.0). The snippet check finds 509 code blocks with no problems. The integration tests run every scenario of the mock server and
-  ten examples over HTTP/1.1 and over HTTP/2 with TLS.
+- Dream's tests and its testing guides use `dream_test` 3.0.0.
+- No test sleeps to wait for a result. The server tests wait for a message
+  from the controller, a monitor, or a socket read with a timeout. The
+  graceful stop tests hold a request until the server drains its
+  connection, so they do not depend on timing.
+- `gleam test` now measures the line coverage of `src/`. The run fails when
+  coverage is below 100%. CI checks first that the BEAM supports native
+  coverage. The README shows a coverage badge.
+- 1178 tests run, 0 failed, in about 15 seconds (Apple M1 Max, OTP 29, Gleam
+  1.19.2, `gleam test`). The same run passed 12 times in a row. Line coverage of `src/` is 1128 of 1128 lines (100%). The snippet check finds 676 Gleam code blocks and 1 diff block, proves 58 file blocks, 148 command blocks and 105 output blocks, and counts 40 illustrations, with no problems. The integration tests run
+  eleven examples, ten of them over HTTP/1.1 and over HTTP/2 with TLS.
+  `make test-tasks` passes 26 scenarios over each protocol and 26 Cypress
+  tests in about 90 seconds; `make test-docker` takes about 29 seconds, and
+  checks that the app stops on `SIGTERM` with exit status 0.
 
 ## [2.4.1] - 2026-03-11
 

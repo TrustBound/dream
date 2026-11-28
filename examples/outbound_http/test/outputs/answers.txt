@@ -1,0 +1,25 @@
+GET /forecasts/oslo
+200 {"city":"oslo","high":4,"low":-2}
+
+GET /forecasts/atlantis
+404 {"error":"No forecast for atlantis"}
+
+GET /forecasts/broken
+502 {"error":"The forecast service failed: HTTP 500"}
+
+GET /forecasts/lima
+502 {"error":"The forecast service failed: Expected Int at high, found String"}
+
+GET /forecasts/slow
+504 {"error":"The forecast service did not answer in 300 ms"}
+
+POST /forecasts/oslo/watches
+201 {"watch":"watch-oslo"}
+
+GET /forecasts/oslo/hourly
+200 06:00 3C
+07:00 4C
+08:00 5C
+
+GET /forecasts/atlantis/hourly
+404 {"error":"No forecast for atlantis"}

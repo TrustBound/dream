@@ -4,16 +4,16 @@
 //// Presentation logic (JSON encoding) lives in views/user_view.
 
 import dream/http/error.{type Error, InternalServerError, NotFound}
+import dream_postgres_client
 import gleam/dynamic/decode
 import gleam/list
 import gleam/option
 import gleam/time/timestamp
-import pog
 import sql
 import types/user.{type User, User}
 
 /// List all users
-pub fn list(db: pog.Connection) -> Result(List(User), Error) {
+pub fn list(db: dream_postgres_client.Connection) -> Result(List(User), Error) {
   case sql.list_users(db) {
     Ok(returned) -> Ok(extract_all_users(returned))
     Error(_) -> Error(InternalServerError("Database error"))
@@ -21,7 +21,10 @@ pub fn list(db: pog.Connection) -> Result(List(User), Error) {
 }
 
 /// Get a single user by ID
-pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
+pub fn get(
+  db: dream_postgres_client.Connection,
+  id: Int,
+) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
     Error(_) -> Error(InternalServerError("Database error"))
@@ -30,7 +33,7 @@ pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
 
 /// Create a new user
 pub fn create(
-  db: pog.Connection,
+  db: dream_postgres_client.Connection,
   name: String,
   email: String,
 ) -> Result(User, Error) {
@@ -42,7 +45,7 @@ pub fn create(
 
 /// Update a user
 pub fn update(
-  db: pog.Connection,
+  db: dream_postgres_client.Connection,
   id: Int,
   name: String,
   email: String,
@@ -54,7 +57,10 @@ pub fn update(
 }
 
 /// Delete a user
-pub fn delete(db: pog.Connection, id: Int) -> Result(Nil, Error) {
+pub fn delete(
+  db: dream_postgres_client.Connection,
+  id: Int,
+) -> Result(Nil, Error) {
   case sql.delete_user(db, id) {
     Ok(_) -> Ok(Nil)
     Error(_) -> Error(InternalServerError("Database error"))
@@ -71,7 +77,7 @@ pub fn decoder() -> decode.Decoder(#(String, String)) {
 // Private helpers - all named functions
 
 fn extract_first_user(
-  returned: pog.Returned(sql.GetUserRow),
+  returned: dream_postgres_client.Returned(sql.GetUserRow),
 ) -> Result(User, Error) {
   case returned.rows {
     [row] -> Ok(row_to_user(row))
@@ -80,12 +86,14 @@ fn extract_first_user(
   }
 }
 
-fn extract_all_users(returned: pog.Returned(sql.ListUsersRow)) -> List(User) {
+fn extract_all_users(
+  returned: dream_postgres_client.Returned(sql.ListUsersRow),
+) -> List(User) {
   list.map(returned.rows, row_to_user_list)
 }
 
 fn extract_created_user(
-  returned: pog.Returned(sql.CreateUserRow),
+  returned: dream_postgres_client.Returned(sql.CreateUserRow),
 ) -> Result(User, Error) {
   case returned.rows {
     [row] -> Ok(row_to_user_create(row))
@@ -95,7 +103,7 @@ fn extract_created_user(
 }
 
 fn extract_updated_user(
-  returned: pog.Returned(sql.UpdateUserRow),
+  returned: dream_postgres_client.Returned(sql.UpdateUserRow),
 ) -> Result(User, Error) {
   case returned.rows {
     [row] -> Ok(row_to_user_update(row))

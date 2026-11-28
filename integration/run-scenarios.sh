@@ -10,6 +10,24 @@
 #
 # Run it from the example's folder. For http2 it writes a test certificate
 # authority and server certificate to build/test_tls first.
+#
+# The runs also prove the commands of the README of the example:
+#
+# - test/integration/start.sh, when the example has one, starts the server
+#   in place of "gleam run -m MODULE". It runs from the repository root.
+# - test/integration/readme.sh, when the example has one, runs once the
+#   server answers, with bash, in an empty folder. EXAMPLE holds the path of
+#   the example's folder, for commands that run there. Its standard output must
+#   be the same as test/integration/readme_output.txt. In the http2 run,
+#   test/integration/readme_http2.sh and readme_http2_output.txt do the same
+#   against the HTTPS server. The comparison makes three changes that
+#   make it the same on every run: the carriage returns of "curl -i" headers
+#   are removed, the value of each "date:" header line is replaced with
+#   "(the time of the request)", and each UTC timestamp such as
+#   2026-01-02T03:04:05.123456Z (a created_at value) is replaced with
+#   "(a time)".
+#
+# The Cucumber scenarios run when the example has a mix.exs.
 set -u
 NAME=$1
 PORT=$2
@@ -26,6 +44,9 @@ fi
 
 SCHEME=http
 CA_FILE=""
+# The HTTP/1.1 run has no test certificate: a README command can show what
+# a server with a missing certificate does.
+rm -rf build/test_tls
 if [ "$PROTOCOL" = "http2" ]; then
   SCHEME=https
   CA_FILE="$PWD/build/test_tls/ca.pem"
@@ -33,10 +54,28 @@ if [ "$PROTOCOL" = "http2" ]; then
     -eval 'integration_certificates:write(<<"build/test_tls">>), halt().' || exit 1
 fi
 
+EXAMPLE=$PWD
+export EXAMPLE
+START="$EXAMPLE/test/integration/start.sh"
+COMMANDS="$EXAMPLE/test/integration/readme.sh"
+EXPECTED="$EXAMPLE/test/integration/readme_output.txt"
+if [ "$PROTOCOL" = "http2" ]; then
+  COMMANDS="$EXAMPLE/test/integration/readme_http2.sh"
+  EXPECTED="$EXAMPLE/test/integration/readme_http2_output.txt"
+fi
+
 echo "=== $NAME: $PROTOCOL over $SCHEME ==="
-gleam run -m "$MODULE" > "$LOG" 2>&1 &
-SERVER_PID=$!
-trap 'kill $SERVER_PID 2>/dev/null; sleep 1; kill -9 $SERVER_PID 2>/dev/null; lsof -ti:'"$PORT"' 2>/dev/null | xargs kill -9 2>/dev/null' EXIT
+# build/server.pid records the server, so that the run stops only this
+# server (see example-server.sh).
+SERVER="$ROOT/integration/example-server.sh"
+PIDFILE="$EXAMPLE/build/server.pid"
+if [ "$PROTOCOL" = "http1" ] && [ -f "$START" ]; then
+  "$SERVER" start "$PIDFILE" "$LOG" "$PORT" \
+    sh -c 'cd "$1" && exec sh "$2"' sh "$ROOT" "$START" || exit 1
+else
+  "$SERVER" start "$PIDFILE" "$LOG" "$PORT" gleam run -m "$MODULE" || exit 1
+fi
+trap '"$SERVER" stop "$PIDFILE"' EXIT
 
 for i in $(seq 1 30); do
   if curl -sk "$SCHEME://localhost:$PORT/" > /dev/null 2>&1; then
@@ -50,5 +89,26 @@ for i in $(seq 1 30); do
   sleep 1
 done
 
-mix deps.get > /dev/null 2>&1
-DREAM_TEST_PROTOCOL=$PROTOCOL DREAM_TEST_CA_FILE=$CA_FILE MIX_ENV=test mix test
+if [ -f "$COMMANDS" ]; then
+  echo "=== $NAME: the README commands ==="
+  WORK=$(mktemp -d)
+  if ! (cd "$WORK" && bash "$COMMANDS") > "$WORK.raw" 2>> "$LOG"; then
+    echo "The README commands failed. See $LOG."
+    exit 1
+  fi
+  tr -d '\r' < "$WORK.raw" \
+    | sed -e 's/^date: .*$/date: (the time of the request)/' \
+      -e 's/[0-9]\{4\}-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\(\.[0-9]*\)\{0,1\}Z/(a time)/g' \
+    > "$WORK.out"
+  if ! diff -u "$EXPECTED" "$WORK.out"; then
+    echo "The README commands gave other output than $EXPECTED."
+    exit 1
+  fi
+  rm -rf "$WORK" "$WORK.raw" "$WORK.out"
+  echo "The README commands gave the expected output."
+fi
+
+if [ -f mix.exs ]; then
+  mix deps.get > /dev/null 2>&1
+  DREAM_TEST_PROTOCOL=$PROTOCOL DREAM_TEST_CA_FILE=$CA_FILE MIX_ENV=test mix test
+fi

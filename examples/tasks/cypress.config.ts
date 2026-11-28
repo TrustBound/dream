@@ -5,7 +5,7 @@ export default defineConfig({
     baseUrl: "http://localhost:3000",
     viewportWidth: 1920,
     viewportHeight: 1080,
-    video: true,
+    video: false,
     videoCompression: 32,
     screenshotOnRunFailure: true,
     screenshotsFolder: "cypress/screenshots",

@@ -1,0 +1,9 @@
+after 0 s: GET /products/lamp
+  200, x-cache: miss
+  Desk lamp: 4500 cents
+after 10 s: GET /products/lamp
+  200, x-cache: hit
+  Desk lamp: 4500 cents
+after 61 s: GET /products/lamp
+  200, x-cache: miss
+  Desk lamp: 4500 cents

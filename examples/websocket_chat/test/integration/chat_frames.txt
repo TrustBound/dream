@@ -1,0 +1,4 @@
+{"type":"joined","user":"Bob"}
+{"type":"joined","user":"Alice"}
+{"type":"message","user":"Alice","text":"Hello everyone!"}
+{"type":"left","user":"Alice"}

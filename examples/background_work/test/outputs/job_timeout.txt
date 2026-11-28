@@ -1,0 +1,17 @@
+POST /jobs first
+  202 {"id":1,"status_url":"/jobs/1"}
+POST /jobs second
+  202 {"id":2,"status_url":"/jobs/2"}
+log: job 1 started
+log: job 1 timed_out
+log: job 2 started
+log: job 2 done
+GET /jobs/1
+  200 {"id":1,"state":"timed_out"}
+GET /jobs/2
+  200 {"id":2,"state":"done","result":"words: 1, lines: 1"}
+the process of job 1 ended: Killed
+the process of job 2 ended: Normal
+POST /jobs third
+  202 {"id":3,"status_url":"/jobs/3"}
+messages in the worker mailbox: 0

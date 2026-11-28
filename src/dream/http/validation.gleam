@@ -1,5 +1,7 @@
 //// JSON validation with structured error messages
 ////
+//// Guide: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html).
+////
 //// Validate and decode JSON request bodies with detailed error information.
 //// Validation is kept separate from response building - controllers
 //// decide how to handle validation errors.
@@ -15,6 +17,7 @@
 //// import dream/http/validation.{type ValidationError}
 //// import gleam/dynamic/decode
 //// import gleam/json
+//// import gleam/list
 ////
 //// pub type CreateUser {
 ////   CreateUser(name: String, email: String, age: Int)
@@ -43,18 +46,26 @@
 ////
 ////   case validation_result {
 ////     Ok(user) -> response.json_response(status.created, user_to_json(user))
-////     Error(validation_error) ->
-////       create_validation_error_response(validation_error)
+////     Error(validation_errors) ->
+////       create_validation_error_response(validation_errors)
 ////   }
 //// }
 ////
+//// // One message for each field that failed
 //// fn create_validation_error_response(
-////   validation_error: ValidationError,
+////   validation_errors: List(ValidationError),
 //// ) -> Response {
+////   let messages = list.map(validation_errors, error_message)
 ////   response.json_response(
 ////     status.bad_request,
-////     error_json(validation_error.message),
+////     json.to_string(
+////       json.object([#("errors", json.array(messages, json.string))]),
+////     ),
 ////   )
+//// }
+////
+//// fn error_message(validation_error: ValidationError) -> String {
+////   validation_error.message
 //// }
 ////
 //// fn user_to_json(user: CreateUser) -> String {
@@ -73,7 +84,9 @@
 ////
 //// ## Error Handling
 ////
-//// ValidationError provides detailed information about what went wrong:
+//// `validate_json` gives a list with one `ValidationError` for each field
+//// that failed, in the order of the decoder. Each one provides detailed
+//// information about what went wrong:
 //// - `message`: Human-readable error message
 //// - `field`: The JSON field that failed (if applicable)
 //// - `expected`: What type was expected
@@ -85,7 +98,6 @@
 //// `params.require_json`: it reads the body, parses it and decodes it in one
 //// call.
 
-import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list
@@ -135,20 +147,23 @@ pub type ValidationError {
 /// Validate and decode JSON request body
 ///
 /// Parses JSON string and decodes it using the provided decoder.
-/// Returns the decoded data or a detailed validation error.
+/// Returns the decoded data, or every validation error. A decode failure
+/// gives one `ValidationError` for each decode error, in the order of the
+/// decoder, so a body with two wrong fields gives two errors. A JSON syntax
+/// error gives a list with that one error.
 ///
 /// This function is generic over the return type - use `gleam/dynamic/decode`
 /// to define decoders for your types.
 ///
 /// ## Example
 ///
-/// ### Create a post from JSON <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_validate_json.gleam#L1-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Create a post from JSON <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_validate_json.gleam#L1-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// import dream/http/request.{type Request, body_as_string}
 /// import dream/http/response.{type Response, json_response}
 /// import dream/http/status.{bad_request, created}
-/// import dream/http/validation.{validate_json}
+/// import dream/http/validation.{type ValidationError, validate_json}
 /// import gleam/dynamic/decode
 /// import gleam/json
 /// import gleam/option.{type Option}
@@ -178,66 +193,61 @@ pub type ValidationError {
 ///       json_response(created, post_to_json(post))
 ///     }
 ///
-///     Error(validation_error) -> {
-///       let field_json = format_field_as_json(validation_error.field)
-///       let error_json =
+///     Error(validation_errors) -> {
+///       // One object for each field that failed
+///       let errors_json =
 ///         json.object([
-///           #("error", json.string(validation_error.message)),
-///           #("field", field_json),
+///           #("errors", json.array(validation_errors, validation_error_to_json)),
 ///         ])
-///       json_response(bad_request, json.to_string(error_json))
+///       json_response(bad_request, json.to_string(errors_json))
 ///     }
 ///   }
+/// }
+///
+/// fn validation_error_to_json(validation_error: ValidationError) -> json.Json {
+///   json.object([
+///     #("error", json.string(validation_error.message)),
+///     #("field", format_field_as_json(validation_error.field)),
+///   ])
 /// }
 /// ```
 ///
 /// ## Error Cases
 ///
-/// - Invalid JSON syntax: Returns error with parse details
-/// - Missing required field: Returns error with field path
-/// - Wrong type: Returns error with expected vs. found types
-/// - Invalid enum value: Returns error with validation details
+/// - Invalid JSON syntax: one error with parse details
+/// - Missing required field: an error with the field path, for each field
+/// - Wrong type: an error with expected vs. found types, for each field
+/// - Invalid enum value: an error with validation details
+///
+/// Guide: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html).
 pub fn validate_json(
   body: String,
   decoder: decode.Decoder(decoded_type),
-) -> Result(decoded_type, ValidationError) {
-  json.parse(body, decode.dynamic)
+) -> Result(decoded_type, List(ValidationError)) {
+  json.parse(body, decoder)
   |> result.map_error(json_error_to_validation)
-  |> result.try(decode_with_decoder(_, decoder))
 }
 
-fn json_error_to_validation(json_error: json.DecodeError) -> ValidationError {
+fn json_error_to_validation(
+  json_error: json.DecodeError,
+) -> List(ValidationError) {
+  case json_error {
+    json.UnableToDecode(errors) -> list.map(errors, format_single_decode_error)
+    json.UnexpectedEndOfInput -> [syntax_error("Unexpected end of JSON input")]
+    json.UnexpectedByte(byte) -> [syntax_error("Unexpected byte: " <> byte)]
+    json.UnexpectedSequence(sequence) -> [
+      syntax_error("Unexpected sequence: " <> sequence),
+    ]
+  }
+}
+
+fn syntax_error(message: String) -> ValidationError {
   ValidationError(
-    message: format_json_error(json_error),
+    message: message,
     field: option.None,
     expected: option.None,
     found: option.None,
   )
-}
-
-fn decode_with_decoder(
-  json_value: dynamic.Dynamic,
-  decoder: decode.Decoder(decoded_type),
-) -> Result(decoded_type, ValidationError) {
-  decode.run(json_value, decoder)
-  |> result.map_error(format_decode_errors)
-}
-
-fn format_json_error(error: json.DecodeError) -> String {
-  case error {
-    json.UnexpectedEndOfInput -> "Unexpected end of JSON input"
-    json.UnexpectedByte(byte) -> "Unexpected byte: " <> byte
-    json.UnexpectedSequence(sequence) -> "Unexpected sequence: " <> sequence
-    json.UnableToDecode(errors) ->
-      "Unable to decode: " <> string.inspect(errors)
-  }
-}
-
-fn format_decode_errors(errors: List(decode.DecodeError)) -> ValidationError {
-  case list.first(errors) {
-    Ok(error) -> format_single_decode_error(error)
-    Error(_) -> create_generic_error()
-  }
 }
 
 fn format_single_decode_error(error: decode.DecodeError) -> ValidationError {
@@ -254,14 +264,5 @@ fn format_single_decode_error(error: decode.DecodeError) -> ValidationError {
     field: option.Some(field_path),
     expected: option.Some(expected),
     found: option.Some(found),
-  )
-}
-
-fn create_generic_error() -> ValidationError {
-  ValidationError(
-    message: "Decode error",
-    field: option.None,
-    expected: option.None,
-    found: option.None,
   )
 }

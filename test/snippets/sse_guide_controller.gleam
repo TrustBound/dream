@@ -3,12 +3,14 @@
 //// A controller that upgrades to SSE and sends a "tick" event every second,
 //// as shown in docs/guides/sse.md.
 
+import dream/http/header.{get_header}
 import dream/http/request.{type Request}
 import dream/http/response.{type Response}
+import dream/http/status
 import dream/servers/mist/sse
 import gleam/erlang/process
 import gleam/int
-import gleam/option.{None}
+import gleam/option.{None, Some}
 
 pub type Dependencies {
   Dependencies(counter_start: Int)
@@ -33,7 +35,7 @@ pub type State {
   State(count: Int, self: process.Subject(Tick))
 }
 
-fn handle_init(
+pub fn handle_init(
   subject: process.Subject(Tick),
   dependencies: Dependencies,
 ) -> #(State, option.Option(process.Selector(Tick))) {
@@ -48,12 +50,7 @@ fn handle_message(
   connection: sse.SSEConnection,
   _dependencies: Dependencies,
 ) -> sse.Action(State, Tick) {
-  let event =
-    sse.event("{\"count\": " <> int.to_string(state.count) <> "}")
-    |> sse.event_name("tick")
-    |> sse.event_id(int.to_string(state.count))
-
-  case sse.send_event(connection, event) {
+  case sse.send_event(connection, tick_event(state.count)) {
     Ok(Nil) -> {
       // Schedule the next tick
       process.send_after(state.self, 1000, Tick)
@@ -61,5 +58,19 @@ fn handle_message(
     }
     // The client has gone away, so stop the actor
     Error(Nil) -> sse.stop_connection()
+  }
+}
+
+pub fn tick_event(count: Int) -> sse.Event {
+  sse.event("{\"count\": " <> int.to_string(count) <> "}")
+  |> sse.event_name("tick")
+  |> sse.event_id(int.to_string(count))
+}
+
+pub fn handle_private_events(request: Request, context, services) -> Response {
+  // Decide before the upgrade: a refused client gets a normal answer
+  case get_header(request.headers, "Authorization") {
+    Some("Bearer secret-token") -> handle_events(request, context, services)
+    _ -> response.text_response(status.unauthorized, "Unauthorized")
   }
 }

@@ -5,10 +5,10 @@ licences = ["MIT"]
 
 [dependencies]
 dream = { path = "../.." }
-dream_postgres = { path = "../../modules/postgres" }
-dream_config = { path = "../../modules/config" }
-pog = ">= 4.0.0 and < 5.0.0"
-squirrel = ">= 4.0.0 and < 5.0.0"
+dream_postgres = { path = "../../../modules-breakout/dream_postgres" }
+# Pinned to the module's move branch until it is on Hex.
+dream_config = { git = "https://github.com/TrustBound/dream_config.git", ref = "f68cc45f32b4aa21234f254118f3e18ae4c9cf49" }
+dream_postgres_client = ">= 1.0.0 and < 2.0.0"
 cigogne = ">= 5.0.0 and < 6.0.0"
 marceau = ">= 1.3.0 and < 2.0.0"
 gleam_json = ">= 2.2.0 and < 4.0.0"
@@ -20,5 +20,8 @@ gleam_time = ">= 1.5.0 and < 2.0.0"
 gleam_otp = ">= 1.2.0 and < 2.0.0"
 
 [dev-dependencies]
+dream_sql_generator = ">= 1.0.0 and < 2.0.0"
 gleeunit = ">= 1.9.0 and < 2.0.0"
 
+[tools.dream_sql_generator]
+client_module = "dream_postgres_client"

@@ -1,7 +1,7 @@
 //// Streaming quick reference: response patterns
 ////
 //// A proxy stream, a large CSV export and a controller that streams only
-//// one of its formats, as shown in docs/guides/streaming-quick-reference.md.
+//// one of its formats, as shown in the Recipes section of docs/reference/streaming-api.md.
 
 import dream/http/request.{type Request, get_query_param}
 import dream/http/response.{

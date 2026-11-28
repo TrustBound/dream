@@ -1,0 +1,8 @@
+hello app
+  ✗ answers GET /about with 200
+    be_equal
+      Message: GET /about should answer 200
+      Expected: 200
+      Actual:   404
+
+Summary: 1 run, 1 failed, 0 passed in 0ms

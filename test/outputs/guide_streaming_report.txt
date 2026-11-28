@@ -1,0 +1,5 @@
+upload_stream
+  ✓ answers 400 when the stream breaks
+  ✓ counts the bytes of every chunk
+
+Summary: 2 run, 0 failed, 2 passed in 0ms

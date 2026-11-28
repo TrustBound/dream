@@ -23,6 +23,7 @@ pub fn configure_server() {
 }
 
 pub fn main() {
-  configure_server()
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    configure_server()
+    |> server.listen(3000)
 }

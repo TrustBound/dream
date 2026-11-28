@@ -1,5 +1,7 @@
 //// Core Dream server type and shared functionality
 ////
+//// Guides: [Build your first Dream server](https://hexdocs.pm/dream/3.0.0/guides/getting-started.html) and [Start, stop and troubleshoot the server](https://hexdocs.pm/dream/3.0.0/guides/operating.html).
+////
 //// This module provides the generic Dream server type and core routing
 //// functionality that is shared across all server implementations.
 ////
@@ -8,9 +10,10 @@
 //// that the server implementations build upon.
 
 import dream/http/cookie.{type Cookie, simple_cookie}
-import dream/http/header.{type Header, Header, header_name, header_value}
+import dream/http/header.{type Header, header_name, header_value}
 import dream/http/request.{type Request, set_params}
-import dream/http/response.{type Response, Response, Text}
+import dream/http/response.{type Response}
+import dream/internal/built_in_answer
 import dream/router.{type Route, type Router, build_controller_chain, find_route}
 import gleam/list
 import gleam/option
@@ -101,6 +104,7 @@ pub opaque type Dream(server, context, services, router) {
     max_body_size: Int,
     bind_interface: option.Option(String),
     tls: option.Option(Tls),
+    shutdown_timeout: Int,
   )
 }
 
@@ -174,7 +178,16 @@ pub fn create(
     max_body_size: max_body_size,
     bind_interface: bind_interface,
     tls: option.None,
+    shutdown_timeout: 30_000,
   )
+}
+
+/// The proof that the caller of `get_server()` read its warning
+///
+/// `RisksUnderstood` has one value, so the only call of `get_server()` that
+/// compiles is the one that names it.
+pub type RisksUnderstood {
+  RisksUnderstood
 }
 
 /// Get the underlying server instance from a Dream instance
@@ -187,9 +200,9 @@ pub fn create(
 ///
 /// ## The `risks_understood` Parameter
 ///
-/// You **must** explicitly pass `risks_understood: True` to call this function.
-/// Passing `False` will panic. This forces you to consciously acknowledge that
-/// you're breaking Dream's abstraction.
+/// You **must** explicitly pass `risks_understood: RisksUnderstood` to call
+/// this function. A call without it does not compile. This forces you to
+/// consciously acknowledge that you're breaking Dream's abstraction.
 ///
 /// ## When You Might Need This
 ///
@@ -200,7 +213,7 @@ pub fn create(
 ///
 /// ## Risks You're Accepting
 ///
-/// By passing `risks_understood: True`, you acknowledge:
+/// By passing `risks_understood: RisksUnderstood`, you acknowledge:
 /// - **Vendor lock-in**: Your code becomes coupled to Mist
 /// - **Breaking changes**: If Dream switches servers or upgrades Mist, your code breaks
 /// - **Lost abstractions**: You bypass Dream's carefully designed API
@@ -214,31 +227,23 @@ pub fn create(
 ///
 /// ## Example
 ///
-/// ### Get the Mist server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L38-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the Mist server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L39-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn raw_server(app) -> mist.Builder(Connection, ResponseData) {
 ///   // You must explicitly acknowledge the risks
-///   let mist_server = dream.get_server(app, risks_understood: True)
+///   let mist_server = dream.get_server(app, risks_understood: RisksUnderstood)
 ///   // Now you have raw Mist types - your code is coupled to Mist
 ///   mist_server
 /// }
 /// ```
 ///
 /// If you must use this, isolate it in a single module and document why.
-///
-/// ## Panics
-///
-/// Panics if `risks_understood` is `False`. You must pass `True` to proceed.
 pub fn get_server(
   dream: Dream(server, context, services, router),
-  risks_understood risks: Bool,
+  risks_understood _risks: RisksUnderstood,
 ) -> server {
-  case risks {
-    True -> dream.server
-    False ->
-      panic as "dream.get_server() requires risks_understood: True. This function breaks Dream's server abstraction and couples your code to Mist. Read the documentation to understand the risks before proceeding."
-  }
+  dream.server
 }
 
 /// Get the router configured for this Dream instance
@@ -248,7 +253,7 @@ pub fn get_server(
 ///
 /// ## Example
 ///
-/// ### Check for a router <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L45-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Check for a router <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L46-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn configured_router() -> Router(EmptyContext, EmptyServices) {
@@ -267,7 +272,7 @@ pub fn get_router(dream: Dream(server, context, services, router)) -> router {
 ///
 /// ## Example
 ///
-/// ### Get the context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L51-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L52-L56"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn configured_context() -> MyContext {
@@ -287,7 +292,7 @@ pub fn get_context(dream: Dream(server, context, services, router)) -> context {
 ///
 /// ## Example
 ///
-/// ### Check for services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L57-L61"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Check for services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L58-L62"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn configured_services() -> MyServices {
@@ -309,7 +314,7 @@ pub fn get_services(
 ///
 /// ## Example
 ///
-/// ### Get the max body size <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L63-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the max body size <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L64-L68"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn configured_max_body_size() -> Int {
@@ -331,7 +336,7 @@ pub fn get_max_body_size(
 ///
 /// ## Example
 ///
-/// ### Get the bind interface <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L69-L75"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Get the bind interface <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L70-L76"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn bind_status() -> String {
@@ -352,6 +357,24 @@ pub fn get_bind_interface(
 ///
 /// This is a low-level function for server adapters. Use
 /// `dream/servers/mist/server.tls()` in your application.
+///
+/// ## Example
+///
+/// ### Set the TLS files <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_set_tls.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/dream.{type Tls, Tls, get_tls, set_tls}
+/// import dream/servers/mist/server
+/// import gleam/option.{type Option, Some}
+///
+/// pub fn tls_files() -> Option(Tls) {
+///   let app =
+///     server.new()
+///     |> set_tls(Some(Tls(certfile: "cert.pem", keyfile: "key.pem")))
+///   // Some(Tls(certfile: "cert.pem", keyfile: "key.pem"))
+///   get_tls(app)
+/// }
+/// ```
 pub fn set_tls(
   dream: Dream(server, context, services, router),
   tls: option.Option(Tls),
@@ -362,10 +385,76 @@ pub fn set_tls(
 /// Get the certificate and key files for serving HTTPS, if any
 ///
 /// Returns `None` when the server serves plain HTTP.
+///
+/// ## Example
+///
+/// ### Read the TLS files <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_get_tls.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/dream.{type Tls, get_tls}
+/// import dream/servers/mist/server
+/// import gleam/option.{type Option}
+///
+/// pub fn plain_http_tls() -> Option(Tls) {
+///   // A server with no certificate and key files serves plain HTTP: None
+///   get_tls(server.new())
+/// }
+/// ```
 pub fn get_tls(
   dream: Dream(server, context, services, router),
 ) -> option.Option(Tls) {
   dream.tls
+}
+
+/// Set how long, in milliseconds, a stopping server waits for running requests
+///
+/// This is a low-level function for server adapters. Use
+/// `dream/servers/mist/server.shutdown_timeout()` in your application.
+///
+/// ## Example
+///
+/// ### Set the shutdown timeout <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_set_shutdown_timeout.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/dream.{get_shutdown_timeout, set_shutdown_timeout}
+/// import dream/servers/mist/server
+///
+/// pub fn ten_seconds() -> Int {
+///   let app =
+///     server.new()
+///     |> set_shutdown_timeout(10_000)
+///   // 10_000
+///   get_shutdown_timeout(app)
+/// }
+/// ```
+pub fn set_shutdown_timeout(
+  dream: Dream(server, context, services, router),
+  milliseconds: Int,
+) -> Dream(server, context, services, router) {
+  Dream(..dream, shutdown_timeout: milliseconds)
+}
+
+/// Get how long, in milliseconds, a stopping server waits for running requests
+///
+/// The default is 30_000 (30 seconds).
+///
+/// ## Example
+///
+/// ### Read the shutdown timeout <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_get_shutdown_timeout.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/dream.{get_shutdown_timeout}
+/// import dream/servers/mist/server
+///
+/// pub fn default_shutdown_timeout() -> Int {
+///   // A new server waits at most 30 seconds: 30_000
+///   get_shutdown_timeout(server.new())
+/// }
+/// ```
+pub fn get_shutdown_timeout(
+  dream: Dream(server, context, services, router),
+) -> Int {
+  dream.shutdown_timeout
 }
 
 /// Route a request through the router
@@ -381,7 +470,10 @@ pub fn get_tls(
 /// 4. Executes middleware and controller
 /// 5. Returns the response
 ///
-/// If no route matches, returns a 404 response.
+/// If a route matches the path but none has the request's method, returns
+/// `405 Method Not Allowed` with an `Allow` header that lists the methods of
+/// the path (see `router.allowed_methods`). If no route matches the path,
+/// returns `404 Not Found`.
 ///
 /// ## Parameters
 ///
@@ -392,11 +484,11 @@ pub fn get_tls(
 ///
 /// ## Returns
 ///
-/// HTTP response from the controller or 404 if no route matches
+/// HTTP response from the controller, or the 405 or 404 answer
 ///
 /// ## Example
 ///
-/// ### Route a request <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L77-L87"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Route a request <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L78-L88"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn handle(
@@ -420,16 +512,7 @@ pub fn route_request(
   case find_route(router_instance, request) {
     option.Some(#(route, params)) ->
       execute_route(route, request, params, context, services)
-    option.None ->
-      Response(
-        status: 404,
-        body: Text("Route not found"),
-        headers: [
-          Header("Content-Type", "text/plain; charset=utf-8"),
-        ],
-        cookies: [],
-        content_type: option.Some("text/plain; charset=utf-8"),
-      )
+    option.None -> built_in_answer.no_route(router_instance, request)
   }
 }
 
@@ -451,6 +534,44 @@ pub fn route_request(
 /// ## Returns
 ///
 /// HTTP response from the controller
+///
+/// ## Example
+///
+/// ### Run a matched route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_execute_route.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/dream.{execute_route}
+/// import dream/http/request.{type Request, Get, get_param}
+/// import dream/http/response.{type Response, text_response}
+/// import dream/http/status.{bad_request, not_found, ok}
+/// import dream/router.{find_route, route, router}
+/// import gleam/option.{None, Some}
+///
+/// fn show_user(request: Request, _context, _services) -> Response {
+///   case get_param(request, "id") {
+///     Ok(param) -> text_response(ok, "User " <> param.value)
+///     Error(message) -> text_response(bad_request, message)
+///   }
+/// }
+///
+/// pub fn handle(request: Request) -> Response {
+///   let app_router =
+///     router()
+///     |> route(
+///       method: Get,
+///       path: "/users/:id",
+///       controller: show_user,
+///       middleware: [],
+///     )
+///   case find_route(app_router, request) {
+///     // execute_route sets the params, then runs the middleware and the
+///     // controller: GET /users/7 gives "User 7"
+///     Some(#(matched_route, params)) ->
+///       execute_route(matched_route, request, params, Nil, Nil)
+///     None -> text_response(not_found, "Route not found")
+///   }
+/// }
+/// ```
 pub fn execute_route(
   route: Route(context, services),
   request: Request,
@@ -484,7 +605,7 @@ pub fn execute_route(
 ///
 /// ## Example
 ///
-/// ### Parse cookies from headers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L89-L101"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Parse cookies from headers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L90-L102"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn request_cookies() -> List(Cookie) {
@@ -532,7 +653,7 @@ fn is_cookie_header(header: Header) -> Bool {
 ///
 /// ## Example
 ///
-/// ### Parse a cookie string <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L103-L112"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Parse a cookie string <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L104-L113"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
 /// pub fn cookie_string_cookies() -> List(Cookie) {

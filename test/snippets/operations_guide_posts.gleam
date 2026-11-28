@@ -1,6 +1,6 @@
 //// Operations guide: an operation that coordinates several services
 ////
-//// Shown in an excerpt in docs/guides/operations.md.
+//// Shown in an excerpt in docs/guides/database-api.md.
 
 import dream/http/error.{type Error, NotFound}
 import gleam/list

@@ -77,9 +77,10 @@ pub fn create_router() {
 }
 
 pub fn main() {
-  server.new()
-  |> server.router(create_router())
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.router(create_router())
+    |> server.listen(3000)
 }
 ```
 
@@ -199,10 +200,11 @@ pub fn create_router() {
 }
 
 pub fn main() {
-  server.new()
-  |> server.services(initialize_services())
-  |> server.router(create_router())
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.services(initialize_services())
+    |> server.router(create_router())
+    |> server.listen(3000)
 }
 ```
 
@@ -270,7 +272,7 @@ fn create_post(
 
 ### With Dream
 
-#### Dream: auth middleware on one route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_middleware_dream.gleam#L29-L90"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Dream: auth middleware on one route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/dream_vs_mist_middleware_dream.gleam#L29-L91"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn auth_middleware(
@@ -329,11 +331,12 @@ pub fn initialize_services() -> Services {
 }
 
 pub fn main() {
-  server.new()
-  |> server.context(Context(request_id: "", user: None))
-  |> server.services(initialize_services())
-  |> server.router(create_router())
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.context(Context(request_id: "", user: None))
+    |> server.services(initialize_services())
+    |> server.router(create_router())
+    |> server.listen(3000)
 }
 ```
 

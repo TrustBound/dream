@@ -1,0 +1,12 @@
+POST /jobs first
+  202 {"id":1,"status_url":"/jobs/1"}
+POST /jobs second
+  202 {"id":2,"status_url":"/jobs/2"}
+log: job 1 started
+(the test makes job 1 crash)
+log: job 1 failed
+log: job 2 started
+GET /jobs/1
+  200 {"id":1,"state":"failed","reason":"the job crashed"}
+GET /jobs/2
+  200 {"id":2,"state":"running"}

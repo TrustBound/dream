@@ -1,16 +1,17 @@
 //// Streaming quick reference: Testing Streaming
 ////
 //// A dream_test unit test for a streaming response, as shown in
-//// docs/guides/streaming-quick-reference.md. The streaming snippet tests run it.
+//// the Recipes section of docs/reference/streaming-api.md. The streaming snippet tests run it.
 
 import dream/http/response.{Stream, stream_response}
 import dream/http/status
-import dream_test/assertions/should.{equal, fail_with, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, fail_with, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, it}
 import gleam/list
 import gleam/yielder
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("streaming", [
     it("yields expected chunks", fn() {
       // Arrange
@@ -28,9 +29,9 @@ pub fn tests() -> UnitTest {
           yielder.to_list(chunks)
           |> list.length()
           |> should()
-          |> equal(3)
+          |> be_equal(3)
           |> or_fail_with("Should have 3 chunks")
-        _ -> fail_with("Expected Stream body")
+        _ -> Ok(fail_with("Expected Stream body"))
       }
     }),
   ])

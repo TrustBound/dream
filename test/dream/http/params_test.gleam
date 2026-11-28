@@ -6,11 +6,12 @@ import dream/http/params.{
   require_json, require_string,
 }
 import dream/http/request.{Get, Post}
-import dream_test/assertions/should.{
-  be_none, be_ok, be_some, contain_string, equal, have_length, or_fail_with,
+import dream_test/matchers.{
+  be_equal, be_none, be_ok, be_some, contain_string, have_length, or_fail_with,
   should,
 }
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/dynamic/decode
 import matchers/extract_error_message.{extract_error_message}
@@ -20,7 +21,7 @@ import matchers/extract_field.{extract_field}
 // Tests
 // ============================================================================
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("params", [
     require_int_tests(),
     require_string_tests(),
@@ -29,11 +30,12 @@ pub fn tests() -> UnitTest {
     require_field_tests(),
     require_field_int_tests(),
     field_optional_tests(),
+    form_decoding_tests(),
   ])
 }
 
-fn require_int_tests() -> UnitTest {
-  describe("require_int", [
+fn require_int_tests() -> UnitNode {
+  group("require_int", [
     it("returns Ok with valid integer", fn() {
       // Arrange
       let request =
@@ -46,7 +48,7 @@ fn require_int_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal(123)
+      |> be_equal(123)
       |> or_fail_with("Should return 123")
     }),
     it("returns error for missing parameter", fn() {
@@ -90,7 +92,7 @@ fn require_int_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal(-42)
+      |> be_equal(-42)
       |> or_fail_with("Should return -42")
     }),
     it("returns Ok with zero", fn() {
@@ -105,7 +107,7 @@ fn require_int_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal(0)
+      |> be_equal(0)
       |> or_fail_with("Should return 0")
     }),
     it("returns Ok with large integer", fn() {
@@ -122,14 +124,14 @@ fn require_int_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal(999_999)
+      |> be_equal(999_999)
       |> or_fail_with("Should return 999999")
     }),
   ])
 }
 
-fn require_string_tests() -> UnitTest {
-  describe("require_string", [
+fn require_string_tests() -> UnitNode {
+  group("require_string", [
     it("returns Ok with valid parameter", fn() {
       // Arrange
       let request =
@@ -144,7 +146,7 @@ fn require_string_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal("john")
+      |> be_equal("john")
       |> or_fail_with("Should return 'john'")
     }),
     it("returns error for missing parameter", fn() {
@@ -173,7 +175,7 @@ fn require_string_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal("")
+      |> be_equal("")
       |> or_fail_with("Should return empty string")
     }),
     it("returns Ok with special characters", fn() {
@@ -190,14 +192,14 @@ fn require_string_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal("user@example")
+      |> be_equal("user@example")
       |> or_fail_with("Should return 'user@example'")
     }),
   ])
 }
 
-fn require_form_tests() -> UnitTest {
-  describe("require_form", [
+fn require_form_tests() -> UnitNode {
+  group("require_form", [
     it("parses valid form body", fn() {
       // Arrange
       let request =
@@ -234,7 +236,7 @@ fn require_form_tests() -> UnitTest {
       |> should()
       |> be_ok()
       |> extract_field("title")
-      |> equal("Hello")
+      |> be_equal("Hello")
       |> or_fail_with("title should be 'Hello'")
     }),
     it("extracts description field correctly", fn() {
@@ -254,7 +256,7 @@ fn require_form_tests() -> UnitTest {
       |> should()
       |> be_ok()
       |> extract_field("description")
-      |> equal("World")
+      |> be_equal("World")
       |> or_fail_with("description should be 'World'")
     }),
     it("returns error for empty body", fn() {
@@ -288,7 +290,7 @@ fn require_form_tests() -> UnitTest {
       |> should()
       |> be_ok()
       |> extract_field("name")
-      |> equal("hello world")
+      |> be_equal("hello world")
       |> or_fail_with("Should decode %20 as space")
     }),
     it("decodes URL-encoded email", fn() {
@@ -308,7 +310,7 @@ fn require_form_tests() -> UnitTest {
       |> should()
       |> be_ok()
       |> extract_field("email")
-      |> equal("user@example.com")
+      |> be_equal("user@example.com")
       |> or_fail_with("Should decode %40 as @")
     }),
     it("decodes plus sign as space", fn() {
@@ -324,7 +326,7 @@ fn require_form_tests() -> UnitTest {
       |> should()
       |> be_ok()
       |> extract_field("query")
-      |> equal("search term")
+      |> be_equal("search term")
       |> or_fail_with("Should decode + as space")
     }),
     it("handles single field", fn() {
@@ -355,7 +357,7 @@ fn require_form_tests() -> UnitTest {
       |> should()
       |> be_ok()
       |> extract_field("flag")
-      |> equal("")
+      |> be_equal("")
       |> or_fail_with("flag should be empty string")
     }),
     it("keeps a value that contains an equals sign", fn() {
@@ -370,7 +372,7 @@ fn require_form_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal([#("token", "a=b")])
+      |> be_equal([#("token", "a=b")])
       |> or_fail_with("token should be 'a=b'")
     }),
     it("keeps a field whose value ends in equals padding", fn() {
@@ -389,7 +391,7 @@ fn require_form_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal([#("name", "Ada"), #("token", "abc==")])
+      |> be_equal([#("name", "Ada"), #("token", "abc==")])
       |> or_fail_with("Should keep name and token")
     }),
     it("decodes a percent-encoded equals sign", fn() {
@@ -404,7 +406,7 @@ fn require_form_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal([#("token", "a=b")])
+      |> be_equal([#("token", "a=b")])
       |> or_fail_with("Should decode %3D as =")
     }),
     it("gives an empty value for a key without an equals sign", fn() {
@@ -418,7 +420,7 @@ fn require_form_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal([#("key", "")])
+      |> be_equal([#("key", "")])
       |> or_fail_with("key should be empty string")
     }),
     it("gives an empty value for a key with an empty value", fn() {
@@ -432,7 +434,7 @@ fn require_form_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal([#("key", "")])
+      |> be_equal([#("key", "")])
       |> or_fail_with("key should be empty string")
     }),
     it("skips an empty pair between two pairs", fn() {
@@ -447,7 +449,7 @@ fn require_form_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal([#("a", "1"), #("b", "2")])
+      |> be_equal([#("a", "1"), #("b", "2")])
       |> or_fail_with("Should parse only a and b")
     }),
     it("skips an empty pair after a trailing ampersand", fn() {
@@ -461,8 +463,30 @@ fn require_form_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal([#("a", "1")])
+      |> be_equal([#("a", "1")])
       |> or_fail_with("Should parse only a")
+    }),
+    it("joins the decode messages of two wrong fields", fn() {
+      // Arrange
+      let request =
+        test_request.create_request_with_body(
+          Post,
+          "/tasks",
+          "{\"title\":1,\"priority\":\"high\"}",
+        )
+
+      // Act
+      let result = require_json(request, task_decoder())
+
+      // Assert
+      result
+      |> should()
+      |> be_equal(
+        Error(BadRequest(
+          "Expected String but found Int at title; Expected Int but found String at priority",
+        )),
+      )
+      |> or_fail_with("Should report both fields in decoder order")
     }),
     it("returns BadRequest for a body that is not text", fn() {
       // Arrange
@@ -475,7 +499,7 @@ fn require_form_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(BadRequest("Request body is not text")))
+      |> be_equal(Error(BadRequest("Request body is not text")))
       |> or_fail_with("Should reject a binary body")
     }),
     it("parses a form body that arrives as a Stream", fn() {
@@ -492,14 +516,14 @@ fn require_form_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok([#("title", "Buy milk")]))
+      |> be_equal(Ok([#("title", "Buy milk")]))
       |> or_fail_with("Should read the stream, then parse the form")
     }),
   ])
 }
 
-fn require_json_tests() -> UnitTest {
-  describe("require_json", [
+fn require_json_tests() -> UnitNode {
+  group("require_json", [
     it("decodes valid JSON to the exact value", fn() {
       // Arrange
       let request =
@@ -515,7 +539,7 @@ fn require_json_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#("Buy milk", 2)))
+      |> be_equal(Ok(#("Buy milk", 2)))
       |> or_fail_with("Should decode the title and the priority")
     }),
     it("returns BadRequest with the parse message for bad JSON", fn() {
@@ -529,7 +553,7 @@ fn require_json_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(BadRequest("Unexpected end of JSON input")))
+      |> be_equal(Error(BadRequest("Unexpected end of JSON input")))
       |> or_fail_with("Should report the JSON parse error")
     }),
     it(
@@ -549,7 +573,9 @@ fn require_json_tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal(Error(BadRequest("Expected Int but found String at priority")))
+        |> be_equal(
+          Error(BadRequest("Expected Int but found String at priority")),
+        )
         |> or_fail_with("Should report the priority field")
       },
     ),
@@ -569,7 +595,7 @@ fn require_json_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(BadRequest("Request body is not text")))
+      |> be_equal(Error(BadRequest("Request body is not text")))
       |> or_fail_with("Should reject a binary body")
     }),
   ])
@@ -581,8 +607,8 @@ fn task_decoder() -> decode.Decoder(#(String, Int)) {
   decode.success(#(title, priority))
 }
 
-fn require_field_tests() -> UnitTest {
-  describe("require_field", [
+fn require_field_tests() -> UnitNode {
+  group("require_field", [
     it("returns Ok for existing field", fn() {
       // Arrange
       let form = [#("title", "Hello World")]
@@ -594,7 +620,7 @@ fn require_field_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal("Hello World")
+      |> be_equal("Hello World")
       |> or_fail_with("Should return 'Hello World'")
     }),
     it("returns error for missing field", fn() {
@@ -640,14 +666,14 @@ fn require_field_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal("World")
+      |> be_equal("World")
       |> or_fail_with("Should return 'World'")
     }),
   ])
 }
 
-fn require_field_int_tests() -> UnitTest {
-  describe("require_field_int", [
+fn require_field_int_tests() -> UnitNode {
+  group("require_field_int", [
     it("returns Ok for valid integer", fn() {
       // Arrange
       let form = [#("priority", "5")]
@@ -659,7 +685,7 @@ fn require_field_int_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal(5)
+      |> be_equal(5)
       |> or_fail_with("Should return 5")
     }),
     it("returns error for missing field", fn() {
@@ -715,7 +741,7 @@ fn require_field_int_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal(-10)
+      |> be_equal(-10)
       |> or_fail_with("Should return -10")
     }),
     it("returns Ok for zero", fn() {
@@ -729,14 +755,14 @@ fn require_field_int_tests() -> UnitTest {
       result
       |> should()
       |> be_ok()
-      |> equal(0)
+      |> be_equal(0)
       |> or_fail_with("Should return 0")
     }),
   ])
 }
 
-fn field_optional_tests() -> UnitTest {
-  describe("field_optional", [
+fn field_optional_tests() -> UnitNode {
+  group("field_optional", [
     it("returns Some for existing field", fn() {
       // Arrange
       let form = [#("description", "Some text")]
@@ -748,7 +774,7 @@ fn field_optional_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("Some text")
+      |> be_equal("Some text")
       |> or_fail_with("Should return 'Some text'")
     }),
     it("returns None for missing field", fn() {
@@ -801,8 +827,28 @@ fn field_optional_tests() -> UnitTest {
       result
       |> should()
       |> be_some()
-      |> equal("   ")
+      |> be_equal("   ")
       |> or_fail_with("Should return whitespace string")
+    }),
+  ])
+}
+
+fn form_decoding_tests() -> UnitNode {
+  group("form decoding", [
+    it("keeps a form value that is not valid percent-encoding", fn() {
+      // Arrange
+      let request =
+        test_request.create_request_with_body(Post, "/test", "q=100%zz+off")
+
+      // Act
+      let result = require_form(request)
+
+      // Assert
+      result
+      |> should()
+      |> be_ok()
+      |> be_equal([#("q", "100%zz off")])
+      |> or_fail_with("An invalid escape should stay, with + as a space")
     }),
   ])
 }

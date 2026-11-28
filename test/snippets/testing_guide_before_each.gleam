@@ -1,17 +1,17 @@
-import dream_test/assertions/should.{be_ok, equal, or_fail_with, should}
-import dream_test/types.{AssertionOk}
-import dream_test/unit.{type UnitTest, after_each, before_each, describe, it}
+import dream_test/matchers.{be_equal, be_ok, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{after_each, before_each, describe, it}
 import gleam/string
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("record tests", [
     before_each(fn() {
       // Reset test state
-      AssertionOk
+      Ok(Nil)
     }),
     after_each(fn() {
       // Cleanup
-      AssertionOk
+      Ok(Nil)
     }),
     it("creates record", fn() {
       create_record("Alice")
@@ -22,7 +22,7 @@ pub fn tests() -> UnitTest {
     it("updates record", fn() {
       update_record("Alice", "Alicia")
       |> should()
-      |> equal(Ok("Alicia"))
+      |> be_equal(Ok("Alicia"))
       |> or_fail_with("Should update record")
     }),
   ])

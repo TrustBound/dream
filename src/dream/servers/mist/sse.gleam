@@ -1,5 +1,7 @@
 //// Server-Sent Events support for Dream (Mist server adapter)
 ////
+//// Guide: [Push live updates with server-sent events](https://hexdocs.pm/dream/3.0.0/guides/sse.html).
+////
 //// This module provides Dream's SSE abstraction for the Mist server adapter.
 //// It upgrades an HTTP request to an SSE connection backed by a dedicated OTP
 //// actor with its own mailbox, avoiding the stalling issues of chunked
@@ -199,6 +201,8 @@ pub opaque type Action(state, message) {
 ///   sse.continue_connection(state + 1)
 /// }
 /// ```
+///
+/// Guide: [Push live updates with server-sent events](https://hexdocs.pm/dream/3.0.0/guides/sse.html).
 pub fn upgrade_to_sse(
   request _request: Request,
   dependencies dependencies: deps,
@@ -355,6 +359,39 @@ pub fn event_retry(event: Event, retry_ms: Int) -> Event {
 }
 
 /// Continue the SSE message loop with the given state.
+///
+/// ## Example
+///
+/// ### Keep the stream open <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_sse_upgrade.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/servers/mist/sse
+/// import gleam/erlang/process
+/// import gleam/option.{None}
+///
+/// pub type Tick {
+///   Tick
+/// }
+///
+/// pub fn events(request, _context, services) {
+///   sse.upgrade_to_sse(
+///     request,
+///     dependencies: services,
+///     on_init: init_handler,
+///     on_message: message_handler,
+///   )
+/// }
+///
+/// fn init_handler(subject, _services) {
+///   process.send(subject, Tick)
+///   #(0, None)
+/// }
+///
+/// fn message_handler(state, _message, connection, _services) {
+///   let _ = sse.send_event(connection, sse.event("ping"))
+///   sse.continue_connection(state + 1)
+/// }
+/// ```
 pub fn continue_connection(state: state) -> Action(state, message) {
   Action(internal: actor.continue(state))
 }
@@ -365,6 +402,73 @@ pub fn continue_connection(state: state) -> Action(state, message) {
 /// handling a message. The new selector replaces the current one,
 /// including the actor's own subject. If the actor must still receive
 /// messages sent to its subject, select the subject in the new selector.
+///
+/// ## Example
+///
+/// ### Listen to a new subject <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_sse_selector.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/request.{type Request}
+/// import dream/http/response.{type Response}
+/// import dream/servers/mist/sse
+/// import gleam/erlang/process.{type Selector, type Subject}
+/// import gleam/option.{type Option, None}
+///
+/// pub type Message {
+///   Start
+///   Greeting(String)
+/// }
+///
+/// pub fn greetings(request: Request, _context, _services) -> Response {
+///   sse.upgrade_to_sse(
+///     request,
+///     dependencies: Nil,
+///     on_init: start,
+///     on_message: handle_message,
+///   )
+/// }
+///
+/// fn start(
+///   subject: Subject(Message),
+///   _dependencies: Nil,
+/// ) -> #(Nil, Option(Selector(Message))) {
+///   process.send(subject, Start)
+///   #(Nil, None)
+/// }
+///
+/// fn handle_message(
+///   state: Nil,
+///   message: Message,
+///   connection: sse.SSEConnection,
+///   _dependencies: Nil,
+/// ) -> sse.Action(Nil, Message) {
+///   case message {
+///     Start -> listen_for_greetings(state)
+///     Greeting(text) -> send_greeting(state, connection, text)
+///   }
+/// }
+///
+/// fn listen_for_greetings(state: Nil) -> sse.Action(Nil, Message) {
+///   let greetings = process.new_subject()
+///   process.send(greetings, "hello")
+///   // From now on the actor receives the messages sent to greetings
+///   let selector =
+///     process.new_selector()
+///     |> process.select_map(greetings, Greeting)
+///   sse.continue_connection_with_selector(state, selector)
+/// }
+///
+/// fn send_greeting(
+///   state: Nil,
+///   connection: sse.SSEConnection,
+///   text: String,
+/// ) -> sse.Action(Nil, Message) {
+///   case sse.send_event(connection, sse.event(text)) {
+///     Ok(Nil) -> sse.continue_connection(state)
+///     Error(Nil) -> sse.stop_connection()
+///   }
+/// }
+/// ```
 pub fn continue_connection_with_selector(
   state: state,
   selector: Selector(message),
@@ -376,6 +480,72 @@ pub fn continue_connection_with_selector(
 ///
 /// The actor will shut down and the mist handler will detect the process
 /// exit via its monitor.
+///
+/// ## Example
+///
+/// ### Stop the stream <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_sse_stop.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/request.{type Request}
+/// import dream/http/response.{type Response}
+/// import dream/servers/mist/sse
+/// import gleam/erlang/process.{type Selector, type Subject}
+/// import gleam/int
+/// import gleam/option.{type Option, None}
+///
+/// pub type Tick {
+///   Tick
+/// }
+///
+/// pub type Countdown {
+///   Countdown(subject: Subject(Tick), count: Int)
+/// }
+///
+/// pub fn countdown(request: Request, _context, _services) -> Response {
+///   sse.upgrade_to_sse(
+///     request,
+///     dependencies: Nil,
+///     on_init: start_countdown,
+///     on_message: count_down,
+///   )
+/// }
+///
+/// fn start_countdown(
+///   subject: Subject(Tick),
+///   _dependencies: Nil,
+/// ) -> #(Countdown, Option(Selector(Tick))) {
+///   process.send(subject, Tick)
+///   #(Countdown(subject: subject, count: 3), None)
+/// }
+///
+/// fn count_down(
+///   countdown: Countdown,
+///   _message: Tick,
+///   connection: sse.SSEConnection,
+///   _dependencies: Nil,
+/// ) -> sse.Action(Countdown, Tick) {
+///   case countdown.count {
+///     // Stop after "1": the actor ends and the server closes the stream
+///     0 -> sse.stop_connection()
+///     _ -> send_count(countdown, connection)
+///   }
+/// }
+///
+/// fn send_count(
+///   countdown: Countdown,
+///   connection: sse.SSEConnection,
+/// ) -> sse.Action(Countdown, Tick) {
+///   case sse.send_event(connection, sse.event(int.to_string(countdown.count))) {
+///     Ok(Nil) -> {
+///       process.send(countdown.subject, Tick)
+///       sse.continue_connection(
+///         Countdown(..countdown, count: countdown.count - 1),
+///       )
+///     }
+///     Error(Nil) -> sse.stop_connection()
+///   }
+/// }
+/// ```
 pub fn stop_connection() -> Action(state, message) {
   Action(internal: actor.stop())
 }

@@ -135,7 +135,7 @@ Routes like `/products.{json,xml}` now work as expected. No code changes needed 
 
 All 239 tests pass with the new framework:
 
-```
+```text
 Summary: 239 run, 0 failed, 239 passed
 ```
 

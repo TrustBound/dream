@@ -5,6 +5,7 @@ import dream_test/types.{
   type MatchResult, AssertionFailure, CustomMatcherFailure, MatchFailed, MatchOk,
 }
 import gleam/option.{Some}
+import gleam/string
 
 /// Extract a field from a successful validation result using a getter function.
 ///
@@ -19,25 +20,25 @@ import gleam/option.{Some}
 /// ```
 ///
 pub fn extract_user_name(
-  result: MatchResult(Result(a, validation.ValidationError)),
+  result: MatchResult(Result(a, List(validation.ValidationError))),
   field_getter: fn(a) -> String,
 ) -> MatchResult(String) {
   case result {
     MatchFailed(failure) -> MatchFailed(failure)
     MatchOk(Ok(user)) -> MatchOk(field_getter(user))
-    MatchOk(Error(validation_error)) ->
-      validation_failed_failure(validation_error)
+    MatchOk(Error(validation_errors)) ->
+      validation_failed_failure(validation_errors)
   }
 }
 
 fn validation_failed_failure(
-  error: validation.ValidationError,
+  errors: List(validation.ValidationError),
 ) -> MatchResult(String) {
   MatchFailed(AssertionFailure(
     operator: "extract_user_field",
     message: "Expected Ok result but got validation error",
     payload: Some(CustomMatcherFailure(
-      actual: error.message,
+      actual: string.inspect(errors),
       description: "Validation failed",
     )),
   ))

@@ -1,0 +1,3 @@
+The time warp mode of this runtime: multi_time_warp
+10000 readings of monotonic time, the times it went back: 0
+milliseconds of a function that does nothing is 0 or more: True

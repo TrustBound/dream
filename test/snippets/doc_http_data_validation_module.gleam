@@ -6,6 +6,7 @@ import dream/http/status
 import dream/http/validation.{type ValidationError}
 import gleam/dynamic/decode
 import gleam/json
+import gleam/list
 
 pub type CreateUser {
   CreateUser(name: String, email: String, age: Int)
@@ -34,18 +35,26 @@ fn create_from_json(body: String) -> Response {
 
   case validation_result {
     Ok(user) -> response.json_response(status.created, user_to_json(user))
-    Error(validation_error) ->
-      create_validation_error_response(validation_error)
+    Error(validation_errors) ->
+      create_validation_error_response(validation_errors)
   }
 }
 
+// One message for each field that failed
 fn create_validation_error_response(
-  validation_error: ValidationError,
+  validation_errors: List(ValidationError),
 ) -> Response {
+  let messages = list.map(validation_errors, error_message)
   response.json_response(
     status.bad_request,
-    error_json(validation_error.message),
+    json.to_string(
+      json.object([#("errors", json.array(messages, json.string))]),
+    ),
   )
+}
+
+fn error_message(validation_error: ValidationError) -> String {
+  validation_error.message
 }
 
 fn user_to_json(user: CreateUser) -> String {

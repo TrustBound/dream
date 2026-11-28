@@ -7,10 +7,8 @@ import dream/http/params.{require_int}
 import dream/http/request.{type Request}
 import dream/http/response.{type Response, Response, Text}
 import dream/router.{type EmptyServices}
-import gleam/bit_array
 import gleam/int
 import gleam/option
-import gleam/yielder
 
 /// A generic test handler that returns a 200 response with "test" body.
 pub fn test_handler(
@@ -145,18 +143,16 @@ pub fn echo_stream_handler(
   _services: EmptyServices,
 ) -> Response {
   case request.body {
-    request.Stream(chunks) -> echo_chunks_as_text(chunks)
+    request.Stream(_chunks) -> echo_body_as_text(request)
     request.Text(_text) -> plain_response(400, Text("Expected stream"))
     request.Bytes(_bytes) -> plain_response(400, Text("Expected stream"))
   }
 }
 
-fn echo_chunks_as_text(chunks: yielder.Yielder(BitArray)) -> Response {
-  let body =
-    chunks |> yielder.fold(<<>>, bit_array.append) |> bit_array.to_string
-  case body {
+fn echo_body_as_text(request: Request) -> Response {
+  case request.body_as_string(request) {
     Ok(text) -> plain_response(200, Text(text))
-    Error(_utf8_error) -> plain_response(500, Text("Invalid UTF-8"))
+    Error(Nil) -> plain_response(500, Text("Invalid UTF-8 or a broken stream"))
   }
 }
 

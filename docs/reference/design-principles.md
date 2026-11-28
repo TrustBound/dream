@@ -19,16 +19,17 @@ You're not locked into Dream's choices. Use the router with your own server. Use
 
 If something happens, it should be visible in your code.
 
-#### Bad: a start helper hides the configuration <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_implicit.gleam#L15-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Bad: a start helper hides the configuration <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_implicit.gleam#L15-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn main() {
   start()
 }
 
-pub fn start() -> Nil {
-  configure_server()
-  |> server.listen(8080)
+pub fn start() {
+  let assert Ok(Nil) =
+    configure_server()
+    |> server.listen(8080)
 }
 
 pub fn configure_server() {
@@ -44,15 +45,16 @@ pub fn configure_server() {
 
 `main` only calls `start()`. To find the port, the bind address, the services and the routes, you must read `start` and then `configure_server`.
 
-#### Good: main shows the configuration <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_explicit.gleam#L14-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Good: main shows the configuration <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_explicit.gleam#L14-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn main() {
-  server.new()
-  |> server.services(initialize_services())
-  |> server.router(create_router())
-  |> server.bind("localhost")
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.services(initialize_services())
+    |> server.router(create_router())
+    |> server.bind("localhost")
+    |> server.listen(3000)
 }
 ```
 
@@ -179,7 +181,7 @@ Exceptions are for exceptional circumstances (out of memory, etc.). Business log
 
 Server, router, HTTP client—all use the builder pattern:
 
-#### Configure the server step by step <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_builder.gleam#L15-L28"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Configure the server step by step <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/design_principles_builder.gleam#L15-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn configure_server() {
@@ -193,8 +195,9 @@ pub fn configure_server() {
 }
 
 pub fn main() {
-  configure_server()
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    configure_server()
+    |> server.listen(3000)
 }
 ```
 
@@ -221,7 +224,7 @@ You won't find YAML files that magically configure routes. You won't find decora
 
 ### No ORM
 
-We use Squirrel to generate type-safe SQL functions. You write SQL. Squirrel makes it type-safe.
+We use `dream_sql_generator` to generate type-safe SQL functions. You write SQL. `dream_sql_generator` makes it type-safe.
 
 **Why no ORM?** ORMs abstract SQL until they don't. Then you're debugging query generation at 2am. Just write SQL.
 

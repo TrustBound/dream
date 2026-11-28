@@ -3,7 +3,7 @@
 //// Response bodies, a stream response builder and the streaming request
 //// fields, as shown in docs/guides/streaming.md.
 
-import dream/http/request.{type Request, Request}
+import dream/http/request.{type BodyReadError, type Request, Request}
 import dream/http/response.{
   type Response, type ResponseBody, Bytes, Stream, Text, stream_response,
 }
@@ -35,7 +35,7 @@ pub fn create_csv_download(csv_rows: Yielder(BitArray)) -> Response {
 // A streaming route gives the controller a request like this one
 pub fn create_streaming_request(
   request: Request,
-  chunks: Yielder(BitArray),
+  chunks: Yielder(Result(BitArray, BodyReadError)),
 ) -> Request {
   // The response module also has a Stream constructor, so name the
   // request one by its module

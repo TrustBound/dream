@@ -1,0 +1,8 @@
+Lists
+  ✓ creates a list with its items
+  ✓ shows a list with its items
+  ✓ keeps no list when an item is too long
+  ✓ shares a list with a link
+  ✓ answers 404 for a list that does not exist
+
+Summary: 5 run, 0 failed, 5 passed in 0ms

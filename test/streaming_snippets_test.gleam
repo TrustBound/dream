@@ -9,17 +9,27 @@ import dream/dream
 import dream/http/request.{type Method, type Request, Get, Post, Put}
 import dream/http/response.{type Response, Stream}
 import dream/router.{type Router, route, router}
+import dream/servers/mist/handler
 import dream/servers/mist/server
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, it}
+import fixtures/mist_connection
 import fixtures/request as test_request
 import gleam/bit_array
+import gleam/bytes_tree
 import gleam/dynamic.{type Dynamic}
+import gleam/function
+import gleam/http
+import gleam/http/request as http_request
+import gleam/http/response as http_response
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/otp/actor
+import gleam/result
 import gleam/string
 import gleam/yielder
+import mist
 import simplifile
 import snippets/streaming_guide_chunks
 import snippets/streaming_guide_csv_export.{Product, Services as ProductServices}
@@ -51,8 +61,8 @@ const scratch_directory = "build/streaming_snippets"
 
 const png_header = <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A>>
 
-pub fn tests() -> UnitTest {
-  describe("streaming snippets", [
+pub fn tests() -> TestSuite {
+  suite.group(name: "streaming snippets", suites: [
     guide_egress_tests(),
     guide_ingress_tests(),
     guide_saving_tests(),
@@ -75,7 +85,7 @@ pub fn tests() -> UnitTest {
 // docs/guides/streaming.md
 // ============================================================================
 
-fn guide_egress_tests() -> UnitTest {
+fn guide_egress_tests() -> TestSuite {
   describe("guide egress", [
     it("download streams 1000 chunks", fn() {
       // Arrange
@@ -89,7 +99,7 @@ fn guide_egress_tests() -> UnitTest {
       |> stream_chunks
       |> list.length
       |> should()
-      |> equal(1000)
+      |> be_equal(1000)
       |> or_fail_with("download should stream 1000 chunks")
     }),
     it("download starts with Line 1 and Line 2", fn() {
@@ -104,7 +114,7 @@ fn guide_egress_tests() -> UnitTest {
       |> stream_chunks
       |> list.take(2)
       |> should()
-      |> equal([<<"Line 1\n":utf8>>, <<"Line 2\n":utf8>>])
+      |> be_equal([<<"Line 1\n":utf8>>, <<"Line 2\n":utf8>>])
       |> or_fail_with("download should start with Line 1 and Line 2")
     }),
     it("export_products streams a CSV header and one row per product", fn() {
@@ -126,7 +136,7 @@ fn guide_egress_tests() -> UnitTest {
       response
       |> stream_text
       |> should()
-      |> equal("id,name,price,stock\n1,Lamp,19.5,3\n2,Desk,120.0,1\n")
+      |> be_equal("id,name,price,stock\n1,Lamp,19.5,3\n2,Desk,120.0,1\n")
       |> or_fail_with("export_products should stream the CSV")
     }),
     it("export_products returns 500 when the products do not load", fn() {
@@ -142,7 +152,7 @@ fn guide_egress_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(500)
+      |> be_equal(500)
       |> or_fail_with("export_products should return 500")
     }),
     it("download_file sends a 70000 byte file in 64 KB chunks", fn() {
@@ -164,7 +174,7 @@ fn guide_egress_tests() -> UnitTest {
       |> stream_chunks
       |> list.map(bit_array.byte_size)
       |> should()
-      |> equal([65_536, 4464])
+      |> be_equal([65_536, 4464])
       |> or_fail_with("download_file should send a 64 KB chunk and the rest")
     }),
     it("download_file returns 404 when the file is missing", fn() {
@@ -179,13 +189,13 @@ fn guide_egress_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("download_file should return 404")
     }),
   ])
 }
 
-fn guide_ingress_tests() -> UnitTest {
+fn guide_ingress_tests() -> TestSuite {
   describe("guide ingress", [
     it("POST /upload_stream counts the streamed bytes", fn() {
       // Arrange
@@ -209,7 +219,7 @@ fn guide_ingress_tests() -> UnitTest {
       response
       |> text_body
       |> should()
-      |> equal("Uploaded 11 bytes successfully")
+      |> be_equal("Uploaded 11 bytes successfully")
       |> or_fail_with("upload_stream should count 11 bytes")
     }),
     it("POST /upload counts the buffered bytes", fn() {
@@ -230,7 +240,7 @@ fn guide_ingress_tests() -> UnitTest {
       response
       |> text_body
       |> should()
-      |> equal("Uploaded 5 bytes successfully")
+      |> be_equal("Uploaded 5 bytes successfully")
       |> or_fail_with("upload_buffered should count 5 bytes")
     }),
     it("upload_stream returns 400 without a request stream", fn() {
@@ -243,8 +253,44 @@ fn guide_ingress_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("upload_stream should return 400")
+    }),
+    it("upload_stream answers 400 when the upload breaks", fn() {
+      // Arrange
+      let request = broken_upload_request()
+
+      // Act
+      let response =
+        run_streaming_controller(
+          request,
+          streaming_guide_ingress.upload_stream,
+          Nil,
+        )
+
+      // Assert
+      response.status
+      |> should()
+      |> be_equal(400)
+      |> or_fail_with("A broken upload should get the 400 of the controller")
+    }),
+    it("upload_stream gets the Error item when the upload breaks", fn() {
+      // Arrange
+      let request = broken_upload_request()
+
+      // Act
+      let response =
+        run_streaming_controller(
+          request,
+          streaming_guide_ingress.upload_stream,
+          Nil,
+        )
+
+      // Assert
+      mist_body_text(response)
+      |> should()
+      |> be_equal("The upload stopped before its end")
+      |> or_fail_with("The controller should answer the Error item")
     }),
     it("the buffered upload router does not stream POST /upload", fn() {
       // Arrange
@@ -256,7 +302,7 @@ fn guide_ingress_tests() -> UnitTest {
       // Assert
       streaming
       |> should()
-      |> equal(Some(False))
+      |> be_equal(Some(False))
       |> or_fail_with("route should not stream")
     }),
     it("the streaming upload router streams POST /upload", fn() {
@@ -269,7 +315,7 @@ fn guide_ingress_tests() -> UnitTest {
       // Assert
       streaming
       |> should()
-      |> equal(Some(True))
+      |> be_equal(Some(True))
       |> or_fail_with("stream_route should stream")
     }),
     it("the file router streams PUT /files/report.csv", fn() {
@@ -282,13 +328,13 @@ fn guide_ingress_tests() -> UnitTest {
       // Assert
       streaming
       |> should()
-      |> equal(Some(True))
+      |> be_equal(Some(True))
       |> or_fail_with("stream_route should stream a PUT route")
     }),
   ])
 }
 
-fn guide_saving_tests() -> UnitTest {
+fn guide_saving_tests() -> TestSuite {
   describe("guide saving", [
     it("save_upload writes the stream to the file", fn() {
       // Arrange
@@ -306,7 +352,7 @@ fn guide_saving_tests() -> UnitTest {
       // Assert
       simplifile.read(path)
       |> should()
-      |> equal(Ok("hello world"))
+      |> be_equal(Ok("hello world"))
       |> or_fail_with("save_upload should write 'hello world'")
     }),
     it("save_upload returns 200 when it saves the file", fn() {
@@ -325,8 +371,68 @@ fn guide_saving_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(200)
+      |> be_equal(200)
       |> or_fail_with("save_upload should return 200")
+    }),
+    it("save_upload deletes the partial file when the upload breaks", fn() {
+      // Arrange
+      let path = scratch_path("save_upload_broken.bin")
+      let _ = simplifile.delete(path)
+      let services = SavingServices(upload_path: path, max_upload_bytes: 100)
+
+      // Act
+      let _response =
+        run_streaming_controller(
+          broken_upload_request(),
+          streaming_guide_saving.save_upload,
+          services,
+        )
+
+      // Assert
+      simplifile.is_file(path)
+      |> should()
+      |> be_equal(Ok(False))
+      |> or_fail_with("save_upload should delete the partial file")
+    }),
+    it("save_upload answers 400 when the upload breaks", fn() {
+      // Arrange
+      let path = scratch_path("save_upload_broken_status.bin")
+      let _ = simplifile.delete(path)
+      let services = SavingServices(upload_path: path, max_upload_bytes: 100)
+
+      // Act
+      let response =
+        run_streaming_controller(
+          broken_upload_request(),
+          streaming_guide_saving.save_upload,
+          services,
+        )
+
+      // Assert
+      mist_body_text(response)
+      |> should()
+      |> be_equal("The upload stopped before its end")
+      |> or_fail_with("save_upload should answer the Error item")
+    }),
+    it("save_upload_with_limit deletes the partial file when it breaks", fn() {
+      // Arrange
+      let path = scratch_path("save_upload_with_limit_broken.bin")
+      let _ = simplifile.delete(path)
+      let services = SavingServices(upload_path: path, max_upload_bytes: 100)
+
+      // Act
+      let _response =
+        run_streaming_controller(
+          broken_upload_request(),
+          streaming_guide_saving.save_upload_with_limit,
+          services,
+        )
+
+      // Assert
+      simplifile.is_file(path)
+      |> should()
+      |> be_equal(Ok(False))
+      |> or_fail_with("save_upload_with_limit should delete the partial file")
     }),
     it("save_upload_with_limit deletes a partial upload over the limit", fn() {
       // Arrange
@@ -345,7 +451,7 @@ fn guide_saving_tests() -> UnitTest {
       // Assert
       simplifile.is_file(path)
       |> should()
-      |> equal(Ok(False))
+      |> be_equal(Ok(False))
       |> or_fail_with("the partial upload should be deleted")
     }),
     it("save_upload_with_limit returns 400 over the limit", fn() {
@@ -365,7 +471,7 @@ fn guide_saving_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("save_upload_with_limit should return 400")
     }),
     it("save_upload_with_limit returns 201 under the limit", fn() {
@@ -385,13 +491,13 @@ fn guide_saving_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(201)
+      |> be_equal(201)
       |> or_fail_with("save_upload_with_limit should return 201")
     }),
   ])
 }
 
-fn guide_middleware_tests() -> UnitTest {
+fn guide_middleware_tests() -> TestSuite {
   describe("guide middleware", [
     it("POST /transform uppercases input and replaces spaces in output", fn() {
       // Arrange
@@ -413,7 +519,7 @@ fn guide_middleware_tests() -> UnitTest {
       response
       |> stream_text
       |> should()
-      |> equal("HELLO_WORLD")
+      |> be_equal("HELLO_WORLD")
       |> or_fail_with("POST /transform should return HELLO_WORLD")
     }),
     it("POST /transform keeps a character split across two chunks", fn() {
@@ -438,13 +544,13 @@ fn guide_middleware_tests() -> UnitTest {
       response
       |> stream_text
       |> should()
-      |> equal("CAFé_OK")
+      |> be_equal("CAFé_OK")
       |> or_fail_with("POST /transform should return CAFé_OK")
     }),
   ])
 }
 
-fn guide_sse_tests() -> UnitTest {
+fn guide_sse_tests() -> TestSuite {
   describe("guide sse", [
     it("handle_events sends one ping event", fn() {
       // Arrange
@@ -469,7 +575,7 @@ fn guide_sse_tests() -> UnitTest {
       // Assert
       received
       |> should()
-      |> equal(Ok("data: ping\n\n"))
+      |> be_equal(Ok("data: ping\n\n"))
       |> or_fail_with("handle_events should send one ping event")
     }),
     it("long_running_task sends progress events up to 100", fn() {
@@ -495,13 +601,13 @@ fn guide_sse_tests() -> UnitTest {
       // Assert
       received
       |> should()
-      |> equal(Ok(progress_events))
+      |> be_equal(Ok(progress_events))
       |> or_fail_with("long_running_task should send 5 progress events")
     }),
   ])
 }
 
-fn guide_chunk_tests() -> UnitTest {
+fn guide_chunk_tests() -> TestSuite {
   describe("guide chunks", [
     it("create_line_stream makes 1000 chunks", fn() {
       // Arrange
@@ -513,7 +619,7 @@ fn guide_chunk_tests() -> UnitTest {
       // Assert
       chunk_count
       |> should()
-      |> equal(1000)
+      |> be_equal(1000)
       |> or_fail_with("create_line_stream should make 1000 chunks")
     }),
     it("create_batched_line_stream makes 10 chunks", fn() {
@@ -526,7 +632,7 @@ fn guide_chunk_tests() -> UnitTest {
       // Assert
       chunk_count
       |> should()
-      |> equal(10)
+      |> be_equal(10)
       |> or_fail_with("create_batched_line_stream should make 10 chunks")
     }),
     it("create_batched_line_stream keeps every byte", fn() {
@@ -543,7 +649,7 @@ fn guide_chunk_tests() -> UnitTest {
       // Assert
       byte_count
       |> should()
-      |> equal(3893)
+      |> be_equal(3893)
       |> or_fail_with("the batched stream should hold 3893 bytes")
     }),
     it("create_tiny_chunks makes 1000 chunks", fn() {
@@ -557,7 +663,7 @@ fn guide_chunk_tests() -> UnitTest {
       // Assert
       chunk_count
       |> should()
-      |> equal(1000)
+      |> be_equal(1000)
       |> or_fail_with("create_tiny_chunks should make 1000 chunks")
     }),
     it("group_chunks puts 64 chunks into each chunk", fn() {
@@ -573,7 +679,7 @@ fn guide_chunk_tests() -> UnitTest {
       // Assert
       sizes
       |> should()
-      |> equal([64, 64, 2])
+      |> be_equal([64, 64, 2])
       |> or_fail_with("group_chunks should make chunks of 64, 64 and 2")
     }),
     it("create_row_chunks makes one chunk per row", fn() {
@@ -587,13 +693,13 @@ fn guide_chunk_tests() -> UnitTest {
       // Assert
       chunks
       |> should()
-      |> equal([<<"1,Ada\n":utf8>>, <<"2,Bo\n":utf8>>])
+      |> be_equal([<<"1,Ada\n":utf8>>, <<"2,Bo\n":utf8>>])
       |> or_fail_with("create_row_chunks should make one chunk per row")
     }),
   ])
 }
 
-fn guide_upload_check_tests() -> UnitTest {
+fn guide_upload_check_tests() -> TestSuite {
   describe("guide upload checks", [
     it("upload_stream counts the processed bytes", fn() {
       // Arrange
@@ -610,7 +716,7 @@ fn guide_upload_check_tests() -> UnitTest {
       response
       |> text_body
       |> should()
-      |> equal("Processed 11 bytes")
+      |> be_equal("Processed 11 bytes")
       |> or_fail_with("upload_stream should process 11 bytes")
     }),
     it("upload_stream rejects an upload over 1000000 bytes", fn() {
@@ -630,7 +736,7 @@ fn guide_upload_check_tests() -> UnitTest {
       response
       |> text_body
       |> should()
-      |> equal("Upload is larger than 1000000 bytes")
+      |> be_equal("Upload is larger than 1000000 bytes")
       |> or_fail_with("upload_stream should reject the upload")
     }),
     it("upload_image saves a PNG and returns its path", fn() {
@@ -655,7 +761,7 @@ fn guide_upload_check_tests() -> UnitTest {
       response
       |> text_body
       |> should()
-      |> equal("{\"path\":\"build/streaming_snippets/guide_image.png\"}")
+      |> be_equal("{\"path\":\"build/streaming_snippets/guide_image.png\"}")
       |> or_fail_with("upload_image should return the saved path")
     }),
     it("upload_image writes every chunk to the file", fn() {
@@ -679,7 +785,7 @@ fn guide_upload_check_tests() -> UnitTest {
       // Assert
       simplifile.read_bits(path)
       |> should()
-      |> equal(Ok(<<png_header:bits, "rest":utf8>>))
+      |> be_equal(Ok(<<png_header:bits, "rest":utf8>>))
       |> or_fail_with("upload_image should write the PNG header and the rest")
     }),
     it("upload_image returns 422 for a file that is not an image", fn() {
@@ -700,13 +806,13 @@ fn guide_upload_check_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(422)
+      |> be_equal(422)
       |> or_fail_with("upload_image should return 422")
     }),
   ])
 }
 
-fn guide_pattern_tests() -> UnitTest {
+fn guide_pattern_tests() -> TestSuite {
   describe("guide patterns", [
     it("export_users_csv streams a CSV header and one row per user", fn() {
       // Arrange
@@ -721,7 +827,7 @@ fn guide_pattern_tests() -> UnitTest {
       response
       |> stream_text
       |> should()
-      |> equal(users_csv)
+      |> be_equal(users_csv)
       |> or_fail_with("export_users_csv should stream the CSV")
     }),
     it("export_users_buffered returns the whole CSV as text", fn() {
@@ -735,7 +841,7 @@ fn guide_pattern_tests() -> UnitTest {
       response
       |> text_body
       |> should()
-      |> equal(users_csv)
+      |> be_equal(users_csv)
       |> or_fail_with("export_users_buffered should return the CSV")
     }),
     it("export_users_streamed streams the CSV", fn() {
@@ -749,13 +855,13 @@ fn guide_pattern_tests() -> UnitTest {
       response
       |> stream_text
       |> should()
-      |> equal(users_csv)
+      |> be_equal(users_csv)
       |> or_fail_with("export_users_streamed should stream the CSV")
     }),
   ])
 }
 
-fn guide_pitfall_tests() -> UnitTest {
+fn guide_pitfall_tests() -> TestSuite {
   describe("guide pitfalls", [
     it("download_with_line_count counts the lines, then streams them", fn() {
       // Arrange
@@ -770,7 +876,7 @@ fn guide_pitfall_tests() -> UnitTest {
       |> stream_chunks
       |> list.take(2)
       |> should()
-      |> equal([<<"Lines: 100\n":utf8>>, <<"Line 1\n":utf8>>])
+      |> be_equal([<<"Lines: 100\n":utf8>>, <<"Line 1\n":utf8>>])
       |> or_fail_with("the body should start with the count and Line 1")
     }),
     it("send_buffered sends the same bytes as send_lazy", fn() {
@@ -783,7 +889,7 @@ fn guide_pitfall_tests() -> UnitTest {
       // Assert
       stream_text(buffered)
       |> should()
-      |> equal(stream_text(streaming_guide_pitfalls.send_lazy(stream)))
+      |> be_equal(stream_text(streaming_guide_pitfalls.send_lazy(stream)))
       |> or_fail_with("both should send 'ab'")
     }),
     it("send_lazy sends the stream", fn() {
@@ -797,7 +903,7 @@ fn guide_pitfall_tests() -> UnitTest {
       response
       |> stream_text
       |> should()
-      |> equal("ab")
+      |> be_equal("ab")
       |> or_fail_with("send_lazy should send 'ab'")
     }),
     it("upload_without_check answers 200 when the stream is missing", fn() {
@@ -812,7 +918,7 @@ fn guide_pitfall_tests() -> UnitTest {
       response
       |> text_body
       |> should()
-      |> equal("Saved 0 bytes")
+      |> be_equal("Saved 0 bytes")
       |> or_fail_with("the bad controller should hide the missing stream")
     }),
     it("upload_with_check returns 400 when the stream is missing", fn() {
@@ -826,7 +932,7 @@ fn guide_pitfall_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("upload_with_check should return 400")
     }),
     it("upload_with_check saves a streamed upload", fn() {
@@ -844,13 +950,13 @@ fn guide_pitfall_tests() -> UnitTest {
       response
       |> text_body
       |> should()
-      |> equal("Saved 5 bytes")
+      |> be_equal("Saved 5 bytes")
       |> or_fail_with("upload_with_check should save 5 bytes")
     }),
   ])
 }
 
-fn guide_type_tests() -> UnitTest {
+fn guide_type_tests() -> TestSuite {
   describe("guide types", [
     it("create_text_body makes a Text body", fn() {
       // Arrange
@@ -862,7 +968,7 @@ fn guide_type_tests() -> UnitTest {
       // Assert
       description
       |> should()
-      |> equal("Text: Hello, World!")
+      |> be_equal("Text: Hello, World!")
       |> or_fail_with("create_text_body should make Text(\"Hello, World!\")")
     }),
     it("create_bytes_body makes a Bytes body", fn() {
@@ -875,7 +981,7 @@ fn guide_type_tests() -> UnitTest {
       // Assert
       description
       |> should()
-      |> equal("Bytes: 3")
+      |> be_equal("Bytes: 3")
       |> or_fail_with("create_bytes_body should make a 3 byte Bytes body")
     }),
     it("create_stream_body makes a Stream body", fn() {
@@ -889,7 +995,7 @@ fn guide_type_tests() -> UnitTest {
       // Assert
       description
       |> should()
-      |> equal("Stream")
+      |> be_equal("Stream")
       |> or_fail_with("create_stream_body should make a Stream body")
     }),
     it("create_csv_download sets text/csv", fn() {
@@ -902,7 +1008,7 @@ fn guide_type_tests() -> UnitTest {
       // Assert
       response.content_type
       |> should()
-      |> equal(Some("text/csv"))
+      |> be_equal(Some("text/csv"))
       |> or_fail_with("create_csv_download should set text/csv")
     }),
     it("create_streaming_request replaces the body with the stream", fn() {
@@ -914,13 +1020,13 @@ fn guide_type_tests() -> UnitTest {
       let streaming_request =
         streaming_guide_types.create_streaming_request(
           request,
-          yielder.from_list([<<"chunk":utf8>>]),
+          yielder.from_list([Ok(<<"chunk":utf8>>)]),
         )
 
       // Assert
       request_stream_text(streaming_request)
       |> should()
-      |> equal(Some("chunk"))
+      |> be_equal(Some("chunk"))
       |> or_fail_with("the streaming request should hold the chunks")
     }),
   ])
@@ -930,7 +1036,7 @@ fn guide_type_tests() -> UnitTest {
 // docs/guides/streaming-quick-reference.md
 // ============================================================================
 
-fn quick_tests() -> UnitTest {
+fn quick_tests() -> TestSuite {
   describe("quick reference", [
     it("POST /upload counts the uploaded bytes", fn() {
       // Arrange
@@ -952,7 +1058,7 @@ fn quick_tests() -> UnitTest {
       response
       |> text_body
       |> should()
-      |> equal("Uploaded 11 bytes")
+      |> be_equal("Uploaded 11 bytes")
       |> or_fail_with("upload_file should count 11 bytes")
     }),
     it("upload_file returns 400 without a request stream", fn() {
@@ -965,7 +1071,7 @@ fn quick_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("upload_file should return 400")
     }),
     it("export_csv streams a CSV header and one row per product", fn() {
@@ -983,7 +1089,7 @@ fn quick_tests() -> UnitTest {
       response
       |> stream_text
       |> should()
-      |> equal("id,name,price\n1,Lamp,19.5\n")
+      |> be_equal("id,name,price\n1,Lamp,19.5\n")
       |> or_fail_with("export_csv should stream the CSV")
     }),
     it("export_csv returns 500 when the products do not load", fn() {
@@ -998,7 +1104,7 @@ fn quick_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(500)
+      |> be_equal(500)
       |> or_fail_with("export_csv should return 500")
     }),
     it("uppercase_middleware uppercases the request stream", fn() {
@@ -1021,7 +1127,7 @@ fn quick_tests() -> UnitTest {
       response
       |> stream_text
       |> should()
-      |> equal("HELLO WORLD")
+      |> be_equal("HELLO WORLD")
       |> or_fail_with("uppercase_middleware should uppercase the stream")
     }),
     it("line_endings_middleware converts LF to CRLF in the response", fn() {
@@ -1044,7 +1150,7 @@ fn quick_tests() -> UnitTest {
       response
       |> stream_text
       |> should()
-      |> equal("a\r\nb\r\n")
+      |> be_equal("a\r\nb\r\n")
       |> or_fail_with("line_endings_middleware should write CRLF")
     }),
     it("uppercase_middleware keeps a character split across two chunks", fn() {
@@ -1069,7 +1175,7 @@ fn quick_tests() -> UnitTest {
       response
       |> stream_text
       |> should()
-      |> equal("CAFé OK")
+      |> be_equal("CAFé OK")
       |> or_fail_with("uppercase_middleware should return CAFé OK")
     }),
     it(
@@ -1096,7 +1202,7 @@ fn quick_tests() -> UnitTest {
         response
         |> stream_text
         |> should()
-        |> equal("aé\r\n")
+        |> be_equal("aé\r\n")
         |> or_fail_with("line_endings_middleware should return aé and CRLF")
       },
     ),
@@ -1111,7 +1217,7 @@ fn quick_tests() -> UnitTest {
       response
       |> stream_text
       |> should()
-      |> equal("Chunk 1\nChunk 2\nChunk 3\n")
+      |> be_equal("Chunk 1\nChunk 2\nChunk 3\n")
       |> or_fail_with("proxy should stream three chunks")
     }),
     it("export_users streams a CSV header and one row per user", fn() {
@@ -1126,7 +1232,7 @@ fn quick_tests() -> UnitTest {
       response
       |> stream_text
       |> should()
-      |> equal(users_csv)
+      |> be_equal(users_csv)
       |> or_fail_with("export_users should stream the CSV")
     }),
     it("get_users streams CSV for format=csv", fn() {
@@ -1142,7 +1248,7 @@ fn quick_tests() -> UnitTest {
       response
       |> stream_text
       |> should()
-      |> equal(users_csv)
+      |> be_equal(users_csv)
       |> or_fail_with("get_users should stream CSV")
     }),
     it("get_users returns JSON for format=json", fn() {
@@ -1158,7 +1264,7 @@ fn quick_tests() -> UnitTest {
       response
       |> text_body
       |> should()
-      |> equal(
+      |> be_equal(
         "[{\"id\":1,\"name\":\"Ada\",\"email\":\"ada@example.com\"},"
         <> "{\"id\":2,\"name\":\"Bo\",\"email\":\"bo@example.com\"}]",
       )
@@ -1176,7 +1282,7 @@ fn quick_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("get_users should return 400")
     }),
     it("create_server sets a 100MB body limit", fn() {
@@ -1189,13 +1295,13 @@ fn quick_tests() -> UnitTest {
       // Assert
       max_body_size
       |> should()
-      |> equal(100_000_000)
+      |> be_equal(100_000_000)
       |> or_fail_with("create_server should set 100_000_000 bytes")
     }),
   ])
 }
 
-fn quick_file_tests() -> UnitTest {
+fn quick_file_tests() -> TestSuite {
   describe("quick reference files", [
     it("save_upload writes the stream to the file", fn() {
       // Arrange
@@ -1216,7 +1322,7 @@ fn quick_file_tests() -> UnitTest {
       // Assert
       simplifile.read(path)
       |> should()
-      |> equal(Ok("hello world"))
+      |> be_equal(Ok("hello world"))
       |> or_fail_with("save_upload should write 'hello world'")
     }),
     it("save_upload names the saved file", fn() {
@@ -1239,7 +1345,7 @@ fn quick_file_tests() -> UnitTest {
       response
       |> text_body
       |> should()
-      |> equal(
+      |> be_equal(
         "File saved: build/streaming_snippets/quick_save_upload_name.bin",
       )
       |> or_fail_with("save_upload should name the saved file")
@@ -1264,7 +1370,7 @@ fn quick_file_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(201)
+      |> be_equal(201)
       |> or_fail_with("upload_image should return 201")
     }),
     it("upload_image writes the first chunk and the rest", fn() {
@@ -1288,7 +1394,7 @@ fn quick_file_tests() -> UnitTest {
       // Assert
       simplifile.read_bits(path)
       |> should()
-      |> equal(Ok(<<png_header:bits, "rest":utf8>>))
+      |> be_equal(Ok(<<png_header:bits, "rest":utf8>>))
       |> or_fail_with("upload_image should write the PNG header and the rest")
     }),
     it("upload_image returns 422 for a file that is not an image", fn() {
@@ -1309,7 +1415,7 @@ fn quick_file_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(422)
+      |> be_equal(422)
       |> or_fail_with("upload_image should return 422")
     }),
     it("upload_image returns 400 for an empty upload", fn() {
@@ -1328,13 +1434,13 @@ fn quick_file_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("upload_image should return 400")
     }),
   ])
 }
 
-fn quick_sse_tests() -> UnitTest {
+fn quick_sse_tests() -> TestSuite {
   describe("quick reference sse", [
     it("events sends one event per item in Services", fn() {
       // Arrange
@@ -1360,7 +1466,7 @@ fn quick_sse_tests() -> UnitTest {
       // Assert
       received
       |> should()
-      |> equal(Ok("data: first\n\ndata: second\n\n"))
+      |> be_equal(Ok("data: first\n\ndata: second\n\n"))
       |> or_fail_with("events should send 'first' and 'second'")
     }),
     it("long_task sends progress events up to 100", fn() {
@@ -1386,7 +1492,7 @@ fn quick_sse_tests() -> UnitTest {
       // Assert
       received
       |> should()
-      |> equal(Ok(progress_events))
+      |> be_equal(Ok(progress_events))
       |> or_fail_with("long_task should send 5 progress events")
     }),
   ])
@@ -1458,8 +1564,10 @@ fn request_stream_text(request: Request) -> Option(String) {
     request.Stream(stream) ->
       stream
       |> yielder.to_list
-      |> bit_array.concat
-      |> bit_array.to_string
+      |> result.all
+      |> result.map(bit_array.concat)
+      |> result.replace_error(Nil)
+      |> result.try(bit_array.to_string)
       |> option.from_result
     _other -> None
   }
@@ -1472,8 +1580,57 @@ fn echo_request_stream(
 ) -> Response {
   case request.body {
     request.Stream(stream) ->
-      response.stream_response(200, stream, "text/plain")
+      response.stream_response(
+        200,
+        yielder.filter_map(stream, function.identity),
+        "text/plain",
+      )
     _other -> response.text_response(400, "no stream")
+  }
+}
+
+/// A request from a client that declares a 10 byte body, sends 5 bytes and
+/// closes the connection, so the read of the rest of the body fails.
+fn broken_upload_request() -> http_request.Request(mist.Connection) {
+  let connection = mist_connection.closed_connection(<<"hello">>)
+  mist_connection.request(connection, http.Post, "/upload", [
+    #("content-length", "10"),
+  ])
+}
+
+/// Runs `controller` on a stream_route through the server handler.
+fn run_streaming_controller(
+  request: http_request.Request(mist.Connection),
+  controller: fn(Request, Nil, services) -> Response,
+  services: services,
+) -> http_response.Response(mist.ResponseData) {
+  let app_router =
+    router()
+    |> router.stream_route(
+      method: Post,
+      path: "/upload",
+      controller: controller,
+      middleware: [],
+    )
+  handler.create(app_router, 1_000_000, Nil, services, keep_nil_context)(
+    request,
+  )
+}
+
+fn keep_nil_context(context: Nil, _request_id: String) -> Nil {
+  context
+}
+
+fn mist_body_text(
+  response: http_response.Response(mist.ResponseData),
+) -> String {
+  case response.body {
+    mist.Bytes(tree) ->
+      tree
+      |> bytes_tree.to_bit_array
+      |> bit_array.to_string
+      |> result.unwrap("")
+    _other -> ""
   }
 }
 
@@ -1516,18 +1673,19 @@ fn received_body(
 }
 
 fn split_body(bytes: BitArray) -> Result(String, String) {
-  case bit_array.to_string(bytes) {
-    Ok(text) -> after_headers(text)
-    Error(Nil) -> Error("response is not UTF-8")
+  case response_text(bytes) {
+    Ok(body) -> body_string(body)
+    Error(Nil) -> Error("no header end in: " <> string.inspect(bytes))
   }
 }
 
-fn after_headers(text: String) -> Result(String, String) {
-  case string.split_once(text, "\r\n\r\n") {
-    Ok(#(_headers, body)) -> Ok(body)
-    Error(Nil) -> Error("no header end in: " <> text)
-  }
+fn body_string(body: BitArray) -> Result(String, String) {
+  bit_array.to_string(body)
+  |> result.replace_error("response is not UTF-8")
 }
+
+@external(erlang, "raw_http_ffi", "response_text")
+fn response_text(received: BitArray) -> Result(BitArray, Nil)
 
 @external(erlang, "raw_http_ffi", "request_until_closed")
 fn request_until_closed(

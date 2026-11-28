@@ -1,0 +1,2 @@
+render_with_linked_helper, the helper crashes: the request process ends
+render_with_monitored_helper, the helper crashes: 500 The page did not render

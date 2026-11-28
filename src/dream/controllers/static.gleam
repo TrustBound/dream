@@ -1,5 +1,7 @@
 //// Secure static file serving
 ////
+//// Guide: [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html).
+////
 //// Serve files from disk with built-in security. Handles CSS, JavaScript, images,
 //// and any other static assets your application needs.
 ////
@@ -55,8 +57,12 @@
 //// ## Features
 ////
 //// - **MIME type detection** - Automatic content-type headers
+//// - **Exact bytes** - A text file is sent as `Text`, and any other file,
+////   such as an image, as `Bytes` with its exact bytes
 //// - **Index serving** - Serves `index.html` for directory requests
-//// - **Directory listing** - Optional file browser (disabled by default)
+//// - **Directory listing** - Optional file browser (disabled by default).
+////   File names and the request path are HTML-escaped, and each link is
+////   percent-encoded
 //// - **Custom 404s** - Use your own not-found handler
 //// Control how directories and missing files are handled.
 //// - Serves `index.html` for directories
@@ -68,7 +74,10 @@
 
 import dream/http/header.{Header}
 import dream/http/request.{type Request}
-import dream/http/response.{type Response, Response, Text}
+import dream/http/response.{
+  type Response, type ResponseBody, Bytes, Response, Text,
+}
+import gleam/bit_array
 import gleam/int
 import gleam/list
 import gleam/option.{type Option}
@@ -91,6 +100,18 @@ pub type Config(context, services) {
 
 /// Default configuration with secure settings
 ///
+/// ## Example
+///
+/// ### Use the default configuration <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_static_default_config.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/controllers/static.{type Config, default_config}
+///
+/// pub fn asset_config() -> Config(context, services) {
+///   // serve_index: True, allow_directory_listing: False, not_found_handler: None
+///   default_config()
+/// }
+/// ```
 pub fn default_config() -> Config(context, services) {
   Config(
     serve_index: True,
@@ -101,6 +122,21 @@ pub fn default_config() -> Config(context, services) {
 
 /// Enable directory listing
 ///
+/// ## Example
+///
+/// ### Allow directory listings <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_static_with_directory_listing.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/controllers/static.{
+///   type Config, default_config, with_directory_listing,
+/// }
+///
+/// pub fn listing_config() -> Config(context, services) {
+///   // allow_directory_listing: True
+///   default_config()
+///   |> with_directory_listing()
+/// }
+/// ```
 pub fn with_directory_listing(
   config: Config(context, services),
 ) -> Config(context, services) {
@@ -108,6 +144,36 @@ pub fn with_directory_listing(
 }
 
 /// Set custom 404 handler
+///
+/// ## Example
+///
+/// ### Answer a missing file <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_static_with_custom_404.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/controllers/static.{default_config, serve, with_custom_404}
+/// import dream/http/request.{type Request}
+/// import dream/http/response.{type Response, text_response}
+/// import dream/http/status.{not_found}
+///
+/// fn missing_file(_request: Request, _context, _services) -> Response {
+///   text_response(not_found, "No such file")
+/// }
+///
+/// pub fn download(request: Request, filepath: String) -> Response {
+///   let config =
+///     default_config()
+///     |> with_custom_404(missing_file)
+///   // A file that is not in ./downloads gets the "No such file" response
+///   serve(
+///     request: request,
+///     context: Nil,
+///     services: Nil,
+///     root: "./downloads",
+///     filepath: filepath,
+///     config: config,
+///   )
+/// }
+/// ```
 pub fn with_custom_404(
   config: Config(context, services),
   handler: fn(Request, context, services) -> Response,
@@ -116,6 +182,20 @@ pub fn with_custom_404(
 }
 
 /// Disable automatic index.html serving
+///
+/// ## Example
+///
+/// ### Turn off index files <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_static_without_index.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/controllers/static.{type Config, default_config, without_index}
+///
+/// pub fn no_index_config() -> Config(context, services) {
+///   // serve_index: False
+///   default_config()
+///   |> without_index()
+/// }
+/// ```
 pub fn without_index(
   config: Config(context, services),
 ) -> Config(context, services) {
@@ -156,6 +236,8 @@ pub fn without_index(
 ///   }
 /// }
 /// ```
+///
+/// Guide: [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html).
 pub fn serve(
   request request: Request,
   context context: context,
@@ -246,20 +328,21 @@ fn try_serve_index(directory: String) -> Result(Response, Nil) {
 }
 
 fn serve_file(filepath: String) -> Response {
-  // Try to read as string first (works for text files)
-  case simplifile.read(filepath) {
+  case simplifile.read_bits(filepath) {
     Ok(content) -> build_file_response(content, filepath)
     Error(_) -> default_404()
   }
 }
 
-fn build_file_response(content: String, filepath: String) -> Response {
+/// The body keeps the exact bytes of the file: a file that is valid UTF-8
+/// becomes `Text`, and any other file, such as an image, becomes `Bytes`.
+fn build_file_response(content: BitArray, filepath: String) -> Response {
   let mime = mime_type(filepath)
-  let size = string.byte_size(content)
+  let size = bit_array.byte_size(content)
 
   Response(
     status: 200,
-    body: Text(content),
+    body: file_body(content),
     headers: [
       Header("Content-Type", mime),
       Header("Content-Length", int.to_string(size)),
@@ -267,6 +350,13 @@ fn build_file_response(content: String, filepath: String) -> Response {
     cookies: [],
     content_type: option.Some(mime),
   )
+}
+
+fn file_body(content: BitArray) -> ResponseBody {
+  case bit_array.to_string(content) {
+    Ok(text) -> Text(text)
+    Error(Nil) -> Bytes(content)
+  }
 }
 
 fn generate_directory_listing(
@@ -294,7 +384,7 @@ fn build_html_response(html: String) -> Response {
 }
 
 fn build_directory_html(path: String, entries: List(String)) -> String {
-  let title = "Index of " <> path
+  let title = "Index of " <> escape_html(path)
   let header = "<!DOCTYPE html>
 <html>
 <head>
@@ -317,7 +407,11 @@ fn build_directory_html(path: String, entries: List(String)) -> String {
   let items =
     entries
     |> list.map(fn(entry) {
-      "    <li><a href=\"" <> entry <> "\">" <> entry <> "</a></li>"
+      "    <li><a href=\""
+      <> percent_encode(entry)
+      <> "\">"
+      <> escape_html(entry)
+      <> "</a></li>"
     })
     |> string.join("\n")
 
@@ -362,9 +456,70 @@ fn is_safe_path(filepath: String) -> Bool {
 
 /// Detect MIME type from file extension using marceau library
 fn mime_type(filepath: String) -> String {
-  // Extract extension from filepath
-  case string.split(filepath, ".") |> list.last {
-    Ok(extension) -> marceau.extension_to_mime_type(extension)
-    Error(_) -> "application/octet-stream"
+  marceau.extension_to_mime_type(last_dot_segment(filepath))
+}
+
+/// The text after the last `.` in `text`, or all of `text` when it has no
+/// `.`. A file without an extension gets `application/octet-stream` from
+/// marceau.
+fn last_dot_segment(text: String) -> String {
+  case string.split_once(text, ".") {
+    Ok(#(_before, after)) -> last_dot_segment(after)
+    Error(Nil) -> text
   }
+}
+
+/// Escapes the characters that have a meaning in HTML text and in a quoted
+/// attribute value.
+fn escape_html(text: String) -> String {
+  text
+  |> string.replace("&", "&amp;")
+  |> string.replace("<", "&lt;")
+  |> string.replace(">", "&gt;")
+  |> string.replace("\"", "&quot;")
+  |> string.replace("'", "&#39;")
+}
+
+/// Percent-encodes a file name for use as a relative URL path segment
+/// (RFC 3986 section 2.1). Each byte of the UTF-8 name that is not an
+/// unreserved character (letters, digits, `-`, `.`, `_` and `~`) becomes
+/// `%` and two upper case hex digits, so the name can never end the
+/// attribute or become a scheme or a path separator.
+fn percent_encode(name: String) -> String {
+  name
+  |> string.to_utf_codepoints
+  |> list.map(percent_encode_codepoint)
+  |> string.concat
+}
+
+fn percent_encode_codepoint(codepoint: UtfCodepoint) -> String {
+  case is_unreserved(string.utf_codepoint_to_int(codepoint)) {
+    True -> string.from_utf_codepoints([codepoint])
+    False -> percent_encode_bytes(<<codepoint:utf8_codepoint>>, "")
+  }
+}
+
+fn percent_encode_bytes(bytes: BitArray, encoded: String) -> String {
+  case bytes {
+    <<byte, rest:bytes>> ->
+      percent_encode_bytes(
+        rest,
+        encoded
+          <> "%"
+          <> string.pad_start(int.to_base16(byte), to: 2, with: "0"),
+      )
+    _ -> encoded
+  }
+}
+
+/// The unreserved characters of RFC 3986 section 2.3: `A` to `Z`, `a` to
+/// `z`, `0` to `9`, `-`, `.`, `_` and `~`.
+fn is_unreserved(codepoint: Int) -> Bool {
+  { codepoint >= 0x41 && codepoint <= 0x5A }
+  || { codepoint >= 0x61 && codepoint <= 0x7A }
+  || { codepoint >= 0x30 && codepoint <= 0x39 }
+  || codepoint == 0x2D
+  || codepoint == 0x2E
+  || codepoint == 0x5F
+  || codepoint == 0x7E
 }

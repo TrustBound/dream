@@ -14,5 +14,5 @@ pub fn format_status() -> String {
 
 /// Format welcome message
 pub fn format_welcome() -> String {
-  "Welcome to the Rate Limiter Example!\n\nEndpoints:\n  GET /      - This welcome page (no rate limit)\n  GET /api   - Rate-limited API endpoint\n  GET /api/status - Rate limit status (also rate-limited)\n\nThe rate limiter uses ETS-backed shared state (via dream_ets)\nto track requests across all clients. Try making multiple\nrapid requests to /api to see it in action!"
+  "Welcome to the Rate Limiter Example!\n\nEndpoints:\n  GET /      - This welcome page (no rate limit)\n  GET /api   - Rate-limited API endpoint\n  GET /api/status - Rate limit status (also rate-limited)\n\nThe rate limiter counts the requests of each client in ETS tables\n(via dream_ets) that one process owns for the life of the app.\nTry making multiple rapid requests to /api to see it in action!"
 }

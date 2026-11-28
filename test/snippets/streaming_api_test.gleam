@@ -7,11 +7,14 @@ import dream/http/response.{type Response, Bytes, Stream, Text}
 import dream/router.{route, router}
 import dream/servers/mist/server
 import dream/servers/mist/sse
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/bit_array
+import gleam/function
 import gleam/option.{Some}
+import gleam/result
 import gleam/yielder
 import matchers/extract_body_text.{extract_body_text}
 import matchers/extract_response_status.{extract_response_status}
@@ -22,7 +25,7 @@ import snippets/streaming_api_sse
 import snippets/streaming_api_types
 import snippets/streaming_api_yielder
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("streaming api snippets", [
     types_tests(),
     signatures_tests(),
@@ -37,11 +40,11 @@ pub fn tests() -> UnitTest {
 // Types
 // ============================================================================
 
-fn types_tests() -> UnitTest {
-  describe("types", [
+fn types_tests() -> UnitNode {
+  group("types", [
     it("create_upload_request holds the chunks in a Stream body", fn() {
       // Arrange
-      let chunks = yielder.from_list([<<"ab":utf8>>, <<"c":utf8>>])
+      let chunks = yielder.from_list([Ok(<<"ab":utf8>>), Ok(<<"c":utf8>>)])
 
       // Act
       let request = streaming_api_types.create_upload_request(chunks)
@@ -49,7 +52,7 @@ fn types_tests() -> UnitTest {
       // Assert
       request_stream_body(request)
       |> should()
-      |> equal(<<"abc":utf8>>)
+      |> be_equal(<<"abc":utf8>>)
       |> or_fail_with("stream should hold 'abc'")
     }),
     it("describe_body names a Text body", fn() {
@@ -59,7 +62,7 @@ fn types_tests() -> UnitTest {
       // Assert
       description
       |> should()
-      |> equal("buffered text")
+      |> be_equal("buffered text")
       |> or_fail_with("Text should be 'buffered text'")
     }),
     it("describe_body names a Bytes body", fn() {
@@ -69,7 +72,7 @@ fn types_tests() -> UnitTest {
       // Assert
       description
       |> should()
-      |> equal("buffered bytes")
+      |> be_equal("buffered bytes")
       |> or_fail_with("Bytes should be 'buffered bytes'")
     }),
     it("describe_body names a Stream body", fn() {
@@ -80,7 +83,7 @@ fn types_tests() -> UnitTest {
       // Assert
       description
       |> should()
-      |> equal("stream")
+      |> be_equal("stream")
       |> or_fail_with("Stream should be 'stream'")
     }),
     it("describe_request_body names a Text body", fn() {
@@ -91,7 +94,7 @@ fn types_tests() -> UnitTest {
       // Assert
       description
       |> should()
-      |> equal("buffered text")
+      |> be_equal("buffered text")
       |> or_fail_with("Text should be 'buffered text'")
     }),
     it("describe_request_body names a Bytes body", fn() {
@@ -102,7 +105,7 @@ fn types_tests() -> UnitTest {
       // Assert
       description
       |> should()
-      |> equal("buffered bytes")
+      |> be_equal("buffered bytes")
       |> or_fail_with("Bytes should be 'buffered bytes'")
     }),
     it("describe_request_body names a Stream body", fn() {
@@ -115,7 +118,7 @@ fn types_tests() -> UnitTest {
       // Assert
       description
       |> should()
-      |> equal("stream")
+      |> be_equal("stream")
       |> or_fail_with("Stream should be 'stream'")
     }),
     it("create_csv_export_response streams the rows", fn() {
@@ -128,7 +131,7 @@ fn types_tests() -> UnitTest {
       // Assert
       stream_body(response)
       |> should()
-      |> equal(<<"a,b\n1,2\n":utf8>>)
+      |> be_equal(<<"a,b\n1,2\n":utf8>>)
       |> or_fail_with("response should stream the rows")
     }),
   ])
@@ -138,8 +141,8 @@ fn types_tests() -> UnitTest {
 // Signatures
 // ============================================================================
 
-fn signatures_tests() -> UnitTest {
-  describe("signatures", [
+fn signatures_tests() -> UnitNode {
+  group("signatures", [
     it("stream_response sets the content type", fn() {
       // Arrange
       let stream = yielder.from_list([<<"a":utf8>>])
@@ -151,7 +154,7 @@ fn signatures_tests() -> UnitTest {
       // Assert
       response.content_type
       |> should()
-      |> equal(Some("text/csv"))
+      |> be_equal(Some("text/csv"))
       |> or_fail_with("content type should be text/csv")
     }),
     it("sse_response sets the content type", fn() {
@@ -165,7 +168,7 @@ fn signatures_tests() -> UnitTest {
       // Assert
       response.content_type
       |> should()
-      |> equal(Some("text/event-stream"))
+      |> be_equal(Some("text/event-stream"))
       |> or_fail_with("content type should be text/event-stream")
     }),
     it("upgrade_to_sse is sse.upgrade_to_sse", fn() {
@@ -175,7 +178,7 @@ fn signatures_tests() -> UnitTest {
       // Assert
       same
       |> should()
-      |> equal(True)
+      |> be_equal(True)
       |> or_fail_with("constant should hold sse.upgrade_to_sse")
     }),
     it("send_event is sse.send_event", fn() {
@@ -185,7 +188,7 @@ fn signatures_tests() -> UnitTest {
       // Assert
       same
       |> should()
-      |> equal(True)
+      |> be_equal(True)
       |> or_fail_with("constant should hold sse.send_event")
     }),
     it("event builds the same event as sse.event", fn() {
@@ -195,7 +198,7 @@ fn signatures_tests() -> UnitTest {
       // Assert
       event
       |> should()
-      |> equal(sse.event("hello"))
+      |> be_equal(sse.event("hello"))
       |> or_fail_with("event should equal sse.event")
     }),
     it("event_name builds the same event as sse.event_name", fn() {
@@ -205,7 +208,7 @@ fn signatures_tests() -> UnitTest {
       // Assert
       event
       |> should()
-      |> equal(sse.event_name(sse.event("a"), "tick"))
+      |> be_equal(sse.event_name(sse.event("a"), "tick"))
       |> or_fail_with("event_name should equal sse.event_name")
     }),
     it("event_id builds the same event as sse.event_id", fn() {
@@ -215,7 +218,7 @@ fn signatures_tests() -> UnitTest {
       // Assert
       event
       |> should()
-      |> equal(sse.event_id(sse.event("a"), "7"))
+      |> be_equal(sse.event_id(sse.event("a"), "7"))
       |> or_fail_with("event_id should equal sse.event_id")
     }),
     it("event_retry builds the same event as sse.event_retry", fn() {
@@ -225,7 +228,7 @@ fn signatures_tests() -> UnitTest {
       // Assert
       event
       |> should()
-      |> equal(sse.event_retry(sse.event("a"), 5000))
+      |> be_equal(sse.event_retry(sse.event("a"), 5000))
       |> or_fail_with("event_retry should equal sse.event_retry")
     }),
     it("continue_connection builds the same action", fn() {
@@ -236,7 +239,7 @@ fn signatures_tests() -> UnitTest {
       // Assert
       action
       |> should()
-      |> equal(sse.continue_connection(1))
+      |> be_equal(sse.continue_connection(1))
       |> or_fail_with("continue_connection should equal sse version")
     }),
     it("stop_connection builds the same action", fn() {
@@ -247,7 +250,7 @@ fn signatures_tests() -> UnitTest {
       // Assert
       action
       |> should()
-      |> equal(sse.stop_connection())
+      |> be_equal(sse.stop_connection())
       |> or_fail_with("stop_connection should equal sse version")
     }),
     it("stream_route adds a route that gets the stream", fn() {
@@ -272,7 +275,7 @@ fn signatures_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Received 4 bytes")
+      |> be_equal("Received 4 bytes")
       |> or_fail_with("upload should receive 4 bytes")
     }),
     it("route adds a buffered route", fn() {
@@ -294,7 +297,7 @@ fn signatures_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(200)
+      |> be_equal(200)
       |> or_fail_with("route should answer 200")
     }),
     it("max_body_size sets the limit", fn() {
@@ -304,7 +307,7 @@ fn signatures_tests() -> UnitTest {
       // Assert
       dream.get_max_body_size(app)
       |> should()
-      |> equal(5000)
+      |> be_equal(5000)
       |> or_fail_with("max body size should be 5000")
     }),
   ])
@@ -314,8 +317,8 @@ fn signatures_tests() -> UnitTest {
 // Responses
 // ============================================================================
 
-fn responses_tests() -> UnitTest {
-  describe("responses", [
+fn responses_tests() -> UnitNode {
+  group("responses", [
     it("download streams 1000 bytes", fn() {
       // Arrange
       let request = test_request.create_request(Get, "/download")
@@ -326,7 +329,7 @@ fn responses_tests() -> UnitTest {
       // Assert
       bit_array.byte_size(stream_body(response))
       |> should()
-      |> equal(1000)
+      |> be_equal(1000)
       |> or_fail_with("download should stream 1000 bytes")
     }),
     it("create_buffered_report holds every line", fn() {
@@ -337,7 +340,7 @@ fn responses_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("report line\nreport line\n")
+      |> be_equal("report line\nreport line\n")
       |> or_fail_with("buffered report should hold two lines")
     }),
     it("create_streamed_report streams every line", fn() {
@@ -347,7 +350,7 @@ fn responses_tests() -> UnitTest {
       // Assert
       stream_body(response)
       |> should()
-      |> equal(<<"report line\nreport line\n":utf8>>)
+      |> be_equal(<<"report line\nreport line\n":utf8>>)
       |> or_fail_with("streamed report should stream two lines")
     }),
     it("upload counts the bytes of a valid stream", fn() {
@@ -364,7 +367,7 @@ fn responses_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Processed 5 bytes")
+      |> be_equal("Processed 5 bytes")
       |> or_fail_with("upload should process 5 bytes")
     }),
     it("upload returns 422 for a chunk that is not UTF-8", fn() {
@@ -380,7 +383,7 @@ fn responses_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(422)
+      |> be_equal(422)
       |> or_fail_with("upload should return 422")
     }),
     it("upload returns 400 without a stream", fn() {
@@ -394,7 +397,7 @@ fn responses_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("upload should return 400")
     }),
   ])
@@ -404,8 +407,8 @@ fn responses_tests() -> UnitTest {
 // Yielder operations
 // ============================================================================
 
-fn yielder_tests() -> UnitTest {
-  describe("yielder operations", [
+fn yielder_tests() -> UnitNode {
+  group("yielder operations", [
     it("uppercase_stream uppercases every chunk", fn() {
       // Arrange
       let stream = yielder.from_list([<<"ab":utf8>>, <<"c":utf8>>])
@@ -416,7 +419,7 @@ fn yielder_tests() -> UnitTest {
       // Assert
       bit_array.concat(yielder.to_list(result))
       |> should()
-      |> equal(<<"ABC":utf8>>)
+      |> be_equal(<<"ABC":utf8>>)
       |> or_fail_with("stream should be 'ABC'")
     }),
     it("uppercase_stream keeps a character split across two chunks", fn() {
@@ -429,7 +432,7 @@ fn yielder_tests() -> UnitTest {
       // Assert
       bit_array.concat(yielder.to_list(result))
       |> should()
-      |> equal(<<"AéB":utf8>>)
+      |> be_equal(<<"AéB":utf8>>)
       |> or_fail_with("stream should be 'AéB' with every byte kept")
     }),
     it("remove_empty_chunks drops empty chunks", fn() {
@@ -442,7 +445,7 @@ fn yielder_tests() -> UnitTest {
       // Assert
       yielder.to_list(result)
       |> should()
-      |> equal([<<"a":utf8>>, <<"b":utf8>>])
+      |> be_equal([<<"a":utf8>>, <<"b":utf8>>])
       |> or_fail_with("only non-empty chunks should stay")
     }),
     it("count_total_bytes adds the chunk sizes", fn() {
@@ -455,7 +458,7 @@ fn yielder_tests() -> UnitTest {
       // Assert
       total
       |> should()
-      |> equal(5)
+      |> be_equal(5)
       |> or_fail_with("total should be 5")
     }),
     it("take_first_chunks keeps 100 chunks", fn() {
@@ -468,7 +471,7 @@ fn yielder_tests() -> UnitTest {
       // Assert
       yielder.length(result)
       |> should()
-      |> equal(100)
+      |> be_equal(100)
       |> or_fail_with("100 chunks should stay")
     }),
     it("create_csv_stream puts the header first", fn() {
@@ -478,7 +481,7 @@ fn yielder_tests() -> UnitTest {
       // Assert
       bit_array.concat(yielder.to_list(result))
       |> should()
-      |> equal(<<"name\nAda\nBo\n":utf8>>)
+      |> be_equal(<<"name\nAda\nBo\n":utf8>>)
       |> or_fail_with("CSV should be header then rows")
     }),
   ])
@@ -488,8 +491,8 @@ fn yielder_tests() -> UnitTest {
 // Routing and middleware
 // ============================================================================
 
-fn routing_tests() -> UnitTest {
-  describe("routing", [
+fn routing_tests() -> UnitNode {
+  group("routing", [
     it("POST /upload receives the stream", fn() {
       // Arrange
       let request =
@@ -510,7 +513,7 @@ fn routing_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Received 3 bytes")
+      |> be_equal("Received 3 bytes")
       |> or_fail_with("upload should receive 3 bytes")
     }),
     it("PUT /files/:id without an API key returns 401", fn() {
@@ -533,7 +536,7 @@ fn routing_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(401)
+      |> be_equal(401)
       |> or_fail_with("missing API key should return 401")
     }),
     it("PUT /files/:id with an API key replaces the file", fn() {
@@ -559,7 +562,7 @@ fn routing_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("File replaced")
+      |> be_equal("File replaced")
       |> or_fail_with("API key should let the request through")
     }),
     it("uppercase_incoming uppercases the request stream", fn() {
@@ -581,7 +584,7 @@ fn routing_tests() -> UnitTest {
       // Assert
       stream_body(response)
       |> should()
-      |> equal(<<"ABC":utf8>>)
+      |> be_equal(<<"ABC":utf8>>)
       |> or_fail_with("next should get 'ABC'")
     }),
     it("uppercase_incoming keeps a character split across two chunks", fn() {
@@ -602,7 +605,7 @@ fn routing_tests() -> UnitTest {
       // Assert
       stream_body(response)
       |> should()
-      |> equal(<<"AéB":utf8>>)
+      |> be_equal(<<"AéB":utf8>>)
       |> or_fail_with("next should get 'AéB' with every byte kept")
     }),
     it("end_outgoing_chunks_with_newline ends each chunk with a newline", fn() {
@@ -624,7 +627,7 @@ fn routing_tests() -> UnitTest {
       // Assert
       stream_body(response)
       |> should()
-      |> equal(<<"a\nb\n":utf8>>)
+      |> be_equal(<<"a\nb\n":utf8>>)
       |> or_fail_with("response should stream 'a\\nb\\n'")
     }),
     it("create_large_payload_server sets a 100MB limit", fn() {
@@ -634,7 +637,7 @@ fn routing_tests() -> UnitTest {
       // Assert
       dream.get_max_body_size(app)
       |> should()
-      |> equal(100_000_000)
+      |> be_equal(100_000_000)
       |> or_fail_with("limit should be 100_000_000")
     }),
   ])
@@ -644,8 +647,8 @@ fn routing_tests() -> UnitTest {
 // Server-Sent Events
 // ============================================================================
 
-fn sse_tests() -> UnitTest {
-  describe("server-sent events", [
+fn sse_tests() -> UnitNode {
+  group("server-sent events", [
     it("handle_events sends two tick events", fn() {
       // Arrange
       let app_router =
@@ -663,7 +666,7 @@ fn sse_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal(Ok(
+      |> be_equal(Ok(
         "retry: 5000\nid: 0\nevent: tick\ndata: {\"count\": 0}\n\n"
         <> "retry: 5000\nid: 1\nevent: tick\ndata: {\"count\": 1}\n\n",
       ))
@@ -685,7 +688,12 @@ fn stream_body(response: Response) -> BitArray {
 
 fn request_stream_body(request: Request) -> BitArray {
   case request.body {
-    request.Stream(stream) -> stream |> yielder.to_list |> bit_array.concat
+    request.Stream(stream) ->
+      stream
+      |> yielder.to_list
+      |> result.all
+      |> result.map(bit_array.concat)
+      |> result.unwrap(<<"broken stream":utf8>>)
     _other -> <<>>
   }
 }
@@ -693,7 +701,11 @@ fn request_stream_body(request: Request) -> BitArray {
 fn echo_request_stream(request: Request, _context, _services) -> Response {
   case request.body {
     request.Stream(stream) ->
-      response.stream_response(200, stream, "text/plain")
+      response.stream_response(
+        200,
+        yielder.filter_map(stream, function.identity),
+        "text/plain",
+      )
     _other -> response.text_response(400, "Expected a streaming body")
   }
 }

@@ -9,11 +9,8 @@ test:
 test-integration:
 	@echo "=== Running integration tests ==="
 	@if [ -z "$$CI" ]; then \
-		echo "Killing any existing servers..."; \
-		pkill -9 -f "gleam run.*main" 2>/dev/null || true; \
-		pkill -9 -f "dream_example_rate_limiter" 2>/dev/null || true; \
-		lsof -ti:3000 | xargs kill -9 2>/dev/null || true; \
-		sleep 2; \
+		echo "Stopping the server of an earlier run..."; \
+		../../integration/example-server.sh stop build/server.pid; \
 	fi
 	@echo "Building Gleam application..."
 	@rm -rf build/dev build/prod

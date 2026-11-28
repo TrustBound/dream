@@ -1,6 +1,6 @@
 #!/bin/bash
-# Regenerates manifest.toml in the root project, every module and every
-# example, after dream_socket_server and dream_http_server are on Hex.
+# Regenerates manifest.toml in the root project, every example and the
+# integration bridge, after dream_socket_server and dream_http_server are on Hex.
 #
 #   scripts/after-fork-publish.sh
 #
@@ -26,7 +26,7 @@ REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$REPO_ROOT"
 
 # Each package with the version that dream's gleam.toml needs.
-FORK_RELEASES="dream_socket_server:1.0.0 dream_http_server:1.2.0"
+FORK_RELEASES="dream_socket_server:1.0.0 dream_http_server:1.3.1"
 PAUSE_SECONDS=70
 
 # Step 1: Refuse to run before both packages are on Hex. One request each.
@@ -47,7 +47,7 @@ echo ""
 
 # Step 2: Resolve each project, one at a time.
 projects="."
-for dir in modules/*/ examples/*/ integration/bridge/; do
+for dir in examples/*/ integration/bridge/; do
   if [ -f "$dir/gleam.toml" ]; then
     projects="$projects ${dir%/}"
   fi
@@ -61,7 +61,7 @@ for project in $projects; do
   fi
 
   echo "📦 Resolving $project..."
-  # A project must unlock the local packages it uses (dream and its modules)
+  # A project must unlock the local packages it uses (dream and the modules)
   # and dream_http_server, or an old locked version conflicts with a new
   # version in a gleam.toml.
   unlock=$(grep -o 'name = "[a-z_]*", version = "[^"]*", build_tools = \["gleam"\], requirements = \[[^]]*\], source = "local"' "$project/manifest.toml" 2>/dev/null | sed 's/name = "\([a-z_]*\)".*/\1/' | tr '\n' ' ')
@@ -96,7 +96,7 @@ echo -e "${GREEN}✅ All manifests regenerated.${NC}"
 echo ""
 echo "Check the result:"
 echo "  git diff --stat -- '*manifest.toml'"
-echo "  grep -l dream_http_server manifest.toml modules/*/manifest.toml examples/*/manifest.toml"
+echo "  grep -l dream_http_server manifest.toml examples/*/manifest.toml integration/bridge/manifest.toml"
 echo ""
 echo "Then run the checks and tests:"
 echo "  gleam format --check"

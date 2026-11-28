@@ -1,5 +1,7 @@
 //// Radix Trie - Fast route matching data structure
 ////
+//// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
+////
 //// Provides O(path depth) route lookup instead of O(number of routes) linear search.
 //// This is the core data structure used by Dream's router for efficient route matching.
 ////
@@ -33,11 +35,11 @@
 //// Routes: `/users/:id`, `/users/new`, `/files/**path`
 ////
 //// Tree structure:
-//// ```
+//// ```text illustration
 //// root
-////   └─ users
-////      ├─ new (literal - highest priority)
-////      └─ :id (param - lower priority)
+////   ├─ users
+////   │  ├─ new (literal - highest priority)
+////   │  └─ :id (param - lower priority)
 ////   └─ files
 ////      └─ **path (multi-wildcard - lowest priority)
 //// ```
@@ -483,6 +485,165 @@ fn update_extension_children(
           ..update_extension_children(rest, extensions, new_child)
         ]
       }
+  }
+}
+
+// ============================================================================
+// Trie Listing
+// ============================================================================
+
+/// Every route of the trie, as its method key, its segments and its route
+///
+/// The router uses this list to copy the routes of one router into another
+/// (see `dream/router.scope`). The order of the list is not defined.
+///
+/// A trie node keeps one name for a parameter or a wildcard segment, so
+/// routes that share that node give the same name here, also when their
+/// patterns used different names. The router keeps the names of each route
+/// in its route handler, so that does not change the names that a matched
+/// route gets.
+@internal
+pub fn routes(trie: RadixTrie(route)) -> List(#(String, List(Segment), route)) {
+  node_routes(trie.root, [], [])
+}
+
+/// Adds the routes of a node and of all nodes below it to `found`.
+/// `reversed_path` holds the segments from the root to the node, last first.
+fn node_routes(
+  node: TrieNode(route),
+  reversed_path: List(Segment),
+  found: List(#(String, List(Segment), route)),
+) -> List(#(String, List(Segment), route)) {
+  found
+  |> routes_at_node(dict.to_list(node.routes), list.reverse(reversed_path), _)
+  |> literal_child_routes(dict.to_list(node.literal_children), reversed_path, _)
+  |> literal_extension_child_routes(
+    node.literal_extension_children,
+    reversed_path,
+    _,
+  )
+  |> optional_child_routes(
+    param_child_entry(node.param_child),
+    reversed_path,
+    _,
+  )
+  |> optional_child_routes(
+    wildcard_child_entry(node.wildcard_child),
+    reversed_path,
+    _,
+  )
+  |> optional_child_routes(
+    multi_wildcard_child_entry(node.multi_wildcard_child),
+    reversed_path,
+    _,
+  )
+  |> extension_child_routes(node.extension_children, reversed_path, _)
+}
+
+fn routes_at_node(
+  method_routes: List(#(String, route)),
+  path: List(Segment),
+  found: List(#(String, List(Segment), route)),
+) -> List(#(String, List(Segment), route)) {
+  case method_routes {
+    [] -> found
+    [#(method, route), ..rest] ->
+      routes_at_node(rest, path, [#(method, path, route), ..found])
+  }
+}
+
+fn literal_child_routes(
+  children: List(#(String, TrieNode(route))),
+  reversed_path: List(Segment),
+  found: List(#(String, List(Segment), route)),
+) -> List(#(String, List(Segment), route)) {
+  case children {
+    [] -> found
+    [#(name, child), ..rest] ->
+      literal_child_routes(
+        rest,
+        reversed_path,
+        node_routes(child, [Literal(name), ..reversed_path], found),
+      )
+  }
+}
+
+fn literal_extension_child_routes(
+  children: List(#(String, List(String), TrieNode(route))),
+  reversed_path: List(Segment),
+  found: List(#(String, List(Segment), route)),
+) -> List(#(String, List(Segment), route)) {
+  case children {
+    [] -> found
+    [#(base, extensions, child), ..rest] ->
+      literal_extension_child_routes(
+        rest,
+        reversed_path,
+        node_routes(
+          child,
+          [LiteralExtension(base, extensions), ..reversed_path],
+          found,
+        ),
+      )
+  }
+}
+
+fn extension_child_routes(
+  children: List(#(List(String), TrieNode(route))),
+  reversed_path: List(Segment),
+  found: List(#(String, List(Segment), route)),
+) -> List(#(String, List(Segment), route)) {
+  case children {
+    [] -> found
+    [#(extensions, child), ..rest] ->
+      extension_child_routes(
+        rest,
+        reversed_path,
+        node_routes(
+          child,
+          [ExtensionPattern(extensions), ..reversed_path],
+          found,
+        ),
+      )
+  }
+}
+
+fn optional_child_routes(
+  child: Option(#(Segment, TrieNode(route))),
+  reversed_path: List(Segment),
+  found: List(#(String, List(Segment), route)),
+) -> List(#(String, List(Segment), route)) {
+  case child {
+    None -> found
+    Some(#(segment, node)) ->
+      node_routes(node, [segment, ..reversed_path], found)
+  }
+}
+
+fn param_child_entry(
+  child: Option(#(String, TrieNode(route))),
+) -> Option(#(Segment, TrieNode(route))) {
+  case child {
+    None -> None
+    Some(#(name, node)) -> Some(#(Param(name), node))
+  }
+}
+
+fn wildcard_child_entry(
+  child: Option(#(Option(String), TrieNode(route))),
+) -> Option(#(Segment, TrieNode(route))) {
+  case child {
+    None -> None
+    Some(#(name, node)) -> Some(#(SingleWildcard(name), node))
+  }
+}
+
+fn multi_wildcard_child_entry(
+  child: Option(#(Option(String), TrieNode(route))),
+) -> Option(#(Segment, TrieNode(route))) {
+  case child {
+    None -> None
+    Some(#(name, node)) -> Some(#(MultiWildcard(name), node))
   }
 }
 

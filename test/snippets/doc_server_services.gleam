@@ -16,10 +16,11 @@ pub fn initialize_services() -> Services {
 }
 
 pub fn main() {
-  server.new()
-  |> server.services(initialize_services())
-  |> server.router(my_router())
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.services(initialize_services())
+    |> server.router(my_router())
+    |> server.listen(3000)
 }
 
 pub type Connection {

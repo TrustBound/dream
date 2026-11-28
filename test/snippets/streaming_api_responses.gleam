@@ -3,7 +3,7 @@
 //// A download that streams bytes, a buffered and a streamed report, and an
 //// upload controller that handles stream errors.
 
-import dream/http/request.{type Request, Stream}
+import dream/http/request.{type BodyReadError, type Request, Stream}
 import dream/http/response.{type Response, stream_response, text_response}
 import dream/http/status
 import gleam/bit_array
@@ -40,6 +40,7 @@ pub fn create_streamed_report(line_count: Int) -> Response {
 
 pub type UploadError {
   InvalidChunk
+  UploadBroke(BodyReadError)
 }
 
 pub fn upload(request: Request, _context, _services) -> Response {
@@ -49,26 +50,32 @@ pub fn upload(request: Request, _context, _services) -> Response {
   }
 }
 
-fn respond_to_upload(stream: Yielder(BitArray)) -> Response {
+fn respond_to_upload(
+  stream: Yielder(Result(BitArray, BodyReadError)),
+) -> Response {
   case process_stream_safely(stream) {
     Ok(message) -> text_response(status.ok, message)
     Error(InvalidChunk) ->
       text_response(status.unprocessable_content, "Upload must be UTF-8 text")
+    Error(UploadBroke(_read_error)) ->
+      text_response(status.bad_request, "The upload stopped before its end")
   }
 }
 
 fn process_stream_safely(
-  stream: Yielder(BitArray),
+  stream: Yielder(Result(BitArray, BodyReadError)),
 ) -> Result(String, UploadError) {
   stream
   |> yielder.try_fold(0, validate_and_add_chunk_size)
   |> result.map(format_total_bytes_message)
 }
 
+// An Error item means that the connection broke before the end of the body
 fn validate_and_add_chunk_size(
   total: Int,
-  chunk: BitArray,
+  item: Result(BitArray, BodyReadError),
 ) -> Result(Int, UploadError) {
+  use chunk <- result.try(result.map_error(item, UploadBroke))
   case is_valid_chunk(chunk) {
     True -> Ok(total + bit_array.byte_size(chunk))
     False -> Error(InvalidChunk)

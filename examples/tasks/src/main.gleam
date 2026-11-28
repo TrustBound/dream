@@ -25,10 +25,11 @@ pub fn main() {
     "Starting server on " <> cfg.host <> ":" <> int.to_string(cfg.port),
   )
 
-  server.new()
-  |> server.context(context.new())
-  |> server.services(svc)
-  |> server.router(router.create_router())
-  |> server.bind(cfg.host)
-  |> server.listen(cfg.port)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.context(context.new())
+    |> server.services(svc)
+    |> server.router(router.create_router())
+    |> server.bind(cfg.host)
+    |> server.listen(cfg.port)
 }

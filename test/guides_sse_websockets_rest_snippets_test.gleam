@@ -16,8 +16,9 @@ import dream/router.{type Router, route, router}
 import dream/servers/mist/server
 import dream/servers/mist/sse
 import dream/services/broadcaster
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/bit_array
 import gleam/erlang/process.{type Subject}
@@ -44,7 +45,7 @@ import snippets/websockets_guide_auth
 import snippets/websockets_guide_chat.{ChatMessage}
 import snippets/websockets_guide_router
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("guide snippets", [
     sse_guide_tests(),
     websockets_guide_tests(),
@@ -56,8 +57,8 @@ pub fn tests() -> UnitTest {
 // SSE guide
 // ============================================================================
 
-fn sse_guide_tests() -> UnitTest {
-  describe("sse guide", [
+fn sse_guide_tests() -> UnitNode {
+  group("sse guide", [
     it("the ticker sends tick events with a rising count", fn() {
       // Arrange
       let app_router = sse_guide_router.create_router()
@@ -70,7 +71,7 @@ fn sse_guide_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal(Ok(
+      |> be_equal(Ok(
         "id: 0\nevent: tick\ndata: {\"count\": 0}\n\nid: 1\nevent: tick\ndata: {\"count\": 1}\n\n",
       ))
       |> or_fail_with("the ticker should send count 0 and then count 1")
@@ -87,7 +88,7 @@ fn sse_guide_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal(Ok("data: hello world\n\n"))
+      |> be_equal(Ok("data: hello world\n\n"))
       |> or_fail_with("the minimal event should hold only data")
     }),
     it("build_full_event sends name, id, retry and data", fn() {
@@ -102,7 +103,9 @@ fn sse_guide_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal(Ok("retry: 5000\nid: 42\nevent: tick\ndata: {\"count\": 42}\n\n"))
+      |> be_equal(Ok(
+        "retry: 5000\nid: 42\nevent: tick\ndata: {\"count\": 42}\n\n",
+      ))
       |> or_fail_with("the full event should hold every field")
     }),
     it("the middleware adds the CORS header to the SSE response", fn() {
@@ -117,7 +120,7 @@ fn sse_guide_tests() -> UnitTest {
       // Assert
       header
       |> should()
-      |> equal(Ok(Ok("*")))
+      |> be_equal(Ok(Ok("*")))
       |> or_fail_with(
         "the SSE response should hold Access-Control-Allow-Origin: *",
       )
@@ -133,7 +136,7 @@ fn sse_guide_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal(Ok("id: 0\ndata: hello\n\n"))
+      |> be_equal(Ok("id: 0\ndata: hello\n\n"))
       |> or_fail_with("the client should get the published hello event")
     }),
   ])
@@ -143,8 +146,8 @@ fn sse_guide_tests() -> UnitTest {
 // WebSockets guide
 // ============================================================================
 
-fn websockets_guide_tests() -> UnitTest {
-  describe("websockets guide", [
+fn websockets_guide_tests() -> UnitNode {
+  group("websockets guide", [
     it("initialize starts the chat bus", fn() {
       // Arrange
       let started = websockets_guide_chat.initialize()
@@ -155,7 +158,7 @@ fn websockets_guide_tests() -> UnitTest {
       // Assert
       is_started
       |> should()
-      |> equal(True)
+      |> be_equal(True)
       |> or_fail_with("initialize should return Ok(Services)")
     }),
     it("the chat sends a message back to its sender with the user name", fn() {
@@ -168,7 +171,7 @@ fn websockets_guide_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal(Ok("ada: hello"))
+      |> be_equal(Ok("ada: hello"))
       |> or_fail_with("the chat should reply 'ada: hello'")
     }),
     it("the chat uses Anonymous when the user query parameter is missing", fn() {
@@ -181,7 +184,7 @@ fn websockets_guide_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal(Ok("Anonymous: hello"))
+      |> be_equal(Ok("Anonymous: hello"))
       |> or_fail_with("the chat should reply 'Anonymous: hello'")
     }),
     it("the chat publishes the message and then a leave message", fn() {
@@ -197,7 +200,7 @@ fn websockets_guide_tests() -> UnitTest {
       // Assert
       messages
       |> should()
-      |> equal(
+      |> be_equal(
         Ok([
           ChatMessage(sender: "ada", content: "hello"),
           ChatMessage(sender: "ada", content: "ada left the chat"),
@@ -219,7 +222,7 @@ fn websockets_guide_tests() -> UnitTest {
       // Assert
       messages
       |> should()
-      |> equal(Ok([ChatMessage(sender: "ada", content: "hi")]))
+      |> be_equal(Ok([ChatMessage(sender: "ada", content: "hi")]))
       |> or_fail_with("the subscriber should get ChatMessage(ada, hi)")
     }),
     it("handle_upgrade accepts a valid auth token", fn() {
@@ -232,7 +235,7 @@ fn websockets_guide_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal(Ok("ada: hello"))
+      |> be_equal(Ok("ada: hello"))
       |> or_fail_with("an upgrade with a valid token should reply 'ada: hello'")
     }),
     it("handle_upgrade answers 401 to an unknown auth token", fn() {
@@ -245,7 +248,7 @@ fn websockets_guide_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal(Error("HTTP/1.1 401 Unauthorized"))
+      |> be_equal(Error("HTTP/1.1 401 Unauthorized"))
       |> or_fail_with("an upgrade with an unknown token should get 401")
     }),
     it("handle_upgrade answers 401 when the auth header is missing", fn() {
@@ -258,7 +261,7 @@ fn websockets_guide_tests() -> UnitTest {
       // Assert
       reply
       |> should()
-      |> equal(Error("HTTP/1.1 401 Unauthorized"))
+      |> be_equal(Error("HTTP/1.1 401 Unauthorized"))
       |> or_fail_with("an upgrade with no token should get 401")
     }),
   ])
@@ -362,8 +365,8 @@ fn receive_messages(
 // REST API guide
 // ============================================================================
 
-fn rest_api_guide_tests() -> UnitTest {
-  describe("rest api guide", [
+fn rest_api_guide_tests() -> UnitNode {
+  group("rest api guide", [
     rest_api_pagination_tests(),
     rest_api_cursor_pagination_tests(),
     rest_api_validation_tests(),
@@ -382,8 +385,8 @@ fn rest_api_products() -> List(rest_api_guide_pagination.Product) {
   ]
 }
 
-fn rest_api_pagination_tests() -> UnitTest {
-  describe("pagination", [
+fn rest_api_pagination_tests() -> UnitNode {
+  group("pagination", [
     it("index returns the page that offset and limit select", fn() {
       // Arrange
       let request =
@@ -402,7 +405,7 @@ fn rest_api_pagination_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal(
+      |> be_equal(
         "{\"data\":[{\"id\":2,\"name\":\"Desk\"}],\"offset\":1,\"limit\":1}",
       )
       |> or_fail_with("index should return product 2 only")
@@ -420,7 +423,7 @@ fn rest_api_pagination_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal(
+      |> be_equal(
         "{\"data\":[{\"id\":1,\"name\":\"Lamp\"},{\"id\":2,\"name\":\"Desk\"},{\"id\":3,\"name\":\"Chair\"}],\"offset\":0,\"limit\":20}",
       )
       |> or_fail_with("index should return every product")
@@ -438,8 +441,8 @@ fn cursor_products() -> List(rest_api_guide_cursor_pagination.Product) {
   ]
 }
 
-fn rest_api_cursor_pagination_tests() -> UnitTest {
-  describe("cursor pagination", [
+fn rest_api_cursor_pagination_tests() -> UnitNode {
+  group("cursor pagination", [
     it("list_after with no cursor returns the first page and its cursor", fn() {
       // Arrange
       let products = cursor_products()
@@ -451,7 +454,7 @@ fn rest_api_cursor_pagination_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         Ok(Page(
           items: [Product(id: 1, name: "Lamp"), Product(id: 2, name: "Desk")],
           next_cursor: Some("Mg"),
@@ -470,7 +473,7 @@ fn rest_api_cursor_pagination_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         Ok(Page(
           items: [Product(id: 3, name: "Chair"), Product(id: 4, name: "Shelf")],
           next_cursor: Some("NA"),
@@ -489,7 +492,7 @@ fn rest_api_cursor_pagination_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         Ok(Page(items: [Product(id: 5, name: "Rug")], next_cursor: None)),
       )
       |> or_fail_with("last page should hold id 5 and no cursor")
@@ -507,7 +510,7 @@ fn rest_api_cursor_pagination_tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal(
+        |> be_equal(
           Ok(Page(
             items: [
               Product(id: 3, name: "Chair"),
@@ -531,14 +534,14 @@ fn rest_api_cursor_pagination_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(BadRequest("Invalid cursor")))
+      |> be_equal(Error(BadRequest("Invalid cursor")))
       |> or_fail_with("cursor YWJj decodes to abc and should be rejected")
     }),
   ])
 }
 
-fn rest_api_validation_tests() -> UnitTest {
-  describe("validation", [
+fn rest_api_validation_tests() -> UnitNode {
+  group("validation", [
     it("decoder accepts valid product data", fn() {
       // Arrange
       let body =
@@ -550,7 +553,7 @@ fn rest_api_validation_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         Ok(rest_api_guide_validation.ProductData("Lamp", 30, "A desk lamp")),
       )
       |> or_fail_with("decoder should return the product data")
@@ -565,7 +568,7 @@ fn rest_api_validation_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error("Name cannot be empty"))
+      |> be_equal(Error("Name cannot be empty"))
       |> or_fail_with(
         "validate_product_data should return 'Name cannot be empty'",
       )
@@ -581,7 +584,7 @@ fn rest_api_validation_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error("Price cannot be negative"))
+      |> be_equal(Error("Price cannot be negative"))
       |> or_fail_with(
         "validate_product_data should return 'Price cannot be negative'",
       )
@@ -589,8 +592,8 @@ fn rest_api_validation_tests() -> UnitTest {
   ])
 }
 
-fn rest_api_errors_tests() -> UnitTest {
-  describe("errors", [
+fn rest_api_errors_tests() -> UnitNode {
+  group("errors", [
     it("find_product returns the product with the id", fn() {
       // Arrange
       let products = [
@@ -604,7 +607,7 @@ fn rest_api_errors_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(rest_api_guide_domain_errors.Product(id: 2, name: "Desk")))
+      |> be_equal(Ok(rest_api_guide_domain_errors.Product(id: 2, name: "Desk")))
       |> or_fail_with("find_product should return product 2")
     }),
     it("find_product returns NotFound for an unknown id", fn() {
@@ -617,7 +620,7 @@ fn rest_api_errors_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(NotFound("Product not found")))
+      |> be_equal(Error(NotFound("Product not found")))
       |> or_fail_with("find_product should return NotFound")
     }),
     it("create returns 201 with the new product as JSON", fn() {
@@ -637,7 +640,7 @@ fn rest_api_errors_tests() -> UnitTest {
       // Assert
       #(response.status, response.body)
       |> should()
-      |> equal(#(
+      |> be_equal(#(
         201,
         Text(
           "{\"id\":7,\"name\":\"Lamp\",\"price\":30,\"description\":\"A desk lamp\"}",
@@ -658,7 +661,7 @@ fn rest_api_errors_tests() -> UnitTest {
       // Assert
       #(response.status, response.body)
       |> should()
-      |> equal(#(400, Text("{\"error\":\"Unexpected end of JSON input\"}")))
+      |> be_equal(#(400, Text("{\"error\":\"Unexpected end of JSON input\"}")))
       |> or_fail_with("create should return 400 and the parse message")
     }),
     it("create returns 422 with the validation message", fn() {
@@ -678,14 +681,14 @@ fn rest_api_errors_tests() -> UnitTest {
       // Assert
       #(response.status, response.body)
       |> should()
-      |> equal(#(422, Text("{\"error\":\"Price cannot be negative\"}")))
+      |> be_equal(#(422, Text("{\"error\":\"Price cannot be negative\"}")))
       |> or_fail_with("create should return 422 and the message")
     }),
   ])
 }
 
-fn rest_api_versioning_tests() -> UnitTest {
-  describe("versioning", [
+fn rest_api_versioning_tests() -> UnitNode {
+  group("versioning", [
     it("the router sends /v2/products to the version 2 controller", fn() {
       // Arrange
       let request = test_request.create_request(Get, "/v2/products")
@@ -703,7 +706,7 @@ fn rest_api_versioning_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"version\": \"2\"}")
+      |> be_equal("{\"version\": \"2\"}")
       |> or_fail_with("GET /v2/products should return version 2")
     }),
     it("the router sends /v1/products to the version 1 controller", fn() {
@@ -723,7 +726,7 @@ fn rest_api_versioning_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"version\": \"1\"}")
+      |> be_equal("{\"version\": \"1\"}")
       |> or_fail_with("GET /v1/products should return version 1")
     }),
     it("index uses version 2 when API-Version is 2", fn() {
@@ -742,7 +745,7 @@ fn rest_api_versioning_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"version\": \"2\"}")
+      |> be_equal("{\"version\": \"2\"}")
       |> or_fail_with("API-Version 2 should return version 2")
     }),
     it("index uses version 1 when API-Version is missing", fn() {
@@ -761,7 +764,7 @@ fn rest_api_versioning_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"version\": \"1\"}")
+      |> be_equal("{\"version\": \"1\"}")
       |> or_fail_with("no API-Version should return version 1")
     }),
     it("index returns 400 for an unknown API-Version", fn() {
@@ -780,7 +783,7 @@ fn rest_api_versioning_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("API-Version 3 should return 400")
     }),
   ])
@@ -790,14 +793,14 @@ fn request_with_api_version(headers: List(Header)) -> Request {
   Request(..test_request.create_request(Get, "/products"), headers: headers)
 }
 
-fn rest_api_filtering_tests() -> UnitTest {
+fn rest_api_filtering_tests() -> UnitNode {
   let products = [
     rest_api_guide_filtering.Product("Lamp", "lighting", 30),
     rest_api_guide_filtering.Product("Desk", "furniture", 200),
     rest_api_guide_filtering.Product("Shelf", "furniture", 120),
     rest_api_guide_filtering.Product("Chair", "furniture", 80),
   ]
-  describe("filtering and sorting", [
+  group("filtering and sorting", [
     it("index filters by category and price and sorts by price", fn() {
       // Arrange
       let request =
@@ -816,7 +819,7 @@ fn rest_api_filtering_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal(
+      |> be_equal(
         "[{\"name\":\"Chair\",\"category\":\"furniture\",\"price\":80},{\"name\":\"Shelf\",\"category\":\"furniture\",\"price\":120}]",
       )
       |> or_fail_with("index should return Chair, then Shelf")
@@ -839,7 +842,7 @@ fn rest_api_filtering_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal(
+      |> be_equal(
         "[{\"name\":\"Desk\",\"category\":\"furniture\",\"price\":200},{\"name\":\"Shelf\",\"category\":\"furniture\",\"price\":120}]",
       )
       |> or_fail_with("index should return Desk, then Shelf")
@@ -847,8 +850,8 @@ fn rest_api_filtering_tests() -> UnitTest {
   ])
 }
 
-fn rest_api_cors_tests() -> UnitTest {
-  describe("cors", [
+fn rest_api_cors_tests() -> UnitNode {
+  group("cors", [
     it("cors_middleware adds the CORS headers before the existing ones", fn() {
       // Arrange
       let request = test_request.create_request(Get, "/products")
@@ -865,7 +868,7 @@ fn rest_api_cors_tests() -> UnitTest {
       // Assert
       response.headers
       |> should()
-      |> equal([
+      |> be_equal([
         Header("Access-Control-Allow-Origin", "*"),
         Header(
           "Access-Control-Allow-Methods",
@@ -907,6 +910,23 @@ fn read_until_events(
   event_count: Int,
   timeout: Int,
 ) -> Result(BitArray, String)
+
+/// Starts to trace the messages that `event_bus` gets. The stream sends no
+/// message to the test when it subscribes, so the test sees the
+/// subscription arrive at the broadcaster.
+@external(erlang, "sse_guide_test_ffi", "watch_subscriptions")
+fn watch_subscriptions(
+  event_bus: broadcaster.Broadcaster(sse_guide_broadcast.AppEvent),
+) -> Nil
+
+/// Waits until `event_bus` gets a subscription, at most `timeout`
+/// milliseconds, then stops the trace. A message that the test sends after
+/// it comes after the subscription in the mailbox of the broadcaster.
+@external(erlang, "sse_guide_test_ffi", "await_subscription")
+fn await_subscription(
+  event_bus: broadcaster.Broadcaster(sse_guide_broadcast.AppEvent),
+  timeout: Int,
+) -> Result(Nil, String)
 
 @external(erlang, "sse_guide_test_ffi", "close")
 fn close_socket(socket: Socket) -> Nil
@@ -971,36 +991,15 @@ fn publish_and_read(
   event_bus: broadcaster.Broadcaster(sse_guide_broadcast.AppEvent),
   text: String,
 ) -> Result(String, String) {
+  watch_subscriptions(event_bus)
   use socket <- result.try(open_stream(port, "/events", 2000))
   let received = {
-    use _count <- result.try(wait_for_one_subscriber(event_bus, 300))
+    use Nil <- result.try(await_subscription(event_bus, 3000))
     broadcaster.publish(event_bus, AppEvent(text))
     read_until_events(socket, <<>>, 1, 3000)
   }
   close_socket(socket)
   result.try(received, bit_array_to_string)
-}
-
-/// Asks `event_bus` for its subscriber count every 10 milliseconds until the
-/// count is 1. The broadcaster handles a subscription before it answers a
-/// later count request, so a count of 1 means the stream is subscribed.
-fn wait_for_one_subscriber(
-  event_bus: broadcaster.Broadcaster(sse_guide_broadcast.AppEvent),
-  attempts_remaining: Int,
-) -> Result(Int, String) {
-  use count <- result.try(
-    broadcaster.count_subscribers(event_bus)
-    |> result.replace_error("the broadcaster did not report its subscribers"),
-  )
-  case count, attempts_remaining {
-    1, _ -> Ok(count)
-    _, attempts if attempts <= 1 ->
-      Error("the stream did not subscribe to the broadcaster")
-    _, attempts -> {
-      process.sleep(10)
-      wait_for_one_subscriber(event_bus, attempts - 1)
-    }
-  }
 }
 
 fn start_server(

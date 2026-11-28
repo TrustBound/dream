@@ -1,0 +1,3 @@
+4 times the numbers, 2000 to 8000:
+squares_by_appending does more than 8 times the work: True
+squares does less than 5 times the work: True

@@ -1,51 +1,95 @@
-//// Services
-////
-//// Application-level services for the rate limiter example.
-//// Initializes and manages the rate limiter using dream_ets.
+//// The services of the app: the rate limiter and the clock. One process
+//// owns the tables of the rate limit, lives as long as the app, and deletes the
+//// rows of ended windows once in each window.
 
-import dream_ets/table
+import clock.{type Clock}
+import gleam/erlang/process.{type Subject}
 import gleam/io
-import services/rate_limiter_service
+import gleam/result
+import gleam/string
+import services/rate_limiter_service.{type RateLimitConfig, type RateLimiter}
 
-/// Services type holding the rate limiter
 pub type Services {
-  Services(rate_limiter: rate_limiter_service.RateLimiter)
+  Services(
+    rate_limiter: RateLimiter,
+    clock: Clock,
+    /// The process that owns the tables. Send it `Stop` to end it.
+    table_owner: Subject(OwnerMessage),
+  )
 }
 
-/// Initialize application services
-/// Creates the rate limiter ETS table with default configuration
-pub fn initialize_services() -> Services {
-  case create_rate_limiter() {
-    Ok(limiter) -> Services(rate_limiter: limiter)
-    Error(_) -> panic as "Could not initialize rate limiter service"
+/// The messages of the process that owns the tables
+pub type OwnerMessage {
+  /// Delete the rows of ended windows
+  Sweep
+  /// End the process. The tables go away with it.
+  Stop
+}
+
+/// Starts the process that owns the tables, and gives the services that
+/// hold it.
+pub fn start_services(
+  table_name: String,
+  config: RateLimitConfig,
+  clock: Clock,
+) -> Result(Services, String) {
+  let reply = process.new_subject()
+  process.spawn(fn() { own_tables(table_name, config, clock, reply) })
+  process.receive(reply, within: 5000)
+  |> result.replace_error("The table owner did not start in 5 seconds")
+  |> result.flatten
+}
+
+/// Stops the process that owns the tables
+pub fn stop_services(services: Services) -> Nil {
+  process.send(services.table_owner, Stop)
+}
+
+/// Runs in the owner process: makes the tables, sends the services back,
+/// then sweeps once in each window until it gets `Stop`
+fn own_tables(
+  table_name: String,
+  config: RateLimitConfig,
+  clock: Clock,
+  reply: Subject(Result(Services, String)),
+) -> Nil {
+  let messages = process.new_subject()
+  case rate_limiter_service.new(table_name, config) {
+    Ok(limiter) -> {
+      process.send(
+        reply,
+        Ok(Services(rate_limiter: limiter, clock:, table_owner: messages)),
+      )
+      wait_for_sweep(messages, limiter, clock, config.window_seconds * 1000)
+    }
+    Error(error) -> process.send(reply, Error(string.inspect(error)))
   }
 }
 
-fn create_rate_limiter() -> Result(
-  rate_limiter_service.RateLimiter,
-  table.EtsError,
-) {
-  case
-    rate_limiter_service.new(
-      "rate_limiter",
-      rate_limiter_service.default_config(),
-    )
-  {
-    Ok(limiter) -> {
-      io.println("✓ Rate limiter service initialized")
-      Ok(limiter)
-    }
-    Error(table.TableAlreadyExists) -> {
-      io.println("✓ Rate limiter service already initialized")
-      // Table exists from previous run - recreate the wrapper
-      rate_limiter_service.new(
-        "rate_limiter",
-        rate_limiter_service.default_config(),
-      )
-    }
-    Error(err) -> {
-      io.println("✗ Failed to initialize rate limiter service")
-      Error(err)
-    }
+fn wait_for_sweep(
+  messages: Subject(OwnerMessage),
+  limiter: RateLimiter,
+  clock: Clock,
+  interval_milliseconds: Int,
+) -> Nil {
+  process.send_after(messages, interval_milliseconds, Sweep)
+  case process.receive_forever(messages) {
+    Sweep -> sweep(messages, limiter, clock, interval_milliseconds)
+    Stop -> Nil
+  }
+}
+
+fn sweep(
+  messages: Subject(OwnerMessage),
+  limiter: RateLimiter,
+  clock: Clock,
+  interval_milliseconds: Int,
+) -> Nil {
+  case rate_limiter_service.sweep(limiter, clock.read_time(clock)) {
+    Ok(_deleted) ->
+      wait_for_sweep(messages, limiter, clock, interval_milliseconds)
+    // This process owns the tables, so they cannot be gone here
+    Error(rate_limiter_service.StoreFailed(reason:)) ->
+      io.println_error("The sweep failed: " <> reason)
   }
 }

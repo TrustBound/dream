@@ -25,7 +25,7 @@ pub fn reject_unauthorized(
   _services: Services,
   _next: fn(Request, EmptyContext, Services) -> Response,
 ) -> Response {
-  response.text_response(status.unauthorized, "Forbidden")
+  response.text_response(status.unauthorized, "Unauthorized")
 }
 
 pub fn security_headers(

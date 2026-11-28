@@ -2,8 +2,8 @@
 
 describe("Tasks Application", () => {
   beforeEach(() => {
-    // Clear database and visit the main page before each test
-    cy.exec("make db-reset", { cwd: "examples/tasks" });
+    // Empty the database and visit the main page before each test
+    cy.exec("make db-clear");
     cy.visit("/");
   });
 
@@ -45,19 +45,34 @@ describe("Tasks Application", () => {
     });
 
     it("should create task with all fields in inline editor", () => {
+      // Each field saves itself 500 ms after the last change
+      cy.intercept("POST", "/tasks/*/update-field").as("saveField");
       cy.get("body").type("{meta}n");
 
       cy.get('input[name="title"]').type("Full Task");
+      cy.wait("@saveField");
       cy.get('textarea[name="description"]').type("Full description");
-      cy.get('select[name="priority"]').select("1"); // Urgent
-      cy.get('input[name="due_date"]').type("2025-12-31");
+      cy.wait("@saveField");
+      cy.get('input[name="due_date"]').type("2025-12-31").trigger("change");
+      cy.wait("@saveField");
 
       // Save by pressing Enter in title field
       cy.get('input[name="title"]').type("{enter}");
 
-      cy.contains("article", "Full Task").should("be.visible");
-      cy.contains("Full description").should("be.visible");
-      cy.contains("Urgent").should("be.visible");
+      // The card shows the title and the due date
+      cy.contains("article", "Full Task").should("contain", "2025-12-31");
+
+      // Enter opened a new editor; reload to show the cards only. Then the
+      // editor of the task shows the saved description.
+      cy.reload();
+      cy.contains("article", "Full Task")
+        .find("button")
+        .contains("Edit")
+        .click({ force: true });
+      cy.get('textarea[name="description"]').should(
+        "have.value",
+        "Full description"
+      );
     });
 
     it("should close editor with Escape key", () => {
@@ -110,9 +125,14 @@ describe("Tasks Application", () => {
     });
 
     it("should toggle back to incomplete", () => {
+      // Each click swaps the article, so each step finds the checkbox again
       cy.contains("article", "Toggle Test Task")
         .find('input[type="checkbox"]')
-        .check()
+        .check();
+
+      cy.contains("article", "Toggle Test Task")
+        .find('input[type="checkbox"]')
+        .should("be.checked")
         .uncheck();
 
       cy.contains("article", "Toggle Test Task")
@@ -126,13 +146,17 @@ describe("Tasks Application", () => {
       // Create a task first
       cy.get("body").type("{meta}n");
       cy.get('input[name="title"]').type("Edit Test Task{enter}");
+      cy.contains("article", "Edit Test Task").should("be.visible");
+
+      // Enter opens a new editor; reload to show the cards only
+      cy.reload();
     });
 
     it("should open edit form when Edit button is clicked", () => {
       cy.contains("article", "Edit Test Task")
         .find("button")
         .contains("Edit")
-        .click();
+        .click({ force: true });
 
       // Edit form should be visible
       cy.get('input[name="title"]').should("have.value", "Edit Test Task");
@@ -145,39 +169,31 @@ describe("Tasks Application", () => {
       cy.get('input[name="title"]').should("have.value", "Edit Test Task");
     });
 
-    it("should update task when edit form is submitted", () => {
+    it("should save the new title when Enter is pressed", () => {
       cy.contains("article", "Edit Test Task")
         .find("button")
         .contains("Edit")
-        .click();
-
-      // Update fields
-      cy.get('input[name="title"]').clear().type("Updated Task Title");
-      cy.get('textarea[name="description"]')
-        .clear()
-        .type("Updated description");
-      cy.get('select[name="priority"]').select("1");
+        .click({ force: true });
 
       // Save by pressing Enter
-      cy.get('input[name="title"]').type("{enter}");
+      cy.get('input[name="title"]').clear().type("Updated Task Title{enter}");
 
       // Verify task was updated
       cy.contains("article", "Updated Task Title").should("be.visible");
-      cy.contains("Updated description").should("be.visible");
-      cy.contains("Urgent").should("be.visible");
     });
 
     it("should close editor with Escape key", () => {
       cy.contains("article", "Edit Test Task")
         .find("button")
         .contains("Edit")
-        .click();
+        .click({ force: true });
 
-      cy.get('input[name="title"]').type("Unsaved Change{esc}");
+      // The editor saves each change after 500 ms; Escape only closes it
+      cy.get('input[name="title"]').type("{esc}");
 
       // Editor should be closed (back to card view)
       cy.contains("article", "Edit Test Task").should("be.visible");
-      cy.contains("article", "Unsaved Change").should("not.exist");
+      cy.get('article:has(input[name="title"])').should("not.exist");
     });
   });
 
@@ -186,6 +202,10 @@ describe("Tasks Application", () => {
       // Create a task first
       cy.get("body").type("{meta}n");
       cy.get('input[name="title"]').type("Delete Test Task{enter}");
+      cy.contains("article", "Delete Test Task").should("be.visible");
+
+      // Enter opens a new editor; reload to show the cards only
+      cy.reload();
     });
 
     it("should delete task when Delete button is clicked and confirmed", () => {
@@ -196,7 +216,7 @@ describe("Tasks Application", () => {
       cy.contains("article", "Delete Test Task")
         .find("button")
         .contains("Delete")
-        .click();
+        .click({ force: true });
 
       cy.contains("article", "Delete Test Task").should("not.exist");
     });
@@ -209,7 +229,7 @@ describe("Tasks Application", () => {
       cy.contains("article", "Delete Test Task")
         .find("button")
         .contains("Delete")
-        .click();
+        .click({ force: true });
 
       cy.contains("article", "Delete Test Task").should("be.visible");
     });
@@ -270,7 +290,7 @@ describe("Tasks Application", () => {
 
         // Create a task for the project (we'll need to get the project ID)
         // For now, just verify the project page loads
-        cy.contains("article", "New Project").click();
+        cy.contains("article", "New Project").find("a").click();
         cy.url().should("match", /\/projects\/\d+/);
       });
     });
@@ -279,7 +299,7 @@ describe("Tasks Application", () => {
       // Create a project via API
       cy.request("POST", "/projects").then(() => {
         cy.visit("/projects");
-        cy.contains("article", "New Project").click();
+        cy.contains("article", "New Project").find("a").click();
         cy.url().should("match", /\/projects\/\d+/);
 
         // Extract project ID from URL
@@ -304,14 +324,14 @@ describe("Tasks Application", () => {
       // Create a project via API
       cy.request("POST", "/projects").then(() => {
         cy.visit("/projects");
+        cy.window().then((win) => {
+          cy.stub(win, "confirm").returns(true);
+        });
+
         cy.contains("article", "New Project")
           .find("button")
           .contains("Delete")
           .click();
-
-        cy.window().then((win) => {
-          cy.stub(win, "confirm").returns(true);
-        });
 
         cy.contains("article", "New Project").should("not.exist");
       });

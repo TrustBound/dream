@@ -12,12 +12,14 @@ HTTP client with both streaming and non-streaming requests.
 
 ## Running the Example
 
+### Start the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/streaming/test/integration/start.sh#L3-L4"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 cd examples/streaming
 make run
 ```
 
-Server starts on `http://localhost:3000`
+Server starts on `http://localhost:3003`
 
 ## Endpoints
 
@@ -27,30 +29,41 @@ Server starts on `http://localhost:3000`
 
 ## Example Usage
 
+### Send the requests <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/streaming/test/integration/readme.sh#L3-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
 # Info page
-curl http://localhost:3000/
+curl http://localhost:3003/
 
 # Non-streaming request (waits for full response)
-curl http://localhost:3000/fetch
+curl http://localhost:3003/fetch
 
 # Streaming request (processes chunks as they arrive)
-curl http://localhost:3000/stream
+curl http://localhost:3003/stream
 ```
 
 ## Code Structure
 
+The example has these source files:
+
+### List the source files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/streaming/test/integration/readme.sh#L14"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+find src -type f | sort
 ```
-examples/streaming/
-├── gleam.toml          # Project config
-├── Makefile            # Build and run commands
-└── src/
-    ├── main.gleam     # Application entry point
-    ├── router.gleam   # Route definitions
-    ├── services.gleam  # Empty services
-    └── controllers/
-        └── stream_controller.gleam  # HTTP client usage
+
+### The source files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/streaming/test/integration/readme_output.txt#L20-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+src/controllers/stream_controller.gleam
+src/main.gleam
+src/router.gleam
+src/services.gleam
+src/views/stream_view.gleam
 ```
+
+- `src/controllers/stream_controller.gleam`: the HTTP client calls.
+- `src/views/stream_view.gleam`: text formatting.
 
 ## Key Concepts
 

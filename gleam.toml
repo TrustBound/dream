@@ -8,11 +8,42 @@ links = [
     { title = "GitHub", href = "https://github.com/TrustBound/dream" },
 ]
 
+[documentation]
+# Each guide in docs/guides/ is a page on HexDocs.
+pages = [
+    { title = "Guides", path = "guides/index.html", source = "./docs/guides/index.md" },
+    { title = "Upgrade from Dream 2 to 3", path = "guides/upgrading-to-3.html", source = "./docs/guides/upgrading-to-3.md" },
+    { title = "Build your first Dream server", path = "guides/getting-started.html", source = "./docs/guides/getting-started.md" },
+    { title = "The BEAM for Dream developers", path = "guides/beam.html", source = "./docs/guides/beam.md" },
+    { title = "Instructions for coding agents", path = "guides/agents.html", source = "./docs/agents/AGENTS.md" },
+    { title = "Route requests and add middleware", path = "guides/routing.html", source = "./docs/guides/routing.md" },
+    { title = "Read request data safely", path = "guides/request-data.html", source = "./docs/guides/request-data.md" },
+    { title = "Send responses, cookies and files", path = "guides/responses.html", source = "./docs/guides/responses.md" },
+    { title = "Build a database-backed JSON API", path = "guides/database-api.html", source = "./docs/guides/database-api.md" },
+    { title = "Grow a JSON API", path = "guides/api-patterns.html", source = "./docs/guides/api-patterns.md" },
+    { title = "Load configuration and fail early", path = "guides/configuration.html", source = "./docs/guides/configuration.md" },
+    { title = "Call another API from a controller", path = "guides/calling-other-apis.html", source = "./docs/guides/calling-other-apis.md" },
+    { title = "Add a cache and a rate limit", path = "guides/caching-and-rate-limiting.html", source = "./docs/guides/caching-and-rate-limiting.md" },
+    { title = "Run background work", path = "guides/background-work.html", source = "./docs/guides/background-work.md" },
+    { title = "Add search to a Dream app", path = "guides/search.html", source = "./docs/guides/search.md" },
+    { title = "Render HTML and other formats", path = "guides/templates.html", source = "./docs/guides/templates.md" },
+    { title = "Stream responses and uploads", path = "guides/streaming.html", source = "./docs/guides/streaming.md" },
+    { title = "Push live updates with server-sent events", path = "guides/sse.html", source = "./docs/guides/sse.md" },
+    { title = "Build a chat with WebSockets", path = "guides/websockets.html", source = "./docs/guides/websockets.md" },
+    { title = "Serve HTTPS and HTTP/2", path = "guides/http2.html", source = "./docs/guides/http2.md" },
+    { title = "Test your controllers and your app", path = "guides/testing.html", source = "./docs/guides/testing.md" },
+    { title = "Test a Dream app that calls other APIs", path = "guides/testing-with-recorded-http.html", source = "./docs/guides/testing-with-recorded-http.md" },
+    { title = "Test a Dream app's database code with recorded queries", path = "guides/testing-with-recorded-queries.html", source = "./docs/guides/testing-with-recorded-queries.md" },
+    { title = "Test a Dream app against a fake API", path = "guides/testing-with-a-fake-api.html", source = "./docs/guides/testing-with-a-fake-api.md" },
+    { title = "Deploy with Docker", path = "guides/deployment.html", source = "./docs/guides/deployment.md" },
+    { title = "Start, stop and troubleshoot the server", path = "guides/operating.html", source = "./docs/guides/operating.md" },
+]
+
 [dependencies]
 gleam_stdlib = ">= 1.0.0 and < 2.0.0"
 # dream's HTTP server: a fork of mist 6.0.3 with HTTP/2 fixes, published under
 # its own name with mist's module names.
-dream_http_server = ">= 1.2.0 and < 2.0.0"
+dream_http_server = ">= 2.1.0 and < 3.0.0"
 gleam_http = ">= 4.3.0 and < 5.0.0"
 gleam_otp = ">= 1.2.0 and < 2.0.0"
 gleam_erlang = ">= 1.0.0 and < 2.0.0"
@@ -23,6 +54,78 @@ marceau = ">= 1.3.0 and < 2.0.0"
 simplifile = ">= 2.3.0 and < 3.0.0"
 
 [dev-dependencies]
-squirrel = ">= 4.0.0 and < 5.0.0"
-dream_test = ">= 1.0.3 and < 2.0.0"
-dream_http_client = { path = "modules/http_client" }
+# Pinned to the release commit until 3.0.0 is on Hex.
+dream_test = { git = "https://github.com/TrustBound/dream_test.git", ref = "083e64569552e93ac64f0e8f206dad7bf532c505" }
+# Pinned to the module's move branch until it is on Hex.
+dream_http_client = { git = "https://github.com/TrustBound/dream_http_client.git", ref = "af661517f46417b72b67e84545ba6dcfc04fc59d" }
+# Pinned to the module's move branch until it is on Hex.
+dream_config = { git = "https://github.com/TrustBound/dream_config.git", ref = "0930ab712e5687f98bdb3d9a297acace3b684bec" }
+# Pinned to the module's move branch until it is on Hex.
+dream_json = { git = "https://github.com/TrustBound/dream_json.git", ref = "d375862f3107194c6011879fb6492cd2ced8c533" }
+# Pinned to the module's move branch until it is on Hex.
+dream_opensearch = { git = "https://github.com/TrustBound/dream_opensearch.git", ref = "4af71e43c3d7d04d59c54f2ac6b43af44f3f2799" }
+# TODO: Pinned to the module's move branch until dream_postgres 2.0.0 is on
+# Hex. Then use the Hex version range ">= 2.0.0 and < 3.0.0".
+dream_postgres = { git = "https://github.com/TrustBound/dream_postgres.git", ref = "6653fd483ea6317a7ed20d176a1641cfea0dff29" }
+# Pinned to the module's move branch until it is on Hex.
+dream_snippets = { git = "https://github.com/TrustBound/dream_snippets.git", ref = "96cf9a146a608e5cf82afab23600eec852de3d6b" }
+envoy = ">= 1.0.0 and < 2.0.0"
+dream_postgres_client = ">= 1.0.0 and < 2.0.0"
+
+[tools.dream_snippets]
+# Changelog sections and release notes before this version are history. They are not checked.
+checked_from_version = "3.0.0"
+badge_guide = "docs/contributing/contributing.md"
+# A README guide badge can link to any page under docs/.
+guides = ["docs"]
+# The files that the tests and CI use. A file, command or output block of the
+# docs links one of them.
+tested_files = [
+  "test",
+  ".github",
+  "scripts",
+  "Makefile",
+  "integration",
+  "examples/simplest/test",
+  "examples/simple/test",
+  "examples/custom_context/test",
+  "examples/static/test",
+  "examples/streaming/test",
+  "examples/rate_limiter/test",
+  "examples/database/test",
+  "examples/database/Makefile",
+  "examples/database/docker-compose.yml",
+  "examples/database/priv/migrations",
+  "examples/database/src/sql",
+  "examples/database/gleam.toml",
+  "examples/multi_format/test",
+  "examples/multi_format/Makefile",
+  "examples/streaming_capabilities/test",
+  "examples/websocket_chat/test",
+  "examples/websocket_chat/Makefile",
+  "examples/websocket_chat/assets",
+  "examples/sse/test",
+  "examples/sse/assets",
+  "examples/tasks/test",
+  "examples/deployment/test",
+  "examples/deployment/Dockerfile",
+  "examples/deployment/.dockerignore",
+  "examples/deployment/docker-compose.yml",
+  "examples/tasks/Makefile",
+  "examples/tasks/src/templates",
+  "examples/tasks/cypress",
+  "examples/tasks/cypress.config.ts",
+  "examples/recorded_tests/test",
+  "examples/recorded_tests/gleam.toml",
+  "examples/recorded_tests/Makefile",
+  "examples/recorded_tests/scripts",
+  "examples/recorded_tests/docker-compose.yml",
+  "examples/recorded_tests/priv",
+  "examples/configuration",
+  "examples/outbound_http",
+  "examples/cache",
+  "examples/search",
+  "examples/fake_api",
+  "examples/background_work",
+  "examples/rate_limiter/src",
+]

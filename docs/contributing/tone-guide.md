@@ -250,10 +250,13 @@ Step 3: Create the Model
 
 In `src/models/user.gleam`, add a function that gets one user:
 
-### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
+pub fn get(
+  db: dream_postgres_client.Connection,
+  id: Int,
+) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
     Error(_) -> Error(InternalServerError("Database error"))
@@ -316,7 +319,7 @@ You'll implement:
 - Custom context that holds the authenticated user
 
 ## Prerequisites
-- [Custom context](../learn/03-adding-auth.md) understanding
+- [Custom context](../guides/routing.md) understanding
 - `gleam add jwt` installed
 
 ## Step 1: Define your context
@@ -559,10 +562,13 @@ This code does X by doing Y.
 **Example:**
 
 ````markdown
-### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
+pub fn get(
+  db: dream_postgres_client.Connection,
+  id: Int,
+) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
     Error(_) -> Error(InternalServerError("Database error"))
@@ -575,7 +581,7 @@ This function takes a database connection explicitly as a parameter.
 **Why explicit parameters?** Without them, you'd need globals or 
 process dictionary, neither of which are type-safe in Gleam.
 
-See [Lesson 2: Building an API](../learn/02-building-api.md) for more on Services and [Lesson 3: Adding Auth](../learn/03-adding-auth.md) for custom context.
+See [Build a database-backed JSON API](../guides/database-api.md) for more on Services and [Route requests and add middleware](../guides/routing.md) for custom context.
 ````
 
 ### Headings
@@ -602,12 +608,12 @@ Use consistent heading levels:
 
 **Good:**
 ```markdown
-See [Adding Auth](../learn/03-adding-auth.md) for details.
+See [Route requests and add middleware](../guides/routing.md) for details.
 ```
 
 **Bad:**
 ```markdown
-Click [here](../learn/03-adding-auth.md) for more info.
+Click [here](../guides/routing.md) for more info.
 ```
 
 ---
@@ -685,10 +691,13 @@ Here's an example:
 
 Here's a typical model:
 
-### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
+pub fn get(
+  db: dream_postgres_client.Connection,
+  id: Int,
+) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
     Error(_) -> Error(InternalServerError("Database error"))

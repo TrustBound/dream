@@ -3,23 +3,24 @@
 import dream/http/error.{NotFound}
 import dream/http/params
 import dream/http/request.{Get}
-import dream_test/assertions/should.{
-  be_empty, be_error, be_false, be_none, be_ok, be_some, be_true, contain,
-  contain_string, equal, or_fail_with, should,
+import dream_test/matchers.{
+  be_empty, be_equal, be_error, be_false, be_none, be_ok, be_some, be_true,
+  contain, contain_string, or_fail_with, should,
 }
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/int
 import gleam/option.{Some}
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("assertions", [
     it("checks one value", fn() {
       // All assertions follow the pattern:
       // value |> should() |> matcher() |> or_fail_with("message")
       error.to_status_code(NotFound("User not found"))
       |> should()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("Expected 404")
     }),
     it("chains matchers", fn() {
@@ -32,15 +33,15 @@ pub fn tests() -> UnitTest {
       params.require_int(request, "id")
       |> should()
       |> be_ok()
-      |> equal(42)
+      |> be_equal(42)
       |> or_fail_with("Expected id 42")
     }),
     other_matcher_tests(),
   ])
 }
 
-fn other_matcher_tests() -> UnitTest {
-  describe("other matchers", [
+fn other_matcher_tests() -> UnitNode {
+  group("other matchers", [
     it("be_empty", fn() {
       []
       |> should()
@@ -51,7 +52,7 @@ fn other_matcher_tests() -> UnitTest {
       int.parse("eighty")
       |> should()
       |> be_error()
-      |> equal(Nil)
+      |> be_equal(Nil)
       |> or_fail_with("Expected Error(Nil)")
     }),
     it("be_false", fn() {
@@ -70,7 +71,7 @@ fn other_matcher_tests() -> UnitTest {
       Some(8080)
       |> should()
       |> be_some()
-      |> equal(8080)
+      |> be_equal(8080)
       |> or_fail_with("Expected Some(8080)")
     }),
     it("be_true", fn() {

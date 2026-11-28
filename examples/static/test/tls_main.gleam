@@ -30,9 +30,13 @@ pub fn main() {
 
   io.println("=== STARTING SERVER ON PORT 3000 ===")
 
-  dream.new()
-  |> router(router_instance)
-  |> bind("localhost")
-  |> tls(certfile: "build/test_tls/cert.pem", keyfile: "build/test_tls/key.pem")
-  |> listen(3000)
+  let assert Ok(Nil) =
+    dream.new()
+    |> router(router_instance)
+    |> bind("localhost")
+    |> tls(
+      certfile: "build/test_tls/cert.pem",
+      keyfile: "build/test_tls/key.pem",
+    )
+    |> listen(3000)
 }

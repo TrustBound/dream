@@ -1,5 +1,7 @@
 //// Route configuration and request matching
 ////
+//// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
+////
 //// The router matches incoming requests to controllers based on HTTP method and path patterns.
 //// It uses a radix trie for O(path depth) lookup performance, making it efficient even with
 //// hundreds of routes. The router supports path parameters, wildcards, middleware chains,
@@ -170,6 +172,7 @@ import dream/router/parser
 import dream/router/trie.{type Segment} as trie_module
 import gleam/list
 import gleam/option
+import gleam/order
 import gleam/string
 
 // ============================================================================
@@ -208,7 +211,12 @@ pub type Route(context, services) {
 /// making it performant even with hundreds of routes. It's generic over context
 /// and services types so the type system can verify your whole app.
 pub opaque type Router(context, services) {
-  Router(trie: trie_module.RadixTrie(RouteHandler(context, services)))
+  Router(
+    trie: trie_module.RadixTrie(RouteHandler(context, services)),
+    /// Each method that a route has, once. `allowed_methods` tries them when
+    /// no route matches a request.
+    methods: List(Method),
+  )
 }
 
 /// Internal route handler stored in the trie
@@ -259,8 +267,10 @@ pub type EmptyServices {
 ///   )
 /// }
 /// ```
+///
+/// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
 pub fn router() -> Router(context, services) {
-  Router(trie: trie_module.new())
+  Router(trie: trie_module.new(), methods: [])
 }
 
 /// Add a route to the router
@@ -317,6 +327,8 @@ pub fn router() -> Router(context, services) {
 ///   )
 /// }
 /// ```
+///
+/// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
 pub fn route(
   router_value: Router(context, services),
   method method_value: Method,
@@ -328,7 +340,7 @@ pub fn route(
   ),
 ) -> Router(context, services) {
   let segments = parser.parse_pattern(path_pattern)
-  let method_string = method_to_string(method_value)
+  let method_string = method_key(method_value)
   let middleware_wrappers = list.map(middleware_list, wrap_middleware)
   let param_names = extract_param_names_from_segments(segments)
 
@@ -343,17 +355,23 @@ pub fn route(
   let updated_trie =
     trie_module.insert(router_value.trie, method_string, segments, handler)
 
-  Router(trie: updated_trie)
+  Router(
+    trie: updated_trie,
+    methods: add_method(router_value.methods, method_value),
+  )
 }
 
 /// Add a streaming route to the router
 ///
-/// Registers a route that receives the request body as a stream (Yielder(BitArray))
+/// Registers a route that receives the request body as a stream of `Result` items
 /// instead of a buffered `Text` or `Bytes` body. Use this for large file uploads,
 /// proxying external APIs, or any request body > 10MB.
 ///
-/// The controller receives `request.body` as `Stream(Yielder(BitArray))`.
-/// Process chunks as they arrive without buffering the entire body in memory.
+/// The controller receives `request.body` as
+/// `Stream(Yielder(Result(BitArray, BodyReadError)))`. Process chunks as they
+/// arrive without buffering the entire body in memory. Each item is
+/// `Ok(chunk)`, or one `Error(MalformedBody)` when a read from the
+/// connection fails, and the stream ends after that item.
 ///
 /// ## Example
 ///
@@ -385,6 +403,8 @@ pub fn route(
 /// - Large form submissions
 ///
 /// For regular requests (JSON APIs, forms < 10MB), use `route()` instead.
+///
+/// Guide: [Stream responses and uploads](https://hexdocs.pm/dream/3.0.0/guides/streaming.html).
 pub fn stream_route(
   router_value: Router(context, services),
   method method_value: Method,
@@ -396,7 +416,7 @@ pub fn stream_route(
   ),
 ) -> Router(context, services) {
   let segments = parser.parse_pattern(path_pattern)
-  let method_string = method_to_string(method_value)
+  let method_string = method_key(method_value)
   let middleware_wrappers = list.map(middleware_list, wrap_middleware)
   let param_names = extract_param_names_from_segments(segments)
 
@@ -411,7 +431,170 @@ pub fn stream_route(
   let updated_trie =
     trie_module.insert(router_value.trie, method_string, segments, handler)
 
-  Router(trie: updated_trie)
+  Router(
+    trie: updated_trie,
+    methods: add_method(router_value.methods, method_value),
+  )
+}
+
+/// Add the routes of another router under a path prefix and an entry function
+///
+/// Each route of `inner_router` becomes a route of this router. Its path is
+/// `prefix` followed by the path of the route. When a request matches it,
+/// Dream calls `enter` with the request, this router's context, the services
+/// and `next`. `next` runs the route's own middleware and then its
+/// controller, with the context that `enter` gives to it.
+///
+/// `enter` has the shape of a middleware, but `next` can take a different
+/// context type. This lets controllers in the scope take a context that
+/// holds more, for example a signed-in user. An ordinary middleware also fits
+/// as `enter`, when the context type stays the same. `enter` can answer
+/// without a call to `next`, for example with `401`.
+///
+/// ## Example
+///
+/// `require_member` turns the app's `Context` into a `MemberContext`, or
+/// answers `401`. `cache_for_a_minute` is an ordinary middleware.
+///
+/// ### Add a member area and a plain group <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/guide_routing_scope_app.gleam#L85-L105"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// fn member_routes() -> Router(MemberContext, EmptyServices) {
+///   router()
+///   |> route(method: Get, path: "/", controller: show_profile, middleware: [])
+///   |> route(
+///     method: Get,
+///     path: "/teams/:team_id",
+///     controller: show_team,
+///     middleware: [],
+///   )
+/// }
+///
+/// fn public_routes() -> Router(Context, EmptyServices) {
+///   router()
+///   |> route(method: Get, path: "/about", controller: show_about, middleware: [])
+/// }
+///
+/// pub fn create_router() -> Router(Context, EmptyServices) {
+///   router()
+///   |> scope(path: "/members", with: require_member, routes: member_routes())
+///   |> scope(path: "", with: cache_for_a_minute, routes: public_routes())
+/// }
+/// ```
+///
+/// ## Rules
+///
+/// - **Prefix.** Dream splits the prefix and the route path at each `/`,
+///   drops the empty parts, and joins the two lists. So a slash at the start
+///   or the end of the prefix does not matter: `"/admin"`, `"admin"` and
+///   `"/admin/"` are the same prefix. `"/admin"` with the route `"/"` gives
+///   `/admin`, and with `"/users/:id"` it gives `/admin/users/:id`. Give
+///   `path: ""` to group routes with no prefix.
+/// - **Parameters.** The prefix can have parameters and wildcards, as a route
+///   path can. The controller gets the parameters of the prefix first, then
+///   those of the route. Give each parameter a name that is not used again
+///   in the full path: `get_param` finds the first parameter of a name.
+/// - **Order.** On the way in, `enter` runs first, then the middleware of the
+///   route in list order, then the controller. A scope in a scope runs the
+///   `enter` of the outer scope first.
+/// - **Streaming.** A route that `stream_route` added stays a streaming
+///   route.
+/// - **No match.** Routes from a scope give `404` and `405` (with `Allow`)
+///   as other routes do, and `allowed_methods` lists their methods.
+/// - **The same method and path.** The route added last replaces the other,
+///   as with `route`. A route from a scope replaces an earlier route of this
+///   router, and a later `route` call replaces a route from a scope.
+/// - `find_route` gives a route from a scope with an empty `middleware` list:
+///   its `controller` runs `enter`, the route's middleware and its
+///   controller.
+///
+/// Guide: [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html).
+pub fn scope(
+  router_value: Router(outer, services),
+  path prefix: String,
+  with enter: fn(
+    Request,
+    outer,
+    services,
+    fn(Request, inner, services) -> Response,
+  ) -> Response,
+  routes inner_router: Router(inner, services),
+) -> Router(outer, services) {
+  let prefix_segments = parser.parse_pattern(prefix)
+  let prefix_param_names = extract_param_names_from_segments(prefix_segments)
+  let updated_trie =
+    insert_scoped_routes(
+      router_value.trie,
+      trie_module.routes(inner_router.trie),
+      prefix_segments,
+      prefix_param_names,
+      enter,
+    )
+
+  Router(
+    trie: updated_trie,
+    methods: list.fold(inner_router.methods, router_value.methods, add_method),
+  )
+}
+
+/// Inserts each route of a scope at its prefixed path
+fn insert_scoped_routes(
+  trie: trie_module.RadixTrie(RouteHandler(outer, services)),
+  inner_routes: List(#(String, List(Segment), RouteHandler(inner, services))),
+  prefix_segments: List(Segment),
+  prefix_param_names: List(String),
+  enter: fn(Request, outer, services, fn(Request, inner, services) -> Response) ->
+    Response,
+) -> trie_module.RadixTrie(RouteHandler(outer, services)) {
+  case inner_routes {
+    [] -> trie
+    [#(method_string, segments, handler), ..rest] -> {
+      let scoped = scoped_handler(handler, prefix_param_names, enter)
+      let updated_trie =
+        trie_module.insert(
+          trie,
+          method_string,
+          list.append(prefix_segments, segments),
+          scoped,
+        )
+      insert_scoped_routes(
+        updated_trie,
+        rest,
+        prefix_segments,
+        prefix_param_names,
+        enter,
+      )
+    }
+  }
+}
+
+/// The handler of a route from a scope: `enter`, then the route's own chain
+fn scoped_handler(
+  handler: RouteHandler(inner, services),
+  prefix_param_names: List(String),
+  enter: fn(Request, outer, services, fn(Request, inner, services) -> Response) ->
+    Response,
+) -> RouteHandler(outer, services) {
+  RouteHandler(
+    controller: enter_scope(
+      enter,
+      build_controller_chain(handler.middleware, handler.controller),
+    ),
+    middleware: [],
+    streaming: handler.streaming,
+    param_names: list.append(prefix_param_names, handler.param_names),
+  )
+}
+
+/// A controller that calls `enter` with the route's chain as `next`
+fn enter_scope(
+  enter: fn(Request, outer, services, fn(Request, inner, services) -> Response) ->
+    Response,
+  inner_chain: fn(Request, inner, services) -> Response,
+) -> fn(Request, outer, services) -> Response {
+  fn(request, context, services) {
+    enter(request, context, services, inner_chain)
+  }
 }
 
 // ============================================================================
@@ -465,7 +648,7 @@ pub fn find_route(
   router_value: Router(context, services),
   request: Request,
 ) -> option.Option(#(Route(context, services), List(#(String, String)))) {
-  let method_string = method_to_string(request.method)
+  let method_string = method_key(request.method)
   let path_segments = split_path(request.path)
 
   case trie_module.lookup(router_value.trie, method_string, path_segments) {
@@ -487,6 +670,74 @@ pub fn find_route(
       option.Some(#(route, remapped_params))
     }
     option.None -> option.None
+  }
+}
+
+/// The methods of the routes that match the request's path
+///
+/// Gives each method for which a route matches the path of the request, in
+/// alphabetical order of the method names, so `["DELETE", "GET", "POST"]`
+/// for routes of `GET`, `POST` and `DELETE`. Gives `[]` when no route
+/// matches the path. The method of the request does not matter. A path can
+/// match more than one route pattern: a `GET` route of `/users/new` and a
+/// `POST` route of `/users/:id` both match `/users/new`, so it gets `GET`
+/// and `POST`.
+///
+/// Dream answers a request whose path matches a route, but not with the
+/// request's method, with `405 Method Not Allowed` and these methods in the
+/// `Allow` header. A request whose path matches no route gets `404`.
+///
+/// It runs one route lookup for each method of the router, so call it only
+/// when `find_route` found no route.
+///
+/// ## Example
+///
+/// ### Find the methods of a path <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router.gleam#L125-L138"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// pub fn item_methods(request) {
+///   let app_router =
+///     router()
+///     |> route(method: Get, path: "/items/:id", controller: home, middleware: [])
+///     |> route(
+///       method: Delete,
+///       path: "/items/:id",
+///       controller: home,
+///       middleware: [],
+///     )
+///
+///   // POST /items/7 gives [Delete, Get], and POST /users gives []
+///   allowed_methods(app_router, request)
+/// }
+/// ```
+pub fn allowed_methods(
+  router_value: Router(context, services),
+  request: Request,
+) -> List(Method) {
+  let path_segments = split_path(request.path)
+  router_value.methods
+  |> list.filter(fn(method) {
+    option.is_some(trie_module.lookup(
+      router_value.trie,
+      method_key(method),
+      path_segments,
+    ))
+  })
+  |> list.sort(compare_method_names)
+}
+
+fn compare_method_names(first: Method, second: Method) -> order.Order {
+  string.compare(
+    request.method_to_string(first),
+    request.method_to_string(second),
+  )
+}
+
+/// Adds a method to the list of the router's methods when it is not there yet
+fn add_method(methods: List(Method), method: Method) -> List(Method) {
+  case list.contains(methods, method) {
+    True -> methods
+    False -> [method, ..methods]
   }
 }
 
@@ -540,19 +791,17 @@ fn extract_param_name_from_segment(segment: Segment) -> option.Option(String) {
 /// from the route's param names when routes share param positions). This function
 /// remaps them to the correct names based on the matched route's param_names.
 ///
-/// Both lists should be in path order (first param first).
+/// Both lists are in path order (first param first) and have the same length:
+/// the route gives one name for each param that the trie extracted.
 fn remap_params_to_route_names(
   extracted_params: List(#(String, String)),
   route_param_names: List(String),
 ) -> List(#(String, String)) {
-  case extracted_params, route_param_names {
-    [], _ -> []
-    _, [] -> extracted_params
-    [#(_old_name, value), ..rest_params], [new_name, ..rest_names] -> {
-      let remapped_rest = remap_params_to_route_names(rest_params, rest_names)
-      [#(new_name, value), ..remapped_rest]
-    }
-  }
+  list.map2(extracted_params, route_param_names, rename_param)
+}
+
+fn rename_param(param: #(String, String), name: String) -> #(String, String) {
+  #(name, param.1)
 }
 
 // ============================================================================
@@ -575,6 +824,37 @@ fn remap_params_to_route_names(
 /// ## Returns
 ///
 /// A composed function that applies all middleware and the controller
+///
+/// ## Example
+///
+/// ### Wrap a controller in middleware <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router_build_controller_chain.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
+/// ```gleam
+/// import dream/http/request.{type Request}
+/// import dream/http/response.{type Response, Text, text_response}
+/// import dream/http/status.{ok}
+/// import dream/router.{type Middleware, Middleware, build_controller_chain}
+///
+/// fn controller(_request: Request, _context, _services) -> Response {
+///   text_response(ok, "controller")
+/// }
+///
+/// fn wrap(label: String) -> Middleware(context, services) {
+///   Middleware(fn(request, context, services, next) {
+///     let response = next(request, context, services)
+///     case response.body {
+///       Text(body) -> text_response(response.status, label <> "(" <> body <> ")")
+///       _ -> response
+///     }
+///   })
+/// }
+///
+/// pub fn handle(request: Request) -> Response {
+///   let chain = build_controller_chain([wrap("outer"), wrap("inner")], controller)
+///   // The first middleware is the outermost: "outer(inner(controller))"
+///   chain(request, Nil, Nil)
+/// }
+/// ```
 pub fn build_controller_chain(
   middleware: List(Middleware(context, services)),
   final_controller: fn(Request, context, services) -> Response,
@@ -662,7 +942,12 @@ fn wrap_middleware(
   Middleware(middleware_function)
 }
 
-/// Convert an HTTP method to its string representation
-fn method_to_string(method: Method) -> String {
-  request.method_to_string(method)
+/// The trie key of a method. `Other` gets a space before its name. A space
+/// cannot be part of a method token, so `Other("GET")` never shares the key
+/// of `Get`, and a route matches only a request with an equal method.
+fn method_key(method: Method) -> String {
+  case method {
+    request.Other(name) -> " " <> name
+    _ -> request.method_to_string(method)
+  }
 }

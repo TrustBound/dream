@@ -43,3 +43,8 @@ Feature: Server-Sent Events
         And I wait for 5 events
         Then all 5 events should arrive within 10 seconds
         And each event should have a "data" field
+
+    Scenario: The browser client of the guide is served
+        When I send a GET request to "/client.js"
+        Then the response status should be 200
+        And the response header "content-type" should contain "javascript"

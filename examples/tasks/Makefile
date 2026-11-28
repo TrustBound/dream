@@ -1,27 +1,24 @@
 # Docker Compose database connection URL
 DATABASE_URL = postgres://postgres:postgres@localhost:5437/tasks_db
 
-.PHONY: run test test-integration test-e2e e2e-install e2e-open e2e-run e2e-test e2e-clean clean db-up db-down db-logs db-shell db-reset squirrel matcha migrate migrate-up migrate-down migrate-new build
+.PHONY: run test test-integration test-e2e e2e-install e2e-open e2e-run e2e-test e2e-clean clean db-up db-down db-logs db-shell db-reset db-clear squirrel matcha migrate migrate-up migrate-down migrate-new build
 
 run:
 	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m main
 
 test:
-	@gleam test
+	@make test-integration
 
 test-integration:
 	@echo "=== Running integration tests ==="
-	@echo "Killing any existing servers..."
-	@pkill -9 -f "gleam run.*main" 2>/dev/null || true
-	@pkill -9 -f "tasks_example" 2>/dev/null || true
-	@lsof -ti:3000 | xargs kill -9 2>/dev/null || true
-	@sleep 1
+	@echo "Stopping the server of an earlier run..."
+	@../../integration/example-server.sh stop build/server.pid
 	@echo "Starting database..."
-	@make db-up > /dev/null 2>&1 || true
+	@if [ -z "$$CI" ]; then make db-up > /dev/null 2>&1 || true; else echo "Using the PostgreSQL service of CI"; fi
 	@echo "Running migrations..."
 	@export DATABASE_URL="$(DATABASE_URL)" && make migrate > /dev/null 2>&1
 	@echo "Generating SQL code..."
-	@export DATABASE_URL="$(DATABASE_URL)" && make squirrel > /dev/null 2>&1
+	@sh test/integration/sql.sh
 	@echo "Compiling matcha templates..."
 	@make matcha > /dev/null 2>&1
 	@echo "Building Gleam application..."
@@ -33,7 +30,7 @@ test-integration:
 	FIRST_EXIT=$$?; \
 	../../integration/run-scenarios.sh tasks 3000 tls_main http2; \
 	SECOND_EXIT=$$?; \
-	make db-down > /dev/null 2>&1 || true; \
+	if [ -z "$$CI" ]; then make db-down > /dev/null 2>&1 || true; fi; \
 	[ $$FIRST_EXIT -eq 0 ] && [ $$SECOND_EXIT -eq 0 ]
 
 clean:
@@ -46,13 +43,18 @@ clean:
 db-up:
 	@docker-compose up -d
 	@echo "Waiting for PostgreSQL to be ready..."
-	@timeout 30 bash -c 'until docker-compose exec -T postgres pg_isready -U postgres; do sleep 1; done' || true
+	@for i in $$(seq 1 30); do docker-compose exec -T postgres pg_isready -U postgres > /dev/null 2>&1 && break; sleep 1; done
 
 db-down:
 	@docker-compose down
 
 db-logs:
 	@docker-compose logs -f
+
+# Delete the rows of every table of the app. The Cypress tests run it before
+# each test. Needs psql, the PostgreSQL client.
+db-clear:
+	@psql "$(DATABASE_URL)" -q -c "TRUNCATE task_tags, tasks, tags, projects RESTART IDENTITY CASCADE;"
 
 db-shell:
 	@docker-compose exec postgres psql -U postgres -d tasks_db
@@ -61,7 +63,7 @@ db-reset:
 	@docker-compose down -v
 	@docker-compose up -d
 	@echo "Waiting for PostgreSQL to be ready..."
-	@timeout 30 bash -c 'until docker-compose exec -T postgres pg_isready -U postgres; do sleep 1; done' || true
+	@for i in $$(seq 1 30); do docker-compose exec -T postgres pg_isready -U postgres > /dev/null 2>&1 && break; sleep 1; done
 	@export DATABASE_URL="$(DATABASE_URL)" && make migrate > /dev/null 2>&1 || true
 
 create-project-in-db:
@@ -73,13 +75,13 @@ create-task-in-db:
 create-tag-in-db:
 	@export DATABASE_URL="$(DATABASE_URL)" && docker-compose exec -T postgres psql -U postgres -d tasks_db -c "INSERT INTO tags (name, created_at) VALUES ('$(NAME)', NOW()) RETURNING id;" || true
 
-# Generate type-safe SQL code with Squirrel
+# Generate type-safe SQL code with dream_sql_generator
 squirrel:
-	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m squirrel
+	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m dream_sql_generator
 
 # Compile Matcha templates
 matcha:
-	@matcha
+	@matcha && gleam format src
 
 # Migration commands using cigogne
 migrate:
@@ -115,13 +117,10 @@ e2e-test:
 	@echo "=== Running E2E tests ==="
 	@echo "Installing dependencies..."
 	@npm install > /dev/null 2>&1 || true
-	@echo "Killing any existing servers..."
-	@pkill -9 -f "gleam run.*main" 2>/dev/null || true
-	@pkill -9 -f "tasks_example" 2>/dev/null || true
-	@lsof -ti:3000 | xargs kill -9 2>/dev/null || true
-	@sleep 1
+	@echo "Stopping the server of an earlier run..."
+	@../../integration/example-server.sh stop build/server.pid
 	@echo "Starting database..."
-	@make db-up > /dev/null 2>&1 || true
+	@if [ -z "$$CI" ]; then make db-up > /dev/null 2>&1 || true; else echo "Using the PostgreSQL service of CI"; fi
 	@echo "Running migrations..."
 	@export DATABASE_URL="$(DATABASE_URL)" && make migrate > /dev/null 2>&1
 	@echo "Generating SQL code..."
@@ -132,8 +131,10 @@ e2e-test:
 	@rm -rf build/dev build/prod
 	@output=$$(make build 2>&1) || { echo "$$output"; exit 1; }
 	@echo "Starting server in background..."
-	@export DATABASE_URL="$(DATABASE_URL)" && gleam run -m main > /tmp/tasks_e2e.log 2>&1 &
-	@SERVER_PID=$$!; \
+	@export DATABASE_URL="$(DATABASE_URL)"; \
+	../../integration/example-server.sh start build/server.pid /tmp/tasks_e2e.log 3000 \
+		gleam run -m main \
+		|| { if [ -z "$$CI" ]; then make db-down > /dev/null 2>&1 || true; fi; exit 1; }; \
 	echo "Waiting for server to be ready..."; \
 	for i in $$(seq 1 30); do \
 		if curl -s http://localhost:3000/ > /dev/null 2>&1; then \
@@ -143,8 +144,8 @@ e2e-test:
 		if [ $$i -eq 30 ]; then \
 			echo "Server failed to start"; \
 			tail -20 /tmp/tasks_e2e.log; \
-			kill $$SERVER_PID 2>/dev/null || true; \
-			make db-down > /dev/null 2>&1 || true; \
+			../../integration/example-server.sh stop build/server.pid; \
+			if [ -z "$$CI" ]; then make db-down > /dev/null 2>&1 || true; fi; \
 			exit 1; \
 		fi; \
 		sleep 1; \
@@ -153,8 +154,8 @@ e2e-test:
 	npm run test:e2e; \
 	TEST_EXIT=$$?; \
 	echo "Stopping server..."; \
-	kill $$SERVER_PID 2>/dev/null || true; \
-	make db-down > /dev/null 2>&1 || true; \
+	../../integration/example-server.sh stop build/server.pid; \
+	if [ -z "$$CI" ]; then make db-down > /dev/null 2>&1 || true; fi; \
 	exit $$TEST_EXIT
 
 e2e-clean:

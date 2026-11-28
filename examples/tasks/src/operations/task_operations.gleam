@@ -4,10 +4,10 @@
 //// It returns Result types with dream.Error.
 
 import dream/http/error.{type Error}
+import dream_postgres_client.{type Connection}
 import gleam/result
 import models/tag/tag_model
 import models/task/task_model
-import pog.{type Connection}
 import types/tag.{type Tag}
 import types/task.{type Task, type TaskData}
 

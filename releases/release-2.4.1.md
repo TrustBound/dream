@@ -27,7 +27,7 @@ If middleware returns a non-200 status (e.g., 401 from an auth check), the upgra
 
 ### Before (broken)
 
-```
+```text
 Controller -> upgrade_to_sse() -> Mist sends bare 200 headers immediately
 Middleware -> adds CORS headers to dummy response (too late, already on wire)
 Handler -> returns Mist response (CORS headers discarded)
@@ -35,7 +35,7 @@ Handler -> returns Mist response (CORS headers discarded)
 
 ### After (fixed)
 
-```
+```text
 Controller -> upgrade_to_sse() -> stashes upgrade thunk, returns dummy response
 Middleware -> adds CORS headers to dummy response
 Handler -> extracts headers from response, calls upgrade thunk with CORS headers

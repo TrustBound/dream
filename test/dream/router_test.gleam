@@ -2,15 +2,16 @@
 
 import dream/context
 import dream/http/header.{Header}
-import dream/http/request.{Get, Patch, Post, Put}
+import dream/http/request.{Get, Other, Patch, Post, Put}
 import dream/http/response.{Response}
 import dream/router.{
   build_controller_chain, find_route, route, router, stream_route,
 }
-import dream_test/assertions/should.{
-  be_none, be_some, be_true, equal, have_length, or_fail_with, should,
+import dream_test/matchers.{
+  be_equal, be_none, be_some, be_true, have_length, or_fail_with, should,
 }
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/handler.{literal_handler, param_handler, test_handler}
 import fixtures/request as test_request
 import matchers/extract_header_name_at_index.{extract_header_name_at_index}
@@ -21,7 +22,7 @@ import matchers/extract_streaming_flag.{extract_streaming_flag}
 // Tests
 // ============================================================================
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("router", [
     streaming_flag_tests(),
     basic_route_tests(),
@@ -35,11 +36,12 @@ pub fn tests() -> UnitTest {
     extension_stripping_tests(),
     backtracking_tests(),
     regression_tests(),
+    unnamed_wildcard_tests(),
   ])
 }
 
-fn streaming_flag_tests() -> UnitTest {
-  describe("streaming flag", [
+fn streaming_flag_tests() -> UnitNode {
+  group("streaming flag", [
     it("stream_route with POST sets streaming to true", fn() {
       // Arrange
       let test_router =
@@ -109,14 +111,14 @@ fn streaming_flag_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_streaming_flag()
-      |> equal(False)
+      |> be_equal(False)
       |> or_fail_with("streaming flag should be false")
     }),
   ])
 }
 
-fn basic_route_tests() -> UnitTest {
-  describe("basic routing", [
+fn basic_route_tests() -> UnitNode {
+  group("basic routing", [
     it("empty router returns None", fn() {
       // Arrange
       let test_router = router()
@@ -184,8 +186,8 @@ fn basic_route_tests() -> UnitTest {
   ])
 }
 
-fn parameter_tests() -> UnitTest {
-  describe("parameter extraction", [
+fn parameter_tests() -> UnitNode {
+  group("parameter extraction", [
     it("extracts single parameter", fn() {
       // Arrange
       let test_router =
@@ -201,7 +203,7 @@ fn parameter_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("id", "123")])
+      |> be_equal([#("id", "123")])
       |> or_fail_with("Should extract id parameter")
     }),
     it("extracts multiple parameters in path order", fn() {
@@ -219,7 +221,7 @@ fn parameter_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("user_id", "123"), #("post_id", "456")])
+      |> be_equal([#("user_id", "123"), #("post_id", "456")])
       |> or_fail_with("Should extract params in path order")
     }),
     it("extracts parameter with special characters", fn() {
@@ -237,7 +239,7 @@ fn parameter_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("slug", "john-doe")])
+      |> be_equal([#("slug", "john-doe")])
       |> or_fail_with("Should extract slug with hyphen")
     }),
     it("extracts numeric parameter", fn() {
@@ -255,14 +257,14 @@ fn parameter_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("count", "999")])
+      |> be_equal([#("count", "999")])
       |> or_fail_with("Should extract numeric value as string")
     }),
   ])
 }
 
-fn wildcard_tests() -> UnitTest {
-  describe("wildcard routes", [
+fn wildcard_tests() -> UnitNode {
+  group("wildcard routes", [
     it("matches wildcard single segment", fn() {
       // Arrange
       let test_router =
@@ -278,7 +280,7 @@ fn wildcard_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("path", "document")])
+      |> be_equal([#("path", "document")])
       |> or_fail_with("Should capture single segment")
     }),
     it("matches multi-wildcard for multiple segments", fn() {
@@ -297,7 +299,7 @@ fn wildcard_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("path", "dir/subdir/file.txt")])
+      |> be_equal([#("path", "dir/subdir/file.txt")])
       |> or_fail_with("Should capture full path")
     }),
     it("wildcard with extension preserves extension", fn() {
@@ -315,7 +317,7 @@ fn wildcard_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("filename", "document.pdf")])
+      |> be_equal([#("filename", "document.pdf")])
       |> or_fail_with("Wildcard should capture full segment")
     }),
     it("wildcard with multiple dots", fn() {
@@ -334,7 +336,7 @@ fn wildcard_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("filename", "file.backup.tar.gz")])
+      |> be_equal([#("filename", "file.backup.tar.gz")])
       |> or_fail_with("Should capture full filename with multiple dots")
     }),
     it("wildcard with hidden files", fn() {
@@ -352,14 +354,14 @@ fn wildcard_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("filename", ".hidden")])
+      |> be_equal([#("filename", ".hidden")])
       |> or_fail_with("Should capture hidden file")
     }),
   ])
 }
 
-fn extension_pattern_tests() -> UnitTest {
-  describe("extension patterns", [
+fn extension_pattern_tests() -> UnitNode {
+  group("extension patterns", [
     it("matches literal extension pattern for json", fn() {
       // Arrange
       let test_router =
@@ -455,14 +457,14 @@ fn extension_pattern_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("id", "1.json")])
+      |> be_equal([#("id", "1.json")])
       |> or_fail_with("Param should preserve extension for format detection")
     }),
   ])
 }
 
-fn precedence_tests() -> UnitTest {
-  describe("route precedence", [
+fn precedence_tests() -> UnitNode {
+  group("route precedence", [
     it("literal route takes precedence over param", fn() {
       // Arrange
       let test_router =
@@ -479,7 +481,7 @@ fn precedence_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([])
+      |> be_equal([])
       |> or_fail_with("Literal route should have no params")
     }),
     it("param route matches non-literal", fn() {
@@ -498,7 +500,7 @@ fn precedence_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("id", "123")])
+      |> be_equal([#("id", "123")])
       |> or_fail_with("Param route should capture id")
     }),
     it("extension pattern takes precedence over param route", fn() {
@@ -517,7 +519,7 @@ fn precedence_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([])
+      |> be_equal([])
       |> or_fail_with("Extension pattern should match with no params")
     }),
     it("param route matches non-pattern extensions", fn() {
@@ -536,14 +538,14 @@ fn precedence_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("name", "document.pdf")])
+      |> be_equal([#("name", "document.pdf")])
       |> or_fail_with("Param route should capture .pdf with extension")
     }),
   ])
 }
 
-fn method_matching_tests() -> UnitTest {
-  describe("method matching", [
+fn method_matching_tests() -> UnitNode {
+  group("method matching", [
     it("does not match wrong method", fn() {
       // Arrange
       let test_router =
@@ -577,14 +579,80 @@ fn method_matching_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("id", "123")])
+      |> be_equal([#("id", "123")])
       |> or_fail_with("PUT should match with id param")
+    }),
+    it("matches a route for another method by its exact name", fn() {
+      // Arrange
+      let test_router =
+        router()
+        |> route(Other("PURGE"), "/cache", test_handler, [])
+      let request = test_request.create_request(Other("PURGE"), "/cache")
+
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> extract_route_params()
+      |> be_equal([])
+      |> or_fail_with("PURGE /cache should match the PURGE route")
+    }),
+    it("does not match another method to a GET route", fn() {
+      // Arrange
+      let test_router =
+        router()
+        |> route(Get, "/", test_handler, [])
+      let request = test_request.create_request(Other("PURGE"), "/")
+
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
+      |> should()
+      |> be_none()
+      |> or_fail_with("PURGE should not match a GET route")
+    }),
+    it("does not match an Other route to the method of the same name", fn() {
+      // Arrange
+      let test_router =
+        router()
+        |> route(Other("GET"), "/", test_handler, [])
+      let request = test_request.create_request(Get, "/")
+
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
+      |> should()
+      |> be_none()
+      |> or_fail_with("Other(\"GET\") is not the method Get")
+    }),
+    it("matches method names with their case", fn() {
+      // Arrange
+      let test_router =
+        router()
+        |> route(Other("PURGE"), "/cache", test_handler, [])
+      let request = test_request.create_request(Other("purge"), "/cache")
+
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
+      |> should()
+      |> be_none()
+      |> or_fail_with("Method names are case-sensitive")
     }),
   ])
 }
 
-fn middleware_chain_tests() -> UnitTest {
-  describe("middleware chain", [
+fn middleware_chain_tests() -> UnitNode {
+  group("middleware chain", [
     it("route with empty middleware list works", fn() {
       // Arrange
       let test_router =
@@ -613,7 +681,7 @@ fn middleware_chain_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(200)
+      |> be_equal(200)
       |> or_fail_with("Controller should return 200")
     }),
     it("middleware wraps controller and adds header", fn() {
@@ -666,7 +734,7 @@ fn middleware_chain_tests() -> UnitTest {
       response.headers
       |> should()
       |> extract_header_name_at_index(0)
-      |> equal("X-Custom")
+      |> be_equal("X-Custom")
       |> or_fail_with("First header should be X-Custom")
     }),
     it("multiple middleware execute in order (first wraps second)", fn() {
@@ -703,7 +771,7 @@ fn middleware_chain_tests() -> UnitTest {
       response.headers
       |> should()
       |> extract_header_name_at_index(0)
-      |> equal("X-First")
+      |> be_equal("X-First")
       |> or_fail_with("First header should be X-First")
     }),
     it("second middleware header comes after first", fn() {
@@ -740,14 +808,14 @@ fn middleware_chain_tests() -> UnitTest {
       response.headers
       |> should()
       |> extract_header_name_at_index(1)
-      |> equal("X-Second")
+      |> be_equal("X-Second")
       |> or_fail_with("Second header should be X-Second")
     }),
   ])
 }
 
-fn parameter_remapping_tests() -> UnitTest {
-  describe("parameter remapping", [
+fn parameter_remapping_tests() -> UnitNode {
+  group("parameter remapping", [
     it(
       "routes with different param names at same position use correct names",
       fn() {
@@ -766,7 +834,7 @@ fn parameter_remapping_tests() -> UnitTest {
         |> should()
         |> be_some()
         |> extract_route_params()
-        |> equal([#("id", "123")])
+        |> be_equal([#("id", "123")])
         |> or_fail_with("Should extract 'id' (route's declared param name)")
       },
     ),
@@ -786,7 +854,7 @@ fn parameter_remapping_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("user_id", "123")])
+      |> be_equal([#("user_id", "123")])
       |> or_fail_with("Should extract 'user_id' (route's declared param name)")
     }),
     it("multiple params extract with correct names for first route", fn() {
@@ -805,7 +873,7 @@ fn parameter_remapping_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("id", "123"), #("post_id", "456")])
+      |> be_equal([#("id", "123"), #("post_id", "456")])
       |> or_fail_with("Should extract id and post_id")
     }),
     it("multiple params extract with correct names for second route", fn() {
@@ -824,7 +892,7 @@ fn parameter_remapping_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("user_id", "123"), #("comment_id", "789")])
+      |> be_equal([#("user_id", "123"), #("comment_id", "789")])
       |> or_fail_with("Should extract user_id and comment_id")
     }),
     it("wildcard routes extract with their own param names", fn() {
@@ -843,7 +911,7 @@ fn parameter_remapping_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("file", "document.pdf")])
+      |> be_equal([#("file", "document.pdf")])
       |> or_fail_with("Should extract 'file' wildcard")
     }),
     it("second wildcard route extracts its own param name", fn() {
@@ -862,14 +930,14 @@ fn parameter_remapping_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("image", "photo.jpg")])
+      |> be_equal([#("image", "photo.jpg")])
       |> or_fail_with("Should extract 'image' wildcard")
     }),
   ])
 }
 
-fn extension_stripping_tests() -> UnitTest {
-  describe("extension stripping", [
+fn extension_stripping_tests() -> UnitNode {
+  group("extension stripping", [
     it("literal route matches path with extension", fn() {
       // Arrange
       let test_router =
@@ -933,7 +1001,7 @@ fn extension_stripping_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("id", "1.json")])
+      |> be_equal([#("id", "1.json")])
       |> or_fail_with("Param should preserve extension for format detection")
     }),
     it("param route matches path with csv extension", fn() {
@@ -951,7 +1019,7 @@ fn extension_stripping_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("id", "123.csv")])
+      |> be_equal([#("id", "123.csv")])
       |> or_fail_with("Param should preserve csv extension")
     }),
     it("param route matches path without extension", fn() {
@@ -969,7 +1037,7 @@ fn extension_stripping_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("id", "456")])
+      |> be_equal([#("id", "456")])
       |> or_fail_with("Param should work without extension")
     }),
     it("nested route with extension on param", fn() {
@@ -987,7 +1055,7 @@ fn extension_stripping_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("id", "123.json")])
+      |> be_equal([#("id", "123.json")])
       |> or_fail_with("Nested param should preserve extension")
     }),
     it("nested route with extension on last param", fn() {
@@ -1011,7 +1079,7 @@ fn extension_stripping_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("post_id", "456"), #("comment_id", "789.csv")])
+      |> be_equal([#("post_id", "456"), #("comment_id", "789.csv")])
       |> or_fail_with("Last param should preserve extension")
     }),
     it("extension pattern takes priority over stripping", fn() {
@@ -1030,7 +1098,7 @@ fn extension_stripping_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([])
+      |> be_equal([])
       |> or_fail_with("Extension pattern should match (no params)")
     }),
     it("param route matches when extension not in pattern", fn() {
@@ -1049,14 +1117,14 @@ fn extension_stripping_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("name", "document.gif")])
+      |> be_equal([#("name", "document.gif")])
       |> or_fail_with("Param route should match non-pattern extension")
     }),
   ])
 }
 
-fn regression_tests() -> UnitTest {
-  describe("regression tests", [
+fn regression_tests() -> UnitNode {
+  group("regression tests", [
     it("does not match unregistered path", fn() {
       // Arrange
       let test_router =
@@ -1104,14 +1172,14 @@ fn regression_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("id", "123")])
+      |> be_equal([#("id", "123")])
       |> or_fail_with("Should match deeply nested route")
     }),
   ])
 }
 
-fn backtracking_tests() -> UnitTest {
-  describe("backtracking", [
+fn backtracking_tests() -> UnitNode {
+  group("backtracking", [
     it("finds multi-wildcard route when param route fails deeper", fn() {
       // Arrange
       let test_router =
@@ -1128,7 +1196,7 @@ fn backtracking_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("rest", "1/comments")])
+      |> be_equal([#("rest", "1/comments")])
       |> or_fail_with(
         "Multi-wildcard route should capture the rest of the path",
       )
@@ -1149,7 +1217,7 @@ fn backtracking_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("id", "new")])
+      |> be_equal([#("id", "new")])
       |> or_fail_with(
         "Param route should capture the segment the literal route left",
       )
@@ -1170,7 +1238,7 @@ fn backtracking_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("name", "report")])
+      |> be_equal([#("name", "report")])
       |> or_fail_with("Single wildcard route should capture the segment")
     }),
     it(
@@ -1191,7 +1259,7 @@ fn backtracking_tests() -> UnitTest {
         |> should()
         |> be_some()
         |> extract_route_params()
-        |> equal([#("rest", "report/old")])
+        |> be_equal([#("rest", "report/old")])
         |> or_fail_with(
           "Multi-wildcard route should capture the rest of the path",
         )
@@ -1215,7 +1283,7 @@ fn backtracking_tests() -> UnitTest {
         |> should()
         |> be_some()
         |> extract_route_params()
-        |> equal([#("name", "photo.jpg")])
+        |> be_equal([#("name", "photo.jpg")])
         |> or_fail_with("Single wildcard route should capture the file name")
       },
     ),
@@ -1237,7 +1305,7 @@ fn backtracking_tests() -> UnitTest {
         |> should()
         |> be_some()
         |> extract_route_params()
-        |> equal([#("file", "photo.png")])
+        |> be_equal([#("file", "photo.png")])
         |> or_fail_with(
           "Param route should capture the file name with its extension",
         )
@@ -1259,7 +1327,7 @@ fn backtracking_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([])
+      |> be_equal([])
       |> or_fail_with(
         "Second extension pattern route should match with no params",
       )
@@ -1282,7 +1350,7 @@ fn backtracking_tests() -> UnitTest {
         |> should()
         |> be_some()
         |> extract_route_params()
-        |> equal([#("name", "report.pdf")])
+        |> be_equal([#("name", "report.pdf")])
         |> or_fail_with("Single wildcard route should capture the full segment")
       },
     ),
@@ -1304,7 +1372,7 @@ fn backtracking_tests() -> UnitTest {
         |> should()
         |> be_some()
         |> extract_route_params()
-        |> equal([#("id", "1.json")])
+        |> be_equal([#("id", "1.json")])
         |> or_fail_with(
           "Param route should capture the segment with its extension",
         )
@@ -1328,7 +1396,7 @@ fn backtracking_tests() -> UnitTest {
         |> should()
         |> be_some()
         |> extract_route_params()
-        |> equal([#("version", "v1"), #("resource", "users")])
+        |> be_equal([#("version", "v1"), #("resource", "users")])
         |> or_fail_with("Route should capture the version and the resource")
       },
     ),
@@ -1348,7 +1416,7 @@ fn backtracking_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("version", "v1"), #("rest", "users/7/comments")])
+      |> be_equal([#("version", "v1"), #("rest", "users/7/comments")])
       |> or_fail_with(
         "Route should capture the version and the rest of the path",
       )
@@ -1369,7 +1437,7 @@ fn backtracking_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("rest", "1/posts/2/extra")])
+      |> be_equal([#("rest", "1/posts/2/extra")])
       |> or_fail_with("Params should be only those of the matched route")
     }),
     it("finds no route when no alternative fits the path", fn() {
@@ -1388,6 +1456,47 @@ fn backtracking_tests() -> UnitTest {
       |> should()
       |> be_none()
       |> or_fail_with("Should not match when no route fits the path")
+    }),
+  ])
+}
+
+fn unnamed_wildcard_tests() -> UnitNode {
+  group("unnamed wildcards", [
+    it("names an unnamed single wildcard parameter wildcard", fn() {
+      // Arrange
+      let test_router =
+        router()
+        |> route(Get, "/files/*", test_handler, [])
+      let request = test_request.create_request(Get, "/files/a.txt")
+
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> extract_route_params()
+      |> be_equal([#("wildcard", "a.txt")])
+      |> or_fail_with("/files/* should capture a.txt as wildcard")
+    }),
+    it("names an unnamed multi wildcard parameter path", fn() {
+      // Arrange
+      let test_router =
+        router()
+        |> route(Get, "/assets/**", test_handler, [])
+      let request = test_request.create_request(Get, "/assets/css/app.css")
+
+      // Act
+      let result = find_route(test_router, request)
+
+      // Assert
+      result
+      |> should()
+      |> be_some()
+      |> extract_route_params()
+      |> be_equal([#("path", "css/app.css")])
+      |> or_fail_with("/assets/** should capture css/app.css as path")
     }),
   ])
 }

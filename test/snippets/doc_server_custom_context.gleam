@@ -12,15 +12,16 @@ pub type MyContext {
 }
 
 pub fn main() {
-  server.new()
-  |> server.context(MyContext(
-    request_id: "",
-    user: None,
-    session: empty_session(),
-  ))
-  |> server.services(initialize_services())
-  |> server.router(create_router())
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.context(MyContext(
+      request_id: "",
+      user: None,
+      session: empty_session(),
+    ))
+    |> server.services(initialize_services())
+    |> server.router(create_router())
+    |> server.listen(3000)
 }
 
 pub type User {

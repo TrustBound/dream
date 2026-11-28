@@ -1,6 +1,6 @@
 //// Multiple formats guide: one controller, many formats
 ////
-//// Shown in excerpts in docs/guides/multiple-formats.md.
+//// Shown in excerpts in docs/guides/templates.md.
 
 import dream/context.{type EmptyContext}
 import dream/http.{

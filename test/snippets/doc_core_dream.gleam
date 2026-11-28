@@ -2,7 +2,8 @@
 
 import dream/context.{type EmptyContext}
 import dream/dream.{
-  parse_cookie_string, parse_cookies_from_headers, route_request,
+  RisksUnderstood, parse_cookie_string, parse_cookies_from_headers,
+  route_request,
 }
 import dream/http/cookie.{type Cookie}
 import dream/http/header.{Header}
@@ -37,7 +38,7 @@ pub fn my_services() -> MyServices {
 
 pub fn raw_server(app) -> mist.Builder(Connection, ResponseData) {
   // You must explicitly acknowledge the risks
-  let mist_server = dream.get_server(app, risks_understood: True)
+  let mist_server = dream.get_server(app, risks_understood: RisksUnderstood)
   // Now you have raw Mist types - your code is coupled to Mist
   mist_server
 }

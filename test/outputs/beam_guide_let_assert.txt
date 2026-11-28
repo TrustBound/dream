@@ -1,0 +1,3 @@
+page_or_crash with ?page=two: the request crashes: Pattern match failed, no pattern matched the value.
+page with ?page=two: 400 page must be a whole number
+port_setting("eighty"): Error("PORT must be a whole number")

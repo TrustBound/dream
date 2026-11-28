@@ -63,7 +63,6 @@ fn handle_message(
       let _ = websocket.send_text(connection, text)
       websocket.continue_connection(state)
     }
-    websocket.ConnectionClosed -> websocket.stop_connection()
     websocket.BinaryMessage(_data) -> websocket.continue_connection(state)
   }
 }

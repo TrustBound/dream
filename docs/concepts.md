@@ -92,7 +92,7 @@ pub fn create_router() -> Router(AuthContext, Services) {
 }
 ```
 
-Path parameters like `:id` get extracted automatically. So `/users/:id/posts/:post_id` matches `/users/1/posts/2` and makes `id` and `post_id` available via `require_string(request, "id")` and `require_string(request, "post_id")`, or via `require_int` for numbers. These functions safely extract and validate parameters, returning `Result` types for error handling.
+Path parameters like `:id` get extracted automatically. So `/users/:id/posts/:post_id` matches `/users/1/posts/2` and makes `id` and `post_id` available via `require_string(request, "id")` and `require_string(request, "post_id")`, or via `require_int` for numbers. These functions safely extract and validate parameters, returning `Result` types for error handling. `get_int_param` and `get_string_param` from `dream/http/request` do the same, but return the error as a `String`.
 
 The router is generic over your Context and Services types. This means the compiler verifies every controller action has the right signature. Change your Context or Services type? The compiler will tell you exactly which actions need updating.
 
@@ -131,16 +131,17 @@ pub fn initialize_services() -> Services {
 
 Then give it to the server in `main`:
 
-### Passing services to the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/main.gleam#L15-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Passing services to the server <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/main.gleam#L15-L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn main() {
-  dream.new()
-  |> context(db_context.context)
-  |> services(initialize_services())
-  |> router(create_router())
-  |> bind("localhost")
-  |> listen(3002)
+  let assert Ok(Nil) =
+    dream.new()
+    |> context(db_context.context)
+    |> services(initialize_services())
+    |> router(create_router())
+    |> bind("localhost")
+    |> listen(3002)
 }
 ```
 
@@ -167,7 +168,7 @@ Context holds per-request data that changes for each request. Request A's authen
 
 Dream provides `EmptyContext` for simple apps that don't need per-request data:
 
-### EmptyContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/context.gleam#L138-L140"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### EmptyContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/context.gleam#L144-L146"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type EmptyContext {
@@ -177,7 +178,7 @@ pub type EmptyContext {
 
 This is the default when you call `server.new()`. For apps that need request tracking, Dream also provides `AppContext`:
 
-### AppContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/context.gleam#L146-L148"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### AppContext <a href="https://github.com/TrustBound/dream/blob/3.0.0/src/dream/context.gleam#L152-L154"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub type AppContext {
@@ -294,7 +295,7 @@ pub fn create_router() -> Router(AuthContext, services) {
 
 Execution flows like an onion:
 
-```
+```text illustration
 Request
   → auth_middleware
     → admin_check_middleware
@@ -365,12 +366,14 @@ pub fn get_task_with_tags(
 
 The operation takes a database connection and a task ID. It doesn't need a Request object. The tasks example tests it through the HTTP API, with a Cucumber scenario in [test/integration/features/tasks.feature](../examples/tasks/test/integration/features/tasks.feature):
 
+#### The scenario <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/tasks/test/integration/features/tasks.feature#L30-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gherkin
-Scenario: Get task by ID returns correct task
-    Given a task exists with title "Specific Task"
-    When I send a GET request to "/tasks/1"
-    Then the response status should be 200
-    And the response should contain "Specific Task"
+    Scenario: Get task by ID returns correct task
+        Given a task exists with title "Specific Task"
+        When I send a GET request to "/tasks/1"
+        Then the response status should be 200
+        And the response should contain "Specific Task"
 ```
 
 Run `make test-integration` in `examples/tasks` to run the scenarios.
@@ -385,11 +388,14 @@ Use operations when you coordinate 2 or more models, when an action has steps th
 
 Models handle data access. They take a database connection (explicit dependency, no globals), run queries, and convert database rows into your domain types. Controller actions call models, not SQL directly.
 
-### Model functions <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L23-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Model functions <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L23-L44"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 /// Get a single user by ID
-pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
+pub fn get(
+  db: dream_postgres_client.Connection,
+  id: Int,
+) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
     Error(_) -> Error(InternalServerError("Database error"))
@@ -398,7 +404,7 @@ pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
 
 /// Create a new user
 pub fn create(
-  db: pog.Connection,
+  db: dream_postgres_client.Connection,
   name: String,
   email: String,
 ) -> Result(User, Error) {
@@ -409,9 +415,9 @@ pub fn create(
 }
 ```
 
-A private function converts each Squirrel row to the domain type:
+A private function converts each `dream_sql_generator` row to the domain type:
 
-### Converting a row to a domain type <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L107-L114"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+### Converting a row to a domain type <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L115-L122"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 fn row_to_user(row: sql.GetUserRow) -> User {
@@ -480,15 +486,15 @@ Dream enforces clear boundaries between layers.
 
 **Validation ≠ Responses**
 
-Keep validation and response building separate. Validation takes a string and a decoder, returns `Result(T, ValidationError)`. Response building takes a status and body, returns a `Response`. Controllers connect them explicitly:
+Keep validation and response building separate. Validation takes a string and a decoder, returns `Result(T, List(ValidationError))`. Response building takes a status and body, returns a `Response`. Controllers connect them explicitly:
 
 ### Validate, then build the response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/concepts_validation.gleam#L36-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
+  let decoder = note_decoder()
   case validate_json(body, decoder) {
     Ok(data) -> create_with_data(services, data)
     Error(err) -> json_response(status.bad_request, error_json(err))
-  }
 ```
 
 **Models ≠ Views**
@@ -501,7 +507,7 @@ Models handle persistence and return domain types. Views format domain types and
 
 When a request arrives:
 
-```
+```text illustration
 1. Router matches path + method
 2. Creates default context (or your custom context)
 3. Runs middleware chain (each can enrich context)
@@ -526,7 +532,7 @@ The type system ensures every controller action has the correct signature, Conte
 
 ## Next Steps
 
-1. **Start:** [Quickstart](quickstart.md) - Get something running
+1. **Start:** [Build your first Dream server](guides/getting-started.md) - Get something running
 2. **Explore:** [Examples](examples.md) - Read commented, working code
 3. **Reference:** [Architecture](reference/architecture.md) - Deep technical dive
 

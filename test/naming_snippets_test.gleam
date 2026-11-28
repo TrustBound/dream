@@ -7,11 +7,12 @@
 import dream/dream
 import dream/http/cookie.{type Cookie, Cookie}
 import dream/http/header.{Header}
-import dream/http/request.{Delete, Get, Post}
+import dream/http/request.{Delete, Get, Post, Trace}
 import dream/http/response.{Text}
 import dream/servers/mist/server
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/dict
 import gleam/http as gleam_http
@@ -43,7 +44,7 @@ import snippets/naming_variables_abbreviated
 import snippets/naming_variables_good
 import snippets/naming_variables_verbose
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("naming conventions", [
     module_namespace_tests(),
     creation_tests(),
@@ -79,8 +80,8 @@ fn simple_cookie(name: String, value: String, secure: Bool) -> Cookie {
   )
 }
 
-fn module_namespace_tests() -> UnitTest {
-  describe("module namespace", [
+fn module_namespace_tests() -> UnitNode {
+  group("module namespace", [
     it("user.find and router.route work without a module prefix", fn() {
       // Arrange
       let request = test_request.create_request(Get, "/")
@@ -98,7 +99,7 @@ fn module_namespace_tests() -> UnitTest {
       // Assert
       #(found, response.body)
       |> should()
-      |> equal(#(Ok(naming_user.User(id: 1, name: "Ada")), Text("Home")))
+      |> be_equal(#(Ok(naming_user.User(id: 1, name: "Ada")), Text("Home")))
       |> or_fail_with("show_user and app_router should work")
     }),
     it("user.user_find finds the same user", fn() {
@@ -108,14 +109,14 @@ fn module_namespace_tests() -> UnitTest {
       // Assert
       found
       |> should()
-      |> equal(Ok(naming_user.User(id: 1, name: "Ada")))
+      |> be_equal(Ok(naming_user.User(id: 1, name: "Ada")))
       |> or_fail_with("show_user_with_module_prefix should find user 1")
     }),
   ])
 }
 
-fn creation_tests() -> UnitTest {
-  describe("creation", [
+fn creation_tests() -> UnitNode {
+  group("creation", [
     it("create functions make a response, a cookie and a header", fn() {
       // Act
       let result = #(
@@ -127,7 +128,7 @@ fn creation_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(#(
+      |> be_equal(#(
         204,
         simple_cookie("theme", "dark", False),
         Header("Accept", "text/html"),
@@ -156,7 +157,7 @@ fn creation_tests() -> UnitTest {
       // Assert
       #(response.status, response.headers, response.body, cookie)
       |> should()
-      |> equal(#(
+      |> be_equal(#(
         201,
         [Header("Location", "/users/1")],
         Text("Created"),
@@ -167,8 +168,8 @@ fn creation_tests() -> UnitTest {
   ])
 }
 
-fn retrieval_tests() -> UnitTest {
-  describe("retrieval", [
+fn retrieval_tests() -> UnitNode {
+  group("retrieval", [
     it("get functions find a header, a cookie and a query parameter", fn() {
       // Arrange
       let request =
@@ -184,7 +185,7 @@ fn retrieval_tests() -> UnitTest {
       // Assert
       details
       |> should()
-      |> equal(naming_retrieval.RequestDetails(
+      |> be_equal(naming_retrieval.RequestDetails(
         content_type: Some("application/json"),
         session: Some(simple_cookie("session", "abc123", False)),
         page: Some("2"),
@@ -202,7 +203,7 @@ fn retrieval_tests() -> UnitTest {
       // Assert
       names
       |> should()
-      |> equal(["theme", "Accept"])
+      |> be_equal(["theme", "Accept"])
       |> or_fail_with("list_names should read both names")
     }),
     it("value functions read the cookie value and the header value", fn() {
@@ -216,14 +217,14 @@ fn retrieval_tests() -> UnitTest {
       // Assert
       values
       |> should()
-      |> equal(["dark", "text/html"])
+      |> be_equal(["dark", "text/html"])
       |> or_fail_with("list_values should read both values")
     }),
   ])
 }
 
-fn modification_tests() -> UnitTest {
-  describe("modification", [
+fn modification_tests() -> UnitNode {
+  group("modification", [
     it("set functions replace a header and set a cookie", fn() {
       // Arrange
       let request =
@@ -237,7 +238,7 @@ fn modification_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         #([Header("Cache-Control", "no-store")], [
           simple_cookie("theme", "dark", False),
         ]),
@@ -259,7 +260,7 @@ fn modification_tests() -> UnitTest {
       // Assert
       #(headers, response.body)
       |> should()
-      |> equal(#(
+      |> be_equal(#(
         [
           Header("Link", "</app.css>; rel=preload"),
           Header("Accept", "text/html"),
@@ -289,7 +290,7 @@ fn modification_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         #([Header("Accept", "text/html")], [
           simple_cookie("theme", "dark", False),
         ]),
@@ -299,8 +300,8 @@ fn modification_tests() -> UnitTest {
   ])
 }
 
-fn conversion_tests() -> UnitTest {
-  describe("conversion", [
+fn conversion_tests() -> UnitNode {
+  group("conversion", [
     it("convert functions change a method and a cookie", fn() {
       // Act
       let result = #(
@@ -316,7 +317,7 @@ fn conversion_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(#(Some(Post), None, Header("Set-Cookie", "theme=dark")))
+      |> be_equal(#(Some(Post), Some(Trace), Header("Set-Cookie", "theme=dark")))
       |> or_fail_with("convert functions should change the types")
     }),
     it("parse functions read cookies and a method from text", fn() {
@@ -329,7 +330,7 @@ fn conversion_tests() -> UnitTest {
       // Assert
       parsed
       |> should()
-      |> equal(
+      |> be_equal(
         naming_conversion.ParsedRequest(
           cookies: [
             simple_cookie("theme", "dark", False),
@@ -358,7 +359,7 @@ fn conversion_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(#("theme=dark", "q=dream%20web&page=2"))
+      |> be_equal(#("theme=dark", "q=dream%20web&page=2"))
       |> or_fail_with("format functions should write the text")
     }),
     it("short conversions change a header to a pair and back", fn() {
@@ -371,14 +372,14 @@ fn conversion_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(#(#("Accept", "text/html"), Header("Accept", "text/html")))
+      |> be_equal(#(#("Accept", "text/html"), Header("Accept", "text/html")))
       |> or_fail_with("header_to_pair and pair_to_header should convert")
     }),
   ])
 }
 
-fn check_tests() -> UnitTest {
-  describe("boolean checks", [
+fn check_tests() -> UnitNode {
+  group("boolean checks", [
     it("is functions check a request, a cookie and a response", fn() {
       // Arrange
       let request = test_request.create_request(Post, "/")
@@ -395,7 +396,7 @@ fn check_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([True, True, True])
+      |> be_equal([True, True, True])
       |> or_fail_with("is functions should all be True")
     }),
     it("has functions check a body, a header and a cookie", fn() {
@@ -418,14 +419,14 @@ fn check_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([True, True, False])
+      |> be_equal([True, True, False])
       |> or_fail_with("has functions should find the body and the header")
     }),
   ])
 }
 
-fn processing_tests() -> UnitTest {
-  describe("processing", [
+fn processing_tests() -> UnitNode {
+  group("processing", [
     it("handle functions answer 401 without and 200 with a token", fn() {
       // Arrange
       let anonymous = test_request.create_request(Get, "/")
@@ -443,7 +444,7 @@ fn processing_tests() -> UnitTest {
       // Assert
       statuses
       |> should()
-      |> equal([401, 200])
+      |> be_equal([401, 200])
       |> or_fail_with("handle_request should check the token")
     }),
     it("route_request sends GET / to its controller", fn() {
@@ -456,7 +457,7 @@ fn processing_tests() -> UnitTest {
       // Assert
       response.body
       |> should()
-      |> equal(Text("Home"))
+      |> be_equal(Text("Home"))
       |> or_fail_with("respond should route GET / to home")
     }),
     it("match functions compare paths and methods", fn() {
@@ -470,14 +471,14 @@ fn processing_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([True, False, False])
+      |> be_equal([True, False, False])
       |> or_fail_with("match functions should match only /users/42")
     }),
   ])
 }
 
-fn error_tests() -> UnitTest {
-  describe("error handling", [
+fn error_tests() -> UnitNode {
+  group("error handling", [
     it("handle error functions turn errors into responses", fn() {
       // Act
       let parse_response =
@@ -488,7 +489,7 @@ fn error_tests() -> UnitTest {
       // Assert
       #(parse_response.status, auth_response.body)
       |> should()
-      |> equal(#(400, Text("Sign in again")))
+      |> be_equal(#(400, Text("Sign in again")))
       |> or_fail_with("handle error functions should make responses")
     }),
     it("recover functions retry and use the cached value", fn() {
@@ -506,7 +507,7 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(#(Ok("fresh"), Ok("cached")))
+      |> be_equal(#(Ok("fresh"), Ok("cached")))
       |> or_fail_with("recover functions should recover")
     }),
   ])
@@ -518,11 +519,11 @@ fn bearer_request() -> request.Request {
   ])
 }
 
-fn auth_tests() -> UnitTest {
+fn auth_tests() -> UnitNode {
   let ada = naming_auth.User(id: 1, name: "Ada", role: naming_auth.Editor)
   let reader = naming_auth.User(id: 2, name: "Bo", role: naming_auth.Reader)
   let article = naming_auth.Article(id: 7, author_id: 1)
-  describe("authentication and authorization", [
+  group("authentication and authorization", [
     it("authenticate functions check credentials, tokens and requests", fn() {
       // Act
       let result = #(
@@ -537,7 +538,7 @@ fn auth_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(#(Ok(ada), Error(naming_auth.InvalidToken), Ok(ada)))
+      |> be_equal(#(Ok(ada), Error(naming_auth.InvalidToken), Ok(ada)))
       |> or_fail_with("authenticate functions should find Ada")
     }),
     it("authorize functions refuse a reader and allow an editor", fn() {
@@ -550,7 +551,7 @@ fn auth_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(#(Error(naming_auth.Forbidden), Ok(Nil)))
+      |> be_equal(#(Error(naming_auth.Forbidden), Ok(Nil)))
       |> or_fail_with("authorize functions should check the role")
     }),
     it("check permission functions test one permission", fn() {
@@ -566,14 +567,14 @@ fn auth_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal([False, True])
+      |> be_equal([False, True])
       |> or_fail_with("only the editor should edit articles")
     }),
   ])
 }
 
-fn validation_tests() -> UnitTest {
-  describe("validation", [
+fn validation_tests() -> UnitNode {
+  group("validation", [
     it("validate functions tell what is wrong", fn() {
       // Arrange
       let signup =
@@ -592,7 +593,7 @@ fn validation_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(#(
+      |> be_equal(#(
         Error([
           naming_validation.MissingEmail,
           naming_validation.PasswordTooShort,
@@ -604,13 +605,13 @@ fn validation_tests() -> UnitTest {
   ])
 }
 
-fn lifecycle_tests() -> UnitTest {
+fn lifecycle_tests() -> UnitNode {
   let config =
     naming_lifecycle.DatabaseConfig(
       url: "postgres://localhost/app",
       pool_size: 5,
     )
-  describe("lifecycle", [
+  group("lifecycle", [
     it("start_server starts a server", fn() {
       // Act
       let started = naming_lifecycle.start_server(free_port())
@@ -619,7 +620,7 @@ fn lifecycle_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(Nil))
+      |> be_equal(Ok(Nil))
       |> or_fail_with("start_server should start a server")
     }),
     it("stop_server stops a server", fn() {
@@ -632,7 +633,7 @@ fn lifecycle_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(Nil))
+      |> be_equal(Ok(Nil))
       |> or_fail_with("stop_server should stop the server")
     }),
     it("init functions prepare the database and the services", fn() {
@@ -647,7 +648,7 @@ fn lifecycle_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(#(
+      |> be_equal(#(
         Ok(
           naming_lifecycle.Services(database: naming_lifecycle.Database(
             url: "postgres://localhost/app",
@@ -672,7 +673,7 @@ fn lifecycle_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         naming_lifecycle.Services(database: naming_lifecycle.Database(
           url: "postgres://localhost/app",
           connections: 0,
@@ -683,8 +684,8 @@ fn lifecycle_tests() -> UnitTest {
   ])
 }
 
-fn serialization_tests() -> UnitTest {
-  describe("serialization", [
+fn serialization_tests() -> UnitNode {
+  group("serialization", [
     it("serialize functions encode a user and a session", fn() {
       // Act
       let result = #(
@@ -701,7 +702,7 @@ fn serialization_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(#("{\"id\":1,\"name\":\"Ada\"}", <<"abc123:1":utf8>>))
+      |> be_equal(#("{\"id\":1,\"name\":\"Ada\"}", <<"abc123:1":utf8>>))
       |> or_fail_with("serialize functions should encode the values")
     }),
     it("deserialize functions decode a user and a session", fn() {
@@ -714,7 +715,7 @@ fn serialization_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(#(
+      |> be_equal(#(
         Ok(naming_serialization.User(id: 1, name: "Ada")),
         Ok(naming_serialization.Session(id: "abc123", user_id: 1)),
       ))
@@ -723,10 +724,10 @@ fn serialization_tests() -> UnitTest {
   ])
 }
 
-fn state_tests() -> UnitTest {
+fn state_tests() -> UnitNode {
   let ada = naming_state.User(id: 1, name: "Ada")
   let session = naming_state.Session(id: "abc123", user_id: 1)
-  describe("state management", [
+  group("state management", [
     it("load functions read a user and a config file", fn() {
       // Arrange
       let database = naming_state.Database(users: dict.from_list([#(1, ada)]))
@@ -741,7 +742,7 @@ fn state_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(#(Ok(ada), Ok(True)))
+      |> be_equal(#(Ok(ada), Ok(True)))
       |> or_fail_with("load functions should read the user and the file")
     }),
     it("save functions write a user and a config file", fn() {
@@ -756,7 +757,7 @@ fn state_tests() -> UnitTest {
       // Assert
       #(naming_state.load_user(saved, 1), written, simplifile.read(path))
       |> should()
-      |> equal(#(Ok(ada), Ok(Nil), Ok("port = 3000")))
+      |> be_equal(#(Ok(ada), Ok(Nil), Ok("port = 3000")))
       |> or_fail_with("save functions should write the user and the file")
     }),
     it("store_session keeps a session in memory", fn() {
@@ -766,7 +767,7 @@ fn state_tests() -> UnitTest {
       // Assert
       dict.to_list(sessions)
       |> should()
-      |> equal([#("abc123", session)])
+      |> be_equal([#("abc123", session)])
       |> or_fail_with("store_session should keep the session")
     }),
     it("restore functions bring back sessions and a config file", fn() {
@@ -782,14 +783,14 @@ fn state_tests() -> UnitTest {
       // Assert
       #(dict.to_list(sessions), restored, simplifile.read(path))
       |> should()
-      |> equal(#([#("abc123", session)], Ok(Nil), Ok("port = 4000")))
+      |> be_equal(#([#("abc123", session)], Ok(Nil), Ok("port = 4000")))
       |> or_fail_with("restore functions should bring back the saved copies")
     }),
   ])
 }
 
-fn response_tests() -> UnitTest {
-  describe("response builders", [
+fn response_tests() -> UnitNode {
+  group("response builders", [
     it("type response functions set the status", fn() {
       // Act
       let statuses =
@@ -799,14 +800,14 @@ fn response_tests() -> UnitTest {
       // Assert
       statuses
       |> should()
-      |> equal([200, 200, 200, 303, 204])
+      |> be_equal([200, 200, 200, 303, 204])
       |> or_fail_with("each response should have its status")
     }),
   ])
 }
 
-fn builder_tests() -> UnitTest {
-  describe("builder pattern exception", [
+fn builder_tests() -> UnitNode {
+  group("builder pattern exception", [
     it("the server builder binds and listens", fn() {
       // Act
       let started = naming_builder.start(free_port())
@@ -815,14 +816,14 @@ fn builder_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(Nil))
+      |> be_equal(Ok(Nil))
       |> or_fail_with("the builder should start a server")
     }),
   ])
 }
 
-fn factory_tests() -> UnitTest {
-  describe("factory function exception", [
+fn factory_tests() -> UnitNode {
+  group("factory function exception", [
     it("router.router() makes a router", fn() {
       // Arrange
       let request = test_request.create_request(Get, "/")
@@ -834,7 +835,7 @@ fn factory_tests() -> UnitTest {
       // Assert
       response.body
       |> should()
-      |> equal(Text("Home"))
+      |> be_equal(Text("Home"))
       |> or_fail_with("app_router should route GET / to index")
     }),
     it("the ambiguous factories still return values", fn() {
@@ -844,7 +845,7 @@ fn factory_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(#(
+      |> be_equal(#(
         Ok(naming_factory.Services(users: [])),
         Ok(naming_factory.User(id: 1, name: "Ada")),
       ))
@@ -860,7 +861,7 @@ fn factory_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(#(
+      |> be_equal(#(
         Ok(naming_factory.Database(url: "postgres://localhost/app")),
         Error("The database URL must start with postgres://"),
       ))
@@ -869,12 +870,12 @@ fn factory_tests() -> UnitTest {
   ])
 }
 
-fn variable_tests() -> UnitTest {
+fn variable_tests() -> UnitNode {
   let request =
     test_request.create_request_with_params(Get, "/users/1", [#("id", "1")])
   let services =
     naming_variables.Services(users: [naming_variables.User(id: 1, name: "Ada")])
-  describe("variable naming", [
+  group("variable naming", [
     it("the good show_user returns the user name", fn() {
       // Act
       let response = naming_variables_good.show_user(request, Nil, services)
@@ -882,7 +883,7 @@ fn variable_tests() -> UnitTest {
       // Assert
       response.body
       |> should()
-      |> equal(Text("Ada"))
+      |> be_equal(Text("Ada"))
       |> or_fail_with("the good show_user should return Ada")
     }),
     it("the abbreviated show_user returns the user name", fn() {
@@ -893,7 +894,7 @@ fn variable_tests() -> UnitTest {
       // Assert
       response.body
       |> should()
-      |> equal(Text("Ada"))
+      |> be_equal(Text("Ada"))
       |> or_fail_with("the abbreviated show_user should return Ada")
     }),
     it("the verbose show_user returns the user name", fn() {
@@ -903,7 +904,7 @@ fn variable_tests() -> UnitTest {
       // Assert
       response.body
       |> should()
-      |> equal(Text("Ada"))
+      |> be_equal(Text("Ada"))
       |> or_fail_with("the verbose controller should return Ada")
     }),
   ])

@@ -1,0 +1,3 @@
+Process dictionary, two requests on one connection: 1, 2
+Process dictionary, a request on a new connection: 1
+ETS table, three requests on three connections: 1, 2, 3

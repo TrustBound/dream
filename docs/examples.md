@@ -46,7 +46,7 @@ Complete REST API with type-safe SQL, migrations, and validation.
 - Services pattern (database connection)
 - Models (data access)
 - Views (JSON formatting)
-- Squirrel (type-safe SQL)
+- `dream_sql_generator` (type-safe SQL)
 - Cigogne (migrations)
 - Makefile automation
 
@@ -156,6 +156,24 @@ A multi-user chat application that uses WebSockets and a broadcaster service.
 
 ---
 
+### [sse/](../examples/sse/)
+**Live updates with server-sent events.** (Best first server-sent events example.)
+
+Two event streams, one with plain events and one with named events and IDs, from typed SSE actors.
+
+**Demonstrates:**
+- HTTP → SSE upgrade from a Dream controller with `upgrade_to_sse`
+- Typed SSE actor loop (`on_init`, `on_message`)
+- Named events with IDs
+- Middleware headers, such as CORS, on the SSE response
+- End-to-end integration tests using Gherkin/Cucumber
+
+**Run:** `cd examples/sse && make run`
+**Test:** `cd examples/sse && make test-integration`
+**Guide:** [Push live updates with server-sent events](guides/sse.md)
+
+---
+
 ### [rate_limiter/](../examples/rate_limiter/)
 **Global rate limiting with shared state.** (Best first ETS + rate limiting example.)
 
@@ -166,7 +184,8 @@ Rate limiting across all requests using shared ETS-backed state.
 - Rate limiting middleware
 
 **Run:** `cd examples/rate_limiter && make run`
-**Test:** Integration tests with unique IP isolation
+**Test:** Unit tests with a fixed clock (`make test`), and integration tests with unique IP isolation
+**Guide:** [Add a cache and a rate limit](guides/caching-and-rate-limiting.md)
 
 ---
 
@@ -186,6 +205,107 @@ File serving with security, directory listing, MIME types.
 
 ---
 
+### [deployment/](../examples/deployment/)
+**A Dream app in a container.** (Best first Docker deployment example.)
+
+An app that reads its settings from the environment, answers `/health` with the state of its database, and listens on all interfaces. Its `Dockerfile` and `docker-compose.yml` run it with PostgreSQL and its migrations.
+
+**Demonstrates:**
+- Two-stage Docker image: the Gleam image compiles, an Erlang image runs
+- Settings from the environment (`DATABASE_URL`, `PORT`)
+- A health check that the platform uses to restart the app
+- Migrations that run before the app starts
+- A clean stop on `SIGTERM`
+
+**Run and test:** `make test-docker` from the repository root (Docker with Compose v2). It builds the image, starts it with Compose, checks `/health`, and checks that the app stops on `SIGTERM`. The example depends on the Dream of the repository, so the script copies both into one folder first. In your own app, `docker compose up -d --wait app` starts it.
+**Guide:** [Deploy with Docker](guides/deployment.md)
+
+---
+
+### [configuration/](../examples/configuration/)
+**Typed settings, read one time at startup.**
+
+A links app that reads `PORT`, `SITE_URL` and `SIGNING_KEY` into one `Configuration` value, stops with exit status 1 on a missing or bad setting, keeps the key out of logs, and gives the values to the controller through services.
+
+**Test:** `make test` (needs no settings)
+**Guide:** [Load configuration and fail early](guides/configuration.md)
+
+---
+
+### [outbound_http/](../examples/outbound_http/)
+**Calls to another API from a controller.**
+
+A Dream app that calls a forecast service with `dream_http_client`: the base request in services, timeouts, typed errors, 502 and 504 answers, JSON, and a streamed reply.
+
+**Test:** `make test`, against a fake service on localhost
+**Guide:** [Call another API from a controller](guides/calling-other-apis.md)
+
+---
+
+### [cache/](../examples/cache/)
+**A read-through cache with expiry.**
+
+A products app that keeps slow lookups in an ETS table with `dream_ets`, removes an entry after a write, and reads the time from a clock in services.
+
+**Test:** `make test`, with a fixed clock and no sleep
+**Guide:** [Add a cache and a rate limit](guides/caching-and-rate-limiting.md)
+
+---
+
+### [fake_api/](../examples/fake_api/)
+**Tests of a Dream app against a fake news service.**
+
+Two mock servers from `dream_mock_server` in the suite setup, with tests for a 503, a body that is not JSON, a timeout, a closed port, a relayed stream and a dropped stream, plus a contract test that can run against the real service.
+
+**Test:** `make test`, about 10 seconds, no network
+**Guide:** [Test a Dream app against a fake API](guides/testing-with-a-fake-api.md)
+
+---
+
+### [background_work/](../examples/background_work/)
+**A supervised job worker.**
+
+A controller answers 202 with a job id and a status route. The worker has a bounded queue (503 when full) and job timeouts. Each job is linked to the worker, which traps exits: a crashed job fails alone, and a crash of the worker ends its running job and marks the queued jobs lost. A cleanup runs on a timer, and the worker stops cleanly.
+
+**Test:** `make test`, with no sleep
+**Guide:** [Run background work](guides/background-work.md)
+
+---
+
+### [search/](../examples/search/)
+**A Dream app with an OpenSearch index of its records.**
+
+A notes app that keeps its notes in a store, the system of record, and a copy of them in OpenSearch with `dream_opensearch` 4.0.0. The client is built from a base request and held in services.
+
+**Demonstrates:**
+- An index created with a mapping at start
+- A note indexed when it is created or changed, and removed from the index when it is deleted
+- A search route with a query string, paging and a typed result that a view turns into JSON
+- 503 or 502 from a match on the typed OpenSearch errors, and writes that succeed with `"indexed": false` while search is down
+- Recorded OpenSearch calls with the times removed, and a closed port for search that is down
+
+**Test:** `make test` plays back, with no network and no OpenSearch. `make record` records again, with OpenSearch in Docker on port 19200.
+**Guide:** [Add search to a Dream app](guides/search.md)
+
+---
+
+### [recorded_tests/](../examples/recorded_tests/)
+**Tests that play back recorded HTTP calls and queries.** (Best first example of tests with no network and no database.)
+
+Two small apps and their tests. The parcels app calls a carrier API with the base request in its services. The lists app keeps a PostgreSQL connection in its services. The tests give each app services with a recorder, and play back the committed recordings.
+
+**Demonstrates:**
+- A base request and a connection in services, so that a test can change them
+- A recorder in the setup of a Dream Test suite, with the mode from `RECORDER_MODE`
+- A token header and a secret column kept out of the recordings
+- A transaction that rolls back, played back with no database
+- The report of a request and of a query with no recording
+
+**Test:** `make test` plays back, with no network and no database. `make record` records again, with a fake carrier API and PostgreSQL in Docker.
+**Guides:** [Test a Dream app that calls other APIs](guides/testing-with-recorded-http.md) and [Test a Dream app's database code with recorded queries](guides/testing-with-recorded-queries.md)
+
+---
+
 ## How to Use Examples
 
 1. **Read the README** - Explains what it demonstrates
@@ -200,12 +320,20 @@ Each example is self-contained with its own database (if needed), dependencies, 
 
 All examples include comprehensive integration tests using Cucumber (BDD framework):
 
-```bash
-# Run all example integration tests from the repo root
-make test-integration
+Run all example integration tests from the repo root, as the integration job of CI does in `scripts/ci-integration.sh`:
 
-# Run specific example tests
-cd examples/database && make test-integration
+### Run all integration tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/ci-integration.sh#L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+make test-integration
+```
+
+Run the tests of one example:
+
+### Run the tests of one example <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/test-integration.sh#L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+(cd examples/database && make test-integration)
 ```
 
 **Comprehensive integration tests** covering:

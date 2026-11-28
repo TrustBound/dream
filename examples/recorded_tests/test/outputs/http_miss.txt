@@ -1,0 +1,36 @@
+Parcels
+  ✗ shows parcel PX-300
+    fail_with
+      Message: The carrier API failed:
+               No recording matches GET http://localhost:19871/v1/parcels/PX-300
+               No recording in test/recordings/carrier has this method and path
+    Run it alone: gleam test -- --only "Parcels/shows parcel PX-300"
+  ✗ shows a parcel on its way from port 19871
+    fail_with
+      Message: The carrier API failed:
+               No recording matches GET http://localhost:19871/v1/parcels/PX-100
+               Nearest recording: test/recordings/carrier/GET_localhost__v1_parcels_PX-100_f8df0aae3df27998.json
+                 origin:
+                 - http://localhost:19870
+                 + http://localhost:19871
+    Run it alone: gleam test -- --only "Parcels/shows a parcel on its way from port 19871"
+
+Failures:
+Parcels
+  ✗ shows parcel PX-300
+    fail_with
+      Message: The carrier API failed:
+               No recording matches GET http://localhost:19871/v1/parcels/PX-300
+               No recording in test/recordings/carrier has this method and path
+    Run it alone: gleam test -- --only "Parcels/shows parcel PX-300"
+  ✗ shows a parcel on its way from port 19871
+    fail_with
+      Message: The carrier API failed:
+               No recording matches GET http://localhost:19871/v1/parcels/PX-100
+               Nearest recording: test/recordings/carrier/GET_localhost__v1_parcels_PX-100_f8df0aae3df27998.json
+                 origin:
+                 - http://localhost:19870
+                 + http://localhost:19871
+    Run it alone: gleam test -- --only "Parcels/shows a parcel on its way from port 19871"
+
+Summary: 2 run, 2 failed, 0 passed in 0ms

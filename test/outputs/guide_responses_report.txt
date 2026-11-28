@@ -1,0 +1,6 @@
+visits_controller.show
+  ✓ adds one to the cookie of the request
+  ✓ sets visits to 1 on the first visit
+  ✓ starts again at 1 when the cookie is not a number
+
+Summary: 3 run, 0 failed, 3 passed in 0ms

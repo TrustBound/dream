@@ -9,8 +9,9 @@ import dream/http/request.{Get}
 import dream/http/response.{type Response, Stream}
 import dream/router.{route, router}
 import dream/servers/mist/server
-import dream_test/assertions/should.{be_ok, equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, be_ok, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import fixtures/server_start.{with_server}
 import gleam/bit_array
@@ -27,7 +28,7 @@ import snippets/server_tls
 import snippets/sse_action_builders
 import snippets/sse_event_builders
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("snippets", [
     it("sse event builders", fn() {
       sse_event_builders.build_event()
@@ -49,8 +50,8 @@ pub fn tests() -> UnitTest {
   ])
 }
 
-fn readme_hello_server_tests() -> UnitTest {
-  describe("readme hello server", [
+fn readme_hello_server_tests() -> UnitNode {
+  group("readme hello server", [
     it("GET / returns status 200", fn() {
       // Arrange
       let request = test_request.create_request(Get, "/")
@@ -63,7 +64,7 @@ fn readme_hello_server_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(200)
+      |> be_equal(200)
       |> or_fail_with("GET / should return 200")
     }),
     it("GET / returns Hello, world!", fn() {
@@ -78,14 +79,14 @@ fn readme_hello_server_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello, world!")
+      |> be_equal("Hello, world!")
       |> or_fail_with("GET / should return 'Hello, world!'")
     }),
   ])
 }
 
-fn readme_json_api_tests() -> UnitTest {
-  describe("readme json api", [
+fn readme_json_api_tests() -> UnitNode {
+  group("readme json api", [
     it("get_user returns user 1 as JSON", fn() {
       // Arrange
       let request = test_request.create_request(Get, "/users/1")
@@ -99,7 +100,7 @@ fn readme_json_api_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"id\":1,\"name\":\"Ada\"}")
+      |> be_equal("{\"id\":1,\"name\":\"Ada\"}")
       |> or_fail_with("get_user should return user 1 as JSON")
     }),
     it("get_user returns status 200 when user 1 exists", fn() {
@@ -114,7 +115,7 @@ fn readme_json_api_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(200)
+      |> be_equal(200)
       |> or_fail_with("get_user should return 200")
     }),
     it("get_user returns status 404 when user 1 is missing", fn() {
@@ -129,14 +130,14 @@ fn readme_json_api_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("get_user should return 404")
     }),
   ])
 }
 
-fn readme_streaming_tests() -> UnitTest {
-  describe("readme streaming", [
+fn readme_streaming_tests() -> UnitNode {
+  group("readme streaming", [
     it("download_log streams each log line", fn() {
       // Arrange
       let request = test_request.create_request(Get, "/log")
@@ -148,7 +149,7 @@ fn readme_streaming_tests() -> UnitTest {
       // Assert
       stream_body(response)
       |> should()
-      |> equal(<<"first\nsecond\n":utf8>>)
+      |> be_equal(<<"first\nsecond\n":utf8>>)
       |> or_fail_with("download_log should stream 'first\\nsecond\\n'")
     }),
     it("download_log sets content type text/plain", fn() {
@@ -162,14 +163,14 @@ fn readme_streaming_tests() -> UnitTest {
       // Assert
       response.content_type
       |> should()
-      |> equal(Some("text/plain"))
+      |> be_equal(Some("text/plain"))
       |> or_fail_with("download_log should set text/plain")
     }),
   ])
 }
 
-fn readme_websocket_chat_tests() -> UnitTest {
-  describe("readme websocket chat", [
+fn readme_websocket_chat_tests() -> UnitNode {
+  group("readme websocket chat", [
     it("echoes a text message with the user name", fn() {
       // Arrange
       let port = free_port()
@@ -180,7 +181,7 @@ fn readme_websocket_chat_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok("ada: hello"))
+      |> be_equal(Ok("ada: hello"))
       |> or_fail_with("chat should reply 'ada: hello'")
     }),
     it("uses guest when the user query parameter is missing", fn() {
@@ -193,7 +194,7 @@ fn readme_websocket_chat_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok("guest: hello"))
+      |> be_equal(Ok("guest: hello"))
       |> or_fail_with("chat should reply 'guest: hello'")
     }),
   ])
@@ -248,8 +249,8 @@ fn send_text_and_receive(
   timeout: Int,
 ) -> Result(String, String)
 
-fn server_tls_tests() -> UnitTest {
-  describe("server tls", [
+fn server_tls_tests() -> UnitNode {
+  group("server tls", [
     it("serves GET / over HTTP/2 with TLS", fn() {
       // Arrange
       let #(certfile, keyfile) = write_certificate("build/test_tls")
@@ -265,7 +266,7 @@ fn server_tls_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#(atom.create("http2"), 200, <<"Hello over HTTPS":utf8>>)))
+      |> be_equal(Ok(#(atom.create("http2"), 200, <<"Hello over HTTPS":utf8>>)))
       |> or_fail_with("GET / should answer over HTTP/2 with TLS")
     }),
   ])

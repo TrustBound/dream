@@ -1,0 +1,4 @@
+4 times the lines, 2000 to 8000:
+report_by_prepending does more than 8 times the work: True
+report_by_appending does less than 5 times the work: True
+report does less than 5 times the work: True

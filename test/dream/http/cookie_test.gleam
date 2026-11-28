@@ -3,12 +3,13 @@
 import dream/http/cookie.{
   cookie_name, cookie_value, get_cookie_value, secure_cookie, simple_cookie,
 }
-import dream_test/assertions/should.{be_some, equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, be_some, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, group, it}
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("cookie", [
-    describe("simple_cookie", [
+    group("simple_cookie", [
       it("creates cookie with correct name", fn() {
         // Arrange
         let name = "theme"
@@ -21,7 +22,7 @@ pub fn tests() -> UnitTest {
         cookie
         |> cookie_name()
         |> should()
-        |> equal(name)
+        |> be_equal(name)
         |> or_fail_with("Cookie name should be 'theme'")
       }),
       it("creates cookie with correct value", fn() {
@@ -36,11 +37,11 @@ pub fn tests() -> UnitTest {
         cookie
         |> cookie_value()
         |> should()
-        |> equal(value)
+        |> be_equal(value)
         |> or_fail_with("Cookie value should be 'dark'")
       }),
     ]),
-    describe("secure_cookie", [
+    group("secure_cookie", [
       it("creates cookie that can be retrieved by name", fn() {
         // Arrange
         let cookie = secure_cookie("session", "token123")
@@ -52,7 +53,7 @@ pub fn tests() -> UnitTest {
         result
         |> should()
         |> be_some()
-        |> equal("token123")
+        |> be_equal("token123")
         |> or_fail_with("Secure cookie should have value 'token123'")
       }),
     ]),

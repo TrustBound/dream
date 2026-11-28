@@ -1,0 +1,149 @@
+{
+  "format": "dream_postgres query recording",
+  "version": 1,
+  "queries": [
+    {
+      "sql": "INSERT INTO lists (name) VALUES ($1) RETURNING id",
+      "parameters": ["Groceries"],
+      "result": {
+        "count": 1,
+        "rows": [
+          {"tuple":[1]}
+        ]
+      }
+    },
+    {
+      "sql": "INSERT INTO items (list_id, title) VALUES ($1, $2)",
+      "parameters": [1,"Milk"],
+      "result": {
+        "count": 1,
+        "rows": []
+      }
+    },
+    {
+      "sql": "INSERT INTO items (list_id, title) VALUES ($1, $2)",
+      "parameters": [1,"Eggs"],
+      "result": {
+        "count": 1,
+        "rows": []
+      }
+    },
+    {
+      "sql": "INSERT INTO lists (name) VALUES ($1) RETURNING id",
+      "parameters": ["Hardware"],
+      "result": {
+        "count": 1,
+        "rows": [
+          {"tuple":[2]}
+        ]
+      }
+    },
+    {
+      "sql": "INSERT INTO items (list_id, title) VALUES ($1, $2)",
+      "parameters": [2,"Nails"],
+      "result": {
+        "count": 1,
+        "rows": []
+      }
+    },
+    {
+      "sql": "INSERT INTO items (list_id, title) VALUES ($1, $2)",
+      "parameters": [2,"Glue"],
+      "result": {
+        "count": 1,
+        "rows": []
+      }
+    },
+    {
+      "sql": "SELECT name FROM lists WHERE id = $1",
+      "parameters": [2],
+      "result": {
+        "count": 1,
+        "rows": [
+          {"tuple":["Hardware"]}
+        ]
+      }
+    },
+    {
+      "sql": "SELECT title FROM items WHERE list_id = $1 ORDER BY id",
+      "parameters": [2],
+      "result": {
+        "count": 2,
+        "rows": [
+          {"tuple":["Nails"]},
+          {"tuple":["Glue"]}
+        ]
+      }
+    },
+    {
+      "sql": "INSERT INTO lists (name) VALUES ($1) RETURNING id",
+      "parameters": ["Party"],
+      "result": {
+        "count": 1,
+        "rows": [
+          {"tuple":[3]}
+        ]
+      }
+    },
+    {
+      "sql": "INSERT INTO items (list_id, title) VALUES ($1, $2)",
+      "parameters": [3,"Cake"],
+      "result": {
+        "count": 1,
+        "rows": []
+      }
+    },
+    {
+      "sql": "INSERT INTO items (list_id, title) VALUES ($1, $2)",
+      "parameters": [3,"Balloons Balloons Balloons Balloons Balloons "],
+      "result": {"error":"constraint_violated","message":"new row for relation \"items\" violates check constraint \"item_title_length\"","constraint":"item_title_length","detail":"Failing row contains (6, 3, Balloons Balloons Balloons Balloons Balloons )."}
+    },
+    {
+      "sql": "SELECT id, name FROM lists ORDER BY id",
+      "parameters": [],
+      "result": {
+        "count": 2,
+        "rows": [
+          {"tuple":[1,"Groceries"]},
+          {"tuple":[2,"Hardware"]}
+        ]
+      }
+    },
+    {
+      "sql": "INSERT INTO lists (name) VALUES ($1) RETURNING id",
+      "parameters": ["Camping"],
+      "result": {
+        "count": 1,
+        "rows": [
+          {"tuple":[4]}
+        ]
+      }
+    },
+    {
+      "sql": "INSERT INTO items (list_id, title) VALUES ($1, $2)",
+      "parameters": [4,"Tent"],
+      "result": {
+        "count": 1,
+        "rows": []
+      }
+    },
+    {
+      "sql": "SELECT share_token FROM lists WHERE id = $1",
+      "parameters": [4],
+      "result": {
+        "count": 1,
+        "rows": [
+          {"tuple":["[hidden]"]}
+        ]
+      }
+    },
+    {
+      "sql": "SELECT name FROM lists WHERE id = $1",
+      "parameters": [999],
+      "result": {
+        "count": 0,
+        "rows": []
+      }
+    }
+  ]
+}

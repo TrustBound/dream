@@ -3,7 +3,8 @@
 import dream/servers/mist/server.{listen, router}
 
 pub fn start(my_router) {
-  server.new()
-  |> router(my_router)
-  |> listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> router(my_router)
+    |> listen(3000)
 }

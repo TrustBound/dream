@@ -82,9 +82,10 @@ pub fn initialize_services() -> Services {
 }
 
 pub fn main() {
-  server.new()
-  |> server.context(Context(request_id: "", user: None))
-  |> server.services(initialize_services())
-  |> server.router(create_router())
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    server.new()
+    |> server.context(Context(request_id: "", user: None))
+    |> server.services(initialize_services())
+    |> server.router(create_router())
+    |> server.listen(3000)
 }

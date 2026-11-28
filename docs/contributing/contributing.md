@@ -23,15 +23,19 @@ Follow the [Naming Conventions](../reference/naming-conventions.md):
 - Full words, no abbreviations (except standard ones like `id`, `http`, `json`)
 - Builder pattern for configuration
 
-Use `gleam format` before committing:
+Run `gleam format` before committing. CI checks the format with this line of `scripts/check.sh`:
+
+### Check the format <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/check.sh#L7"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
-gleam format
+gleam format --check
 ```
 
 ## Testing
 
-All code must have tests. Dream requires **100% test coverage** of `src/dream/`.
+All code must have tests. Dream requires **100% line coverage** of `src/dream/`.
+
+`make test-unit` (or `gleam test`) measures it. The test entry point, `test/dream_test.gleam`, turns on the line coverage of `dream_test`. After the test results, it prints a coverage table with the lines that did not run, and it writes `build/coverage/lcov.info` and `build/coverage/coverage.json`. The run fails when coverage of `src/` is below 100%, also when every test passes. CI runs the same command. Coverage needs Erlang/OTP 27 or later with the JIT.
 
 ### Unit Tests
 
@@ -44,23 +48,27 @@ See [Testing Guide](../guides/testing.md) for details.
 
 ### Running Tests
 
+CI runs the unit tests with this line of `scripts/check.sh`:
+
+#### Run the unit tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/check.sh#L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
-gleam test
+make test-unit
 ```
 
 ### Test Naming
 
-Dream's tests use [dream_test](https://hexdocs.pm/dream_test/), not `_test` functions. Name the `describe` group for the function, and name each `it` for the result it expects and the condition:
+Dream's tests use [dream_test](https://hexdocs.pm/dream_test/3.0.0/), not `_test` functions. Name the `group` for the function, and name each `it` for the result it expects and the condition:
 
-#### Name a test for its result and condition <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_test_naming.gleam#L12-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Name a test for its result and condition <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_test_naming.gleam#L13-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-fn to_status_code_tests() -> UnitTest {
-  describe("to_status_code", [
+fn to_status_code_tests() -> UnitNode {
+  group("to_status_code", [
     it("returns 404 for NotFound", fn() {
       error.to_status_code(NotFound("User not found"))
       |> should()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("Expected 404")
     }),
   ])
@@ -69,21 +77,21 @@ fn to_status_code_tests() -> UnitTest {
 
 Example:
 
-#### Name the tests of one function <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_test_naming.gleam#L23-L38"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Name the tests of one function <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_test_naming.gleam#L24-L39"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-fn message_tests() -> UnitTest {
-  describe("message", [
+fn message_tests() -> UnitNode {
+  group("message", [
     it("returns the message of a BadRequest", fn() {
       error.message(BadRequest("Invalid email format"))
       |> should()
-      |> equal("Invalid email format")
+      |> be_equal("Invalid email format")
       |> or_fail_with("Expected the BadRequest message")
     }),
     it("returns the message of an InternalServerError", fn() {
       error.message(InternalServerError("Database connection failed"))
       |> should()
-      |> equal("Database connection failed")
+      |> be_equal("Database connection failed")
       |> or_fail_with("Expected the InternalServerError message")
     }),
   ])
@@ -125,7 +133,7 @@ Include:
 
 Every Gleam code block in a README, guide or reference page comes from a snippet file that the tests compile and run. A code block with no tested snippet can be wrong, and nobody finds out until a reader tries it.
 
-1. Write the code in `test/snippets/<name>.gleam` (or in the module's own `test/snippets/`).
+1. Write the code in `test/snippets/<name>.gleam`.
 2. Run it from `test/snippets_test.gleam`, so that the tests fail when the snippet breaks.
 3. Copy the code into the doc.
 4. Give the code block a heading, and put a "tested snippet" badge at the right of the heading. The badge links to the snippet file at the release tag of the version you are writing for, for example `blob/3.0.0/`. Each published version then links to its own code, and the link keeps working when a snippet moves later.
@@ -135,6 +143,21 @@ Every Gleam code block in a README, guide or reference page comes from a snippet
 ```
 
 Use the full GitHub URL, not a relative path. HexDocs and Hex show the README without the repository, so a relative link goes nowhere.
+
+Each example in the root `README.md` has a second badge, the guide badge. It links to the docs section that shows the same example, so a reader can go from the short README example to its full explanation. Put the tested snippet badge first, then one space, then the guide badge, all on the heading line:
+
+```markdown
+### JSON APIs <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/readme_json_api.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a> <a href="https://github.com/TrustBound/dream/blob/3.0.0/docs/guides/api-patterns.md#return-a-user-as-json-"><img align="right" alt="Guide: Grow a JSON API" title="Guide: Grow a JSON API" src="https://img.shields.io/badge/%F0%9F%93%96_read-guide-blue.svg?style=flat-square"></a>
+```
+
+The check makes sure of these things for a guide badge:
+
+- The link is a `blob` link of this repository, at the tag of the `version` in `gleam.toml`.
+- The link goes to a `.md` file under `docs/`. The `guides` setting in `[tools.dream_snippets]` sets this directory.
+- The file exists, and the link ends with `#<anchor>`. The anchor is the GitHub anchor of a heading in that file: the heading text in lowercase, with each character removed that is not a letter, a digit, a space, a hyphen or an underscore, and each space changed to a hyphen. The space between the heading text and its badge also becomes a hyphen, so the anchor of a heading with a badge ends with a hyphen: `### Return a user as JSON` with a badge has the anchor `return-a-user-as-json-`.
+- The docs file shows the same example, with a tested snippet badge that links to the same snippet file. The line range can be different.
+
+Only the root README has guide badges. A heading in a guide, the changelog, the release notes or a doc comment has only the tested snippet badge. When you add an example to the README, add it to a docs page first, then link the guide badge to that section.
 
 A code block can be a whole snippet file, or a range of lines from one. For an excerpt, the badge link ends in a GitHub line range, for example `https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/naming_create.gleam#L8-L10`. The block shows those lines byte for byte, with the same indent. The snippet file around the excerpt still compiles and has a test.
 
@@ -146,9 +169,7 @@ When you find a code block that doesn't follow this, change it in the same pull 
 
 Release notes and changelog entries follow this rule from version 3.0.0 on. The check reads `releases/release-<version>.md` when the version in the file name is 3.0.0 or later, and the `## [Unreleased]` section and the `## [<version>]` sections for 3.0.0 or later in `CHANGELOG.md`. It skips older notes and older changelog sections. They show code that was right for their own version.
 
-Each module in `modules/` has its own releases. The badges in a module README link at the module tag, not at the tag of Dream. The module tag is `<package>-<version>`, from the `name` and the `version` in the `gleam.toml` of the module. The path is the path of the snippet in this repository, for example `https://github.com/TrustBound/dream/blob/dream_ets-2.0.0/modules/ets/test/snippets/basic_usage.gleam#L5-L14`. A `diff` block in a module README uses the module tag as its new tag.
-
-The publish workflow creates and pushes the module tag when it publishes the module. The tag does not exist before the release, the same as the tag of Dream. Thus the badge links work on GitHub only after the publish. A Dream guide that shows a snippet from a module uses the tag of Dream, for example `blob/3.0.0/modules/postgres/test/snippets/architecture_postgres.gleam`. The check reads the `README.md` of each module, but not the other files in `modules/`. The module changelogs, release notes and other `.md` files are history.
+Each Dream module, such as `dream_ets`, lives in its own repository and has its own snippet check. The badges in a module README link at that repository and at the version tag of the module, for example `https://github.com/TrustBound/dream_ets/blob/3.0.0/test/snippets/basic_operations.gleam`.
 
 An upgrade guide shows how code changed. The old code does not compile on the new version, so it cannot be a tested snippet. Show each change as a `diff` block instead. The block is an excerpt of the real git diff of one file in this repository, between the last release tag and the new version:
 
@@ -162,30 +183,49 @@ An upgrade guide shows how code changed. The old code does not compile on the ne
 
 Don't write a "before" by hand. When no file in the repository made the change, show the new code as a tested snippet, and name the old form in inline code in the text next to it.
 
-Run the check by hand from the repository root:
+Run the check by hand from the repository root. CI runs it with this line of `scripts/check.sh`:
+
+#### Check the docs <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/check.sh#L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```bash
 make check-snippets
 ```
 
-It runs `gleam run -m docs_snippet_check`. The check reads `README.md`, `SECURITY.md`, each `.md` file in `docs/` and `examples/`, and the doc comments in `src/`. It also reads the release notes and changelog sections from 3.0.0 on. It does not use the network. For a `diff` block it runs `git diff <old tag> -- <path>`, so it needs the release tags in your clone. It fails when:
+It runs `gleam run -m dream_snippets`. The check is the [`dream_snippets`](https://github.com/TrustBound/dream_snippets) package, a dev dependency of Dream. Its settings are in the `[tools.dream_snippets]` table of `gleam.toml`. The check reads `README.md`, `SECURITY.md`, each `.md` file in `docs/` and `examples/`, and the doc comments in `src/`. It also reads the release notes and changelog sections from 3.0.0 on. It does not use the network. For a `diff` block it runs `git diff <old tag> -- <path>`, so it needs the release tags in your clone. It fails when:
 
 - a Gleam code block has no heading with the badge directly above it (one blank line between is allowed)
 - the badge is not in the exact format shown above
 - the badge links to another repository or host
 - the tag in the link is not the `version` in `gleam.toml`
-- a badge in a module README links at a tag that is not the module tag `<package>-<version>`
 - the linked file does not exist
 - the line range is malformed, reversed, or past the end of the file
 - the code block is not the same as the linked file or line range
 - the code block uses the old `🧪 Tested source` line
+- a README example has no guide badge, or the guide badge is not in the exact format or place
+- the guide badge does not link to a heading in a `.md` file under `docs/` at the release tag, or that file does not show the same snippet
+- a heading outside the README has a guide badge
 - a code fence with another language, or with no language, holds Gleam code
 - a `diff` block has no heading with the tested diff badge, or the badge is not in the exact format
 - the diff badge link is not a compare link in this repository, its new tag is not the `version` in `gleam.toml`, or its anchor is not the digest of the path in the block
 - the old tag is not in your clone (run `git fetch --tags`, because a shallow clone has no tags)
 - the file has no diff between the old tag and the working tree, or a line of the block is not in that diff in that place
 
-It prints each problem as `file:line: reason`, then a summary line. `make check`, the pre-commit hook, CI and the publish workflows also run it.
+Every other code block is proven too, in the way that fits its kind:
+
+- **A command block** (`bash`, `sh`, `shell`, `console`) is a copy of lines of a script that CI or a test runs, such as `scripts/check.sh`, `scripts/test-integration.sh`, or the `test/integration/start.sh` and `test/integration/readme.sh` of an example. Its heading has the tested snippet badge, linked to the lines. A block whose lines are only `gleam add` or `gleam deps update` of `dream` or its dependencies needs no badge.
+- **An output block** (`text`) is a copy of an output file, with the badge. A test compares that file with the real output. The integration run of an example compares the output of its `test/integration/readme.sh` with its `test/integration/readme_output.txt` (see `integration/run-scenarios.sh`).
+- **A file block** (any other language: `toml`, `yaml`, `makefile`, `sql`, `dockerfile`, `javascript`, `gherkin`, and so on) is a copy of a real file, or of a line range, that a test or CI uses, with the badge. A `toml` block of only `[dependencies]` and a `dream = ">= 3.0.0 and < 4.0.0"` line needs no badge.
+- **An illustration** is a block that nothing can run, such as a folder tree, a diagram, or a command against the reader's own accounts. Mark it with `illustration` after the language, as in ```` ```text illustration ````. Keep these few.
+
+The badge of a file, command or output block links to a path of the `tested_files` list in `[tools.dream_snippets]`. The list names the files and folders that the tests and CI use. The check also fails when:
+
+- a file, command or output block has no heading with the badge, and is not a `gleam add` block or a `dream` dependency block
+- the badge links to a file that is not under a `tested_files` path, or the block is not the same as the linked file or line range
+- a `gleam add` or `gleam deps update` line names a package that is not a dependency of `dream`
+- a code fence has no language
+- an illustration holds a line that looks like Gleam code
+
+It prints each problem as `file:line: reason`, then a summary line, such as `565 blocks and 7 diff blocks checked in 86 files, 0 problems; 46 file blocks, 75 command blocks and 10 output blocks checked; 59 illustration blocks`. `make check`, the pre-commit hook, CI and the publish workflows also run it.
 
 ### Contributing to Documentation
 
@@ -196,12 +236,16 @@ For writing or improving user-facing documentation (guides, tutorials, examples)
 - Testing documentation
 - Review process
 
+Each guide in `docs/guides/` starts with a breadcrumb line above its title, so a reader can go back:
+
+`[README](https://hexdocs.pm/dream/3.0.0/) > [Guides](https://hexdocs.pm/dream/3.0.0/guides/index.html) > <the title of the guide>`
+
 ## Pull Request Process
 
 1. **Fork the repository**
 
 2. **Create a feature branch**
-   ```bash
+   ```bash illustration
    git checkout -b feature/your-feature-name
    ```
 
@@ -212,14 +256,20 @@ For writing or improving user-facing documentation (guides, tutorials, examples)
    - Run `gleam format`
 
 4. **Verify everything works**
+
+   `make check` runs `scripts/check.sh`, the same checks as CI:
+
+   ### The checks of CI <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/check.sh#L7-L10"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
    ```bash
-   gleam check    # Type checking
-   gleam test     # All tests pass
-   gleam format   # Code formatted
+   gleam format --check
+   gleam build
+   make test-unit
+   make check-snippets
    ```
 
 5. **Commit with clear messages**
-   ```bash
+   ```bash illustration
    git commit -m "feat: add middleware chaining support"
    ```
 
@@ -232,7 +282,7 @@ For writing or improving user-facing documentation (guides, tutorials, examples)
    - `chore:` - Maintenance tasks
 
 6. **Push and create PR**
-   ```bash
+   ```bash illustration
    git push origin feature/your-feature-name
    ```
 
@@ -275,44 +325,53 @@ Documentation improvements are always welcome:
 
 ## Project Structure
 
+The folders of Dream's source. Run the command in the root of the repository:
+
+### List the source folders <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme.sh#L85"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+find src/dream -type d | sort
 ```
-dream/
-  src/
-    dream/
-      core/            # Core types (Request, Response, Router, etc.)
-      servers/         # Server adapters (Mist)
-      services/        # Service helpers (Postgres, etc.)
-      utilities/       # Utilities (HTTP client, JSON, etc.)
-      validators/      # Validators (JSON, etc.)
-  test/
-    dream/             # Tests mirror src/ structure
-  docs/                # Documentation
-    tutorials/         # Step-by-step guides
-    guides/            # Topic-focused how-tos
-    reference/         # Technical reference
-  examples/        # Working example applications (each is its own Gleam project)
+
+### The source folders <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L765-L772"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+src/dream
+src/dream/controllers
+src/dream/http
+src/dream/internal
+src/dream/router
+src/dream/servers
+src/dream/servers/mist
+src/dream/services
 ```
+
+- `src/dream/http/`: request, response, headers, cookies, params, validation.
+- `src/dream/router/`: the route trie and the path parser.
+- `src/dream/controllers/`: the static file controller.
+- `src/dream/servers/mist/`: the server adapter.
+- `src/dream/services/`: the broadcaster.
+- `src/dream/internal/`: code that the modules share, not for apps.
+
+The other folders of the root:
+
+- `test/`: `test/dream/` mirrors `src/`, and `test/snippets/` holds the tested code of the docs.
+- `docs/`: the documentation. `docs/guides/` holds the task guides, and `docs/reference/` the technical reference.
+- `examples/`: working example applications. Each is its own Gleam project.
+- `integration/`: the runner and the HTTP client of the examples' integration tests.
+- `scripts/`: what CI runs.
 
 ## Publishing (Maintainers Only)
 
-Dream and its modules are published to Hex.pm. Only maintainers can publish.
-
-### Core Dream Package
-
-For publishing the main `dream` package, see the [Publishing Strategy](publishing.md).
+Dream is published to Hex.pm. Only maintainers can publish. See the [Publishing Strategy](publishing.md).
 
 ### Dream Modules
 
-Dream modules are published automatically via GitHub Actions when version numbers change. See the [Publishing Strategy](publishing.md) for details.
-
-**Quick version bump:**
-1. Update `modules/<module_name>/gleam.toml` version
-2. Commit and push to `main`
-3. GitHub Actions automatically publishes if version changed
+Each Dream module has its own repository and its own releases, for example [dream_http_client](https://github.com/TrustBound/dream_http_client). The [Publishing Strategy](publishing.md#modules) lists them. Release a module from its own repository.
 
 ### Semantic Versioning
 
-Dream and all modules follow [Semantic Versioning](https://semver.org/):
+Dream follows [Semantic Versioning](https://semver.org/):
 
 - **MAJOR** (1.0.0 → 2.0.0) - Breaking changes
 - **MINOR** (1.0.0 → 1.1.0) - New features (backward compatible)

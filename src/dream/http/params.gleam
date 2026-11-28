@@ -1,5 +1,7 @@
 //// Parameter validation and extraction utilities
 ////
+//// Guide: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html).
+////
 //// This module provides safe parameter extraction from HTTP requests,
 //// returning Result types with `dream/http/error.Error` instead of crashing on missing or invalid data.
 ////
@@ -43,6 +45,8 @@ import gleam/uri
 ///   Ok("/users/" <> int.to_string(id))
 /// }
 /// ```
+///
+/// Guide: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html).
 pub fn require_int(request: Request, name: String) -> Result(Int, Error) {
   get_int_param(request, name)
   |> result_string_to_error
@@ -100,13 +104,15 @@ pub fn require_string(request: Request, name: String) -> Result(String, Error) {
 ///   Ok(title)
 /// }
 /// ```
+///
+/// Guide: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html).
 pub fn require_form(
   request: Request,
 ) -> Result(List(#(String, String)), Error) {
   use body <- result.try(require_text_body(request))
   case body {
     "" -> Error(BadRequest("Request body is empty"))
-    _ -> Ok(parse_form_body(body))
+    _ -> Ok(parse_form_pairs(string.split(body, "&")))
   }
 }
 
@@ -120,7 +126,9 @@ pub fn require_form(
 /// - The body is not JSON: the parse message from `validate_json`, for
 ///   example `"Unexpected end of JSON input"`
 /// - A field is missing or has the wrong type: the decode message from
-///   `validate_json`, for example `"Expected Int but found String at priority"`
+///   `validate_json`, for example `"Expected Int but found String at priority"`.
+///   When more than one field fails, the messages are joined with `"; "`, in
+///   the order of the decoder.
 ///
 /// A `Stream` body is read to the end first. Use `validation.validate_json`
 /// directly when you need the separate `field`, `expected` and `found`
@@ -152,6 +160,8 @@ pub fn require_form(
 ///   Ok(task)
 /// }
 /// ```
+///
+/// Guide: [Read request data safely](https://hexdocs.pm/dream/3.0.0/guides/request-data.html).
 pub fn require_json(
   request: Request,
   decoder: decode.Decoder(decoded),
@@ -166,8 +176,19 @@ fn require_text_body(request: Request) -> Result(String, Error) {
   |> result.replace_error(BadRequest("Request body is not text"))
 }
 
-fn validation_error_to_bad_request(validation_error: ValidationError) -> Error {
-  BadRequest(validation_error.message)
+/// Joins the message of each validation error with "; ", in the order of
+/// the decoder.
+fn validation_error_to_bad_request(
+  validation_errors: List(ValidationError),
+) -> Error {
+  validation_errors
+  |> list.map(validation_error_message)
+  |> string.join("; ")
+  |> BadRequest
+}
+
+fn validation_error_message(validation_error: ValidationError) -> String {
+  validation_error.message
 }
 
 /// Require a field from form data
@@ -277,13 +298,6 @@ pub fn field_optional(
 }
 
 // Internal form parsing utilities
-
-fn parse_form_body(body: String) -> List(#(String, String)) {
-  case body {
-    "" -> []
-    _ -> parse_form_pairs(string.split(body, "&"))
-  }
-}
 
 fn parse_form_pairs(pairs: List(String)) -> List(#(String, String)) {
   case pairs {

@@ -1,5 +1,7 @@
 //// Response conversion from Dream to Mist format
 ////
+//// The reference [Dream vs Mist](https://github.com/TrustBound/dream/blob/3.0.0/docs/reference/dream-vs-mist.md) shows what this conversion does for you.
+////
 //// This module provides functions to convert Dream HTTP responses
 //// to Mist response format, including status code, header, and cookie conversion.
 ////
@@ -17,6 +19,8 @@ import gleam/int
 import gleam/list
 import gleam/option
 import gleam/string
+import gleam/time/calendar
+import gleam/time/timestamp
 import gleam/yielder
 import mist.{type Connection, type ResponseData, Bytes as MistBytes}
 
@@ -28,16 +32,18 @@ import mist.{type Connection, type ResponseData, Bytes as MistBytes}
 /// - Status code (Int remains Int)
 /// - Headers (Dream Header to Mist tuple format)
 /// - Cookies (each cookie becomes its own `Set-Cookie` header per RFC 6265)
-/// - Body (Text/Bytes to Mist ResponseData)
+/// - Body (Text, Bytes or Stream to Mist ResponseData)
 ///
-/// The conversion handles two of the three body types:
+/// The conversion handles the three body types:
 /// - `Text`: Converted to bytes and sent immediately
 /// - `Bytes`: Sent as-is
-/// - `Stream`: Not handled here. `convert` panics; use `convert_stream`,
-///   which sends the stream with chunked transfer encoding.
+/// - `Stream`: Sent with chunked transfer encoding on the connection of
+///   `mist_request`
 ///
 /// ## Parameters
 ///
+/// - `mist_request`: The Mist request that the response answers. A `Stream`
+///   body uses its connection.
 /// - `dream_response`: Dream Response with all fields populated
 ///
 /// ## Returns
@@ -46,35 +52,46 @@ import mist.{type Connection, type ResponseData, Bytes as MistBytes}
 ///
 /// ## Example
 ///
-/// ### Convert a response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_response_convert.gleam#L11-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+/// ### Convert a response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_response_convert.gleam#L9-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
 /// ```gleam
-/// pub fn send_user(user_json: String) -> http_response.Response(ResponseData) {
+/// pub fn send_user(
+///   mist_request: http_request.Request(Connection),
+///   user_json: String,
+/// ) -> http_response.Response(ResponseData) {
 ///   // Internal use - normally called by the request handler
 ///   let dream_response = response.json_response(200, user_json)
-///   let mist_response = convert(dream_response)
+///   let mist_response = convert(mist_request, dream_response)
 ///   // Mist server sends mist_response to client
 ///   mist_response
 /// }
 /// ```
 pub fn convert(
+  mist_request: http_request.Request(Connection),
   dream_response: Response,
 ) -> http_response.Response(ResponseData) {
-  let headers = build_response_headers(dream_response)
-
-  let response_data = case dream_response.body {
-    Text(text) -> MistBytes(bytes_tree.from_string(text))
-    DreamBytes(bytes) -> MistBytes(bytes_tree.from_bit_array(bytes))
-    Stream(_stream) ->
-      panic as "Stream bodies must use convert_stream with mist request"
+  case dream_response.body {
+    Text(text) ->
+      fixed_response(dream_response, MistBytes(bytes_tree.from_string(text)))
+    DreamBytes(bytes) ->
+      fixed_response(
+        dream_response,
+        MistBytes(bytes_tree.from_bit_array(bytes)),
+      )
+    Stream(stream) -> convert_stream(mist_request, dream_response, stream)
   }
-
-  http_response.new(dream_response.status)
-  |> http_response.set_body(response_data)
-  |> set_all_headers(headers)
 }
 
-/// Convert a Dream streaming response to Mist chunked response
+fn fixed_response(
+  dream_response: Response,
+  response_data: ResponseData,
+) -> http_response.Response(ResponseData) {
+  http_response.new(dream_response.status)
+  |> http_response.set_body(response_data)
+  |> set_all_headers(build_response_headers(dream_response))
+}
+
+/// Send a Dream stream body as a Mist chunked response
 ///
 /// Uses mist's actor-based chunked API to drain a Dream yielder,
 /// sending each element as an HTTP chunk. Requires the original mist
@@ -87,23 +104,7 @@ pub fn convert(
 /// answers the request with a 500 after the chunked body was already sent.
 /// So the actor reports its subject back here, and the first `DrainNext`
 /// is sent from the request process once `mist.chunked` is done.
-///
-/// ## Example
-///
-/// ### Convert a streaming response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_response_convert.gleam#L19-L27"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
-///
-/// ```gleam
-/// pub fn send_stream(
-///   mist_request: http_request.Request(Connection),
-///   dream_response: Response,
-///   stream: yielder.Yielder(BitArray),
-/// ) -> http_response.Response(ResponseData) {
-///   // Internal use - called by the handler when body is Stream
-///   let mist_response = convert_stream(mist_request, dream_response, stream)
-///   mist_response
-/// }
-/// ```
-pub fn convert_stream(
+fn convert_stream(
   mist_request: http_request.Request(Connection),
   dream_response: Response,
   stream: yielder.Yielder(BitArray),
@@ -250,7 +251,7 @@ fn format_cookie_header(cookie: Cookie) -> String {
   let base = name <> "=" <> value
 
   let with_expires = case expires {
-    option.Some(expiry) -> base <> "; Expires=" <> int.to_string(expiry)
+    option.Some(expiry) -> base <> "; Expires=" <> format_http_date(expiry)
     option.None -> base
   }
 
@@ -285,4 +286,59 @@ fn format_cookie_header(cookie: Cookie) -> String {
     option.Some(None) -> with_http_only <> "; SameSite=None"
     option.None -> with_http_only
   }
+}
+
+/// Writes a time as an HTTP date in the IMF-fixdate form of RFC 9110
+/// section 5.6.7, which RFC 6265 section 4.1.1 requires for `Expires`, for
+/// example `Tue, 14 Nov 2023 22:13:20 GMT`. The time is in seconds since the
+/// Unix epoch and is written in UTC.
+fn format_http_date(seconds_since_epoch: Int) -> String {
+  let #(date, time) =
+    timestamp.from_unix_seconds(seconds_since_epoch)
+    |> timestamp.to_calendar(calendar.utc_offset)
+  day_name(seconds_since_epoch)
+  <> ", "
+  <> pad_number(date.day, 2)
+  <> " "
+  <> month_name(date.month)
+  <> " "
+  <> pad_number(date.year, 4)
+  <> " "
+  <> pad_number(time.hours, 2)
+  <> ":"
+  <> pad_number(time.minutes, 2)
+  <> ":"
+  <> pad_number(time.seconds, 2)
+  <> " GMT"
+}
+
+const seconds_per_day = 86_400
+
+/// The day names in order from Thursday, the day of 1 January 1970.
+const day_names_from_thursday = "ThuFriSatSunMonTueWed"
+
+/// The day of the week, from the whole days since the epoch. The remainders
+/// are made non-negative, so a time before the epoch gets the correct day.
+fn day_name(seconds_since_epoch: Int) -> String {
+  let seconds_into_day =
+    { seconds_since_epoch % seconds_per_day + seconds_per_day }
+    % seconds_per_day
+  let days_since_epoch =
+    { seconds_since_epoch - seconds_into_day } / seconds_per_day
+  let day_of_week = { days_since_epoch % 7 + 7 } % 7
+  string.slice(day_names_from_thursday, day_of_week * 3, 3)
+}
+
+/// The month names in order from January.
+const month_names_from_january = "JanFebMarAprMayJunJulAugSepOctNovDec"
+
+fn month_name(month: calendar.Month) -> String {
+  let month_index = calendar.month_to_int(month) - 1
+  string.slice(month_names_from_january, month_index * 3, 3)
+}
+
+/// Writes `number` in decimal with zeros in front, to at least `width`
+/// digits.
+fn pad_number(number: Int, width: Int) -> String {
+  string.pad_start(int.to_string(number), to: width, with: "0")
 }

@@ -1,6 +1,6 @@
 //// Authentication guide: middleware, routes and a controller
 ////
-//// Shown in excerpts in docs/guides/authentication.md.
+//// Shown in docs/guides/routing.md.
 
 import dream/http.{
   type Request, type Response, bad_request, created, get_header, json_response,

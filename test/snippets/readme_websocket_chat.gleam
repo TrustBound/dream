@@ -47,7 +47,6 @@ fn handle_message(
       let _ = websocket.send_text(connection, deps.user_name <> ": " <> text)
       websocket.continue_connection(state)
     }
-    websocket.ConnectionClosed -> websocket.stop_connection()
     _ -> websocket.continue_connection(state)
   }
 }

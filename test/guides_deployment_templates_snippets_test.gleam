@@ -11,8 +11,9 @@ import dream/http/request.{type Request, Get, Post, Request}
 import dream/http/response.{type Response}
 import dream/router.{route, router}
 import dream/servers/mist/server
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/bit_array
 import gleam/dynamic.{type Dynamic}
@@ -39,7 +40,7 @@ import snippets/templates_guide_pages
 import snippets/templates_guide_task.{Tag, Task}
 import snippets/templates_guide_views
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("guide snippets", [
     authentication_tests(),
     deployment_tests(),
@@ -72,8 +73,8 @@ fn with_header(request: Request, name: String, value: String) -> Request {
   Request(..request, headers: [Header(name, value)])
 }
 
-fn authentication_tests() -> UnitTest {
-  describe("authentication guide", [
+fn authentication_tests() -> UnitNode {
+  group("authentication guide", [
     it("the default context has no user", fn() {
       // Arrange
       let context = default_context
@@ -84,7 +85,7 @@ fn authentication_tests() -> UnitTest {
       // Assert
       user
       |> should()
-      |> equal(None)
+      |> be_equal(None)
       |> or_fail_with("default_context should have no user")
     }),
     it("GET / needs no token", fn() {
@@ -98,7 +99,7 @@ fn authentication_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Welcome")
+      |> be_equal("Welcome")
       |> or_fail_with("GET / should return Welcome")
     }),
     it("GET /profile without a header returns 401", fn() {
@@ -112,7 +113,7 @@ fn authentication_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(401)
+      |> be_equal(401)
       |> or_fail_with("GET /profile without a header should return 401")
     }),
     it("GET /profile without a header says the header is missing", fn() {
@@ -126,7 +127,7 @@ fn authentication_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Missing Authorization header")
+      |> be_equal("Missing Authorization header")
       |> or_fail_with("GET /profile should say the header is missing")
     }),
     it("GET /profile with an unknown token says the token is invalid", fn() {
@@ -142,7 +143,7 @@ fn authentication_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Invalid token")
+      |> be_equal("Invalid token")
       |> or_fail_with("GET /profile should reject an unknown token")
     }),
     it("GET /profile with a token but no Bearer prefix is invalid", fn() {
@@ -158,7 +159,7 @@ fn authentication_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Invalid token")
+      |> be_equal("Invalid token")
       |> or_fail_with("GET /profile should need the Bearer prefix")
     }),
     it("GET /profile with a valid token returns the user as JSON", fn() {
@@ -174,7 +175,7 @@ fn authentication_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal(
+      |> be_equal(
         "{\"id\":\"7\",\"email\":\"ada@example.com\",\"role\":\"admin\"}",
       )
       |> or_fail_with("GET /profile should return the user")
@@ -192,7 +193,7 @@ fn authentication_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("ada@example.com wrote: Hello")
+      |> be_equal("ada@example.com wrote: Hello")
       |> or_fail_with("POST /posts should use the user from the context")
     }),
     it("show_profile with no user in the context returns 401", fn() {
@@ -211,7 +212,7 @@ fn authentication_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Authentication required")
+      |> be_equal("Authentication required")
       |> or_fail_with("show_profile should need a user")
     }),
   ])
@@ -240,8 +241,8 @@ fn route_health_request(services: deployment_guide_app.Services) -> Response {
   )
 }
 
-fn deployment_tests() -> UnitTest {
-  describe("deployment guide", [
+fn deployment_tests() -> UnitNode {
+  group("deployment guide", [
     it("GET /health with a working database returns OK", fn() {
       // Arrange
       let services = healthy_services()
@@ -253,7 +254,7 @@ fn deployment_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("OK")
+      |> be_equal("OK")
       |> or_fail_with("GET /health should return OK")
     }),
     it("GET /health with a failed database check returns 503", fn() {
@@ -267,7 +268,7 @@ fn deployment_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(503)
+      |> be_equal(503)
       |> or_fail_with("GET /health should return 503")
     }),
     it("GET /health with a failed database check names the cause", fn() {
@@ -281,7 +282,7 @@ fn deployment_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Database unavailable")
+      |> be_equal("Database unavailable")
       |> or_fail_with("GET /health should say the database is unavailable")
     }),
     it("create_server answers GET /health over TCP", fn() {
@@ -294,7 +295,7 @@ fn deployment_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal(Ok("OK"))
+      |> be_equal(Ok("OK"))
       |> or_fail_with("the server should answer GET /health with OK")
     }),
     it("format_info_line writes one JSON line", fn() {
@@ -313,7 +314,7 @@ fn deployment_tests() -> UnitTest {
       // Assert
       line
       |> should()
-      |> equal(
+      |> be_equal(
         "{\"level\":\"info\",\"message\":\"Server started\",\"metadata\":{\"port\":3000},\"timestamp\":\"2026-01-01T00:00:00Z\"}",
       )
       |> or_fail_with("format_info_line should write the JSON line")
@@ -328,7 +329,7 @@ fn deployment_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Nil)
+      |> be_equal(Nil)
       |> or_fail_with("log_info should return Nil")
     }),
     it("format_request_line writes one JSON line", fn() {
@@ -343,7 +344,7 @@ fn deployment_tests() -> UnitTest {
       // Assert
       line
       |> should()
-      |> equal(
+      |> be_equal(
         "{\"type\":\"request\",\"method\":\"POST\",\"path\":\"/tasks\",\"status\":201,\"duration_ms\":12}",
       )
       |> or_fail_with("format_request_line should write the JSON line")
@@ -360,7 +361,7 @@ fn deployment_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Nil)
+      |> be_equal(Nil)
       |> or_fail_with("log_request should return Nil")
     }),
   ])
@@ -452,8 +453,8 @@ fn route_task_request(request: Request) -> Response {
   )
 }
 
-fn multiple_formats_tests() -> UnitTest {
-  describe("multiple formats guide", [
+fn multiple_formats_tests() -> UnitNode {
+  group("multiple formats guide", [
     it("GET /tasks/1 returns JSON by default", fn() {
       // Arrange
       let request = test_request.create_request(Get, "/tasks/1")
@@ -465,7 +466,7 @@ fn multiple_formats_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"id\":1,\"title\":\"Write docs\"}")
+      |> be_equal("{\"id\":1,\"title\":\"Write docs\"}")
       |> or_fail_with("GET /tasks/1 should return JSON")
     }),
     it("GET /tasks/1.json returns JSON", fn() {
@@ -479,7 +480,7 @@ fn multiple_formats_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"id\":1,\"title\":\"Write docs\"}")
+      |> be_equal("{\"id\":1,\"title\":\"Write docs\"}")
       |> or_fail_with("GET /tasks/1.json should return JSON")
     }),
     it("GET /tasks/1.html returns the full page", fn() {
@@ -493,7 +494,7 @@ fn multiple_formats_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal(
+      |> be_equal(
         "<!DOCTYPE html><html><head><title>Write docs</title></head><body><nav><a href=\"/\">Tasks</a></nav><div class=\"container\">"
         <> write_docs_card
         <> "</div><footer>Built with Dream</footer><script src=\"/assets/htmx.min.js\"></script></body></html>",
@@ -513,7 +514,7 @@ fn multiple_formats_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal(write_docs_card)
+      |> be_equal(write_docs_card)
       |> or_fail_with("GET /tasks/1 with HX-Request should return the card")
     }),
     it("GET /tasks/9 returns 404", fn() {
@@ -527,7 +528,7 @@ fn multiple_formats_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("GET /tasks/9 should return 404")
     }),
     it("GET /tasks/abc returns 400", fn() {
@@ -541,7 +542,7 @@ fn multiple_formats_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("GET /tasks/abc should return 400")
     }),
     it("detect_format with HX-Request false falls back to json", fn() {
@@ -556,7 +557,7 @@ fn multiple_formats_tests() -> UnitTest {
       // Assert
       format
       |> should()
-      |> equal("json")
+      |> be_equal("json")
       |> or_fail_with("detect_format should default to json")
     }),
     it("task_view.to_json writes id and title", fn() {
@@ -569,7 +570,7 @@ fn multiple_formats_tests() -> UnitTest {
       // Assert
       body
       |> should()
-      |> equal("{\"id\":2,\"title\":\"Fix bug\"}")
+      |> be_equal("{\"id\":2,\"title\":\"Fix bug\"}")
       |> or_fail_with("to_json should write id and title")
     }),
   ])
@@ -609,8 +610,8 @@ fn post_services(
   )
 }
 
-fn operations_tests() -> UnitTest {
-  describe("operations guide", [
+fn operations_tests() -> UnitNode {
+  group("operations guide", [
     it("reorder_task moves task 3 to position 1", fn() {
       // Arrange
       let services = task_services()
@@ -621,7 +622,7 @@ fn operations_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         Ok([
           operations_guide_tasks.Task(id: 3, title: "Ship"),
           operations_guide_tasks.Task(id: 1, title: "Plan"),
@@ -640,7 +641,7 @@ fn operations_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(NotFound("Task not found")))
+      |> be_equal(Error(NotFound("Task not found")))
       |> or_fail_with("reorder_task should not find task 9")
     }),
     it("reorder_task with a position past the end returns BadRequest", fn() {
@@ -653,7 +654,7 @@ fn operations_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         Error(BadRequest("Position must be between 1 and the task count")),
       )
       |> or_fail_with("reorder_task should refuse position 4")
@@ -674,7 +675,7 @@ fn operations_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("[2,3,1]")
+      |> be_equal("[2,3,1]")
       |> or_fail_with("POST /tasks/1/reorder should return the new order")
     }),
     it("POST /tasks/1/reorder with no position returns 400", fn() {
@@ -693,7 +694,7 @@ fn operations_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("POST /tasks/1/reorder needs a position")
     }),
     it("publish_post returns the published post", fn() {
@@ -706,7 +707,7 @@ fn operations_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(BlogPost(id: 4, title: "Release notes", published: True)))
+      |> be_equal(Ok(BlogPost(id: 4, title: "Release notes", published: True)))
       |> or_fail_with("publish_post should publish post 4")
     }),
     it("publish_post returns the error of a failed side effect", fn() {
@@ -720,7 +721,7 @@ fn operations_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(failure))
+      |> be_equal(Error(failure))
       |> or_fail_with("publish_post should return the search index error")
     }),
     it("publish_post with an unknown post returns NotFound", fn() {
@@ -733,7 +734,7 @@ fn operations_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(NotFound("Post not found")))
+      |> be_equal(Error(NotFound("Post not found")))
       |> or_fail_with("publish_post should not find post 5")
     }),
   ])
@@ -746,8 +747,8 @@ fn operations_tests() -> UnitTest {
 const task_form_html =
   "<form hx-post=\"/tasks\"><input id=\"new-title\" name=\"title\" value=\"\" required><button id=\"submit-btn\" type=\"submit\" >Save Task</button></form>"
 
-fn templates_tests() -> UnitTest {
-  describe("templates guide", [
+fn templates_tests() -> UnitNode {
+  group("templates guide", [
     it("greet renders the hello template", fn() {
       // Arrange
       let name = "Dream"
@@ -758,7 +759,7 @@ fn templates_tests() -> UnitTest {
       // Assert
       html
       |> should()
-      |> equal("Hello Dream!")
+      |> be_equal("Hello Dream!")
       |> or_fail_with("greet should render Hello Dream!")
     }),
     it("save_button renders the button element", fn() {
@@ -772,7 +773,7 @@ fn templates_tests() -> UnitTest {
       // Assert
       html
       |> should()
-      |> equal(expected)
+      |> be_equal(expected)
       |> or_fail_with("save_button should render the button")
     }),
     it("task_card renders a completed task with its tags", fn() {
@@ -785,7 +786,7 @@ fn templates_tests() -> UnitTest {
       // Assert
       html
       |> should()
-      |> equal(write_docs_card)
+      |> be_equal(write_docs_card)
       |> or_fail_with("task_card should render the completed task")
     }),
     it("task_card renders an open task with no tags", fn() {
@@ -798,7 +799,7 @@ fn templates_tests() -> UnitTest {
       // Assert
       html
       |> should()
-      |> equal(fix_bug_card)
+      |> be_equal(fix_bug_card)
       |> or_fail_with("task_card should render the open task")
     }),
     it("task_form renders the form template", fn() {
@@ -811,7 +812,7 @@ fn templates_tests() -> UnitTest {
       // Assert
       html
       |> should()
-      |> equal(expected)
+      |> be_equal(expected)
       |> or_fail_with("task_form should render the form")
     }),
     it("pages index_page composes the form and the task list", fn() {
@@ -824,7 +825,7 @@ fn templates_tests() -> UnitTest {
       // Assert
       html
       |> should()
-      |> equal(
+      |> be_equal(
         "<main><section><h1>Tasks</h1>"
         <> task_form_html
         <> "</section><section>"
@@ -844,7 +845,7 @@ fn templates_tests() -> UnitTest {
       // Assert
       html
       |> should()
-      |> equal(
+      |> be_equal(
         "<!DOCTYPE html><html><head><title>Home</title></head><body><nav><a href=\"/\">Tasks</a></nav><div class=\"container\"><p>Hi</p></div><footer>Built with Dream</footer><script src=\"/assets/htmx.min.js\"></script></body></html>",
       )
       |> or_fail_with("build_page should wrap the content")
@@ -859,7 +860,7 @@ fn templates_tests() -> UnitTest {
       // Assert
       html
       |> should()
-      |> equal(
+      |> be_equal(
         "<!DOCTYPE html><html><head><title>Tasks</title></head><body><nav><a href=\"/\">Tasks</a></nav><div class=\"container\"><main><section><h1>Tasks</h1></section><section>"
         <> fix_bug_card
         <> "</section></main></div><footer>Built with Dream</footer><script src=\"/assets/htmx.min.js\"></script></body></html>",

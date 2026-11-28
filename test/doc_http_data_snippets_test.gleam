@@ -7,8 +7,9 @@ import dream/http/error
 import dream/http/request.{type Request, Get, Post, Request}
 import dream/http/transaction
 import dream/http/validation
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/dynamic/decode
 import gleam/json
@@ -20,6 +21,7 @@ import snippets/doc_http_data_cookie_same_site
 import snippets/doc_http_data_cookie_type
 import snippets/doc_http_data_cookie_value
 import snippets/doc_http_data_error_bad_request
+import snippets/doc_http_data_error_conflict
 import snippets/doc_http_data_error_forbidden
 import snippets/doc_http_data_error_internal_server_error
 import snippets/doc_http_data_error_message
@@ -41,15 +43,34 @@ import snippets/doc_http_data_secure_cookie
 import snippets/doc_http_data_set_cookie
 import snippets/doc_http_data_simple_cookie
 import snippets/doc_http_data_to_status_code
+import snippets/doc_http_data_transaction_add_header
+import snippets/doc_http_data_transaction_cookie_name
+import snippets/doc_http_data_transaction_cookie_value
 import snippets/doc_http_data_transaction_format
+import snippets/doc_http_data_transaction_get_cookie
+import snippets/doc_http_data_transaction_get_cookie_value
+import snippets/doc_http_data_transaction_get_header
+import snippets/doc_http_data_transaction_get_query_param
+import snippets/doc_http_data_transaction_has_content_type
+import snippets/doc_http_data_transaction_header_name
+import snippets/doc_http_data_transaction_header_value
+import snippets/doc_http_data_transaction_is_method
+import snippets/doc_http_data_transaction_method_to_string
 import snippets/doc_http_data_transaction_params
+import snippets/doc_http_data_transaction_parse_method
 import snippets/doc_http_data_transaction_path
+import snippets/doc_http_data_transaction_remove_cookie
+import snippets/doc_http_data_transaction_remove_header
+import snippets/doc_http_data_transaction_secure_cookie
+import snippets/doc_http_data_transaction_set_cookie
 import snippets/doc_http_data_transaction_set_header
+import snippets/doc_http_data_transaction_set_params
+import snippets/doc_http_data_transaction_simple_cookie
 import snippets/doc_http_data_validate_json
 import snippets/doc_http_data_validation_error
 import snippets/doc_http_data_validation_module
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("doc comment snippets for dream/http data modules", [
     cookie_tests(),
     error_tests(),
@@ -90,8 +111,8 @@ fn transaction_request(params: List(#(String, String))) -> transaction.Request {
   )
 }
 
-fn cookie_tests() -> UnitTest {
-  describe("dream/http/cookie", [
+fn cookie_tests() -> UnitNode {
+  group("dream/http/cookie", [
     it("module example builds a simple and a secure cookie", fn() {
       // Act
       let cookies = doc_http_data_cookie_module.new_cookies()
@@ -99,7 +120,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       cookies
       |> should()
-      |> equal([
+      |> be_equal([
         cookie.simple_cookie("theme", "dark"),
         cookie.secure_cookie("session_id", "abc123"),
       ])
@@ -118,7 +139,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       status
       |> should()
-      |> equal("Session abc123")
+      |> be_equal("Session abc123")
       |> or_fail_with("session_status should read abc123")
     }),
     it("module example reports a missing session cookie", fn() {
@@ -131,7 +152,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       status
       |> should()
-      |> equal("No session cookie")
+      |> be_equal("No session cookie")
       |> or_fail_with("session_status should report no cookie")
     }),
     it("SameSite example sets Lax", fn() {
@@ -141,7 +162,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       session_cookie
       |> should()
-      |> equal(
+      |> be_equal(
         Cookie(
           ..cookie.secure_cookie("session", "abc123"),
           same_site: Some(Lax),
@@ -156,7 +177,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       auth_cookie
       |> should()
-      |> equal(cookie.secure_cookie("auth_token", "xyz789"))
+      |> be_equal(cookie.secure_cookie("auth_token", "xyz789"))
       |> or_fail_with("builder_cookie should be a secure cookie")
     }),
     it("Cookie example constructor sets a one hour max age", fn() {
@@ -166,7 +187,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       auth_cookie
       |> should()
-      |> equal(
+      |> be_equal(
         Cookie(
           ..cookie.secure_cookie("auth_token", "xyz789"),
           max_age: Some(3600),
@@ -184,7 +205,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       name
       |> should()
-      |> equal("session_id")
+      |> be_equal("session_id")
       |> or_fail_with("cookie_name should return session_id")
     }),
     it("cookie_value example returns the value", fn() {
@@ -194,7 +215,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       value
       |> should()
-      |> equal("abc123")
+      |> be_equal("abc123")
       |> or_fail_with("cookie_value should return abc123")
     }),
     it("simple_cookie example builds preference cookies", fn() {
@@ -204,7 +225,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       cookies
       |> should()
-      |> equal([
+      |> be_equal([
         Cookie("theme", "dark", None, None, None, None, False, False, None),
         Cookie("lang", "en", None, None, None, None, False, False, None),
       ])
@@ -218,7 +239,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       cookies
       |> should()
-      |> equal([
+      |> be_equal([
         Cookie(
           "session_id",
           "s-1",
@@ -265,7 +286,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       value
       |> should()
-      |> equal("abc123")
+      |> be_equal("abc123")
       |> or_fail_with("session_value should be abc123")
     }),
     it("get_cookie example returns no session for an empty list", fn() {
@@ -278,7 +299,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       value
       |> should()
-      |> equal("no session")
+      |> be_equal("no session")
       |> or_fail_with("session_value should be no session")
     }),
     it("get_cookie example ignores case", fn() {
@@ -291,7 +312,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       found
       |> should()
-      |> equal(Some(cookie.simple_cookie("theme", "dark")))
+      |> be_equal(Some(cookie.simple_cookie("theme", "dark")))
       |> or_fail_with("THEME should find the theme cookie")
     }),
     it("get_cookie_value example finds theme and not missing", fn() {
@@ -301,7 +322,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       lookups
       |> should()
-      |> equal(#(Some("dark"), None))
+      |> be_equal(#(Some("dark"), None))
       |> or_fail_with("lookups should be Some(dark) and None")
     }),
     it("set_cookie example replaces and adds", fn() {
@@ -311,7 +332,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       cookies
       |> should()
-      |> equal([
+      |> be_equal([
         cookie.secure_cookie("session_id", "abc123"),
         cookie.simple_cookie("theme", "dark"),
       ])
@@ -324,7 +345,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       cookies
       |> should()
-      |> equal([cookie.secure_cookie("session_id", "abc123")])
+      |> be_equal([cookie.secure_cookie("session_id", "abc123")])
       |> or_fail_with("without_theme should keep session_id only")
     }),
     it("remove_cookie example expires the session cookie", fn() {
@@ -334,7 +355,7 @@ fn cookie_tests() -> UnitTest {
       // Assert
       expired
       |> should()
-      |> equal(
+      |> be_equal(
         Cookie(..cookie.secure_cookie("session_id", ""), max_age: Some(0)),
       )
       |> or_fail_with("expired_session should have max_age 0")
@@ -342,8 +363,8 @@ fn cookie_tests() -> UnitTest {
   ])
 }
 
-fn error_tests() -> UnitTest {
-  describe("dream/http/error", [
+fn error_tests() -> UnitNode {
+  group("dream/http/error", [
     it("module example finds a user", fn() {
       // Arrange
       let users = [doc_http_data_error_module.User(1, "Alice")]
@@ -354,7 +375,7 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(doc_http_data_error_module.User(1, "Alice")))
+      |> be_equal(Ok(doc_http_data_error_module.User(1, "Alice")))
       |> or_fail_with("get_user should find Alice")
     }),
     it("module example returns NotFound", fn() {
@@ -367,7 +388,7 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.NotFound("User not found")))
+      |> be_equal(Error(error.NotFound("User not found")))
       |> or_fail_with("get_user should return NotFound")
     }),
     it("module example rejects an empty name", fn() {
@@ -380,7 +401,7 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.BadRequest("Name must not be empty")))
+      |> be_equal(Error(error.BadRequest("Name must not be empty")))
       |> or_fail_with("create_user should reject an empty name")
     }),
     it("module example creates a user", fn() {
@@ -393,7 +414,7 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(doc_http_data_error_module.User(2, "Bob")))
+      |> be_equal(Ok(doc_http_data_error_module.User(2, "Bob")))
       |> or_fail_with("create_user should create Bob with id 2")
     }),
     it("response example sends the user", fn() {
@@ -407,7 +428,7 @@ fn error_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"name\":\"Alice\"}")
+      |> be_equal("{\"name\":\"Alice\"}")
       |> or_fail_with("user_response should send Alice")
     }),
     it("response example maps the error status", fn() {
@@ -420,7 +441,7 @@ fn error_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("user_response should return 404")
     }),
     it("response example sends the error message", fn() {
@@ -434,7 +455,7 @@ fn error_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"error\":\"User not found\"}")
+      |> be_equal("{\"error\":\"User not found\"}")
       |> or_fail_with("user_response should send the message")
     }),
     it("BadRequest example requires an email", fn() {
@@ -444,7 +465,7 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.BadRequest("Field 'email' is required")))
+      |> be_equal(Error(error.BadRequest("Field 'email' is required")))
       |> or_fail_with("check_signup should require an email")
     }),
     it("BadRequest example requires a positive id", fn() {
@@ -455,7 +476,7 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.BadRequest("ID must be a positive integer")))
+      |> be_equal(Error(error.BadRequest("ID must be a positive integer")))
       |> or_fail_with("check_signup should require a positive id")
     }),
     it("Unauthorized example requires a token", fn() {
@@ -465,7 +486,7 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.Unauthorized("Authentication token required")))
+      |> be_equal(Error(error.Unauthorized("Authentication token required")))
       |> or_fail_with("authenticate should require a token")
     }),
     it("Unauthorized example rejects an unknown token", fn() {
@@ -475,7 +496,7 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.Unauthorized("Invalid or expired token")))
+      |> be_equal(Error(error.Unauthorized("Invalid or expired token")))
       |> or_fail_with("authenticate should reject t-2")
     }),
     it("Forbidden example requires an admin", fn() {
@@ -485,7 +506,7 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.Forbidden("Admin access required")))
+      |> be_equal(Error(error.Forbidden("Admin access required")))
       |> or_fail_with("require_admin should refuse a non-admin")
     }),
     it("Forbidden example protects another user's post", fn() {
@@ -495,7 +516,7 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.Forbidden("Cannot delete another user's post")))
+      |> be_equal(Error(error.Forbidden("Cannot delete another user's post")))
       |> or_fail_with("check_post_owner should refuse user 1")
     }),
     it("NotFound example reports a missing user", fn() {
@@ -505,7 +526,7 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.NotFound("User not found")))
+      |> be_equal(Error(error.NotFound("User not found")))
       |> or_fail_with("find_user should return NotFound")
     }),
     it("NotFound example names the missing post", fn() {
@@ -515,21 +536,31 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.NotFound("Post with ID 123 does not exist")))
+      |> be_equal(Error(error.NotFound("Post with ID 123 does not exist")))
       |> or_fail_with("find_post should name post 123")
     }),
-    it("UnprocessableContent example rejects a taken email", fn() {
+    it("Conflict example rejects a taken email", fn() {
       // Act
       let result =
-        doc_http_data_error_unprocessable_content.check_email("a@example.com", [
+        doc_http_data_error_conflict.check_email("a@example.com", [
           "a@example.com",
         ])
 
       // Assert
       result
       |> should()
-      |> equal(Error(error.UnprocessableContent("Email already registered")))
+      |> be_equal(Error(error.Conflict("Email already registered")))
       |> or_fail_with("check_email should reject a taken email")
+    }),
+    it("Conflict example rejects a stale version", fn() {
+      // Act
+      let result = doc_http_data_error_conflict.check_version(3, 4)
+
+      // Assert
+      result
+      |> should()
+      |> be_equal(Error(error.Conflict("The post changed after you loaded it")))
+      |> or_fail_with("check_version should reject version 3 against 4")
     }),
     it("UnprocessableContent example rejects reversed dates", fn() {
       // Act
@@ -538,7 +569,7 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         Error(error.UnprocessableContent("Start date must be before end date")),
       )
       |> or_fail_with("check_dates should reject 5 to 1")
@@ -551,7 +582,9 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.InternalServerError("Database connection failed")))
+      |> be_equal(
+        Error(error.InternalServerError("Database connection failed")),
+      )
       |> or_fail_with("load_users should return InternalServerError")
     }),
     it("InternalServerError example wraps a payment failure", fn() {
@@ -561,7 +594,7 @@ fn error_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         Error(error.InternalServerError("External payment API unavailable")),
       )
       |> or_fail_with("charge should return InternalServerError")
@@ -573,7 +606,7 @@ fn error_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("not_found_response should return 404")
     }),
     it("to_status_code example sends the message", fn() {
@@ -584,7 +617,7 @@ fn error_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"error\":\"User not found\"}")
+      |> be_equal("{\"error\":\"User not found\"}")
       |> or_fail_with("not_found_response should send the message")
     }),
     it("message example builds the error JSON", fn() {
@@ -594,14 +627,14 @@ fn error_tests() -> UnitTest {
       // Assert
       json.to_string(error_json)
       |> should()
-      |> equal("{\"error\":\"Invalid email format\",\"status\":400}")
+      |> be_equal("{\"error\":\"Invalid email format\",\"status\":400}")
       |> or_fail_with("bad_request_json should hold message and 400")
     }),
   ])
 }
 
-fn params_tests() -> UnitTest {
-  describe("dream/http/params", [
+fn params_tests() -> UnitNode {
+  group("dream/http/params", [
     it("require_int example builds the user path", fn() {
       // Arrange
       let request = params_request([#("id", "42")])
@@ -612,7 +645,7 @@ fn params_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok("/users/42"))
+      |> be_equal(Ok("/users/42"))
       |> or_fail_with("user_path should be /users/42")
     }),
     it("require_int example rejects a bad id", fn() {
@@ -625,7 +658,7 @@ fn params_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.BadRequest("id must be an integer")))
+      |> be_equal(Error(error.BadRequest("id must be an integer")))
       |> or_fail_with("user_path should reject abc")
     }),
     it("require_string example greets the user", fn() {
@@ -638,7 +671,7 @@ fn params_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok("Hello, john"))
+      |> be_equal(Ok("Hello, john"))
       |> or_fail_with("greeting should greet john")
     }),
     it("require_string example reports a missing name", fn() {
@@ -651,7 +684,9 @@ fn params_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.BadRequest("Missing name parameter")))
+      |> be_equal(
+        Error(error.BadRequest("Missing required path parameter: name")),
+      )
       |> or_fail_with("greeting should report a missing name")
     }),
     it("require_form example reads the title", fn() {
@@ -664,7 +699,7 @@ fn params_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok("Buy milk"))
+      |> be_equal(Ok("Buy milk"))
       |> or_fail_with("task_title should be Buy milk")
     }),
     it("require_form example rejects an empty body", fn() {
@@ -677,7 +712,7 @@ fn params_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.BadRequest("Request body is empty")))
+      |> be_equal(Error(error.BadRequest("Request body is empty")))
       |> or_fail_with("task_title should reject an empty body")
     }),
     it("require_json example reads the task", fn() {
@@ -690,7 +725,7 @@ fn params_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         Ok(doc_http_data_require_json.NewTask(title: "Buy milk", priority: 2)),
       )
       |> or_fail_with("read_task should decode the task")
@@ -706,7 +741,7 @@ fn params_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         Error(error.BadRequest("Expected Int but found String at priority")),
       )
       |> or_fail_with("read_task should report the priority field")
@@ -721,7 +756,7 @@ fn params_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.BadRequest("Missing required field: title")))
+      |> be_equal(Error(error.BadRequest("Missing required field: title")))
       |> or_fail_with("task_title should report a missing title")
     }),
     it("require_field_int example reads the priority", fn() {
@@ -734,7 +769,7 @@ fn params_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(3))
+      |> be_equal(Ok(3))
       |> or_fail_with("task_priority should be 3")
     }),
     it("require_field_int example rejects a bad priority", fn() {
@@ -747,7 +782,9 @@ fn params_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(error.BadRequest("Field 'priority' must be an integer")))
+      |> be_equal(
+        Error(error.BadRequest("Field 'priority' must be an integer")),
+      )
       |> or_fail_with("task_priority should reject high")
     }),
     it("field_optional example reads the description", fn() {
@@ -760,7 +797,7 @@ fn params_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Some("Weekly"))
+      |> be_equal(Some("Weekly"))
       |> or_fail_with("task_description should be Weekly")
     }),
     it("field_optional example treats empty as missing", fn() {
@@ -773,14 +810,14 @@ fn params_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(None)
+      |> be_equal(None)
       |> or_fail_with("task_description should be None")
     }),
   ])
 }
 
-fn transaction_tests() -> UnitTest {
-  describe("dream/http/transaction", [
+fn transaction_tests() -> UnitNode {
+  group("dream/http/transaction", [
     it("path example sends the user", fn() {
       // Arrange
       let request = transaction_request([#("id", "123")])
@@ -792,7 +829,7 @@ fn transaction_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"id\":123}")
+      |> be_equal("{\"id\":123}")
       |> or_fail_with("show_user should send id 123")
     }),
     it("path example rejects a bad id", fn() {
@@ -805,7 +842,7 @@ fn transaction_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("show_user should return 400")
     }),
     it("format example reads the json extension", fn() {
@@ -818,7 +855,7 @@ fn transaction_tests() -> UnitTest {
       // Assert
       description
       |> should()
-      |> equal("123 as json")
+      |> be_equal("123 as json")
       |> or_fail_with("describe_id should find json")
     }),
     it("format example reports a missing parameter", fn() {
@@ -831,7 +868,7 @@ fn transaction_tests() -> UnitTest {
       // Assert
       description
       |> should()
-      |> equal("Error: Missing required path parameter: id")
+      |> be_equal("Error: Missing required path parameter: id")
       |> or_fail_with("describe_id should report the missing id")
     }),
     it("get_param example reads value and integer", fn() {
@@ -844,7 +881,7 @@ fn transaction_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#("123", Ok(123))))
+      |> be_equal(Ok(#("123", Ok(123))))
       |> or_fail_with("read_id should be 123")
     }),
     it("get_param example reads the format", fn() {
@@ -857,7 +894,7 @@ fn transaction_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#("123", Some("json"), Ok(123))))
+      |> be_equal(Ok(#("123", Some("json"), Ok(123))))
       |> or_fail_with("read_id_with_format should find json")
     }),
     it("get_param example uses get_int_param", fn() {
@@ -871,7 +908,7 @@ fn transaction_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"id\":123}")
+      |> be_equal("{\"id\":123}")
       |> or_fail_with("show should send id 123")
     }),
     it("get_int_param example rejects a bad id", fn() {
@@ -885,7 +922,7 @@ fn transaction_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"error\":\"id must be an integer\"}")
+      |> be_equal("{\"error\":\"id must be an integer\"}")
       |> or_fail_with("show_by_id should reject abc")
     }),
     it("get_string_param example sends the name", fn() {
@@ -899,7 +936,7 @@ fn transaction_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"name\":\"john\"}")
+      |> be_equal("{\"name\":\"john\"}")
       |> or_fail_with("show_by_name should send john")
     }),
     it("set_header example sets both headers", fn() {
@@ -919,7 +956,7 @@ fn transaction_tests() -> UnitTest {
       // Assert
       headers
       |> should()
-      |> equal([
+      |> be_equal([
         transaction.Header("X-Custom-Header", "value"),
         transaction.Header("Cache-Control", "max-age=3600"),
       ])
@@ -927,11 +964,288 @@ fn transaction_tests() -> UnitTest {
         "cache_headers should replace Cache-Control and add X-Custom-Header",
       )
     }),
+    it("transaction cookie_name example returns theme", fn() {
+      // Act
+      let name = doc_http_data_transaction_cookie_name.theme_cookie_name()
+
+      // Assert
+      name
+      |> should()
+      |> be_equal("theme")
+      |> or_fail_with("the cookie name should be theme")
+    }),
+    it("transaction cookie_value example returns dark", fn() {
+      // Act
+      let value = doc_http_data_transaction_cookie_value.theme_cookie_value()
+
+      // Assert
+      value
+      |> should()
+      |> be_equal("dark")
+      |> or_fail_with("the cookie value should be dark")
+    }),
+    it("transaction simple_cookie example has no security flags", fn() {
+      // Act
+      let cookie = doc_http_data_transaction_simple_cookie.theme_cookie()
+
+      // Assert
+      cookie
+      |> should()
+      |> be_equal(transaction.Cookie(
+        name: "theme",
+        value: "dark",
+        expires: None,
+        max_age: None,
+        domain: None,
+        path: None,
+        secure: False,
+        http_only: False,
+        same_site: None,
+      ))
+      |> or_fail_with("the cookie should have no flags")
+    }),
+    it("transaction secure_cookie example is secure, httpOnly and Strict", fn() {
+      // Act
+      let cookie = doc_http_data_transaction_secure_cookie.session_cookie()
+
+      // Assert
+      cookie
+      |> should()
+      |> be_equal(transaction.Cookie(
+        name: "session_id",
+        value: "abc123",
+        expires: None,
+        max_age: None,
+        domain: None,
+        path: None,
+        secure: True,
+        http_only: True,
+        same_site: Some(transaction.Strict),
+      ))
+      |> or_fail_with("the cookie should be secure")
+    }),
+    it("transaction header_name example returns Content-Type", fn() {
+      // Act
+      let name = doc_http_data_transaction_header_name.content_type_name()
+
+      // Assert
+      name
+      |> should()
+      |> be_equal("Content-Type")
+      |> or_fail_with("the header name should be Content-Type")
+    }),
+    it("transaction header_value example returns text/html", fn() {
+      // Act
+      let value = doc_http_data_transaction_header_value.content_type_value()
+
+      // Assert
+      value
+      |> should()
+      |> be_equal("text/html")
+      |> or_fail_with("the header value should be text/html")
+    }),
+    it("transaction get_header example ignores the case of the name", fn() {
+      // Act
+      let value = doc_http_data_transaction_get_header.content_type()
+
+      // Assert
+      value
+      |> should()
+      |> be_equal(Some("application/json"))
+      |> or_fail_with("the content type should be found")
+    }),
+    it("transaction add_header example keeps both headers", fn() {
+      // Act
+      let headers = doc_http_data_transaction_add_header.set_cookie_headers()
+
+      // Assert
+      headers
+      |> should()
+      |> be_equal([
+        transaction.Header("Set-Cookie", "b=2"),
+        transaction.Header("Set-Cookie", "a=1"),
+      ])
+      |> or_fail_with("both Set-Cookie headers should stay")
+    }),
+    it("transaction remove_header example removes Server", fn() {
+      // Act
+      let headers = doc_http_data_transaction_remove_header.public_headers()
+
+      // Assert
+      headers
+      |> should()
+      |> be_equal([transaction.Header("Content-Type", "text/plain")])
+      |> or_fail_with("only Content-Type should stay")
+    }),
+    it("transaction get_cookie example finds the session cookie", fn() {
+      // Act
+      let cookie = doc_http_data_transaction_get_cookie.session()
+
+      // Assert
+      cookie
+      |> should()
+      |> be_equal(
+        Some(transaction.Cookie(
+          name: "session_id",
+          value: "abc123",
+          expires: None,
+          max_age: None,
+          domain: None,
+          path: None,
+          secure: True,
+          http_only: True,
+          same_site: Some(transaction.Strict),
+        )),
+      )
+      |> or_fail_with("the session cookie should be found")
+    }),
+    it("transaction get_cookie_value example returns dark", fn() {
+      // Act
+      let value = doc_http_data_transaction_get_cookie_value.theme()
+
+      // Assert
+      value
+      |> should()
+      |> be_equal(Some("dark"))
+      |> or_fail_with("the theme should be dark")
+    }),
+    it("transaction set_cookie example replaces the theme cookie", fn() {
+      // Act
+      let cookies = doc_http_data_transaction_set_cookie.dark_theme()
+
+      // Assert
+      cookies
+      |> should()
+      |> be_equal([
+        transaction.Cookie(
+          name: "theme",
+          value: "dark",
+          expires: None,
+          max_age: None,
+          domain: None,
+          path: None,
+          secure: False,
+          http_only: False,
+          same_site: None,
+        ),
+      ])
+      |> or_fail_with("only the dark theme cookie should stay")
+    }),
+    it("transaction remove_cookie example removes the theme cookie", fn() {
+      // Act
+      let cookies = doc_http_data_transaction_remove_cookie.without_theme()
+
+      // Assert
+      cookies
+      |> should()
+      |> be_equal([
+        transaction.Cookie(
+          name: "lang",
+          value: "en",
+          expires: None,
+          max_age: None,
+          domain: None,
+          path: None,
+          secure: False,
+          http_only: False,
+          same_site: None,
+        ),
+      ])
+      |> or_fail_with("only the lang cookie should stay")
+    }),
+    it("transaction method_to_string example returns POST", fn() {
+      // Act
+      let name = doc_http_data_transaction_method_to_string.post_name()
+
+      // Assert
+      name
+      |> should()
+      |> be_equal("POST")
+      |> or_fail_with("the name should be POST")
+    }),
+    it("transaction parse_method example returns Delete", fn() {
+      // Act
+      let method = doc_http_data_transaction_parse_method.delete_method()
+
+      // Assert
+      method
+      |> should()
+      |> be_equal(Some(transaction.Delete))
+      |> or_fail_with("delete should parse to Delete")
+    }),
+    it("transaction get_query_param example decodes the value", fn() {
+      // Act
+      let value = doc_http_data_transaction_get_query_param.search_term()
+
+      // Assert
+      value
+      |> should()
+      |> be_equal(Some("hello world"))
+      |> or_fail_with("the search term should be hello world")
+    }),
+    it("transaction has_content_type example matches a JSON request", fn() {
+      // Arrange
+      let request =
+        transaction.Request(
+          ..transaction_request([]),
+          content_type: Some("application/json; charset=utf-8"),
+        )
+
+      // Act
+      let matches = doc_http_data_transaction_has_content_type.is_json(request)
+
+      // Assert
+      matches
+      |> should()
+      |> be_equal(True)
+      |> or_fail_with("a JSON request should match")
+    }),
+    it("transaction is_method example matches a POST request", fn() {
+      // Arrange
+      let request =
+        transaction.Request(..transaction_request([]), method: transaction.Post)
+
+      // Act
+      let matches = doc_http_data_transaction_is_method.is_post(request)
+
+      // Assert
+      matches
+      |> should()
+      |> be_equal(True)
+      |> or_fail_with("a POST request should match")
+    }),
+    it("transaction is_method example does not match a GET request", fn() {
+      // Arrange
+      let request = transaction_request([])
+
+      // Act
+      let matches = doc_http_data_transaction_is_method.is_post(request)
+
+      // Assert
+      matches
+      |> should()
+      |> be_equal(False)
+      |> or_fail_with("a GET request should not match")
+    }),
+    it("transaction set_params example sets the id", fn() {
+      // Arrange
+      let request = transaction_request([])
+
+      // Act
+      let params =
+        doc_http_data_transaction_set_params.with_user_id(request).params
+
+      // Assert
+      params
+      |> should()
+      |> be_equal([#("id", "42")])
+      |> or_fail_with("the params should be the id 42")
+    }),
   ])
 }
 
-fn validation_tests() -> UnitTest {
-  describe("dream/http/validation", [
+fn validation_tests() -> UnitNode {
+  group("dream/http/validation", [
     it("module example creates the user", fn() {
       // Arrange
       let request =
@@ -945,7 +1259,7 @@ fn validation_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(201)
+      |> be_equal(201)
       |> or_fail_with("create should return 201")
     }),
     it("module example reports the bad field", fn() {
@@ -962,7 +1276,7 @@ fn validation_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"error\":\"Expected Int but found String at age\"}")
+      |> be_equal("{\"errors\":[\"Expected Int but found String at age\"]}")
       |> or_fail_with("create should report age")
     }),
     it("ValidationError example matches validate_json output", fn() {
@@ -978,7 +1292,7 @@ fn validation_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(doc_http_data_validation_error.email_error()))
+      |> be_equal(Error([doc_http_data_validation_error.email_error()]))
       |> or_fail_with("validate_json should return email_error")
     }),
     it("validate_json example creates the post", fn() {
@@ -993,7 +1307,7 @@ fn validation_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"title\":\"Hi\",\"body\":\"Text\",\"published\":true}")
+      |> be_equal("{\"title\":\"Hi\",\"body\":\"Text\",\"published\":true}")
       |> or_fail_with("create_post should send the post")
     }),
     it("validate_json example reports the bad field", fn() {
@@ -1010,8 +1324,8 @@ fn validation_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal(
-        "{\"error\":\"Expected Bool but found String at published\",\"field\":\"published\"}",
+      |> be_equal(
+        "{\"errors\":[{\"error\":\"Expected Bool but found String at published\",\"field\":\"published\"}]}",
       )
       |> or_fail_with("create_post should report published")
     }),

@@ -4,9 +4,10 @@ import dream/dream
 import dream/router.{router}
 import dream/servers/mist/port_probe
 import dream/servers/mist/server
-import dream_test/assertions/should.{equal, or_fail_with, should}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
 import dream_test/types.{AssertionFailed, AssertionFailure, AssertionOk}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import gleam/erlang/process
 import gleam/int
 import gleam/list
@@ -19,7 +20,7 @@ import gleam/string
 // Tests
 // ============================================================================
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("server", [
     builder_tests(),
     listen_tests(),
@@ -28,8 +29,8 @@ pub fn tests() -> UnitTest {
   ])
 }
 
-fn builder_tests() -> UnitTest {
-  describe("builder", [
+fn builder_tests() -> UnitNode {
+  group("builder", [
     it("new creates dream instance with 10MB default max body size", fn() {
       // Arrange
       let dream_instance = server.new()
@@ -40,7 +41,7 @@ fn builder_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(10_000_000)
+      |> be_equal(10_000_000)
       |> or_fail_with("Default max body size should be 10MB")
     }),
     it("router sets router on dream instance", fn() {
@@ -52,7 +53,7 @@ fn builder_tests() -> UnitTest {
       let _configured = server.router(dream_instance, test_router)
 
       // Assert
-      AssertionOk
+      Ok(AssertionOk)
     }),
     it("bind sets bind address", fn() {
       // Arrange
@@ -67,7 +68,7 @@ fn builder_tests() -> UnitTest {
         |> server.bind(bind_address)
 
       // Assert
-      AssertionOk
+      Ok(AssertionOk)
     }),
     it("max_body_size sets max body size", fn() {
       // Arrange
@@ -82,13 +83,13 @@ fn builder_tests() -> UnitTest {
         |> server.max_body_size(max_size)
 
       // Assert
-      AssertionOk
+      Ok(AssertionOk)
     }),
   ])
 }
 
-fn listen_tests() -> UnitTest {
-  describe("listen_with_handle", [
+fn listen_tests() -> UnitNode {
+  group("listen_with_handle", [
     it("starts on expected port", fn() {
       // Arrange
       let port = free_port()
@@ -104,7 +105,7 @@ fn listen_tests() -> UnitTest {
         in_use
       })
       |> should()
-      |> equal(Ok(True))
+      |> be_equal(Ok(True))
       |> or_fail_with(
         "The server should accept connections on the port it was given",
       )
@@ -112,8 +113,8 @@ fn listen_tests() -> UnitTest {
   ])
 }
 
-fn lifecycle_tests() -> UnitTest {
-  describe("server lifecycle", [
+fn lifecycle_tests() -> UnitNode {
+  group("server lifecycle", [
     it("listen_with_handle returns server handle", fn() {
       // Arrange
       let dream_instance =
@@ -128,17 +129,19 @@ fn lifecycle_tests() -> UnitTest {
       case result {
         Ok(handle) -> {
           server.stop(handle)
-          AssertionOk
+          Ok(AssertionOk)
         }
         Error(start_error) ->
-          AssertionFailed(AssertionFailure(
-            operator: "listen_with_handle",
-            message: "Server failed to start on port "
-              <> int.to_string(port)
-              <> ": "
-              <> string.inspect(start_error),
-            payload: None,
-          ))
+          Ok(
+            AssertionFailed(AssertionFailure(
+              operator: "listen_with_handle",
+              message: "Server failed to start on port "
+                <> int.to_string(port)
+                <> ": "
+                <> string.inspect(start_error),
+              payload: None,
+            )),
+          )
       }
     }),
     it("listen_with_handle fails when port is already in use", fn() {
@@ -160,38 +163,46 @@ fn lifecycle_tests() -> UnitTest {
           case second_result {
             Error(actor.InitFailed(message)) -> {
               case string.contains(message, "already in use") {
-                True -> AssertionOk
+                True -> Ok(AssertionOk)
                 False ->
-                  AssertionFailed(AssertionFailure(
-                    operator: "listen_with_handle_port_in_use",
-                    message: "Expected clear port-in-use message, got: "
-                      <> message,
-                    payload: None,
-                  ))
+                  Ok(
+                    AssertionFailed(AssertionFailure(
+                      operator: "listen_with_handle_port_in_use",
+                      message: "Expected clear port-in-use message, got: "
+                        <> message,
+                      payload: None,
+                    )),
+                  )
               }
             }
             Error(start_error) ->
-              AssertionFailed(AssertionFailure(
-                operator: "listen_with_handle_port_in_use",
-                message: "Unexpected start error: "
-                  <> string.inspect(start_error),
-                payload: None,
-              ))
+              Ok(
+                AssertionFailed(AssertionFailure(
+                  operator: "listen_with_handle_port_in_use",
+                  message: "Unexpected start error: "
+                    <> string.inspect(start_error),
+                  payload: None,
+                )),
+              )
             Ok(_) ->
-              AssertionFailed(AssertionFailure(
-                operator: "listen_with_handle_port_in_use",
-                message: "Expected second server start to fail on same port",
-                payload: None,
-              ))
+              Ok(
+                AssertionFailed(AssertionFailure(
+                  operator: "listen_with_handle_port_in_use",
+                  message: "Expected second server start to fail on same port",
+                  payload: None,
+                )),
+              )
           }
         }
         Error(start_error) ->
-          AssertionFailed(AssertionFailure(
-            operator: "listen_with_handle_port_in_use",
-            message: "Failed to start first server: "
-              <> string.inspect(start_error),
-            payload: None,
-          ))
+          Ok(
+            AssertionFailed(AssertionFailure(
+              operator: "listen_with_handle_port_in_use",
+              message: "Failed to start first server: "
+                <> string.inspect(start_error),
+              payload: None,
+            )),
+          )
       }
     }),
     it("stop actually stops server", fn() {
@@ -207,17 +218,27 @@ fn lifecycle_tests() -> UnitTest {
       // Assert
       case result {
         Ok(handle) -> {
-          process.sleep(100)
           server.stop(handle)
-          process.sleep(100)
-          AssertionOk
+          case port_probe.is_in_use(None, port) {
+            False -> Ok(AssertionOk)
+            True ->
+              Ok(
+                AssertionFailed(AssertionFailure(
+                  operator: "stop",
+                  message: "The port is still in use after stop returned",
+                  payload: None,
+                )),
+              )
+          }
         }
         Error(start_error) ->
-          AssertionFailed(AssertionFailure(
-            operator: "stop",
-            message: "Server failed to start: " <> string.inspect(start_error),
-            payload: None,
-          ))
+          Ok(
+            AssertionFailed(AssertionFailure(
+              operator: "stop",
+              message: "Server failed to start: " <> string.inspect(start_error),
+              payload: None,
+            )),
+          )
       }
     }),
     it("stop is idempotent", fn() {
@@ -233,26 +254,27 @@ fn lifecycle_tests() -> UnitTest {
       // Assert
       case result {
         Ok(handle) -> {
-          process.sleep(100)
           server.stop(handle)
           server.stop(handle)
           server.stop(handle)
-          AssertionOk
+          Ok(AssertionOk)
         }
         Error(start_error) ->
-          AssertionFailed(AssertionFailure(
-            operator: "stop_idempotent",
-            message: "Server failed to start: " <> string.inspect(start_error),
-            payload: None,
-          ))
+          Ok(
+            AssertionFailed(AssertionFailure(
+              operator: "stop_idempotent",
+              message: "Server failed to start: " <> string.inspect(start_error),
+              payload: None,
+            )),
+          )
       }
     }),
     stop_from_another_process_tests(),
   ])
 }
 
-fn stop_from_another_process_tests() -> UnitTest {
-  describe("stop from another process", [
+fn stop_from_another_process_tests() -> UnitNode {
+  group("stop from another process", [
     it("frees the port for a new server", fn() {
       // Arrange
       let port = free_port()
@@ -268,7 +290,7 @@ fn stop_from_another_process_tests() -> UnitTest {
       restarted
       |> result.map(server.stop)
       |> should()
-      |> equal(Ok(Nil))
+      |> be_equal(Ok(Nil))
       |> or_fail_with("A new server must bind the port after stop returns")
     }),
     it("is safe to call twice", fn() {
@@ -286,7 +308,7 @@ fn stop_from_another_process_tests() -> UnitTest {
       restarted
       |> result.map(server.stop)
       |> should()
-      |> equal(Ok(Nil))
+      |> be_equal(Ok(Nil))
       |> or_fail_with(
         "Two stops must not crash the caller and must free the port",
       )
@@ -309,7 +331,7 @@ fn stop_from_another_process_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(Nil))
+      |> be_equal(Ok(Nil))
       |> or_fail_with("Stop on a stopped server must return Nil to the caller")
     }),
     it("refuses a connection sent after stop returns", fn() {
@@ -328,7 +350,7 @@ fn stop_from_another_process_tests() -> UnitTest {
       // Assert
       in_use
       |> should()
-      |> equal(Ok(False))
+      |> be_equal(Ok(False))
       |> or_fail_with("The server must refuse connections after stop returns")
     }),
   ])
@@ -367,8 +389,8 @@ fn stop_from_another_process(
 @external(erlang, "port_ffi", "free_port")
 fn free_port() -> Int
 
-fn bind_tests() -> UnitTest {
-  describe("bind configuration", [
+fn bind_tests() -> UnitNode {
+  group("bind configuration", [
     it("bind configuration persists through listen", fn() {
       // Arrange
       let dream_instance =
@@ -384,17 +406,19 @@ fn bind_tests() -> UnitTest {
       case result {
         Ok(handle) -> {
           server.stop(handle)
-          AssertionOk
+          Ok(AssertionOk)
         }
         Error(start_error) ->
-          AssertionFailed(AssertionFailure(
-            operator: "bind_persists",
-            message: "Server with bind() failed to start on port "
-              <> int.to_string(port)
-              <> ": "
-              <> string.inspect(start_error),
-            payload: None,
-          ))
+          Ok(
+            AssertionFailed(AssertionFailure(
+              operator: "bind_persists",
+              message: "Server with bind() failed to start on port "
+                <> int.to_string(port)
+                <> ": "
+                <> string.inspect(start_error),
+              payload: None,
+            )),
+          )
       }
     }),
     it("bind to localhost works", fn() {
@@ -412,15 +436,17 @@ fn bind_tests() -> UnitTest {
       case result {
         Ok(handle) -> {
           server.stop(handle)
-          AssertionOk
+          Ok(AssertionOk)
         }
         Error(start_error) ->
-          AssertionFailed(AssertionFailure(
-            operator: "bind_localhost",
-            message: "Server with bind('localhost') failed to start: "
-              <> string.inspect(start_error),
-            payload: None,
-          ))
+          Ok(
+            AssertionFailed(AssertionFailure(
+              operator: "bind_localhost",
+              message: "Server with bind('localhost') failed to start: "
+                <> string.inspect(start_error),
+              payload: None,
+            )),
+          )
       }
     }),
     it("bind to all interfaces works", fn() {
@@ -438,15 +464,17 @@ fn bind_tests() -> UnitTest {
       case result {
         Ok(handle) -> {
           server.stop(handle)
-          AssertionOk
+          Ok(AssertionOk)
         }
         Error(start_error) ->
-          AssertionFailed(AssertionFailure(
-            operator: "bind_all",
-            message: "Server with bind('0.0.0.0') failed to start: "
-              <> string.inspect(start_error),
-            payload: None,
-          ))
+          Ok(
+            AssertionFailed(AssertionFailure(
+              operator: "bind_all",
+              message: "Server with bind('0.0.0.0') failed to start: "
+                <> string.inspect(start_error),
+              payload: None,
+            )),
+          )
       }
     }),
   ])

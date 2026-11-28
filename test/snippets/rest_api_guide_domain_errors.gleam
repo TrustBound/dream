@@ -1,7 +1,7 @@
 //// REST API guide: domain errors
 ////
 //// A model function that returns Dream's `Error` type, as shown in
-//// docs/guides/rest-api.md.
+//// docs/guides/api-patterns.md.
 
 import dream/http/error.{type Error, NotFound}
 

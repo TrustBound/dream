@@ -12,12 +12,13 @@ pub fn main() {
   let app_services = app_services.initialize_services()
 
   // Start the server
-  dream.new()
-  |> context(app_context.AuthContext(request_id: "", user: option.None))
-  |> services(app_services)
-  |> router(app_router.create_router())
-  |> bind("localhost")
-  |> listen(3001)
+  let assert Ok(Nil) =
+    dream.new()
+    |> context(app_context.AuthContext(request_id: "", user: option.None))
+    |> services(app_services)
+    |> router(app_router.create_router())
+    |> bind("localhost")
+    |> listen(3001)
 
   io.println("Custom context example server listening on http://localhost:3001")
   io.println("Try:")

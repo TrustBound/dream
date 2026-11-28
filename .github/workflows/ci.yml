@@ -5,8 +5,13 @@ on:
     branches:
       - main
       - develop
+  push:
+    branches:
+      - main
 
 env:
+  # A read-only Hex key. With it, dependency lookups do not hit the limit for requests with no key.
+  HEXPM_READ_API_KEY: ${{ secrets.HEX_READ_API_KEY }}
   OTP_VERSION: "28"
   GLEAM_VERSION: "1.19.2"
   REBAR3_VERSION: "3"
@@ -14,6 +19,9 @@ env:
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
+    outputs:
+      coverage_message: ${{ steps.coverage_badge.outputs.message }}
+      coverage_color: ${{ steps.coverage_badge.outputs.color }}
 
     steps:
       # The docs check compares each diff block in the release notes with
@@ -33,11 +41,10 @@ jobs:
         with:
           path: |
             build/packages
-            modules/*/build/packages
             examples/*/build/packages
-          key: gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-unit-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'modules/*/gleam.toml', 'modules/*/manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-unit-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-unit-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'modules/*/gleam.toml', 'modules/*/manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-
+            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-unit-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-
             gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-unit-tests-
 
       - name: Install Erlang and Gleam
@@ -50,43 +57,53 @@ jobs:
       - name: Download dependencies
         run: gleam deps download
 
-      - name: Check code format
-        run: gleam format --check
+      - name: Check native coverage support
+        # Coverage counts lines with the native line counters of the BEAM,
+        # which need Erlang/OTP 27 or later with the JIT.
+        run: >-
+          erl -noshell -eval 'case code:coverage_support() of
+          true -> halt(0);
+          false -> io:format("No native coverage support: use Erlang/OTP 27+ with the JIT~n"), halt(1)
+          end.'
 
-      - name: Build project
-        run: gleam build
-
-      - name: Patch http_client dependencies
-        uses: ./.github/actions/patch-dream-deps
-        with:
-          module_dir: modules/http_client
-
-      - name: Patch mock_server dependencies
-        uses: ./.github/actions/patch-dream-deps
-        with:
-          module_dir: modules/mock_server
-
-      - name: Run all unit tests
+      # The format check, the build, the unit tests with line coverage (they
+      # fail below 100%) and the check of the code blocks of the docs: what
+      # "make check" runs. See docs/contributing/contributing.md.
+      - name: Run the checks
         env:
           CI: "true"
-        run: make test-unit
+        run: sh scripts/check.sh
 
-      # Every Gleam code block in the docs must match the tested snippet
-      # that its badge links to. See docs/contributing/contributing.md.
-      - name: Check docs code blocks against tested snippets
-        run: make check-snippets
-
-      - name: Restore http_client dependencies
-        if: always()
-        uses: ./.github/actions/restore-dream-deps
-        with:
-          module_dir: modules/http_client
-
-      - name: Restore mock_server dependencies
-        if: always()
-        uses: ./.github/actions/restore-dream-deps
-        with:
-          module_dir: modules/mock_server
+      - name: Read coverage for the badge
+        # Runs on every event, so a pull request also shows that the JSON
+        # summary is readable. Only the badge job below publishes.
+        id: coverage_badge
+        env:
+          COVERAGE_JSON: build/coverage/coverage.json
+        run: |
+          set -euo pipefail
+          if [ ! -f "$COVERAGE_JSON" ]; then
+            echo "Coverage badge failed: $COVERAGE_JSON does not exist."
+            echo "Fix: set coverage.json_path(\"$COVERAGE_JSON\") in the test main."
+            exit 1
+          fi
+          # The colour rule of the coverage table: green at 100%, red below
+          # the minimum (50% when no minimum is set), yellow between them.
+          color=$(jq -r '
+            .total as $total
+            | (.minimum_percent // 50) as $minimum
+            | if $total.lines_total == 0 then
+                error("the coverage JSON has no executable lines")
+              elif $total.lines_hit == $total.lines_total then "green"
+              elif $total.lines_hit * 100 < $minimum * $total.lines_total then "red"
+              else "yellow"
+              end
+          ' "$COVERAGE_JSON")
+          percent=$(jq -r '.total.percent' "$COVERAGE_JSON")
+          message=$(printf '%.1f%%' "$percent")
+          echo "Coverage badge: $message ($color)"
+          echo "message=$message" >> "$GITHUB_OUTPUT"
+          echo "color=$color" >> "$GITHUB_OUTPUT"
 
       # Gleam writes a path dependency fingerprint before it asks Hex to
       # resolve, and build/packages/packages.toml only after all downloads. A
@@ -96,7 +113,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          for dir in build/packages modules/*/build/packages examples/*/build/packages; do
+          for dir in build/packages examples/*/build/packages; do
             for fp in "$dir"/*.config_fingerprint; do
               [ -f "$fp" ] || continue
               if [ ! -f "$dir/packages.toml" ] || [ "$fp" -nt "$dir/packages.toml" ]; then
@@ -114,7 +131,6 @@ jobs:
         with:
           path: |
             build/packages
-            modules/*/build/packages
             examples/*/build/packages
           key: ${{ steps.gleam-packages.outputs.cache-primary-key }}
 
@@ -149,11 +165,10 @@ jobs:
         with:
           path: |
             build/packages
-            modules/*/build/packages
             examples/*/build/packages
-          key: gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-integration-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'modules/*/gleam.toml', 'modules/*/manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-integration-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-integration-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'modules/*/gleam.toml', 'modules/*/manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-
+            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-integration-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-
             gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-integration-tests-
 
       - name: Install Erlang and Gleam
@@ -170,24 +185,16 @@ jobs:
       - name: Build project
         run: gleam build
 
-      - name: Setup database examples
-        env:
-          PGPASSWORD: postgres
-          DATABASE_URL: postgres://postgres:postgres@localhost:5435/dream_example_database_db
-        run: |
-          psql -h localhost -p 5435 -U postgres -c "CREATE DATABASE dream_example_multi_format_db;" || true
-          cd examples/database
-          gleam run -m cigogne all
-          cd ../multi_format
-          export DATABASE_URL=postgres://postgres:postgres@localhost:5435/dream_example_multi_format_db
-          gleam run -m cigogne all
-
+      # Makes the second database and runs the migrations of the database
+      # and multi_format examples, then the integration tests of every
+      # example except tasks.
       - name: Run all integration tests
         env:
           CI: "true"
+          PGPASSWORD: postgres
           DATABASE_URL: postgres://postgres:postgres@localhost:5435/dream_example_database_db
           POSTGRES_PORT: "5435"
-        run: make test-integration
+        run: sh scripts/ci-integration.sh
 
       # Gleam writes a path dependency fingerprint before it asks Hex to
       # resolve, and build/packages/packages.toml only after all downloads. A
@@ -197,7 +204,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          for dir in build/packages modules/*/build/packages examples/*/build/packages; do
+          for dir in build/packages examples/*/build/packages; do
             for fp in "$dir"/*.config_fingerprint; do
               [ -f "$fp" ] || continue
               if [ ! -f "$dir/packages.toml" ] || [ "$fp" -nt "$dir/packages.toml" ]; then
@@ -215,6 +222,219 @@ jobs:
         with:
           path: |
             build/packages
-            modules/*/build/packages
             examples/*/build/packages
           key: ${{ steps.gleam-packages.outputs.cache-primary-key }}
+
+  templates:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Erlang and Gleam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ env.OTP_VERSION }}
+          gleam-version: ${{ env.GLEAM_VERSION }}
+          rebar3-version: ${{ env.REBAR3_VERSION }}
+
+      - name: Install Matcha
+        run: |
+          sh scripts/install-matcha.sh "$RUNNER_TEMP/matcha"
+          echo "$RUNNER_TEMP/matcha" >> "$GITHUB_PATH"
+
+      # Each generated template module of the docs and the examples must be
+      # what Matcha makes from its template.
+      - name: Check the generated template modules
+        run: make check-templates
+
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # scripts/test-docker.sh downloads the packages with gleam, with the
+      # Hex key of the workflow, so the image build asks Hex for nothing.
+      - name: Install Erlang and Gleam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ env.OTP_VERSION }}
+          gleam-version: ${{ env.GLEAM_VERSION }}
+          rebar3-version: ${{ env.REBAR3_VERSION }}
+
+      # Builds the image of examples/deployment with no network, starts it
+      # with Docker Compose (PostgreSQL, the migrations and the app), asks
+      # /health, and checks that the app stops on SIGTERM.
+      - name: Build and start the deployment example
+        run: make test-docker
+
+  tasks:
+    runs-on: ubuntu-latest
+
+    # The PostgreSQL of examples/tasks/docker-compose.yml, as a service.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tasks_db
+        ports:
+          - 5437:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Keep downloaded packages and path dependency fingerprints between runs,
+      # so gleam does not ask the Hex API to resolve versions on every run.
+      # The key is unique per run; the save step at the end of the job reuses it.
+      - name: Restore Gleam packages
+        id: gleam-packages
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/packages
+            examples/*/build/packages
+          key: gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-tasks-${{ hashFiles('gleam.toml', 'manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-tasks-${{ hashFiles('gleam.toml', 'manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-
+            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-tasks-
+
+      - name: Install Erlang and Gleam
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ env.OTP_VERSION }}
+          gleam-version: ${{ env.GLEAM_VERSION }}
+          rebar3-version: ${{ env.REBAR3_VERSION }}
+          elixir-version: "1.18"
+
+      - name: Install Matcha
+        run: |
+          sh scripts/install-matcha.sh "$RUNNER_TEMP/matcha"
+          echo "$RUNNER_TEMP/matcha" >> "$GITHUB_PATH"
+
+      # For the Cypress end-to-end tests.
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # npm install downloads the Cypress binary (about 500 MB) to
+      # ~/.cache/Cypress. The example has no package-lock.json, so the key is
+      # its package.json.
+      - name: Restore the Cypress binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-${{ hashFiles('examples/tasks/package.json') }}
+
+      # The integration tests of the example over HTTP/1.1 and HTTP/2, then
+      # the Cypress end-to-end tests. With CI set, the Makefile of the example
+      # uses the PostgreSQL service above, and the Cypress tests empty its
+      # tables with psql, which the runner has.
+      - name: Run the tests of the tasks example
+        env:
+          CI: "true"
+        run: make test-tasks
+
+      # Gleam writes a path dependency fingerprint before it asks Hex to
+      # resolve, and build/packages/packages.toml only after all downloads. A
+      # fingerprint newer than packages.toml (or with no packages.toml) means
+      # that resolution did not finish: drop it, so the next run resolves again.
+      - name: Drop fingerprints of unfinished resolutions
+        if: always()
+        shell: bash
+        run: |
+          for dir in build/packages examples/*/build/packages; do
+            for fp in "$dir"/*.config_fingerprint; do
+              [ -f "$fp" ] || continue
+              if [ ! -f "$dir/packages.toml" ] || [ "$fp" -nt "$dir/packages.toml" ]; then
+                echo "Dropping $fp"
+                rm -f "$fp"
+              fi
+            done
+          done
+
+      # Save even when the job fails, so the next run keeps what this run
+      # resolved and downloaded.
+      - name: Save Gleam packages
+        if: always() && steps.gleam-packages.outputs.cache-primary-key != ''
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build/packages
+            examples/*/build/packages
+          key: ${{ steps.gleam-packages.outputs.cache-primary-key }}
+
+  coverage-badge:
+    name: Publish coverage badge
+    # Only a push to main in this repository publishes. Pull requests and
+    # forks never do.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'TrustBound/dream'
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    # This job runs no project code. It only writes one file to the
+    # `badges` branch.
+    permissions:
+      contents: write
+    concurrency:
+      group: coverage-badge
+      cancel-in-progress: false
+    steps:
+      - name: Commit the badge to the badges branch
+        env:
+          MESSAGE: ${{ needs.unit-tests.outputs.coverage_message }}
+          COLOR: ${{ needs.unit-tests.outputs.coverage_color }}
+          GITHUB_TOKEN: ${{ github.token }}
+          REMOTE_URL: https://github.com/${{ github.repository }}.git
+        run: |
+          set -euo pipefail
+          workdir=$(mktemp -d)
+          cd "$workdir"
+          git init -q
+          git remote add origin "$REMOTE_URL"
+          auth=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')
+          git config http.https://github.com/.extraheader "AUTHORIZATION: basic $auth"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+
+          # Exit status 2 means the branch does not exist yet. Any other
+          # failure (network, access) stops the job.
+          set +e
+          git ls-remote --exit-code --heads origin refs/heads/badges > /dev/null
+          status=$?
+          set -e
+          case "$status" in
+            0)
+              git fetch -q --depth 1 origin refs/heads/badges
+              git checkout -q -B badges FETCH_HEAD
+              ;;
+            2)
+              git checkout -q --orphan badges
+              ;;
+            *)
+              echo "Coverage badge failed: git ls-remote exited with $status."
+              exit "$status"
+              ;;
+          esac
+
+          jq -n -c --arg message "$MESSAGE" --arg color "$COLOR" \
+            '{schemaVersion: 1, label: "coverage", message: $message, color: $color}' \
+            > coverage.json
+          git add coverage.json
+          if git diff --cached --quiet; then
+            echo "Coverage badge unchanged: $MESSAGE"
+            exit 0
+          fi
+          git commit -q -m "Coverage badge: $MESSAGE"
+          git push -q origin HEAD:refs/heads/badges
+          echo "Coverage badge published: $MESSAGE ($COLOR)"

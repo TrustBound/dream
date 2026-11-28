@@ -1,0 +1,12 @@
+after 0 s: GET /products/mug
+  200, x-cache: miss
+  Coffee mug: 1200 cents
+after 5 s: PUT 1500 to /products/mug
+  204
+  (no body)
+after 6 s: GET /products/mug
+  200, x-cache: miss
+  Coffee mug: 1500 cents
+after 7 s: GET /products/mug
+  200, x-cache: hit
+  Coffee mug: 1500 cents

@@ -1,20 +1,16 @@
 .PHONY: run test test-integration clean
 
 run:
-	gleam run
+	gleam run -m main
 
 test:
-	gleam test
+	@make test-integration
 
 test-integration:
 	@echo "=== Running integration tests ==="
 	@if [ -z "$$CI" ]; then \
-		echo "Killing any existing servers..."; \
-		pkill -9 -f "gleam run.*main" 2>/dev/null || true; \
-		pkill -9 -f "streaming_capabilities" 2>/dev/null || true; \
-		lsof -ti:3000 | xargs kill -9 2>/dev/null || true; \
-		lsof -ti:9876 | xargs kill -9 2>/dev/null || true; \
-		sleep 2; \
+		echo "Stopping the server of an earlier run..."; \
+		../../integration/example-server.sh stop build/server.pid; \
 	fi
 	@echo "Building Gleam application..."
 	@rm -rf build/dev build/prod

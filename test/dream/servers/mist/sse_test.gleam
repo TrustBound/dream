@@ -5,10 +5,11 @@ import dream/http/response.{type Response}
 import dream/router.{route, router}
 import dream/servers/mist/server
 import dream/servers/mist/sse
+import dream_test/suite.{type TestSuite}
 import dream_test/types.{
   type AssertionResult, AssertionFailed, AssertionFailure, AssertionOk,
 }
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import gleam/bit_array
 import gleam/erlang/process.{type Selector, type Subject}
 import gleam/option.{type Option, None, Some}
@@ -18,7 +19,7 @@ import gleam/string
 // Tests
 // ============================================================================
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("sse", [
     event_builder_tests(),
     action_tests(),
@@ -26,14 +27,14 @@ pub fn tests() -> UnitTest {
   ])
 }
 
-fn event_builder_tests() -> UnitTest {
-  describe("event builders", [
+fn event_builder_tests() -> UnitNode {
+  group("event builders", [
     it("creates event with data", fn() {
       // Act
       let _ev = sse.event("hello")
 
       // Assert — compiles and returns an Event
-      AssertionOk
+      Ok(AssertionOk)
     }),
     it("sets event name", fn() {
       // Act
@@ -42,7 +43,7 @@ fn event_builder_tests() -> UnitTest {
         |> sse.event_name("greeting")
 
       // Assert — compiles and chains
-      AssertionOk
+      Ok(AssertionOk)
     }),
     it("sets event id", fn() {
       // Act
@@ -51,7 +52,7 @@ fn event_builder_tests() -> UnitTest {
         |> sse.event_id("1")
 
       // Assert — compiles and chains
-      AssertionOk
+      Ok(AssertionOk)
     }),
     it("sets event retry", fn() {
       // Act
@@ -60,7 +61,7 @@ fn event_builder_tests() -> UnitTest {
         |> sse.event_retry(5000)
 
       // Assert — compiles and chains
-      AssertionOk
+      Ok(AssertionOk)
     }),
     it("chains all event builder functions", fn() {
       // Act
@@ -71,19 +72,19 @@ fn event_builder_tests() -> UnitTest {
         |> sse.event_retry(3000)
 
       // Assert — full chain compiles
-      AssertionOk
+      Ok(AssertionOk)
     }),
   ])
 }
 
-fn action_tests() -> UnitTest {
-  describe("actions", [
+fn action_tests() -> UnitNode {
+  group("actions", [
     it("continue_connection wraps state", fn() {
       // Act
       let _action: sse.Action(Int, String) = sse.continue_connection(42)
 
       // Assert — compiles with correct type
-      AssertionOk
+      Ok(AssertionOk)
     }),
     it("continue_connection_with_selector wraps state and selector", fn() {
       // Arrange
@@ -94,20 +95,20 @@ fn action_tests() -> UnitTest {
         sse.continue_connection_with_selector(42, selector)
 
       // Assert — compiles with correct type
-      AssertionOk
+      Ok(AssertionOk)
     }),
     it("stop_connection returns an action", fn() {
       // Act
       let _action: sse.Action(Int, String) = sse.stop_connection()
 
       // Assert — compiles with correct type
-      AssertionOk
+      Ok(AssertionOk)
     }),
   ])
 }
 
-fn upgrade_tests() -> UnitTest {
-  describe("upgrade_to_sse", [
+fn upgrade_tests() -> UnitNode {
+  group("upgrade_to_sse", [
     it("delivers messages from the selector that on_init returns", fn() {
       // Arrange
       let port = free_port()
@@ -122,7 +123,7 @@ fn upgrade_tests() -> UnitTest {
 
       // Assert
       case result {
-        Ok(<<"data: from-selector\n\n":utf8>>) -> AssertionOk
+        Ok(<<"data: from-selector\n\n":utf8>>) -> Ok(AssertionOk)
         Ok(body) ->
           assertion_failed(
             "selector_event",
@@ -184,8 +185,8 @@ fn send_message_as_event(
 
 fn with_selector_server(
   port: Int,
-  test_fn: fn(server.ServerHandle) -> AssertionResult,
-) -> AssertionResult {
+  test_fn: fn(server.ServerHandle) -> Result(AssertionResult, String),
+) -> Result(AssertionResult, String) {
   let result =
     server.new()
     |> server.router(
@@ -212,12 +213,17 @@ fn with_selector_server(
   }
 }
 
-fn assertion_failed(operator: String, message: String) -> AssertionResult {
-  AssertionFailed(AssertionFailure(
-    operator: operator,
-    message: message,
-    payload: None,
-  ))
+fn assertion_failed(
+  operator: String,
+  message: String,
+) -> Result(AssertionResult, String) {
+  Ok(
+    AssertionFailed(AssertionFailure(
+      operator: operator,
+      message: message,
+      payload: None,
+    )),
+  )
 }
 
 @external(erlang, "port_ffi", "free_port")

@@ -1,19 +1,16 @@
 .PHONY: run test test-integration clean matcha build
 
-run: matcha
+run:
 	gleam run -m main
 
 test:
-	gleam test
+	@make test-integration
 
 test-integration:
 	@echo "=== Running integration tests ==="
 	@if [ -z "$$CI" ]; then \
-		echo "Killing any existing servers..."; \
-		pkill -9 -f "gleam run.*main" 2>/dev/null || true; \
-		pkill -9 -f "dream_example_websocket_chat" 2>/dev/null || true; \
-		lsof -ti:8080 | xargs kill -9 2>/dev/null || true; \
-		sleep 2; \
+		echo "Stopping the server of an earlier run..."; \
+		../../integration/example-server.sh stop build/server.pid; \
 	fi
 	@echo "Building Gleam application..."
 	@rm -rf build/dev build/prod
@@ -23,7 +20,7 @@ test-integration:
 	@../../integration/run-scenarios.sh websocket_chat 8080 tls_main http2
 
 matcha:
-	@matcha
+	@matcha && gleam format src
 
 build: matcha
 	@gleam build

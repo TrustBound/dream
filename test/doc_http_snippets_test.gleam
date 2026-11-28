@@ -8,8 +8,9 @@ import dream/http/request.{
   type Request, Delete, Get, Http2, Https, Post, Request,
 }
 import dream/http/response.{type Response, Bytes, Stream, Text}
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/bit_array
 import gleam/json
@@ -31,20 +32,27 @@ import snippets/doc_http_redirect_response
 import snippets/doc_http_remove_header
 import snippets/doc_http_request
 import snippets/doc_http_request_body
+import snippets/doc_http_request_get_query_param
+import snippets/doc_http_request_has_content_type
+import snippets/doc_http_request_is_method
+import snippets/doc_http_request_method_to_string
 import snippets/doc_http_request_methods
 import snippets/doc_http_request_module
+import snippets/doc_http_request_parse_method
+import snippets/doc_http_request_set_params
 import snippets/doc_http_response_body
 import snippets/doc_http_response_module
 import snippets/doc_http_response_type
 import snippets/doc_http_separate_imports
 import snippets/doc_http_set_header
 import snippets/doc_http_single_import
+import snippets/doc_http_sse_response
 import snippets/doc_http_status_module
 import snippets/doc_http_stream_response
 import snippets/doc_http_submodule_imports
 import snippets/doc_http_text_response
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("doc comment snippets for dream/http", [
     http_module_tests(),
     request_module_tests(),
@@ -58,8 +66,8 @@ fn user_request(id: String) -> Request {
   test_request.create_request_with_params(Get, "/users/" <> id, [#("id", id)])
 }
 
-fn http_module_tests() -> UnitTest {
-  describe("dream/http", [
+fn http_module_tests() -> UnitNode {
+  group("dream/http", [
     it("separate imports show returns the user as JSON", fn() {
       // Arrange
       let request = user_request("7")
@@ -71,7 +79,7 @@ fn http_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"id\":7}")
+      |> be_equal("{\"id\":7}")
       |> or_fail_with("show should return {\"id\":7}")
     }),
     it("single import show returns the user as JSON", fn() {
@@ -85,7 +93,7 @@ fn http_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"id\":7}")
+      |> be_equal("{\"id\":7}")
       |> or_fail_with("show should return {\"id\":7}")
     }),
     it("single import show returns 400 for a bad id", fn() {
@@ -98,7 +106,7 @@ fn http_module_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("show should return 400 for a bad id")
     }),
     it("submodule imports map NotFound to 404", fn() {
@@ -111,14 +119,14 @@ fn http_module_tests() -> UnitTest {
       // Assert
       status
       |> should()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("NotFound should map to 404")
     }),
   ])
 }
 
-fn request_module_tests() -> UnitTest {
-  describe("dream/http/request", [
+fn request_module_tests() -> UnitNode {
+  group("dream/http/request", [
     it("module example returns the user as JSON", fn() {
       // Arrange
       let request = user_request("1")
@@ -132,7 +140,7 @@ fn request_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"name\":\"Alice\"}")
+      |> be_equal("{\"name\":\"Alice\"}")
       |> or_fail_with("show_user should return Alice as JSON")
     }),
     it("method example routes DELETE /users/:id", fn() {
@@ -152,7 +160,7 @@ fn request_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Delete user")
+      |> be_equal("Delete user")
       |> or_fail_with("DELETE /users/3 should reach delete_user")
     }),
     it("protocol example describes HTTPS", fn() {
@@ -166,7 +174,7 @@ fn request_module_tests() -> UnitTest {
       // Assert
       description
       |> should()
-      |> equal("Secure connection")
+      |> be_equal("Secure connection")
       |> or_fail_with("Https should be a secure connection")
     }),
     it("version example describes HTTP/2", fn() {
@@ -180,7 +188,7 @@ fn request_module_tests() -> UnitTest {
       // Assert
       description
       |> should()
-      |> equal("HTTP/2")
+      |> be_equal("HTTP/2")
       |> or_fail_with("Http2 should be HTTP/2")
     }),
     it("request example reads method, path, id and body", fn() {
@@ -199,7 +207,7 @@ fn request_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("POST /users/123 123 hello")
+      |> be_equal("POST /users/123 123 hello")
       |> or_fail_with("show_user should describe the request")
     }),
     it("request example answers 400 for a body that is not text", fn() {
@@ -217,7 +225,7 @@ fn request_module_tests() -> UnitTest {
       // Assert
       #(response.status, response.body)
       |> should()
-      |> equal(#(400, Text("Request body is not text")))
+      |> be_equal(#(400, Text("Request body is not text")))
       |> or_fail_with("show_user should reject a binary body")
     }),
     it("body_as_string example returns the streamed body", fn() {
@@ -235,7 +243,7 @@ fn request_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("hello world")
+      |> be_equal("hello world")
       |> or_fail_with("show_body should return the whole body")
     }),
     it("RequestBody example measures a Text body in bytes", fn() {
@@ -248,7 +256,7 @@ fn request_module_tests() -> UnitTest {
       // Assert
       size
       |> should()
-      |> equal(6)
+      |> be_equal(Ok(6))
       |> or_fail_with("body_size should count the UTF-8 bytes of the text")
     }),
     it("RequestBody example measures a Bytes body", fn() {
@@ -262,7 +270,7 @@ fn request_module_tests() -> UnitTest {
       // Assert
       size
       |> should()
-      |> equal(3)
+      |> be_equal(Ok(3))
       |> or_fail_with("body_size should count the bytes")
     }),
     it("RequestBody example adds up the chunks of a Stream body", fn() {
@@ -279,8 +287,26 @@ fn request_module_tests() -> UnitTest {
       // Assert
       size
       |> should()
-      |> equal(11)
+      |> be_equal(Ok(11))
       |> or_fail_with("body_size should add up the chunk sizes")
+    }),
+    it("RequestBody example stops at an Error item of a Stream body", fn() {
+      // Arrange
+      let items = [Ok(<<"hello":utf8>>), Error(request.MalformedBody)]
+      let broken_request =
+        request.Request(
+          ..test_request.create_request(Post, "/"),
+          body: request.Stream(yielder.from_list(items)),
+        )
+
+      // Act
+      let size = doc_http_request_body.body_size(broken_request)
+
+      // Assert
+      size
+      |> should()
+      |> be_equal(Error(request.MalformedBody))
+      |> or_fail_with("body_size should give the read error")
     }),
     it("get_param example reads value and as_int", fn() {
       // Arrange
@@ -292,7 +318,7 @@ fn request_module_tests() -> UnitTest {
       // Assert
       parts
       |> should()
-      |> equal(Ok(#("123", Ok(123))))
+      |> be_equal(Ok(#("123", Ok(123))))
       |> or_fail_with("read_user_id should return #(\"123\", Ok(123))")
     }),
     it("get_param example reads the format", fn() {
@@ -305,7 +331,7 @@ fn request_module_tests() -> UnitTest {
       // Assert
       parts
       |> should()
-      |> equal(Ok(#("123", Some("json"), Ok(123))))
+      |> be_equal(Ok(#("123", Some("json"), Ok(123))))
       |> or_fail_with("read_user_id_with_format should find the json format")
     }),
     it("get_int_param example shows the user", fn() {
@@ -319,7 +345,7 @@ fn request_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("User 123")
+      |> be_equal("User 123")
       |> or_fail_with("show_user_by_id should return User 123")
     }),
     it("get_int_param example returns a JSON error for a bad id", fn() {
@@ -333,7 +359,7 @@ fn request_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"error\":\"id must be an integer\"}")
+      |> be_equal("{\"error\":\"id must be an integer\"}")
       |> or_fail_with("show_user_by_id should return the error as JSON")
     }),
     it("get_string_param example shows the user", fn() {
@@ -350,8 +376,110 @@ fn request_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("User john")
+      |> be_equal("User john")
       |> or_fail_with("show_user_by_name should return User john")
+    }),
+    it("request method_to_string example returns POST", fn() {
+      // Act
+      let name = doc_http_request_method_to_string.post_name()
+
+      // Assert
+      name
+      |> should()
+      |> be_equal("POST")
+      |> or_fail_with("the name should be POST")
+    }),
+    it("request parse_method example returns Delete", fn() {
+      // Act
+      let method = doc_http_request_parse_method.delete_method()
+
+      // Assert
+      method
+      |> should()
+      |> be_equal(Some(Delete))
+      |> or_fail_with("delete should parse to Delete")
+    }),
+    it("request get_query_param example decodes the value", fn() {
+      // Act
+      let value = doc_http_request_get_query_param.search_term()
+
+      // Assert
+      value
+      |> should()
+      |> be_equal(Some("hello world"))
+      |> or_fail_with("the search term should be hello world")
+    }),
+    it("request has_content_type example matches a JSON request", fn() {
+      // Arrange
+      let request =
+        Request(
+          ..test_request.create_request(Post, "/users"),
+          content_type: Some("application/json; charset=utf-8"),
+        )
+
+      // Act
+      let matches = doc_http_request_has_content_type.is_json(request)
+
+      // Assert
+      matches
+      |> should()
+      |> be_equal(True)
+      |> or_fail_with("a JSON request should match")
+    }),
+    it(
+      "request has_content_type example does not match a request with no content type",
+      fn() {
+        // Arrange
+        let request = test_request.create_request(Post, "/users")
+
+        // Act
+        let matches = doc_http_request_has_content_type.is_json(request)
+
+        // Assert
+        matches
+        |> should()
+        |> be_equal(False)
+        |> or_fail_with("a request with no content type should not match")
+      },
+    ),
+    it("request is_method example matches a POST request", fn() {
+      // Arrange
+      let request = test_request.create_request(Post, "/users")
+
+      // Act
+      let matches = doc_http_request_is_method.is_post(request)
+
+      // Assert
+      matches
+      |> should()
+      |> be_equal(True)
+      |> or_fail_with("a POST request should match")
+    }),
+    it("request is_method example does not match a GET request", fn() {
+      // Arrange
+      let request = test_request.create_request(Get, "/users")
+
+      // Act
+      let matches = doc_http_request_is_method.is_post(request)
+
+      // Assert
+      matches
+      |> should()
+      |> be_equal(False)
+      |> or_fail_with("a GET request should not match")
+    }),
+    it("request set_params example sets the id", fn() {
+      // Arrange
+      let request = test_request.create_request(Get, "/users/42")
+
+      // Act
+      let params = doc_http_request_set_params.with_user_id(request).params
+
+      // Assert
+      params
+      |> should()
+      |> be_equal([#("id", "42")])
+      |> or_fail_with("the params should be the id 42")
     }),
   ])
 }
@@ -364,8 +492,8 @@ fn stream_bytes(response: Response) -> BitArray {
   }
 }
 
-fn response_module_tests() -> UnitTest {
-  describe("dream/http/response", [
+fn response_module_tests() -> UnitNode {
+  group("dream/http/response", [
     it("module example builds a text response", fn() {
       // Act
       let response = doc_http_response_module.greeting()
@@ -374,7 +502,7 @@ fn response_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello, World!")
+      |> be_equal("Hello, World!")
       |> or_fail_with("greeting should return Hello, World!")
     }),
     it("module example builds a JSON response", fn() {
@@ -388,7 +516,7 @@ fn response_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"id\":1}")
+      |> be_equal("{\"id\":1}")
       |> or_fail_with("user should return the JSON")
     }),
     it("module example builds an HTML response", fn() {
@@ -398,7 +526,7 @@ fn response_module_tests() -> UnitTest {
       // Assert
       response.content_type
       |> should()
-      |> equal(Some("text/html; charset=utf-8"))
+      |> be_equal(Some("text/html; charset=utf-8"))
       |> or_fail_with("welcome_page should be HTML")
     }),
     it("module example builds a redirect", fn() {
@@ -408,7 +536,7 @@ fn response_module_tests() -> UnitTest {
       // Assert
       #(response.status, response.headers)
       |> should()
-      |> equal(#(303, [Header("Location", "/login")]))
+      |> be_equal(#(303, [Header("Location", "/login")]))
       |> or_fail_with("login_redirect should be a 303 to /login")
     }),
     it("response body example lists text and bytes bodies", fn() {
@@ -423,7 +551,11 @@ fn response_module_tests() -> UnitTest {
       // Assert
       list.take(bodies, 3)
       |> should()
-      |> equal([Text("Hello, World!"), Text("{\"id\":1}"), Bytes(<<1, 2, 3>>)])
+      |> be_equal([
+        Text("Hello, World!"),
+        Text("{\"id\":1}"),
+        Bytes(<<1, 2, 3>>),
+      ])
       |> or_fail_with("response_bodies should list the text and bytes bodies")
     }),
     it("response type example: builder and direct construction match", fn() {
@@ -436,7 +568,7 @@ fn response_module_tests() -> UnitTest {
       // Assert
       built
       |> should()
-      |> equal(doc_http_response_type.by_hand(user_json))
+      |> be_equal(doc_http_response_type.by_hand(user_json))
       |> or_fail_with("with_builder and by_hand should build the same response")
     }),
     it("text_response example returns OK", fn() {
@@ -447,7 +579,7 @@ fn response_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("OK")
+      |> be_equal("OK")
       |> or_fail_with("healthcheck should return OK")
     }),
     it("json_response example returns the user", fn() {
@@ -458,7 +590,7 @@ fn response_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"id\":123,\"name\":\"Alice\"}")
+      |> be_equal("{\"id\":123,\"name\":\"Alice\"}")
       |> or_fail_with("show_user should return Alice as JSON")
     }),
     it("html_response example returns the page", fn() {
@@ -469,7 +601,7 @@ fn response_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal(
+      |> be_equal(
         "\n    <!DOCTYPE html>\n    <html>\n      <body><h1>Welcome</h1></body>\n    </html>\n  ",
       )
       |> or_fail_with("index should return the HTML page")
@@ -481,7 +613,7 @@ fn response_module_tests() -> UnitTest {
       // Assert
       #(response.status, response.headers)
       |> should()
-      |> equal(#(303, [Header("Location", "/posts/123")]))
+      |> be_equal(#(303, [Header("Location", "/posts/123")]))
       |> or_fail_with("create_post should be a 303 to /posts/123")
     }),
     it("empty_response example returns 204", fn() {
@@ -496,7 +628,7 @@ fn response_module_tests() -> UnitTest {
       // Assert
       #(response.status, response.body)
       |> should()
-      |> equal(#(204, Text("")))
+      |> be_equal(#(204, Text("")))
       |> or_fail_with("delete_user should return 204 with no body")
     }),
     it("binary_response example returns 404 when logo.png is missing", fn() {
@@ -506,7 +638,7 @@ fn response_module_tests() -> UnitTest {
       // Assert
       response.status
       |> should()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("serve_image should return 404 without logo.png")
     }),
     it("stream_response example streams one CSV row for each user", fn() {
@@ -520,14 +652,28 @@ fn response_module_tests() -> UnitTest {
       // Assert
       stream_bytes(response)
       |> should()
-      |> equal(<<"Alice\nBob\n":utf8>>)
+      |> be_equal(<<"Alice\nBob\n":utf8>>)
       |> or_fail_with("export_users should stream Alice and Bob")
+    }),
+    it("sse_response example sets the event stream headers", fn() {
+      // Act
+      let headers = doc_http_sse_response.events().headers
+
+      // Assert
+      headers
+      |> should()
+      |> be_equal([
+        Header("Content-Type", "text/event-stream"),
+        Header("Cache-Control", "no-cache"),
+        Header("Connection", "keep-alive"),
+      ])
+      |> or_fail_with("the response should have the SSE headers")
     }),
   ])
 }
 
-fn header_module_tests() -> UnitTest {
-  describe("dream/http/header", [
+fn header_module_tests() -> UnitNode {
+  group("dream/http/header", [
     it("module example gets, sets and adds headers", fn() {
       // Act
       let result = doc_http_header_module.use_headers()
@@ -535,7 +681,7 @@ fn header_module_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(
+      |> be_equal(
         #(Some("application/json"), [
           Header("Set-Cookie", "session=abc"),
           Header("X-Custom", "value"),
@@ -552,7 +698,7 @@ fn header_module_tests() -> UnitTest {
       // Assert
       headers
       |> should()
-      |> equal([
+      |> be_equal([
         Header("Content-Type", "application/json"),
         Header("Cache-Control", "no-cache"),
         Header("X-Request-ID", "abc-123"),
@@ -566,7 +712,7 @@ fn header_module_tests() -> UnitTest {
       // Assert
       name
       |> should()
-      |> equal("Content-Type")
+      |> be_equal("Content-Type")
       |> or_fail_with("content_type_name should return Content-Type")
     }),
     it("header_value example returns application/json", fn() {
@@ -576,7 +722,7 @@ fn header_module_tests() -> UnitTest {
       // Assert
       value
       |> should()
-      |> equal("application/json")
+      |> be_equal("application/json")
       |> or_fail_with("content_type_value should return application/json")
     }),
     it("get_header example ignores case and finds no missing header", fn() {
@@ -586,7 +732,7 @@ fn header_module_tests() -> UnitTest {
       // Assert
       values
       |> should()
-      |> equal(#(Some("application/json"), Some("max-age=3600"), None))
+      |> be_equal(#(Some("application/json"), Some("max-age=3600"), None))
       |> or_fail_with("look_up_headers should return the expected values")
     }),
     it("set_header example replaces and adds headers", fn() {
@@ -596,7 +742,7 @@ fn header_module_tests() -> UnitTest {
       // Assert
       headers
       |> should()
-      |> equal([
+      |> be_equal([
         Header("Cache-Control", "max-age=3600"),
         Header("content-type", "application/json"),
       ])
@@ -609,7 +755,7 @@ fn header_module_tests() -> UnitTest {
       // Assert
       headers
       |> should()
-      |> equal([
+      |> be_equal([
         Header("Set-Cookie", "preferences=dark; Path=/"),
         Header("Set-Cookie", "session=abc; HttpOnly"),
       ])
@@ -622,7 +768,7 @@ fn header_module_tests() -> UnitTest {
       // Assert
       headers
       |> should()
-      |> equal([
+      |> be_equal([
         Header("Content-Type", "application/json"),
         Header("Cache-Control", "max-age=3600"),
       ])
@@ -631,8 +777,8 @@ fn header_module_tests() -> UnitTest {
   ])
 }
 
-fn status_module_tests() -> UnitTest {
-  describe("dream/http/status", [
+fn status_module_tests() -> UnitNode {
+  group("dream/http/status", [
     it("module example returns Hello, World!", fn() {
       // Act
       let response = doc_http_status_module.index(Nil, Nil, Nil)
@@ -641,7 +787,7 @@ fn status_module_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello, World!")
+      |> be_equal("Hello, World!")
       |> or_fail_with("index should return Hello, World!")
     }),
   ])

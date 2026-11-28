@@ -7,6 +7,7 @@ import dream/http/validation.{type ValidationError}
 import gleam/dynamic/decode.{type Decoder}
 import gleam/erlang/process.{type Subject}
 import gleam/json
+import gleam/list
 
 pub type Note {
   Note(title: String)
@@ -52,8 +53,16 @@ fn create_with_data(services: Services, note: Note) -> Response {
   )
 }
 
-fn error_json(err: ValidationError) -> String {
-  message_json(err.message)
+// One message for each field that failed
+fn error_json(errors: List(ValidationError)) -> String {
+  json.object([
+    #("errors", json.array(list.map(errors, error_message), json.string)),
+  ])
+  |> json.to_string()
+}
+
+fn error_message(err: ValidationError) -> String {
+  err.message
 }
 
 fn message_json(message: String) -> String {

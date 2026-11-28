@@ -3,7 +3,7 @@
 //// Controllers that write a streamed request body to a file, as shown in
 //// docs/guides/streaming.md.
 
-import dream/http/request.{type Request, Stream}
+import dream/http/request.{type BodyReadError, type Request, Stream}
 import dream/http/response.{type Response, text_response}
 import dream/http/status
 import gleam/bit_array
@@ -15,36 +15,68 @@ pub type Services {
   Services(upload_path: String, max_upload_bytes: Int)
 }
 
+pub type UploadError {
+  // The connection broke before the client sent the whole body
+  UploadBroke(BodyReadError)
+  // Only the limited upload below gives this error
+  UploadTooLarge
+  WriteFailed(simplifile.FileError)
+}
+
 pub fn save_upload(request: Request, _context, services: Services) -> Response {
   case request.body {
     Stream(stream) ->
       save_stream_to_file(stream, services.upload_path)
-      |> handle_save_result
+      |> handle_save_result(services.upload_path)
     _ -> text_response(status.bad_request, "Expected streaming request")
   }
 }
 
 fn save_stream_to_file(
-  stream: yielder.Yielder(BitArray),
+  stream: yielder.Yielder(Result(BitArray, BodyReadError)),
   path: String,
-) -> Result(Nil, simplifile.FileError) {
-  use _ <- result.try(simplifile.create_file(path))
-  yielder.try_fold(stream, Nil, fn(_nothing, chunk) {
-    simplifile.append_bits(path, chunk)
-  })
+) -> Result(Nil, UploadError) {
+  use _ <- result.try(
+    simplifile.create_file(path) |> result.map_error(WriteFailed),
+  )
+  yielder.try_fold(stream, Nil, fn(_nothing, item) { append_item(path, item) })
 }
 
-fn handle_save_result(result: Result(Nil, simplifile.FileError)) -> Response {
+fn append_item(
+  path: String,
+  item: Result(BitArray, BodyReadError),
+) -> Result(Nil, UploadError) {
+  use chunk <- result.try(result.map_error(item, UploadBroke))
+  simplifile.append_bits(path, chunk) |> result.map_error(WriteFailed)
+}
+
+fn handle_save_result(
+  result: Result(Nil, UploadError),
+  path: String,
+) -> Response {
   case result {
-    Ok(_) -> text_response(status.ok, "File saved successfully")
-    Error(_) ->
-      text_response(status.internal_server_error, "Failed to save file")
+    Ok(Nil) -> text_response(status.ok, "File saved successfully")
+    Error(error) -> delete_partial_file(path, create_failure_response(error))
   }
 }
 
-pub type UploadError {
-  UploadTooLarge
-  WriteFailed(simplifile.FileError)
+// Never keep part of an upload: delete the file, then answer
+fn delete_partial_file(path: String, response: Response) -> Response {
+  case simplifile.delete(path) {
+    Ok(Nil) -> response
+    Error(_delete_error) ->
+      text_response(status.internal_server_error, "Failed to delete the file")
+  }
+}
+
+fn create_failure_response(error: UploadError) -> Response {
+  case error {
+    UploadBroke(_read_error) ->
+      text_response(status.bad_request, "The upload stopped before its end")
+    UploadTooLarge -> text_response(status.bad_request, "Upload is too large")
+    WriteFailed(_reason) ->
+      text_response(status.internal_server_error, "Failed to save file")
+  }
 }
 
 pub fn save_upload_with_limit(
@@ -59,37 +91,35 @@ pub fn save_upload_with_limit(
 }
 
 fn save_or_clean_up(
-  stream: yielder.Yielder(BitArray),
+  stream: yielder.Yielder(Result(BitArray, BodyReadError)),
   services: Services,
 ) -> Response {
   case write_limited_stream(stream, services) {
     Ok(_total_bytes) -> text_response(status.created, "Upload saved")
-    Error(error) -> {
-      // Clean up the partial upload
-      let _ = simplifile.delete(services.upload_path)
-      create_failure_response(error)
-    }
+    Error(error) ->
+      delete_partial_file(services.upload_path, create_failure_response(error))
   }
 }
 
 fn write_limited_stream(
-  stream: yielder.Yielder(BitArray),
+  stream: yielder.Yielder(Result(BitArray, BodyReadError)),
   services: Services,
 ) -> Result(Int, UploadError) {
   use _ <- result.try(
     simplifile.create_file(services.upload_path)
     |> result.map_error(WriteFailed),
   )
-  yielder.try_fold(stream, 0, fn(total_bytes, chunk) {
-    write_chunk(services, total_bytes, chunk)
+  yielder.try_fold(stream, 0, fn(total_bytes, item) {
+    write_item(services, total_bytes, item)
   })
 }
 
-fn write_chunk(
+fn write_item(
   services: Services,
   total_bytes: Int,
-  chunk: BitArray,
+  item: Result(BitArray, BodyReadError),
 ) -> Result(Int, UploadError) {
+  use chunk <- result.try(result.map_error(item, UploadBroke))
   let new_total = total_bytes + bit_array.byte_size(chunk)
   use _ <- result.try(check_upload_size(new_total, services.max_upload_bytes))
   simplifile.append_bits(services.upload_path, chunk)
@@ -104,13 +134,5 @@ fn check_upload_size(
   case total_bytes > max_bytes {
     True -> Error(UploadTooLarge)
     False -> Ok(Nil)
-  }
-}
-
-fn create_failure_response(error: UploadError) -> Response {
-  case error {
-    UploadTooLarge -> text_response(status.bad_request, "Upload is too large")
-    WriteFailed(_reason) ->
-      text_response(status.internal_server_error, "Failed to save file")
   }
 }

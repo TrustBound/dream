@@ -1,0 +1,1 @@
+{"version":"1.0","entries":[{"request":{"method":"GET","scheme":"http","host":"localhost","port":19870,"path":"/v1/parcels/PX-404","query":null,"headers":[],"body":""},"response":{"mode":"blocking","status":404,"headers":[["content-type","text/plain; charset=utf-8"],["content-length","26"],["connection","keep-alive"]],"body":"{\"error\":\"unknown parcel\"}"}}]}

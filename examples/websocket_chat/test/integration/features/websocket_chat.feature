@@ -51,4 +51,11 @@ Feature: WebSocket Chat
         Then the response status should be 200
         And the response should contain ".welcome-screen"
 
-
+    Scenario: The JSON frames of the README
+        Given user "Bob" connects to the chat
+        And user "Alice" connects to the chat
+        When user "Alice" sends message "Hello everyone!"
+        Then user "Bob" should receive message from "Alice" saying "Hello everyone!"
+        When user "Alice" disconnects
+        Then user "Bob" should receive "left" notification for "Alice"
+        And the frames that user "Bob" received should be the lines of "test/integration/chat_frames.txt"

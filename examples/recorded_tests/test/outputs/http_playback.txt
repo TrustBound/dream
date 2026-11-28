@@ -1,0 +1,6 @@
+Parcels
+  ✓ shows a parcel on its way
+  ✓ shows a delivered parcel
+  ✓ answers 404 for a parcel the carrier does not know
+
+Summary: 3 run, 0 failed, 3 passed in 0ms

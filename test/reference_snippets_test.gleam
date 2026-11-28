@@ -11,9 +11,10 @@ import dream/http/header.{Header}
 import dream/http/request.{type Method, type Request, Get, Post, Request}
 import dream/http/response.{type Response}
 import dream/router.{EmptyServices}
-import dream_http_client/client.{HttpResponse, ResponseError}
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_http_client/client.{ResponseError}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/erlang/process
 import gleam/http
@@ -21,6 +22,7 @@ import gleam/http/request as http_request
 import gleam/http/response as http_response
 import gleam/list
 import gleam/option.{None, Some}
+import gleam/result
 import matchers/extract_body_text.{extract_body_text}
 import matchers/extract_response_status.{extract_response_status}
 import mist.{type Connection, type ResponseData}
@@ -45,7 +47,7 @@ import snippets/dream_vs_mist_params_mist
 import snippets/dream_vs_mist_simple_dream
 import snippets/dream_vs_mist_simple_mist
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("reference snippets", [
     architecture_router_tests(),
     architecture_server_tests(),
@@ -62,8 +64,8 @@ pub fn tests() -> UnitTest {
 // architecture.md
 // ============================================================================
 
-fn architecture_router_tests() -> UnitTest {
-  describe("architecture router", [
+fn architecture_router_tests() -> UnitNode {
+  group("architecture router", [
     it("GET / returns Home", fn() {
       // Arrange
       let request = test_request.create_request(Get, "/")
@@ -81,7 +83,7 @@ fn architecture_router_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Home")
+      |> be_equal("Home")
       |> or_fail_with("GET / should return Home")
     }),
     it("POST /users with a token returns 201", fn() {
@@ -102,7 +104,7 @@ fn architecture_router_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(201)
+      |> be_equal(201)
       |> or_fail_with("POST /users with a token should return 201")
     }),
     it("POST /users without a token returns 401", fn() {
@@ -122,14 +124,14 @@ fn architecture_router_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(401)
+      |> be_equal(401)
       |> or_fail_with("POST /users without a token should return 401")
     }),
   ])
 }
 
-fn architecture_server_tests() -> UnitTest {
-  describe("architecture server", [
+fn architecture_server_tests() -> UnitNode {
+  group("architecture server", [
     it("initialize_services holds one user", fn() {
       // Arrange
       let expected =
@@ -145,7 +147,7 @@ fn architecture_server_tests() -> UnitTest {
       // Assert
       services
       |> should()
-      |> equal(expected)
+      |> be_equal(expected)
       |> or_fail_with("initialize_services should hold Ada")
     }),
     it("create_simple_server binds to localhost", fn() {
@@ -158,7 +160,7 @@ fn architecture_server_tests() -> UnitTest {
       // Assert
       interface
       |> should()
-      |> equal(Some("localhost"))
+      |> be_equal(Some("localhost"))
       |> or_fail_with("simple server should bind to localhost")
     }),
     it("create_app_context_server uses AppContext", fn() {
@@ -171,7 +173,7 @@ fn architecture_server_tests() -> UnitTest {
       // Assert
       context
       |> should()
-      |> equal(AppContext(request_id: ""))
+      |> be_equal(AppContext(request_id: ""))
       |> or_fail_with("server should use AppContext")
     }),
     it("create_custom_server uses MyContext", fn() {
@@ -184,7 +186,7 @@ fn architecture_server_tests() -> UnitTest {
       // Assert
       context
       |> should()
-      |> equal(architecture_server.MyContext(request_id: "", user: None))
+      |> be_equal(architecture_server.MyContext(request_id: "", user: None))
       |> or_fail_with("custom server should use MyContext")
     }),
     it("create_custom_server holds the services", fn() {
@@ -197,7 +199,7 @@ fn architecture_server_tests() -> UnitTest {
       // Assert
       services
       |> should()
-      |> equal(architecture_server.initialize_services())
+      |> be_equal(architecture_server.initialize_services())
       |> or_fail_with("custom server should hold initialize_services()")
     }),
     it("create_router answers GET / with Home", fn() {
@@ -217,14 +219,14 @@ fn architecture_server_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Home")
+      |> be_equal("Home")
       |> or_fail_with("GET / should return Home")
     }),
   ])
 }
 
-fn architecture_context_tests() -> UnitTest {
-  describe("architecture context", [
+fn architecture_context_tests() -> UnitNode {
+  group("architecture context", [
     it("GET /profile with a known token greets the user", fn() {
       // Arrange
       let request = with_header(Get, "/profile", "Authorization", "token-ada")
@@ -242,7 +244,7 @@ fn architecture_context_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello, Ada")
+      |> be_equal("Hello, Ada")
       |> or_fail_with("GET /profile should greet Ada")
     }),
     it("GET /profile with an unknown token returns 401", fn() {
@@ -262,7 +264,7 @@ fn architecture_context_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(401)
+      |> be_equal(401)
       |> or_fail_with("GET /profile with an unknown token should return 401")
     }),
   ])
@@ -274,8 +276,8 @@ fn architecture_context_services() -> architecture_context.Services {
   ])
 }
 
-fn architecture_tasks_tests() -> UnitTest {
-  describe("architecture tasks", [
+fn architecture_tasks_tests() -> UnitNode {
+  group("architecture tasks", [
     it("get_task finds a task by id", fn() {
       // Arrange
       let tasks = sample_tasks()
@@ -286,7 +288,7 @@ fn architecture_tasks_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(Task(id: 1, title: "Write docs", completed: False)))
+      |> be_equal(Ok(Task(id: 1, title: "Write docs", completed: False)))
       |> or_fail_with("get_task should find task 1")
     }),
     it("get_task returns NotFound for a missing id", fn() {
@@ -299,7 +301,7 @@ fn architecture_tasks_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Error(NotFound("Task not found")))
+      |> be_equal(Error(NotFound("Task not found")))
       |> or_fail_with("get_task should return NotFound")
     }),
     it("to_json formats a task", fn() {
@@ -312,7 +314,7 @@ fn architecture_tasks_tests() -> UnitTest {
       // Assert
       json
       |> should()
-      |> equal("{\"id\":1,\"title\":\"Write docs\",\"completed\":false}")
+      |> be_equal("{\"id\":1,\"title\":\"Write docs\",\"completed\":false}")
       |> or_fail_with("to_json should format the task")
     }),
     it("to_html escapes the title", fn() {
@@ -325,7 +327,9 @@ fn architecture_tasks_tests() -> UnitTest {
       // Assert
       html
       |> should()
-      |> equal("<li class=\"task\">Fix &lt;b&gt; &amp; &quot;quotes&quot;</li>")
+      |> be_equal(
+        "<li class=\"task\">Fix &lt;b&gt; &amp; &quot;quotes&quot;</li>",
+      )
       |> or_fail_with("to_html should escape the title")
     }),
     it("show_task returns JSON when the client accepts JSON", fn() {
@@ -348,7 +352,7 @@ fn architecture_tasks_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"id\":1,\"title\":\"Write docs\",\"completed\":false}")
+      |> be_equal("{\"id\":1,\"title\":\"Write docs\",\"completed\":false}")
       |> or_fail_with("show_task should return JSON")
     }),
     it("show_task returns HTML by default", fn() {
@@ -368,7 +372,7 @@ fn architecture_tasks_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("<li class=\"task\">Write docs</li>")
+      |> be_equal("<li class=\"task\">Write docs</li>")
       |> or_fail_with("show_task should return HTML")
     }),
     it("show_task returns 404 for a missing task", fn() {
@@ -390,7 +394,7 @@ fn architecture_tasks_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("show_task should return 404")
     }),
     it("show_task returns 400 for an id that is not a number", fn() {
@@ -412,7 +416,7 @@ fn architecture_tasks_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("show_task should return 400")
     }),
   ])
@@ -425,8 +429,8 @@ fn sample_tasks() -> List(architecture_task.Task) {
   ]
 }
 
-fn architecture_closures_tests() -> UnitTest {
-  describe("architecture closures", [
+fn architecture_closures_tests() -> UnitNode {
+  group("architecture closures", [
     it("the closure handler counts the users", fn() {
       // Arrange
       let database =
@@ -445,7 +449,7 @@ fn architecture_closures_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("2")
+      |> be_equal("2")
       |> or_fail_with("closure handler should count 2 users")
     }),
     it("the explicit handler counts the users", fn() {
@@ -467,14 +471,14 @@ fn architecture_closures_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("2")
+      |> be_equal("2")
       |> or_fail_with("explicit handler should count 2 users")
     }),
   ])
 }
 
-fn architecture_builders_tests() -> UnitTest {
-  describe("architecture builders", [
+fn architecture_builders_tests() -> UnitNode {
+  group("architecture builders", [
     it("create_server binds to localhost", fn() {
       // Arrange
       let server = architecture_builders.create_server()
@@ -485,7 +489,7 @@ fn architecture_builders_tests() -> UnitTest {
       // Assert
       interface
       |> should()
-      |> equal(Some("localhost"))
+      |> be_equal(Some("localhost"))
       |> or_fail_with("server should bind to localhost")
     }),
     it("create_router answers GET /about", fn() {
@@ -505,7 +509,7 @@ fn architecture_builders_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("About")
+      |> be_equal("About")
       |> or_fail_with("GET /about should return About")
     }),
     it("create_users_request targets api.example.com", fn() {
@@ -518,7 +522,7 @@ fn architecture_builders_tests() -> UnitTest {
       // Assert
       host
       |> should()
-      |> equal("api.example.com")
+      |> be_equal("api.example.com")
       |> or_fail_with("request should target api.example.com")
     }),
     it("create_users_request uses HTTPS", fn() {
@@ -531,7 +535,7 @@ fn architecture_builders_tests() -> UnitTest {
       // Assert
       scheme
       |> should()
-      |> equal(http.Https)
+      |> be_equal(http.Https)
       |> or_fail_with("request should use HTTPS")
     }),
     it("create_users_request has a 5 second timeout", fn() {
@@ -544,7 +548,7 @@ fn architecture_builders_tests() -> UnitTest {
       // Assert
       timeout
       |> should()
-      |> equal(Some(5000))
+      |> be_equal(Some(5000))
       |> or_fail_with("request should time out after 5000 ms")
     }),
   ])
@@ -554,8 +558,8 @@ fn architecture_builders_tests() -> UnitTest {
 // design-principles.md
 // ============================================================================
 
-fn design_principles_tests() -> UnitTest {
-  describe("design principles", [
+fn design_principles_tests() -> UnitNode {
+  group("design principles", [
     it("the implicit start helper binds to 0.0.0.0", fn() {
       // Arrange
       let server = design_principles_implicit.configure_server()
@@ -566,7 +570,7 @@ fn design_principles_tests() -> UnitTest {
       // Assert
       interface
       |> should()
-      |> equal(Some("0.0.0.0"))
+      |> be_equal(Some("0.0.0.0"))
       |> or_fail_with("hidden configuration should bind to 0.0.0.0")
     }),
     it("the explicit services hold the database URL", fn() {
@@ -582,7 +586,7 @@ fn design_principles_tests() -> UnitTest {
       // Assert
       services
       |> should()
-      |> equal(expected)
+      |> be_equal(expected)
       |> or_fail_with("services should hold the database URL")
     }),
     it("the explicit router answers GET /", fn() {
@@ -603,7 +607,7 @@ fn design_principles_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Home")
+      |> be_equal("Home")
       |> or_fail_with("GET / should return Home")
     }),
     it("the closure controller finds the user name", fn() {
@@ -620,7 +624,7 @@ fn design_principles_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Ada")
+      |> be_equal("Ada")
       |> or_fail_with("closure controller should return Ada")
     }),
     it("the explicit controller finds the user name", fn() {
@@ -638,7 +642,7 @@ fn design_principles_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Ada")
+      |> be_equal("Ada")
       |> or_fail_with("explicit controller should return Ada")
     }),
     it("the explicit controller returns 404 for an unknown id", fn() {
@@ -656,7 +660,7 @@ fn design_principles_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("unknown id should return 404")
     }),
     it("an admin can open /admin", fn() {
@@ -670,7 +674,7 @@ fn design_principles_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(200)
+      |> be_equal(200)
       |> or_fail_with("an admin should get 200")
     }),
     it("a member cannot open /admin", fn() {
@@ -684,7 +688,7 @@ fn design_principles_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(403)
+      |> be_equal(403)
       |> or_fail_with("a member should get 403")
     }),
     it("a request with no token cannot open /admin", fn() {
@@ -698,7 +702,7 @@ fn design_principles_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(401)
+      |> be_equal(401)
       |> or_fail_with("no token should get 401")
     }),
     it("the builder sets the maximum body size", fn() {
@@ -711,7 +715,7 @@ fn design_principles_tests() -> UnitTest {
       // Assert
       max_body_size
       |> should()
-      |> equal(1_000_000)
+      |> be_equal(1_000_000)
       |> or_fail_with("max body size should be 1_000_000")
     }),
   ])
@@ -754,8 +758,8 @@ fn route_admin_request(request: Request) -> Response {
 // dream-vs-mist.md
 // ============================================================================
 
-fn dream_vs_mist_tests() -> UnitTest {
-  describe("dream vs mist", [
+fn dream_vs_mist_tests() -> UnitNode {
+  group("dream vs mist", [
     it("raw mist answers GET / with Hello, World!", fn() {
       // Arrange
       let port = free_port()
@@ -773,7 +777,7 @@ fn dream_vs_mist_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#(200, "Hello, World!")))
+      |> be_equal(Ok(#(200, "Hello, World!")))
       |> or_fail_with("raw mist GET / should return Hello, World!")
     }),
     it("raw mist answers an unknown path with 404", fn() {
@@ -793,7 +797,7 @@ fn dream_vs_mist_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#(404, "Not Found")))
+      |> be_equal(Ok(#(404, "Not Found")))
       |> or_fail_with("raw mist unknown path should return 404")
     }),
     it("dream answers GET / with Hello, World!", fn() {
@@ -813,7 +817,7 @@ fn dream_vs_mist_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Hello, World!")
+      |> be_equal("Hello, World!")
       |> or_fail_with("dream GET / should return Hello, World!")
     }),
     it("raw mist parses the user id from the path", fn() {
@@ -833,7 +837,7 @@ fn dream_vs_mist_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#(200, "User 7")))
+      |> be_equal(Ok(#(200, "User 7")))
       |> or_fail_with("raw mist GET /users/7 should return User 7")
     }),
     it("raw mist answers a bad user id with 404", fn() {
@@ -853,7 +857,7 @@ fn dream_vs_mist_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#(404, "Not Found")))
+      |> be_equal(Ok(#(404, "Not Found")))
       |> or_fail_with("raw mist GET /users/abc should return 404")
     }),
     it("dream show_user returns the user as JSON", fn() {
@@ -873,7 +877,7 @@ fn dream_vs_mist_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("{\"id\":1,\"name\":\"Ada\"}")
+      |> be_equal("{\"id\":1,\"name\":\"Ada\"}")
       |> or_fail_with("dream GET /users/1 should return Ada as JSON")
     }),
     it("dream show_user returns 404 for an unknown user", fn() {
@@ -893,7 +897,7 @@ fn dream_vs_mist_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("dream GET /users/2 should return 404")
     }),
     it("raw mist greets the user who sends a valid token", fn() {
@@ -913,7 +917,7 @@ fn dream_vs_mist_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#(200, "Welcome, Ada")))
+      |> be_equal(Ok(#(200, "Welcome, Ada")))
       |> or_fail_with("raw mist GET / with a token should greet Ada")
     }),
     it("raw mist refuses the home page without a token", fn() {
@@ -933,7 +937,7 @@ fn dream_vs_mist_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#(401, "Unauthorized")))
+      |> be_equal(Ok(#(401, "Unauthorized")))
       |> or_fail_with("raw mist GET / without a token should return 401")
     }),
     it("raw mist creates a post for a valid token", fn() {
@@ -953,7 +957,7 @@ fn dream_vs_mist_tests() -> UnitTest {
       // Assert
       result
       |> should()
-      |> equal(Ok(#(201, "Post created by Ada")))
+      |> be_equal(Ok(#(201, "Post created by Ada")))
       |> or_fail_with("raw mist POST /posts should return 201")
     }),
     it("dream serves the home page without a token", fn() {
@@ -967,7 +971,7 @@ fn dream_vs_mist_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Welcome")
+      |> be_equal("Welcome")
       |> or_fail_with("dream GET / should return Welcome")
     }),
     it("dream creates a post for a valid token", fn() {
@@ -982,7 +986,7 @@ fn dream_vs_mist_tests() -> UnitTest {
       response
       |> should()
       |> extract_body_text()
-      |> equal("Post created by Ada")
+      |> be_equal("Post created by Ada")
       |> or_fail_with("dream POST /posts should create a post for Ada")
     }),
     it("dream refuses POST /posts without a token", fn() {
@@ -996,7 +1000,7 @@ fn dream_vs_mist_tests() -> UnitTest {
       response
       |> should()
       |> extract_response_status()
-      |> equal(401)
+      |> be_equal(401)
       |> or_fail_with("dream POST /posts without a token should return 401")
     }),
   ])
@@ -1069,11 +1073,19 @@ fn send_request(
       client.add_header(request, header.0, header.1)
     })
   case client.send(client_request) {
-    Ok(HttpResponse(status:, body:, ..)) -> Ok(#(status, body))
-    Error(ResponseError(response: HttpResponse(status:, body:, ..))) ->
-      Ok(#(status, body))
+    Ok(response) -> status_and_text(response)
+    Error(ResponseError(response: response)) -> status_and_text(response)
     Error(_transport_error) -> Error("request failed")
   }
+}
+
+// The response body is bytes. These tests compare it as text.
+fn status_and_text(
+  response: client.HttpResponse,
+) -> Result(#(Int, String), String) {
+  client.body_text(response)
+  |> result.map(fn(text) { #(response.status, text) })
+  |> result.replace_error("the response body is not text")
 }
 
 /// Asks the operating system for a free TCP port.

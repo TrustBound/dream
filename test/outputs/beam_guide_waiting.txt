@@ -1,0 +1,2 @@
+thumbnail_after_sleep, the job is not done after 100 ms: Error(Nil)
+thumbnail_when_done: Ok("photo-small.jpg")

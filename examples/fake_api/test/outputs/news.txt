@@ -1,0 +1,13 @@
+News
+  GET /headlines
+    ✓ answers the headlines as JSON
+    ✓ answers 502 when the service answers 503
+    ✓ answers 502 when the body is not JSON
+    ✓ answers 504 when the service is slow
+    ✓ answers 502 when nothing listens
+  GET /live
+    ✓ streams the feed line by line
+    ✓ answers 502 when the stream starts with 500
+    ✓ ends the stream with the failure when the connection drops
+
+Summary: 8 run, 0 failed, 8 passed in 0ms

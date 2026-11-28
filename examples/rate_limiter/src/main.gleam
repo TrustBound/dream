@@ -1,33 +1,35 @@
-//// Rate Limiter Example
+//// A rate limit for each client, counted in an ETS table.
 ////
-//// Demonstrates using dream_ets and ETS tables for global state management
-//// with a practical rate limiting middleware implementation.
+//// Run it with `make run`, then send 11 requests:
 ////
-//// This example shows:
-//// - Initializing an ETS-backed rate limiter service at application startup
-//// - Accessing shared state from middleware
-//// - Fixed window rate limiting (10 requests per 60 seconds)
-//// - Rate limit headers in responses
-////
-//// To run:
-////   cd examples/rate_limiter
-////   make run
-////
-//// To test:
-////   # Make a single request
-////   curl -i http://localhost:3000/api
-////
-////   # Make multiple requests to trigger rate limiting
-////   for i in {1..15}; do curl http://localhost:3000/api; echo ""; done
+////   for i in {1..11}; do curl -i http://localhost:3000/api; done
 
+import clock.{SystemClock}
 import dream/servers/mist/server.{bind, listen, router, services} as dream
+import gleam/io
 import router.{create_router}
-import services.{initialize_services}
+import services.{type Services, start_services}
+import services/rate_limiter_service
 
-pub fn main() {
-  dream.new()
-  |> services(initialize_services())
-  |> router(create_router())
-  |> bind("localhost")
-  |> listen(3000)
+pub fn main() -> Nil {
+  case
+    start_services(
+      "rate_limit",
+      rate_limiter_service.default_config(),
+      SystemClock,
+    )
+  {
+    Ok(app_services) -> start_server(app_services)
+    Error(message) -> io.println_error("The app did not start: " <> message)
+  }
+}
+
+fn start_server(app_services: Services) -> Nil {
+  let assert Ok(Nil) =
+    dream.new()
+    |> services(app_services)
+    |> router(create_router())
+    |> bind("localhost")
+    |> listen(3000)
+  Nil
 }

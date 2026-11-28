@@ -94,6 +94,8 @@ pub fn create_custom_server() -> Dream(
 }
 ```
 
+The `dream/dream` module has functions that read the settings of a `Dream` value. A server adapter uses them to start the server: `get_server`, `get_router`, `get_context`, `get_services`, `get_max_body_size`, `get_bind_interface` and `get_tls`. `set_tls` sets the certificate and key files. In your application, use `server.tls()` in place of `set_tls`. Before the server starts, the Mist adapter calls `port_probe.is_in_use` from `dream/servers/mist/port_probe` to check if the port is free. Each function has an example in its doc comment on [HexDocs](https://hexdocs.pm/dream/3.0.0/dream/dream.html).
+
 ### 3. Middleware
 
 Middleware intercepts requests before they reach controllers.
@@ -146,6 +148,10 @@ fn find_user(request: Request, services: Services) -> Result(User, Nil) {
   list.key_find(services.users_by_token, token)
 }
 ```
+
+**Scopes:**
+
+`router.scope(path:, with:, routes:)` adds every route of a second router under a path prefix. When a request matches one of these routes, the `with` function runs first. It has the shape of a middleware, but its `next` can take a different context type, so the controllers of the scope can get a context with more data, for example a signed-in user. Then the middleware of the route run, and then its controller. Inside, `scope` copies the routes into the same radix trie, so a scoped route has the same lookup cost and the same `404` and `405` answers as other routes. [Route requests and add middleware](https://hexdocs.pm/dream/3.0.0/guides/routing.html) shows an example.
 
 ### 4. Context System
 
@@ -209,7 +215,7 @@ pub fn initialize_services() -> Services {
 
 Injected once in `main()`, used everywhere:
 
-#### Inject services at startup <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L71-L87"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Inject services at startup <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_server.gleam#L71-L88"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 pub fn create_custom_server() -> Dream(
@@ -226,8 +232,9 @@ pub fn create_custom_server() -> Dream(
 }
 
 pub fn main() {
-  create_custom_server()
-  |> server.listen(3000)
+  let assert Ok(Nil) =
+    create_custom_server()
+    |> server.listen(3000)
 }
 ```
 
@@ -330,7 +337,7 @@ Dream encourages a clean separation of concerns using the Model-View-Controller 
 - Return `Response` objects
 
 **Models** handle data access:
-- Execute database queries (using `dream_postgres` and `squirrel`)
+- Execute database queries (using `dream_postgres` and `dream_sql_generator`)
 - Convert database rows to domain types
 - Return `Result(domain_type, Error)`, with `Error` from `dream/http/error`
 - Know nothing about HTTP, views, or business logic
@@ -344,7 +351,7 @@ Dream encourages a clean separation of concerns using the Model-View-Controller 
 
 Here's how a typical request flows through the MVC layers:
 
-```
+```text illustration
 1. Router matches request → finds controller
 2. Controller extracts parameters (e.g., `require_int(request, "id")`)
 3. Controller calls Model to fetch data
@@ -358,7 +365,7 @@ Here's how a typical request flows through the MVC layers:
 
 Let's trace through a complete example showing all three layers working together:
 
-All three layers share the type `Task(id: Int, title: String, completed: Bool)`. The model reads from a list so that the example runs anywhere. A real model runs a Squirrel query through `dream_postgres`.
+All three layers share the type `Task(id: Int, title: String, completed: Bool)`. The model reads from a list so that the example runs anywhere. A real model runs a `dream_sql_generator` query through `dream_postgres`.
 
 #### Model: find a task <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_task_model.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
@@ -497,7 +504,7 @@ For example, publishing a post might require:
 3. Send notifications (Service)
 4. Broadcast event (Service)
 
-This coordination belongs in an Operation, not a Controller. See [Operations Guide](../guides/operations.md) and [Advanced Patterns](../learn/04-advanced-patterns.md) for details.
+This coordination belongs in an Operation, not a Controller. See [Move a workflow into an operation](../guides/database-api.md#step-13-move-a-workflow-into-an-operation) and [Move a workflow into an operation](../guides/database-api.md#step-13-move-a-workflow-into-an-operation) for details.
 
 ### Best Practices
 
@@ -511,7 +518,7 @@ This coordination belongs in an Operation, not a Controller. See [Operations Gui
 - Return domain types, not SQL row types
 - Convert database errors to `Error` from `dream/http/error`
 - Keep database logic isolated from business logic
-- Use type-safe SQL with `squirrel`
+- Use type-safe SQL with `dream_sql_generator`
 
 **Views:**
 - Pure functions with no side effects
@@ -520,9 +527,9 @@ This coordination belongs in an Operation, not a Controller. See [Operations Gui
 - Compose templates for reusable HTML components
 
 For detailed patterns and examples, see:
-- [Controllers & Models Guide](../guides/controllers-and-models.md) - Detailed MVC patterns
-- [Operations Guide](../guides/operations.md) - Complex business logic
-- [Multiple Formats Guide](../guides/multiple-formats.md) - Content negotiation
+- [Build a database-backed JSON API](../guides/database-api.md) - Detailed MVC patterns
+- [Move a workflow into an operation](../guides/database-api.md#step-13-move-a-workflow-into-an-operation) - Complex business logic
+- [Render HTML and other formats](../guides/templates.md) - Content negotiation
 
 ## Design Decisions
 
@@ -581,13 +588,13 @@ Dream runs on the BEAM. Performance characteristics:
 - **Concurrent connections** - Thousands per core (BEAM is excellent at this)
 - **Memory usage** - 1-2GB is normal for production apps
 - **Response time** - Microseconds for routing, milliseconds for full request
-- **Connection pooling** - Pog handles this efficiently
+- **Connection pooling** - `dream_postgres_client` handles this efficiently
 
 The BEAM is battle-tested. It scales.
 
 ## Modules Ecosystem
 
-Dream is modular. Core provides routing and HTTP primitives. Additional functionality lives in separate modules that you can use as needed.
+Core provides routing and HTTP primitives. Other packages, such as a database client or an HTTP client, work with Dream. Each one has its own repository, its own version and its own releases, separate from Dream. The [Ecosystem](../index.md#-ecosystem) section of the documentation index lists each package with its current version.
 
 ### Core Module: `dream`
 
@@ -606,19 +613,19 @@ The core `dream` package provides:
 - Query result helpers (first_row, all_rows)
 - Type-safe error handling
 - Connection pooling support
-- Works with Squirrel-generated SQL queries
+- Works with SQL queries that `dream_sql_generator` generates
 
-#### Connect and query with dream_postgres <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/postgres/test/snippets/architecture_postgres.gleam#L6-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Connect and query with dream_postgres <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_postgres.gleam#L6-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_postgres/client.{
   type Config, type Connection, type QueryError, type Returned,
 }
 import dream_postgres/query
+import dream_postgres_client
 import gleam/dynamic/decode
 import gleam/erlang/process
 import gleam/otp/actor
-import pog
 
 pub fn create_database_config() -> Config {
   client.new(process.new_name("app_database"))
@@ -633,10 +640,10 @@ pub fn connect_database() -> Result(Connection, actor.StartError) {
 }
 
 pub fn find_user_name(db: Connection, id: Int) -> String {
-  pog.query("SELECT name FROM users WHERE id = $1")
-  |> pog.parameter(pog.int(id))
-  |> pog.returning(decode.at([0], decode.string))
-  |> pog.execute(db)
+  dream_postgres_client.query("SELECT name FROM users WHERE id = $1")
+  |> dream_postgres_client.parameter(dream_postgres_client.int(id))
+  |> dream_postgres_client.returning(decode.at([0], decode.string))
+  |> dream_postgres_client.execute(db)
   |> describe_user_name()
 }
 
@@ -658,7 +665,7 @@ pub fn describe_user_name(
 - Query builders (match_all, term, match)
 - HTTP wrapper for OpenSearch API
 
-#### Index a document with dream_opensearch <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/opensearch/test/snippets/architecture_opensearch.gleam#L5-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Index a document with dream_opensearch <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_opensearch.gleam#L5-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_opensearch/client.{type Client}
@@ -715,7 +722,7 @@ Each builder step returns a new request. `client.send()` sends it and returns `R
 - .env file support
 - Type-safe configuration loading
 
-#### Load configuration with dream_config <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/config/test/snippets/architecture_config.gleam#L6-L18"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Load configuration with dream_config <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_config.gleam#L6-L22"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_config/loader
@@ -726,8 +733,12 @@ pub type AppConfig {
 }
 
 pub fn load_config() -> Result(AppConfig, String) {
-  use _ <- result.try(loader.load_dotenv())
-  use database_url <- result.try(loader.get_required("DATABASE_URL"))
+  use _ <- result.try(
+    loader.load_dotenv() |> result.map_error(loader.describe_load_error),
+  )
+  use database_url <- result.try(
+    loader.get_required("DATABASE_URL") |> result.map_error(loader.describe),
+  )
   let port = loader.get_int("PORT") |> result.unwrap(3000)
   Ok(AppConfig(database_url: database_url, port: port))
 }
@@ -737,7 +748,7 @@ pub fn load_config() -> Result(AppConfig, String) {
 - JSON encoders for optional values and timestamps
 - Convenience functions for common JSON encoding patterns
 
-#### Encode optional fields with dream_json <a href="https://github.com/TrustBound/dream/blob/3.0.0/modules/json/test/snippets/architecture_json.gleam#L5-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Encode optional fields with dream_json <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/architecture_json.gleam#L5-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_json/json_encoders
@@ -764,16 +775,22 @@ pub fn profile_to_json(profile: Profile) -> String {
 
 ### Using Modules
 
-Modules are independent Gleam packages. For local development, add them as path dependencies:
+Modules are independent Gleam packages on Hex. Add the ones you need next to `dream`:
 
 ```toml
 [dependencies]
-dream = { path = "../dream" }
-dream_postgres = { path = "../dream/modules/postgres" }
-dream_http_client = { path = "../dream/modules/http_client" }
+dream = ">= 3.0.0 and < 4.0.0"
 ```
 
-Each module has its own README with detailed usage examples. See the `modules/` directory for complete documentation.
+The `database` example adds `dream_postgres` and `dream_postgres_client` next to `dream`. This is its `dream_postgres_client` line:
+
+#### dream_postgres_client in the database example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/gleam.toml#L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```toml
+dream_postgres_client = ">= 1.0.0 and < 2.0.0"
+```
+
+Each module has its own repository, with a README that has detailed usage examples: [dream_config](https://github.com/TrustBound/dream_config), [dream_ets](https://github.com/TrustBound/dream_ets), [dream_http_client](https://github.com/TrustBound/dream_http_client), [dream_json](https://github.com/TrustBound/dream_json), [dream_mock_server](https://github.com/TrustBound/dream_mock_server), [dream_opensearch](https://github.com/TrustBound/dream_opensearch) and [dream_postgres](https://github.com/TrustBound/dream_postgres).
 
 ### Module Philosophy
 
@@ -839,8 +856,8 @@ We aim to minimize breaking changes, but during pre-1.0 development, we prioriti
 ## Further Reading
 
 - [Design Principles](design-principles.md) - The "why" behind decisions
-- [Lesson 2: Building an API](../learn/02-building-api.md) - Models, views, controllers in practice
-- [Lesson 3: Adding Auth](../learn/03-adding-auth.md) - Middleware in depth
+- [Build a database-backed JSON API](../guides/database-api.md) - Models, views, controllers in practice
+- [Route requests and add middleware](../guides/routing.md) - Middleware in depth
 
 ---
 

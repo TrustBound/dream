@@ -1,10 +1,10 @@
 //// Examples for the doc comments of `dream/router`.
 
 import dream/http/header.{Header}
-import dream/http/request.{Get, Post, Put, get_param, get_string_param}
+import dream/http/request.{Delete, Get, Post, Put, get_param, get_string_param}
 import dream/http/response.{type Response, Response, text_response}
 import dream/http/status
-import dream/router.{find_route, route, router, stream_route}
+import dream/router.{allowed_methods, find_route, route, router, stream_route}
 import gleam/option.{None, Some}
 
 pub fn parameter_router() {
@@ -120,6 +120,21 @@ pub fn find_user_params(router, request) {
     // No route matched
     None -> []
   }
+}
+
+pub fn item_methods(request) {
+  let app_router =
+    router()
+    |> route(method: Get, path: "/items/:id", controller: home, middleware: [])
+    |> route(
+      method: Delete,
+      path: "/items/:id",
+      controller: home,
+      middleware: [],
+    )
+
+  // POST /items/7 gives [Delete, Get], and POST /users gives []
+  allowed_methods(app_router, request)
 }
 
 // Controllers and middleware for the examples above

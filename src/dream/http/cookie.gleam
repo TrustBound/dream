@@ -1,5 +1,7 @@
 //// HTTP cookie types and utilities
 ////
+//// Guide: [Send responses, cookies and files](https://hexdocs.pm/dream/3.0.0/guides/responses.html).
+////
 //// Types and functions for working with HTTP cookies. Cookies can be used
 //// with both requests and responses.
 ////
@@ -80,7 +82,9 @@ pub type SameSite {
 ///
 /// - `name`: Cookie name (case-sensitive)
 /// - `value`: Cookie value
-/// - `expires`: Expiration as Unix timestamp (seconds since epoch)
+/// - `expires`: Expiration as Unix timestamp (seconds since epoch). The
+///   `Set-Cookie` header writes it as an HTTP date in UTC, for example
+///   `Expires=Tue, 14 Nov 2023 22:13:20 GMT`
 /// - `max_age`: Lifetime in seconds from now
 /// - `domain`: Domain where cookie is valid (defaults to current domain)
 /// - `path`: Path where cookie is valid (defaults to current path)

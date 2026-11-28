@@ -4,17 +4,21 @@ Testing infrastructure and standards for the Dream web framework.
 
 ## Running Tests
 
+`make test` runs the unit tests and then the integration tests. `make test-dream` runs only `gleam test`.
+
+The unit tests, as the unit job of CI runs them in `scripts/check.sh`:
+
+### Run the unit tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/check.sh#L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
-# Everything (unit + integration)
-make test
-
-# Unit tests only (core + modules)
 make test-unit
+```
 
-# Dream core only
-make test-dream
+The integration tests, as the integration job of CI runs them in `scripts/ci-integration.sh`:
 
-# Integration tests only
+### Run the integration tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/ci-integration.sh#L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
 make test-integration
 ```
 
@@ -22,7 +26,7 @@ make test-integration
 
 ### Framework
 
-Dream uses [dream_test](https://hexdocs.pm/dream_test/), a BDD-style testing
+Dream uses [dream_test](https://hexdocs.pm/dream_test/3.0.0/), a BDD-style testing
 framework with `describe`/`it` blocks and chainable assertions.
 
 ### Test Location
@@ -31,7 +35,6 @@ framework with `describe`/`it` blocks and chainable assertions.
 |--------|------|
 | `src/dream/context.gleam` | `test/dream/context_test.gleam` |
 | `src/dream/router.gleam` | `test/dream/router_test.gleam` |
-| `modules/http_client/src/...` | `modules/http_client/test/...` |
 
 ### Test Structure
 
@@ -39,12 +42,13 @@ framework with `describe`/`it` blocks and chainable assertions.
 
 ```gleam
 import dream/http/error.{InternalServerError}
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{describe, group, it}
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("dream/http/error", [
-    describe("to_status_code", [
+    group("to_status_code", [
       it("returns 500 for InternalServerError", fn() {
         // Arrange
         let database_error = InternalServerError("Database connection failed")
@@ -55,7 +59,7 @@ pub fn tests() -> UnitTest {
         // Assert
         result
         |> should()
-        |> equal(500)
+        |> be_equal(500)
         |> or_fail_with("Expected 500")
       }),
     ]),
@@ -72,57 +76,54 @@ Tests are registered in `test/dream_test.gleam`:
 ```gleam
 import dream/context_test
 import dream/router_test
-import dream_test/reporter/bdd.{report}
-import dream_test/runner.{run_all}
-import dream_test/unit.{to_test_cases}
-import gleam/io
-import gleam/list
+import dream_test/reporters/bdd
+import dream_test/runner
 
 // ... other test modules
 
 pub fn main() {
-  [
-    to_test_cases("dream/context", context_test.tests()),
-    to_test_cases("dream/router", router_test.tests()),
+  runner.new([
+    context_test.tests(),
+    router_test.tests(),
     // ... other modules
-  ]
-  |> list.flatten
-  |> run_all()
-  |> report(io.println)
+  ])
+  |> runner.results_reporters([bdd.new()])
+  |> runner.run()
 }
 ```
 
-The real `test/dream_test.gleam` also ends the pipe with
-`runner.exit_on_failure()`, so that CI sees a failed test.
-`exit_on_failure()` stops the BEAM with exit code 1 when a test fails, and
-with exit code 0 when all tests pass. The tests run the example above, so it
-leaves that call out.
+The real `test/dream_test.gleam` also adds `runner.exit_on_failure()` before
+`runner.run()`, so that CI sees a failed test. With it, `runner.run()` stops
+the BEAM with exit code 1 when a test fails. When all tests pass,
+`runner.run()` returns the report, and `gleam test` ends with exit code 0.
+The tests run the example above, so it leaves that call out.
 
 ### Assertions
 
-#### Assert values <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_assertions.gleam#L3-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Assert values <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_assertions.gleam#L3-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/http/error.{NotFound}
 import dream/http/params
 import dream/http/request.{Get}
-import dream_test/assertions/should.{
-  be_empty, be_error, be_false, be_none, be_ok, be_some, be_true, contain,
-  contain_string, equal, or_fail_with, should,
+import dream_test/matchers.{
+  be_empty, be_equal, be_error, be_false, be_none, be_ok, be_some, be_true,
+  contain, contain_string, or_fail_with, should,
 }
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{type UnitNode, describe, group, it}
 import fixtures/request as test_request
 import gleam/int
 import gleam/option.{Some}
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("assertions", [
     it("checks one value", fn() {
       // All assertions follow the pattern:
       // value |> should() |> matcher() |> or_fail_with("message")
       error.to_status_code(NotFound("User not found"))
       |> should()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("Expected 404")
     }),
     it("chains matchers", fn() {
@@ -135,7 +136,7 @@ pub fn tests() -> UnitTest {
       params.require_int(request, "id")
       |> should()
       |> be_ok()
-      |> equal(42)
+      |> be_equal(42)
       |> or_fail_with("Expected id 42")
     }),
     other_matcher_tests(),
@@ -234,60 +235,59 @@ pub fn show_user() -> Response {
 
 ```gleam
 import dream/http/error.{BadRequest, NotFound}
-import dream_test/assertions/should.{equal, or_fail_with, should}
-import dream_test/types.{AssertionOk}
-import dream_test/unit.{type UnitTest, after_each, before_each, describe, it}
+import dream_test/matchers.{be_equal, or_fail_with, should}
+import dream_test/suite.{type TestSuite}
+import dream_test/unit.{after_each, before_each, describe, it}
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("tests with setup", [
     before_each(fn() {
       // Runs before each test
-      AssertionOk
+      Ok(Nil)
     }),
     after_each(fn() {
       // Runs after each test
-      AssertionOk
+      Ok(Nil)
     }),
     it("returns 404 for NotFound", fn() {
       error.to_status_code(NotFound("User not found"))
       |> should()
-      |> equal(404)
+      |> be_equal(404)
       |> or_fail_with("Expected 404")
     }),
     it("returns 400 for BadRequest", fn() {
       error.to_status_code(BadRequest("Invalid email format"))
       |> should()
-      |> equal(400)
+      |> be_equal(400)
       |> or_fail_with("Expected 400")
     }),
   ])
 }
 ```
 
-dream_test also has `before_all` and `after_all`, but they run only in suite
-mode (`to_test_suite` with `run_suite`). `test/dream_test.gleam` uses
-`to_test_cases` with `run_all`, which ignores them without an error, so use
-`before_each` and `after_each` in Dream's tests.
+dream_test also has `before_all` and `after_all`. They run one time for all
+the tests in a `describe` or a `group`.
 
 ### Benchmarks
 
 Located in `test/benchmarks/`:
 
-#### Time router lookups <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_benchmark.gleam#L3-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+#### Time router lookups <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_benchmark.gleam#L3-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream/context.{type AppContext}
 import dream/http/request.{type Request, Get}
 import dream/router.{type EmptyServices, type Router}
+import dream_test/suite.{type TestSuite}
 import dream_test/types.{AssertionOk}
-import dream_test/unit.{type UnitTest, describe, it}
+import dream_test/unit.{describe, it}
 import fixtures/handler.{test_handler}
 import fixtures/request as test_request
 import gleam/float
 import gleam/int
 import gleam/io
 
-pub fn tests() -> UnitTest {
+pub fn tests() -> TestSuite {
   describe("router benchmarks", [
     it("100 routes lookup", fn() {
       let resource_router = build_router(100)
@@ -295,14 +295,14 @@ pub fn tests() -> UnitTest {
       let elapsed = time_lookups(resource_router, request, 10_000)
 
       io.println("[BENCH] 100-routes: " <> format_result(elapsed, 10_000))
-      AssertionOk
+      Ok(AssertionOk)
     }),
   ])
 }
 ```
 
 **Benchmark Output:** Self-identifying single lines for parallel execution:
-```
+```text illustration
 [BENCH] 100-first: 11815μs total, 1.18μs/lookup (10000 iterations)
 ```
 
@@ -317,44 +317,68 @@ pub fn tests() -> UnitTest {
 
 ### Location
 
-```
-examples/simple/
-├── test/integration/
-│   ├── features/
-│   │   ├── simple.feature
-│   │   └── step_definitions/
-│   │       └── http_steps.exs
-│   ├── cucumber_test.exs
-│   └── test_helper.exs
-├── mix.exs
-└── Makefile
+The `simple` example has these test files. Run the command in `examples/simple`:
+
+#### List the test files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme.sh#L80"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+find test/integration mix.exs Makefile -type f | sort
 ```
 
+#### The test files <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/readme_output.txt#L754-L764"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```text
+Makefile
+mix.exs
+test/integration/cucumber_test.exs
+test/integration/features/simple.feature
+test/integration/features/step_definitions/http_steps.exs
+test/integration/readme.sh
+test/integration/readme_http2.sh
+test/integration/readme_http2_output.txt
+test/integration/readme_output.txt
+test/integration/start.sh
+test/integration/test_helper.exs
+```
+
+- `features/*.feature`: the Gherkin scenarios. `features/step_definitions/http_steps.exs`: the step implementations.
+- `cucumber_test.exs` and `test_helper.exs`: the ExUnit entry point and the Cucumber configuration.
+- `start.sh`: starts the server as the README says.
+- `readme.sh` and `readme_output.txt`: the commands of the README and their expected output. `readme_http2.sh` and `readme_http2_output.txt` do the same over HTTP/2.
+- `mix.exs`: the Elixir test dependencies. `Makefile`: the `test-integration` target.
+
 ### Example Scenario
+
+#### The scenarios of the simple example <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/simple/test/integration/features/simple.feature#L1-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gherkin
 Feature: Simple Example
 
-  Background:
-    Given the server is running on port 3000
+    Background:
+        Given the server is running on port 3000
 
-  Scenario: GET root returns hello
-    When I send a GET request to "/"
-    Then the response status should be 200
-    And the response should contain "Hello from Dream"
+    Scenario: GET root endpoint returns hello world
+        When I send a GET request to "/"
+        Then the response status should be 200
+        And the response should contain "Hello, World!"
 ```
 
 ### Running Integration Tests
 
+All integration tests:
+
+#### Run the integration tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/ci-integration.sh#L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```bash
-# All integration tests
 make test-integration
+```
 
-# Specific example
-cd examples/database && make test-integration
+One example, from the repository root:
 
-# Specific module
-cd modules/mock_server && make test-integration
+#### Run the tests of one example <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/test-integration.sh#L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+(cd examples/database && make test-integration)
 ```
 
 ### Test Isolation
@@ -376,7 +400,7 @@ cd modules/mock_server && make test-integration
 
 ### Naming Convention
 
-```
+```text illustration
 <function_name>_<condition>_<expected_result>
 ```
 
@@ -391,8 +415,8 @@ Examples:
 
 ```gleam
 // ✅ Good - focused tests
-pub fn focused_tests() -> UnitTest {
-  describe("find_route", [
+pub fn focused_tests() -> UnitNode {
+  group("find_route", [
     it("returns route for exact path", fn() {
       let request = test_request.create_request(Get, "/users")
       find_route(create_user_router(), request)
@@ -406,14 +430,14 @@ pub fn focused_tests() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("id", "42")])
+      |> be_equal([#("id", "42")])
       |> or_fail_with("Expected the id param")
     }),
   ])
 }
 
 // ❌ Bad - multiple assertions
-pub fn unfocused_test() -> UnitTest {
+pub fn unfocused_test() -> UnitNode {
   it("finds route and extracts params", fn() {
     // Two things being tested
     let request = test_request.create_request(Get, "/users/42")
@@ -427,10 +451,10 @@ pub fn unfocused_test() -> UnitTest {
       |> should()
       |> be_some()
       |> extract_route_params()
-      |> equal([#("id", "42")])
+      |> be_equal([#("id", "42")])
       |> or_fail_with("Expected the id param")
     case route_found {
-      AssertionOk -> params_extracted
+      Ok(AssertionOk) -> params_extracted
       _failure -> route_found
     }
   })
@@ -521,25 +545,42 @@ functions are dead code—delete them.
 
 ### GitHub Actions
 
-Two jobs on every PR:
-1. **unit-tests**: Format check, build, unit tests
-2. **integration-tests**: Integration tests with PostgreSQL
+Five jobs on every PR:
+1. **unit-tests**: `scripts/check.sh`: the format check, the build, the unit tests with line coverage and the check of the code blocks of the docs
+2. **integration-tests**: `scripts/ci-integration.sh`: the integration tests of the examples, with PostgreSQL
+3. **templates**: `make check-templates`, with the matcha binary that `scripts/install-matcha.sh` installs
+4. **docker**: `make test-docker`: builds `examples/deployment` with no network, starts it, and checks that it stops on `SIGTERM`
+5. **tasks**: `make test-tasks`: the integration and Cypress tests of `examples/tasks`, with PostgreSQL on port 5437
 
 ### PostgreSQL Service
 
+#### The PostgreSQL service <a href="https://github.com/TrustBound/dream/blob/3.0.0/.github/workflows/ci.yml#L140-L151"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```yaml
-services:
-  postgres:
-    image: postgres:16-alpine
-    ports:
-      - 5435:5432
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dream_example_database_db
+        ports:
+          - 5435:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
 ```
 
 ### Environment
 
-```bash
-DATABASE_URL=postgres://postgres:postgres@localhost:5435/dream_example_database_db
-POSTGRES_PORT=5435
+#### The environment of the integration job <a href="https://github.com/TrustBound/dream/blob/3.0.0/.github/workflows/ci.yml#L192-L196"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```yaml
+        env:
+          CI: "true"
+          PGPASSWORD: postgres
+          DATABASE_URL: postgres://postgres:postgres@localhost:5435/dream_example_database_db
+          POSTGRES_PORT: "5435"
 ```
 
 ## Adding Tests
@@ -547,7 +588,7 @@ POSTGRES_PORT=5435
 ### New Unit Test Module
 
 1. Create test file mirroring source structure
-2. Export `tests() -> UnitTest` function
+2. Export `tests() -> TestSuite` function
 3. Register in `test/dream_test.gleam`
 4. Run `gleam test` to verify
 
@@ -571,22 +612,22 @@ POSTGRES_PORT=5435
 
 ### Failed Unit Tests
 
-```bash
-# Run with full output
-gleam test
+Run the unit tests as CI does. The output names each failed test with its group, and shows the expected and the actual value:
 
-# Check specific module
-gleam test --module dream/router_test
+#### Run the unit tests <a href="https://github.com/TrustBound/dream/blob/3.0.0/scripts/check.sh#L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```bash
+make test-unit
 ```
 
 ### Failed Integration Tests
 
-```bash
+```bash illustration
 # Check server logs
-tail -f /tmp/test.log
+tail -f /tmp/simple_http1_test.log
 
-# Verify database
-docker-compose exec postgres psql -U postgres -d test_db
+# Verify database (in examples/database)
+docker-compose exec postgres psql -U postgres -d dream_example_database_db
 
 # Check ports
 lsof -i:3000
@@ -594,6 +635,6 @@ lsof -i:3000
 
 ## Resources
 
-- [dream_test documentation](https://hexdocs.pm/dream_test/)
+- [dream_test documentation](https://hexdocs.pm/dream_test/3.0.0/)
 - [Cucumber Elixir](https://hexdocs.pm/cucumber/)
 - [GitHub Actions](https://docs.github.com/en/actions)
