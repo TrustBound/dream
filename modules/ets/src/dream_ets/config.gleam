@@ -680,7 +680,10 @@ pub fn write_concurrency(
 /// - **Pro**: Reduces memory usage (especially for large, compressible data)
 /// - **Con**: Slower read/write operations due to compression overhead
 /// - **Note**: Only worth it if values are large and compressible
-pub fn compressed(config: TableConfig(k, v), enabled: Bool) -> TableConfig(k, v) {
+pub fn compressed(
+  config: TableConfig(k, v),
+  enabled: Bool,
+) -> TableConfig(k, v) {
   let TableConfig(
     name,
     table_type,
@@ -1210,7 +1213,10 @@ fn add_keypos_option(
   }
 }
 
-fn create_concurrency_tuple(option_name: String, value: Bool) -> dynamic.Dynamic {
+fn create_concurrency_tuple(
+  option_name: String,
+  value: Bool,
+) -> dynamic.Dynamic {
   let key_atom = atom.create(option_name)
   internal.to_dynamic(#(key_atom, value))
 }
@@ -1262,6 +1268,7 @@ fn create_table_with_options(
     Error(internal.AlreadyExists) -> Error(table.TableAlreadyExists)
     Error(internal.InvalidOperation(msg)) -> Error(table.OperationFailed(msg))
     Error(internal.NotFound) -> Error(table.TableNotFound)
+    Error(internal.TableNotFound) -> Error(table.TableNotFound)
     Error(internal.EmptyTable) -> Error(table.EmptyTable)
     Error(internal.EndOfTable) -> Error(table.EndOfTable)
   }

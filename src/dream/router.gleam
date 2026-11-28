@@ -7,15 +7,29 @@
 ////
 //// ## Basic Routing
 ////
+//// ### Basic routing <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router_basic.gleam#L3-L23"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
-//// import dream/router.{route, router}
 //// import dream/http/request.{Get, Post}
+//// import dream/http/response.{text_response}
+//// import dream/http/status
+//// import dream/router.{route, router}
 ////
 //// pub fn create_router() {
 ////   router()
-////   |> route(method: Get, path: "/", controller: controllers.index, middleware: [])
-////   |> route(method: Get, path: "/users/:id", controller: controllers.show_user, middleware: [])
-////   |> route(method: Post, path: "/users", controller: controllers.create_user, middleware: [])
+////   |> route(method: Get, path: "/", controller: index, middleware: [])
+////   |> route(
+////     method: Get,
+////     path: "/users/:id",
+////     controller: show_user,
+////     middleware: [],
+////   )
+////   |> route(
+////     method: Post,
+////     path: "/users",
+////     controller: create_user,
+////     middleware: [],
+////   )
 //// }
 //// ```
 ////
@@ -32,10 +46,24 @@
 //// Routes with different parameter names at the same position are supported.
 //// Each route extracts parameters using its own declared parameter names:
 ////
+//// ### Different parameter names <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router.gleam#L10-L24"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
-//// router()
-//// |> route(method: Get, path: "/users/:id", controller: show_user, middleware: [])
-//// |> route(method: Get, path: "/users/:user_id/posts", controller: show_posts, middleware: [])
+//// pub fn parameter_router() {
+////   router()
+////   |> route(
+////     method: Get,
+////     path: "/users/:id",
+////     controller: show_user,
+////     middleware: [],
+////   )
+////   |> route(
+////     method: Get,
+////     path: "/users/:user_id/posts",
+////     controller: show_posts,
+////     middleware: [],
+////   )
+//// }
 //// ```
 ////
 //// - `/users/123` extracts `id = "123"` (first route's param name)
@@ -46,7 +74,7 @@
 ////
 //// ## Wildcards
 ////
-//// Wildcards match one or more path segments:
+//// Wildcards match path segments:
 //// - `*` or `*name` - Matches exactly one segment
 //// - `**` or `**path` - Matches zero or more segments (greedy)
 //// - `*.jpg` - Matches any path ending in `.jpg`
@@ -56,14 +84,18 @@
 ////
 //// Middleware run before (and optionally after) your controller:
 ////
+//// ### Add middleware <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router.gleam#L26-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
-//// router()
-//// |> route(
-////   method: Get,
-////   path: "/admin/users",
-////   controller: controllers.admin_users,
-////   middleware: [auth_middleware, logging_middleware]
-//// )
+//// pub fn admin_router() {
+////   router()
+////   |> route(
+////     method: Get,
+////     path: "/admin/users",
+////     controller: admin_users,
+////     middleware: [auth_middleware, logging_middleware],
+////   )
+//// }
 //// ```
 ////
 //// Middleware are executed in order: `auth` → `logging` → controller → `logging` → `auth`.
@@ -75,8 +107,17 @@
 //// 1. Literal segments (exact match) - highest priority
 //// 2. Parameters (`:id`)
 //// 3. Single wildcards (`*`)
-//// 4. Extension patterns (`*.jpg`)
-//// 5. Multi-segment wildcards (`**`) - lowest priority
+//// 4. Multi-segment wildcards (`**`) - lowest priority
+////
+//// A segment with an extension, such as `photo.jpg`, uses a different order:
+//// literal, extension pattern (`*.jpg`), single wildcard, multi-segment
+//// wildcard, and parameter last.
+////
+//// When a route of higher priority fits a segment but not the rest of the
+//// path, the router goes back and tries the route of next priority. With the
+//// routes `/users/:id/posts` and `/users/**rest`, the path `/users/1/comments`
+//// follows `:id`, finds no match after it, and then matches `/users/**rest`
+//// with `rest` = `1/comments`.
 ////
 //// This means `/users/new` will match before `/users/:id` even if defined in reverse order.
 ////
@@ -90,16 +131,28 @@
 ////
 //// Example of what the compiler WON'T catch:
 ////
+//// ### A parameter name typo <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router_wrong.gleam#L9-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
 //// // Route definition
-//// router()
-//// |> route(method: Get, path: "/users/:user_id", controller: show_user, middleware: [])
+//// pub fn user_router() {
+////   router()
+////   |> route(
+////     method: Get,
+////     path: "/users/:user_id",
+////     controller: show_user,
+////     middleware: [],
+////   )
+//// }
 ////
-//// // Controller (WRONG - will fail at runtime)
-//// fn show_user(request: Request, context: Context, services: Services) -> Response {
-////   case get_param(request, "id") {  // Should be "user_id"
-////     Ok(param) -> // This will never execute
-////     Error(_) -> // Always hits this branch
+//// // Controller (WRONG - fails at runtime)
+//// pub fn show_user(request: Request, _context, _services) -> Response {
+////   // Should be "user_id"
+////   case get_param(request, "id") {
+////     // This never runs
+////     Ok(param) -> text_response(status.ok, "User " <> param.value)
+////     // Always hits this branch
+////     Error(message) -> text_response(status.bad_request, message)
 ////   }
 //// }
 //// ```
@@ -192,10 +245,19 @@ pub type EmptyServices {
 ///
 /// ## Example
 ///
+/// ### Build a router <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router.gleam#L36-L45"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// router()
-/// |> route(method: Get, path: "/", controller: home, middleware: [])
-/// |> route(method: Get, path: "/users/:id", controller: show_user, middleware: [])
+/// pub fn app_router() {
+///   router()
+///   |> route(method: Get, path: "/", controller: home, middleware: [])
+///   |> route(
+///     method: Get,
+///     path: "/users/:id",
+///     controller: show_user,
+///     middleware: [],
+///   )
+/// }
 /// ```
 pub fn router() -> Router(context, services) {
   Router(trie: trie_module.new())
@@ -211,24 +273,55 @@ pub fn router() -> Router(context, services) {
 ///
 /// ## Examples
 ///
+/// ### Add routes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router.gleam#L47-L86"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// // Simple route
-/// route(router, method: Get, path: "/", controller: home_controller, middleware: [])
+/// pub fn add_routes(router) {
+///   // Simple route
+///   let router =
+///     route(
+///       router,
+///       method: Get,
+///       path: "/",
+///       controller: home_controller,
+///       middleware: [],
+///     )
 ///
-/// // Route with path parameter
-/// route(router, method: Get, path: "/users/:id", controller: show_user, middleware: [])
+///   // Route with path parameter
+///   let router =
+///     route(
+///       router,
+///       method: Get,
+///       path: "/users/:id",
+///       controller: show_user,
+///       middleware: [],
+///     )
 ///
-/// // Route with middleware
-/// route(router, method: Post, path: "/admin/users", controller: create_user, middleware: [auth, logging])
+///   // Route with middleware
+///   let router =
+///     route(
+///       router,
+///       method: Post,
+///       path: "/admin/users",
+///       controller: create_user,
+///       middleware: [auth, logging],
+///     )
 ///
-/// // Wildcard route for static files
-/// route(router, method: Get, path: "/assets/**path", controller: serve_static, middleware: [])
+///   // Wildcard route for static files
+///   route(
+///     router,
+///     method: Get,
+///     path: "/assets/**path",
+///     controller: serve_static,
+///     middleware: [],
+///   )
+/// }
 /// ```
 pub fn route(
   router_value: Router(context, services),
   method method_value: Method,
   path path_pattern: String,
-  controller controller_fn: fn(Request, context, services) -> Response,
+  controller controller_function: fn(Request, context, services) -> Response,
   middleware middleware_list: List(
     fn(Request, context, services, fn(Request, context, services) -> Response) ->
       Response,
@@ -241,7 +334,7 @@ pub fn route(
 
   let handler =
     RouteHandler(
-      controller: controller_fn,
+      controller: controller_function,
       middleware: middleware_wrappers,
       streaming: False,
       param_names: param_names,
@@ -256,19 +349,32 @@ pub fn route(
 /// Add a streaming route to the router
 ///
 /// Registers a route that receives the request body as a stream (Yielder(BitArray))
-/// instead of a buffered string. Use this for large file uploads, proxying external
-/// APIs, or any request body > 10MB.
+/// instead of a buffered `Text` or `Bytes` body. Use this for large file uploads,
+/// proxying external APIs, or any request body > 10MB.
 ///
-/// The controller receives `request.stream` as `Some(Yielder(BitArray))` and
-/// `request.body` as an empty string. Process chunks as they arrive without
-/// buffering the entire body in memory.
+/// The controller receives `request.body` as `Stream(Yielder(BitArray))`.
+/// Process chunks as they arrive without buffering the entire body in memory.
 ///
 /// ## Example
 ///
+/// ### Add streaming routes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router.gleam#L88-L102"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// router
-/// |> stream_route(method: Post, path: "/upload", controller: handle_upload, middleware: [auth])
-/// |> stream_route(method: Put, path: "/files/:id", controller: replace_file, middleware: [])
+/// pub fn add_upload_routes(router) {
+///   router
+///   |> stream_route(
+///     method: Post,
+///     path: "/upload",
+///     controller: handle_upload,
+///     middleware: [auth],
+///   )
+///   |> stream_route(
+///     method: Put,
+///     path: "/files/:id",
+///     controller: replace_file,
+///     middleware: [],
+///   )
+/// }
 /// ```
 ///
 /// ## When to Use
@@ -283,7 +389,7 @@ pub fn stream_route(
   router_value: Router(context, services),
   method method_value: Method,
   path path_pattern: String,
-  controller controller_fn: fn(Request, context, services) -> Response,
+  controller controller_function: fn(Request, context, services) -> Response,
   middleware middleware_list: List(
     fn(Request, context, services, fn(Request, context, services) -> Response) ->
       Response,
@@ -296,7 +402,7 @@ pub fn stream_route(
 
   let handler =
     RouteHandler(
-      controller: controller_fn,
+      controller: controller_function,
       middleware: middleware_wrappers,
       streaming: True,
       param_names: param_names,
@@ -331,16 +437,28 @@ pub fn stream_route(
 ///
 /// ## Example
 ///
-/// ```gleam
-/// let app_router = router
-///   |> route(method: Get, path: "/users/:id", controller: show_user, middleware: [])
+/// ### Find a route <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_router.gleam#L104-L123"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
-/// case find_route(app_router, request) {
-///   Some(#(route, params)) -> {
-///     // route.controller is show_user
-///     // params is [#("id", "123")] if path was "/users/123"
+/// ```gleam
+/// pub fn find_user_params(router, request) {
+///   let app_router =
+///     router
+///     |> route(
+///       method: Get,
+///       path: "/users/:id",
+///       controller: show_user,
+///       middleware: [],
+///     )
+///
+///   case find_route(app_router, request) {
+///     Some(#(_route, params)) -> {
+///       // route.controller is show_user
+///       // params is [#("id", "123")] if path was "/users/123"
+///       params
+///     }
+///     // No route matched
+///     None -> []
 ///   }
-///   None -> // No route matched
 /// }
 /// ```
 pub fn find_route(
@@ -380,8 +498,8 @@ fn split_path(path: String) -> List(String) {
 }
 
 /// Check if a segment is non-empty
-fn is_non_empty_segment(seg: String) -> Bool {
-  seg != ""
+fn is_non_empty_segment(segment: String) -> Bool {
+  segment != ""
 }
 
 /// Extract param names from segments in path order
@@ -395,7 +513,7 @@ fn extract_param_names_from_segments(segments: List(Segment)) -> List(String) {
       let rest_names = extract_param_names_from_segments(rest)
       let name = extract_param_name_from_segment(segment)
       case name {
-        option.Some(n) -> [n, ..rest_names]
+        option.Some(param_name) -> [param_name, ..rest_names]
         option.None -> rest_names
       }
     }
@@ -473,11 +591,11 @@ fn build_chain_recursive(
 ) -> fn(Request, context, services) -> Response {
   case middleware {
     [] -> controller
-    [mw, ..rest] -> {
-      case mw {
-        Middleware(middleware_fn) -> {
+    [first_middleware, ..rest] -> {
+      case first_middleware {
+        Middleware(middleware_function) -> {
           let wrapped_controller =
-            create_wrapped_controller(middleware_fn, controller)
+            create_wrapped_controller(middleware_function, controller)
           build_chain_recursive(rest, wrapped_controller)
         }
       }
@@ -487,47 +605,44 @@ fn build_chain_recursive(
 
 /// Wrap a controller with a middleware function
 fn create_wrapped_controller(
-  middleware_fn: fn(
+  middleware_function: fn(
     Request,
     context,
     services,
     fn(Request, context, services) -> Response,
-  ) ->
-    Response,
+  ) -> Response,
   controller: fn(Request, context, services) -> Response,
 ) -> fn(Request, context, services) -> Response {
-  wrap_controller_with_middleware(middleware_fn, controller)
+  wrap_controller_with_middleware(middleware_function, controller)
 }
 
 /// Create a wrapped controller that applies middleware
 ///
 /// This is a named function to avoid anonymous functions in production code.
 fn wrap_controller_with_middleware(
-  middleware_fn: fn(
+  middleware_function: fn(
     Request,
     context,
     services,
     fn(Request, context, services) -> Response,
-  ) ->
-    Response,
+  ) -> Response,
   controller: fn(Request, context, services) -> Response,
 ) -> fn(Request, context, services) -> Response {
-  apply_middleware_to_controller(middleware_fn, controller)
+  apply_middleware_to_controller(middleware_function, controller)
 }
 
 /// Apply middleware to a controller, creating a wrapped controller function
 fn apply_middleware_to_controller(
-  middleware_fn: fn(
+  middleware_function: fn(
     Request,
     context,
     services,
     fn(Request, context, services) -> Response,
-  ) ->
-    Response,
+  ) -> Response,
   controller: fn(Request, context, services) -> Response,
 ) -> fn(Request, context, services) -> Response {
   fn(request, context, services) {
-    middleware_fn(request, context, services, controller)
+    middleware_function(request, context, services, controller)
   }
 }
 
@@ -537,10 +652,14 @@ fn apply_middleware_to_controller(
 
 /// Wrap a middleware function in the Middleware type
 fn wrap_middleware(
-  mw: fn(Request, context, services, fn(Request, context, services) -> Response) ->
-    Response,
+  middleware_function: fn(
+    Request,
+    context,
+    services,
+    fn(Request, context, services) -> Response,
+  ) -> Response,
 ) -> Middleware(context, services) {
-  Middleware(mw)
+  Middleware(middleware_function)
 }
 
 /// Convert an HTTP method to its string representation

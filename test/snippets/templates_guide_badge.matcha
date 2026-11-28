@@ -1,0 +1,2 @@
+{> with label as String
+<mark>{{ label }}</mark>

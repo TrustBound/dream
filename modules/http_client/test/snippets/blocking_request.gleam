@@ -1,8 +1,7 @@
-//// Blocking Request
+//// README: Quick Start
 ////
-//// Example snippet showing a simple blocking HTTP request.
-////
-//// Note: README shows api.example.com, but tests use localhost:9876 (mock server)
+//// A simple blocking GET request. The tests run it against the mock server
+//// on localhost:9876.
 
 import dream_http_client/client.{
   type HttpResponse, type SendError, host, method, path, port, scheme, send,

@@ -1,8 +1,7 @@
 import dream/context.{type EmptyContext}
-import dream/http/request.{type Request, Request}
+import dream/http/request.{type Request, Bytes, Request, Stream, Text}
 import dream/http/response.{type Response, Response, Stream as ResponseStream}
 import gleam/bit_array
-import gleam/option.{None, Some}
 import gleam/string
 import gleam/yielder
 import services.{type Services}
@@ -14,17 +13,17 @@ pub fn uppercase_incoming(
   services: Services,
   next: fn(Request, EmptyContext, Services) -> Response,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> {
+  case request.body {
+    Stream(stream) -> {
       let transformed_stream =
         stream
         |> yielder.map(uppercase_chunk)
 
-      let new_request = Request(..request, stream: Some(transformed_stream))
+      let new_request = Request(..request, body: Stream(transformed_stream))
       next(new_request, context, services)
     }
-    // If not a stream or empty, pass through unchanged
-    None -> next(request, context, services)
+    // If not a stream, pass through unchanged
+    Text(_) | Bytes(_) -> next(request, context, services)
   }
 }
 

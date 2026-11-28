@@ -14,19 +14,26 @@
 ////
 //// Return errors from controllers, models, or operations using the same type:
 ////
+//// ### Return errors from any layer <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_module.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
 //// import dream/http/error.{type Error, BadRequest, NotFound}
+//// import gleam/list
 //// import gleam/result
 ////
-//// pub fn get_user(db: Connection, id: Int) -> Result(User, Error) {
-////   query_user(db, id)
+//// pub type User {
+////   User(id: Int, name: String)
+//// }
+////
+//// pub fn get_user(users: List(User), id: Int) -> Result(User, Error) {
+////   list.find(users, fn(user) { user.id == id })
 ////   |> result.replace_error(NotFound("User not found"))
 //// }
 ////
-//// pub fn create_user(db: Connection, name: String) -> Result(User, Error) {
-////   case validate_name(name) {
-////     True -> insert_user(db, name)
-////     False -> Error(BadRequest("Name must not be empty"))
+//// pub fn create_user(users: List(User), name: String) -> Result(User, Error) {
+////   case name {
+////     "" -> Error(BadRequest("Name must not be empty"))
+////     _ -> Ok(User(id: list.length(users) + 1, name: name))
 ////   }
 //// }
 //// ```
@@ -35,21 +42,28 @@
 ////
 //// Use `to_status_code()` and `message()` to convert errors to HTTP responses:
 ////
+//// ### Convert an error to a response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_response.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
 //// import dream/http/error.{type Error, message, to_status_code}
 //// import dream/http/response.{type Response, json_response}
 //// import gleam/json
 ////
-//// let result = get_user(db, id)
-//// 
-//// case result {
-////   Ok(user) -> json_response(200, user_to_json(user))
-////   Error(err) -> create_error_response(err)
+//// pub fn user_response(result: Result(String, Error)) -> Response {
+////   case result {
+////     Ok(name) -> json_response(200, user_to_json(name))
+////     Error(error) -> create_error_response(error)
+////   }
 //// }
-//// 
-//// fn create_error_response(err: Error) -> Response {
-////   let error_json = json.object([#("error", json.string(message(err)))])
-////   json_response(to_status_code(err), error_json)
+////
+//// fn user_to_json(name: String) -> String {
+////   json.object([#("name", json.string(name))])
+////   |> json.to_string
+//// }
+////
+//// fn create_error_response(error: Error) -> Response {
+////   let error_json = json.object([#("error", json.string(message(error)))])
+////   json_response(to_status_code(error), json.to_string(error_json))
 //// }
 //// ```
 
@@ -74,9 +88,18 @@ pub type Error {
   ///
   /// ## Example
   ///
+  /// ### Return BadRequest <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_bad_request.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  ///
   /// ```gleam
-  /// Error(BadRequest("Field 'email' is required"))
-  /// Error(BadRequest("ID must be a positive integer"))
+  /// import dream/http/error.{type Error, BadRequest}
+  ///
+  /// pub fn check_signup(email: String, id: Int) -> Result(Nil, Error) {
+  ///   case email, id {
+  ///     "", _ -> Error(BadRequest("Field 'email' is required"))
+  ///     _, id if id < 1 -> Error(BadRequest("ID must be a positive integer"))
+  ///     _, _ -> Ok(Nil)
+  ///   }
+  /// }
   /// ```
   BadRequest(String)
 
@@ -87,9 +110,22 @@ pub type Error {
   ///
   /// ## Example
   ///
+  /// ### Return Unauthorized <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_unauthorized.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  ///
   /// ```gleam
-  /// Error(Unauthorized("Authentication token required"))
-  /// Error(Unauthorized("Invalid or expired token"))
+  /// import dream/http/error.{type Error, Unauthorized}
+  /// import gleam/list
+  ///
+  /// pub fn authenticate(
+  ///   token: String,
+  ///   valid_tokens: List(String),
+  /// ) -> Result(String, Error) {
+  ///   case token, list.contains(valid_tokens, token) {
+  ///     "", _ -> Error(Unauthorized("Authentication token required"))
+  ///     _, False -> Error(Unauthorized("Invalid or expired token"))
+  ///     _, True -> Ok(token)
+  ///   }
+  /// }
   /// ```
   Unauthorized(String)
 
@@ -100,9 +136,24 @@ pub type Error {
   ///
   /// ## Example
   ///
+  /// ### Return Forbidden <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_forbidden.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  ///
   /// ```gleam
-  /// Error(Forbidden("Admin access required"))
-  /// Error(Forbidden("Cannot delete another user's post"))
+  /// import dream/http/error.{type Error, Forbidden}
+  ///
+  /// pub fn require_admin(is_admin: Bool) -> Result(Nil, Error) {
+  ///   case is_admin {
+  ///     True -> Ok(Nil)
+  ///     False -> Error(Forbidden("Admin access required"))
+  ///   }
+  /// }
+  ///
+  /// pub fn check_post_owner(user_id: Int, author_id: Int) -> Result(Nil, Error) {
+  ///   case user_id == author_id {
+  ///     True -> Ok(Nil)
+  ///     False -> Error(Forbidden("Cannot delete another user's post"))
+  ///   }
+  /// }
   /// ```
   Forbidden(String)
 
@@ -113,9 +164,31 @@ pub type Error {
   ///
   /// ## Example
   ///
+  /// ### Return NotFound <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_not_found.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  ///
   /// ```gleam
-  /// Error(NotFound("User not found"))
-  /// Error(NotFound("Post with ID 123 does not exist"))
+  /// import dream/http/error.{type Error, NotFound}
+  /// import gleam/int
+  /// import gleam/list
+  /// import gleam/result
+  ///
+  /// pub fn find_user(
+  ///   users: List(#(Int, String)),
+  ///   id: Int,
+  /// ) -> Result(String, Error) {
+  ///   list.key_find(users, id)
+  ///   |> result.replace_error(NotFound("User not found"))
+  /// }
+  ///
+  /// pub fn find_post(
+  ///   posts: List(#(Int, String)),
+  ///   id: Int,
+  /// ) -> Result(String, Error) {
+  ///   list.key_find(posts, id)
+  ///   |> result.replace_error(NotFound(
+  ///     "Post with ID " <> int.to_string(id) <> " does not exist",
+  ///   ))
+  /// }
   /// ```
   NotFound(String)
 
@@ -126,9 +199,28 @@ pub type Error {
   ///
   /// ## Example
   ///
+  /// ### Return UnprocessableContent <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_unprocessable_content.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  ///
   /// ```gleam
-  /// Error(UnprocessableContent("Email already registered"))
-  /// Error(UnprocessableContent("Start date must be before end date"))
+  /// import dream/http/error.{type Error, UnprocessableContent}
+  /// import gleam/list
+  ///
+  /// pub fn check_email(
+  ///   email: String,
+  ///   registered: List(String),
+  /// ) -> Result(String, Error) {
+  ///   case list.contains(registered, email) {
+  ///     True -> Error(UnprocessableContent("Email already registered"))
+  ///     False -> Ok(email)
+  ///   }
+  /// }
+  ///
+  /// pub fn check_dates(start_date: Int, end_date: Int) -> Result(Nil, Error) {
+  ///   case start_date < end_date {
+  ///     True -> Ok(Nil)
+  ///     False -> Error(UnprocessableContent("Start date must be before end date"))
+  ///   }
+  /// }
   /// ```
   UnprocessableContent(String)
 
@@ -139,9 +231,25 @@ pub type Error {
   ///
   /// ## Example
   ///
+  /// ### Return InternalServerError <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_internal_server_error.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+  ///
   /// ```gleam
-  /// Error(InternalServerError("Database connection failed"))
-  /// Error(InternalServerError("External payment API unavailable"))
+  /// import dream/http/error.{type Error, InternalServerError}
+  /// import gleam/result
+  ///
+  /// pub fn load_users(
+  ///   query_result: Result(List(String), Nil),
+  /// ) -> Result(List(String), Error) {
+  ///   query_result
+  ///   |> result.replace_error(InternalServerError("Database connection failed"))
+  /// }
+  ///
+  /// pub fn charge(payment_result: Result(Int, Nil)) -> Result(Int, Error) {
+  ///   payment_result
+  ///   |> result.replace_error(InternalServerError(
+  ///     "External payment API unavailable",
+  ///   ))
+  /// }
   /// ```
   InternalServerError(String)
 }
@@ -153,13 +261,21 @@ pub type Error {
 ///
 /// ## Example
 ///
-/// ```gleam
-/// import dream/http/error.{type Error, NotFound}
-/// import dream/http/response
+/// ### Get the status code <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_to_status_code.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
-/// let err = NotFound("User not found")
-/// let status = error.to_status_code(err)  // Returns 404
-/// response.json_response(status, error_json(err))
+/// ```gleam
+/// import dream/http/error.{NotFound}
+/// import dream/http/response.{type Response}
+/// import gleam/json
+///
+/// pub fn not_found_response() -> Response {
+///   let not_found = NotFound("User not found")
+///   // Returns 404
+///   let status = error.to_status_code(not_found)
+///   let error_json =
+///     json.object([#("error", json.string(error.message(not_found)))])
+///   response.json_response(status, json.to_string(error_json))
+/// }
 /// ```
 pub fn to_status_code(error: Error) -> Int {
   case error {
@@ -179,26 +295,31 @@ pub fn to_status_code(error: Error) -> Int {
 ///
 /// ## Example
 ///
+/// ### Get the message <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_error_message.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// import dream/http/error.{type Error, BadRequest}
+/// import dream/http/error.{BadRequest}
 /// import gleam/json
 ///
-/// let err = BadRequest("Invalid email format")
-/// let msg = error.message(err)  // Returns "Invalid email format"
+/// pub fn bad_request_json() -> json.Json {
+///   let bad_request = BadRequest("Invalid email format")
+///   // Returns "Invalid email format"
+///   let error_message = error.message(bad_request)
 ///
-/// // Build JSON error response
-/// json.object([
-///   #("error", json.string(msg)),
-///   #("status", json.int(error.to_status_code(err)))
-/// ])
+///   // Build JSON error response
+///   json.object([
+///     #("error", json.string(error_message)),
+///     #("status", json.int(error.to_status_code(bad_request))),
+///   ])
+/// }
 /// ```
 pub fn message(error: Error) -> String {
   case error {
-    BadRequest(msg) -> msg
-    Unauthorized(msg) -> msg
-    Forbidden(msg) -> msg
-    NotFound(msg) -> msg
-    UnprocessableContent(msg) -> msg
-    InternalServerError(msg) -> msg
+    BadRequest(message) -> message
+    Unauthorized(message) -> message
+    Forbidden(message) -> message
+    NotFound(message) -> message
+    UnprocessableContent(message) -> message
+    InternalServerError(message) -> message
   }
 }

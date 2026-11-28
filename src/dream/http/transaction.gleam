@@ -1,19 +1,26 @@
 //// HTTP requests and responses
 ////
 //// Core HTTP types for Dream applications. For response builders and status codes,
-//// see the dream_json module.
+//// see the `dream/http/response` and `dream/http/status` modules.
 ////
 //// ## Path Parameters
 ////
 //// Extract and convert path parameters from routes:
 ////
+//// ### Read a path parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_path.gleam#L1-L13"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
+//// import dream/http/response.{type Response, json_response}
+//// import dream/http/status.{bad_request, ok}
+//// import dream/http/transaction.{type Request, get_int_param}
+//// import gleam/json
+////
 //// pub fn show_user(request: Request, _context, _services) -> Response {
 ////   let result = get_int_param(request, "id")
-////   
+////
 ////   case result {
 ////     Ok(id) -> json_response(ok, user_to_json(id))
-////     Error(msg) -> json_response(bad_request, error_json(msg))
+////     Error(message) -> json_response(bad_request, error_json(message))
 ////   }
 //// }
 //// ```
@@ -22,23 +29,31 @@
 ////
 //// PathParam automatically detects format extensions:
 ////
+//// ### Detect the format <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_format.gleam#L1-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+////
 //// ```gleam
-//// // Request to /users/123.json
-//// let result = get_param(request, "id")
-//// 
-//// case result {
-////   Ok(param) -> {
-////     // param.value is "123"
-////     // param.format is Some("json")
-////     // param.as_int is Ok(123)
-////     use_param_data(param)
+//// import dream/http/transaction.{type PathParam, type Request, get_param}
+//// import gleam/option
+////
+//// pub fn describe_id(request: Request) -> String {
+////   // Request to /users/123.json
+////   let result = get_param(request, "id")
+////
+////   case result {
+////     Ok(param) -> {
+////       // param.value is "123"
+////       // param.format is Some("json")
+////       // param.as_int is Ok(123)
+////       use_param_data(param)
+////     }
+////     Error(message) -> handle_param_error(message)
 ////   }
-////   Error(msg) -> handle_param_error(msg)
 //// }
 //// ```
 ////
 //// Use this for content negotiation without query strings.
 
+import dream/http/request
 import gleam/float
 import gleam/int
 import gleam/list
@@ -116,6 +131,12 @@ pub type ResponseBody {
 }
 
 /// HTTP request type
+///
+/// `body` is a `RequestBody` from `dream/http/request`: `Text` or `Bytes` on a
+/// normal route, `Stream` on a streaming route. This module uses that type
+/// instead of a copy, because its own `ResponseBody` already has constructors
+/// named `Text`, `Bytes` and `Stream`, and one module cannot define the same
+/// constructor name twice.
 pub type Request {
   Request(
     method: Method,
@@ -129,7 +150,7 @@ pub type Request {
     host: option.Option(String),
     port: option.Option(Int),
     remote_address: option.Option(String),
-    body: String,
+    body: request.RequestBody,
     headers: List(Header),
     cookies: List(Cookie),
     content_type: option.Option(String),
@@ -237,7 +258,10 @@ pub fn header_value(header: Header) -> String {
 }
 
 /// Get the value of a header by name (case-insensitive)
-pub fn get_header(headers: List(Header), name: String) -> option.Option(String) {
+pub fn get_header(
+  headers: List(Header),
+  name: String,
+) -> option.Option(String) {
   let normalized_name = string.lowercase(name)
   get_header_recursive(headers, normalized_name)
 }
@@ -267,10 +291,16 @@ fn get_header_recursive(
 ///
 /// ## Example
 ///
+/// ### Set headers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_set_header.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// response.headers
-/// |> set_header("Cache-Control", "max-age=3600")
-/// |> set_header("X-Custom-Header", "value")
+/// import dream/http/transaction.{type Header, type Response, set_header}
+///
+/// pub fn cache_headers(response: Response) -> List(Header) {
+///   response.headers
+///   |> set_header("Cache-Control", "max-age=3600")
+///   |> set_header("X-Custom-Header", "value")
+/// }
 /// ```
 pub fn set_header(
   headers: List(Header),
@@ -305,7 +335,10 @@ pub fn remove_header(headers: List(Header), name: String) -> List(Header) {
 // Cookie utilities
 
 /// Get a cookie by name (case-insensitive)
-pub fn get_cookie(cookies: List(Cookie), name: String) -> option.Option(Cookie) {
+pub fn get_cookie(
+  cookies: List(Cookie),
+  name: String,
+) -> option.Option(Cookie) {
   let normalized_name = string.lowercase(name)
   get_cookie_recursive(cookies, normalized_name)
 }
@@ -379,8 +412,8 @@ pub fn method_to_string(method: Method) -> String {
 }
 
 /// Parse a string to Method (case-insensitive)
-pub fn parse_method(str: String) -> option.Option(Method) {
-  case string.lowercase(str) {
+pub fn parse_method(method_name: String) -> option.Option(Method) {
+  case string.lowercase(method_name) {
     "get" -> option.Some(Get)
     "post" -> option.Some(Post)
     "put" -> option.Some(Put)
@@ -395,7 +428,7 @@ pub fn parse_method(str: String) -> option.Option(Method) {
 // Request utilities
 
 /// Get a query parameter value from the raw query string
-/// 
+///
 /// Properly decodes URL-encoded values (e.g., %20 → space, %26 → &)
 /// Returns None if the parameter is not found.
 pub fn get_query_param(query: String, name: String) -> option.Option(String) {
@@ -419,19 +452,18 @@ fn get_query_param_recursive(
 }
 
 fn parse_query_pair(param: String, name: String) -> option.Option(String) {
-  case string.split(param, "=") {
-    [key, value] -> {
-      // Decode both key and value
+  case string.split_once(param, "=") {
+    Ok(#(key, value)) -> {
+      // Split at the first "=" only, then decode both key and value
       let decoded_key = decode_url_component(key)
       let decoded_value = decode_url_component(value)
       match_query_key(decoded_key, name, decoded_value)
     }
-    [key] -> {
+    Error(Nil) -> {
       // Parameter with no value (empty string)
-      let decoded_key = decode_url_component(key)
+      let decoded_key = decode_url_component(param)
       match_query_key(decoded_key, name, "")
     }
-    _ -> option.None
   }
 }
 
@@ -447,7 +479,7 @@ fn match_query_key(
 }
 
 /// Decode a URL-encoded component (key or value)
-/// 
+///
 /// Handles percent-encoded sequences (e.g., %20, %26) and plus signs (+ → space)
 /// Falls back to original string if decoding fails
 fn decode_url_component(component: String) -> String {
@@ -480,7 +512,7 @@ fn parse_path_param(raw: String) -> PathParam {
   // Split on last dot to extract format extension
   let parts = string.split(raw, ".")
   let #(value, format) = case parts {
-    [val, ext] -> #(val, option.Some(ext))
+    [base_value, extension] -> #(base_value, option.Some(extension))
     _ -> #(raw, option.None)
   }
 
@@ -504,36 +536,47 @@ fn parse_path_param(raw: String) -> PathParam {
 ///
 /// ## Examples
 ///
+/// ### Read a parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_params.gleam#L11-L21"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// // Route: /users/:id
-/// // Request: /users/123
-/// case get_param(request, "id") {
-///   Ok(param) -> {
-///     param.value  // "123"
-///     param.as_int // Ok(123)
+/// pub fn read_id(
+///   request: Request,
+/// ) -> Result(#(String, Result(Int, Nil)), String) {
+///   // Route: /users/:id
+///   // Request: /users/123
+///   case get_param(request, "id") {
+///     // #("123", Ok(123))
+///     Ok(param) -> Ok(#(param.value, param.as_int))
+///     Error(message) -> Error(message)
 ///   }
-///   Error(msg) -> // handle error
 /// }
 /// ```
 ///
+/// ### Read a parameter with a format <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_params.gleam#L23-L33"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// // Route: /users/:id
-/// // Request: /users/123.json
-/// case get_param(request, "id") {
-///   Ok(param) -> {
-///     param.value  // "123"
-///     param.format // Some("json")
-///     param.as_int // Ok(123)
+/// pub fn read_id_with_format(
+///   request: Request,
+/// ) -> Result(#(String, Option(String), Result(Int, Nil)), String) {
+///   // Route: /users/:id
+///   // Request: /users/123.json
+///   case get_param(request, "id") {
+///     // #("123", Some("json"), Ok(123))
+///     Ok(param) -> Ok(#(param.value, param.format, param.as_int))
+///     Error(message) -> Error(message)
 ///   }
-///   Error(msg) -> // handle error
 /// }
 /// ```
 ///
+/// ### Read an integer parameter <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_params.gleam#L35-L41"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// // For simple integer extraction, use get_int_param:
-/// case get_int_param(request, "id") {
-///   Ok(id) -> show_user(id)
-///   Error(msg) -> json_response(status.bad_request, error_json(msg))
+/// pub fn show(request: Request) -> Response {
+///   // For simple integer extraction, use get_int_param:
+///   case get_int_param(request, "id") {
+///     Ok(id) -> show_user(id)
+///     Error(message) -> json_response(status.bad_request, error_json(message))
+///   }
 /// }
 /// ```
 pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
@@ -550,12 +593,16 @@ pub fn get_param(request: Request, name: String) -> Result(PathParam, String) {
 ///
 /// ## Examples
 ///
+/// ### Show a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_params.gleam#L43-L50"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// // Route: /users/:id
-/// // Request: /users/123
-/// case get_int_param(request, "id") {
-///   Ok(id) -> show_user(id)
-///   Error(msg) -> json_response(status.bad_request, error_json(msg))
+/// pub fn show_by_id(request: Request) -> Response {
+///   // Route: /users/:id
+///   // Request: /users/123
+///   case get_int_param(request, "id") {
+///     Ok(id) -> show_user(id)
+///     Error(message) -> json_response(status.bad_request, error_json(message))
+///   }
 /// }
 /// ```
 pub fn get_int_param(request: Request, name: String) -> Result(Int, String) {
@@ -578,12 +625,16 @@ fn param_to_int(param: PathParam, name: String) -> Result(Int, String) {
 ///
 /// ## Examples
 ///
+/// ### Show a user by name <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_http_data_transaction_params.gleam#L52-L59"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// // Route: /users/:name
-/// // Request: /users/john
-/// case get_string_param(request, "name") {
-///   Ok(name) -> show_user_by_name(name)
-///   Error(msg) -> json_response(status.bad_request, error_json(msg))
+/// pub fn show_by_name(request: Request) -> Response {
+///   // Route: /users/:name
+///   // Request: /users/john
+///   case get_string_param(request, "name") {
+///     Ok(name) -> show_user_by_name(name)
+///     Error(message) -> json_response(status.bad_request, error_json(message))
+///   }
 /// }
 /// ```
 pub fn get_string_param(

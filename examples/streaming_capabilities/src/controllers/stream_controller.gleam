@@ -1,5 +1,5 @@
 import dream/context.{type EmptyContext}
-import dream/http/request.{type Request}
+import dream/http/request.{type Request, Bytes, Stream, Text}
 import dream/http/response.{type Response, stream_response, text_response}
 import dream/http/status
 import dream_http_client/client
@@ -7,7 +7,6 @@ import gleam/bit_array
 import gleam/bytes_tree
 import gleam/http
 import gleam/int
-import gleam/option.{None, Some}
 import gleam/yielder
 import services.{type Services}
 
@@ -17,8 +16,8 @@ pub fn upload(
   _context: EmptyContext,
   _services: Services,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> {
+  case request.body {
+    Stream(stream) -> {
       // Consume the stream "saving" it
       let total_bytes = stream |> yielder.fold(0, accumulate_chunk_size)
 
@@ -27,7 +26,8 @@ pub fn upload(
         "Uploaded " <> int.to_string(total_bytes) <> " bytes successfully",
       )
     }
-    None -> text_response(status.bad_request, "Expected streaming request body")
+    Text(_) | Bytes(_) ->
+      text_response(status.bad_request, "Expected streaming request body")
   }
 }
 
@@ -50,13 +50,14 @@ pub fn echo_transform(
   _context: EmptyContext,
   _services: Services,
 ) -> Response {
-  case request.stream {
-    Some(stream) -> {
+  case request.body {
+    Stream(stream) -> {
       // Just echo the stream back!
       // The middleware does the heavy lifting (uppercase -> replace space)
       stream_response(status.ok, stream, "text/plain")
     }
-    None -> text_response(status.bad_request, "Expected streaming request body")
+    Text(_) | Bytes(_) ->
+      text_response(status.bad_request, "Expected streaming request body")
   }
 }
 
@@ -77,9 +78,9 @@ pub fn proxy(
     |> client.path("/stream/fast")
     |> client.timeout(15_000)
 
-  // Stream from mock server and convert Results to raw BytesTrees
-  let stream =
-    client.stream_yielder(req) |> yielder.filter_map(convert_to_bit_array)
+  // Stream from mock server. A failure ends the stream with an error line,
+  // because the 200 status is already sent when the failure occurs.
+  let stream = client.stream_yielder(req) |> yielder.map(chunk_or_failure_line)
 
   stream_response(status.ok, stream, "text/plain")
 }
@@ -95,11 +96,16 @@ fn create_line(n: Int) -> BitArray {
   bit_array.from_string(line)
 }
 
-fn convert_to_bit_array(
-  result: Result(bytes_tree.BytesTree, String),
-) -> Result(BitArray, Nil) {
+fn chunk_or_failure_line(
+  result: Result(bytes_tree.BytesTree, client.StreamFailure),
+) -> BitArray {
   case result {
-    Ok(chunk) -> Ok(bytes_tree.to_bit_array(chunk))
-    Error(_) -> Error(Nil)
+    Ok(chunk) -> bytes_tree.to_bit_array(chunk)
+    Error(failure) ->
+      bit_array.from_string(
+        "Proxy stream failed: "
+        <> client.stream_failure_to_string(failure)
+        <> "\n",
+      )
   }
 }

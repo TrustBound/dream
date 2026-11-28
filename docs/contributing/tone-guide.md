@@ -70,6 +70,109 @@ If you're still using JavaScript, you're doing it wrong.
 
 ---
 
+### Package READMEs
+
+**Audience:** Developers deciding whether to use a Dream package  
+**Goal:** In half a minute, they know what it does for them and why they can rely on it  
+**Tone:** Confident, plain, product first
+
+Every package README has the same shape, with these sections in this order and no others:
+
+1. The header: the logo, the tagline, and the badges
+2. `## What is {Name}?`
+3. `## Features`
+4. `## A Quick Example`
+5. `## Installation`
+6. `## Guides`
+7. `## Requirements`
+8. `## About Dream`
+9. `## Contributing`
+10. `## License`
+
+A topic that only one package has, such as recorded queries or coverage, becomes a Features group and a guide, never a section of its own.
+
+#### Names
+
+In prose, a package has a plain English name: Dream Postgres, Dream UUID, Dream Test. The package name (`dream_postgres`) appears only in code, commands and links. Name the package once in a paragraph, then say "it".
+
+#### The tagline
+
+One short line that says what the package is or what it promises. Plain words, no jargon, no list of features. The same line goes into `description` in `gleam.toml`, which Hex shows as the summary.
+
+✅ **Good:**
+```markdown
+Clean, composable web development for Gleam. No magic.
+Your SQL, as typed Gleam functions.
+Comprehensive UUID library for Gleam
+```
+
+❌ **Avoid (a spec claim):**
+```markdown
+UUIDs for Gleam: all of RFC 9562, and each 128-bit value is valid
+```
+
+❌ **Avoid (vague):**
+```markdown
+JSON encoding utilities for Gleam applications
+```
+
+#### What is {Name}?
+
+Three or four sentences that explain the product with confidence. Say what it does for the reader, what that means for their app, and why they can rely on it.
+
+- No type names, function names, commands, file names, standard numbers, protocol versions or error names. Those belong in Features, the example and the guides.
+- Say what it does, not what it isn't or what it avoids.
+- No disclaimers or tradeoffs here. Put real limits in Requirements.
+- Never say the package is "part of" Dream, as if Dream were a dependency.
+
+✅ **Good:**
+```markdown
+Dream Postgres connects your Gleam app to PostgreSQL and keeps it honest. Write the SQL you already know and get typed results back. When a change to your schema breaks a query, your app tells you the moment it starts, not when a customer finds it. It's secure by default, it keeps your connections healthy, and your tests can run without a database at all.
+```
+
+❌ **Avoid (technical detail):**
+```markdown
+dream_postgres is a PostgreSQL client for Gleam on the Erlang target. It keeps a pool of connections, checks the codecs of each query against the types of the database before the query runs, and runs transactions as a pipe of steps.
+```
+
+❌ **Avoid (abstract):**
+```markdown
+Dream Model writes the database layer of any Gleam app from your SQL.
+```
+
+#### Features
+
+Group the features under `###` headings. Each group gets one line that ends with a link to its guide, then a table:
+
+```markdown
+### Tests without a database
+
+Record a test's queries once, then play them back in every run. [Read more](docs/guides/recorded-queries.md).
+
+| Feature                 | What you get                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| 🎙️ **Recorded queries** | Tests of database code that run with no PostgreSQL                             |
+| 🔐 **Secrets stay out** | Passwords and tokens are replaced before they reach a recording, error or span |
+```
+
+Every row must be true of the code today. A pattern that a guide shows how to build is not a feature of the package.
+
+#### A Quick Example
+
+One tested snippet that does the most common job, then a **Run this:** line that says what to call and what comes back. Every other example lives in a guide.
+
+#### About Dream
+
+Use this text, with the package's plain name in the last line:
+
+```markdown
+[Dream](https://github.com/TrustBound/dream) is a collection of Gleam packages for building production web applications. Each package implements its standards completely, shares the same naming and style as the others, and is fully tested. TrustBound builds Dream for its own production systems and shares it in the hope that it helps yours.
+
+{Name} works on its own. You don't need the rest of Dream to use it.
+```
+
+---
+
 ### Quickstart & Getting Started
 
 **Audience:** New users trying Dream for first time  
@@ -145,12 +248,12 @@ Now let's write some code.
 ````markdown
 Step 3: Create the Model
 
-Create `src/models/user.gleam`:
+In `src/models/user.gleam`, add a function that gets one user:
+
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http/error.{type Error, InternalServerError}
-
-pub fn get(db: Connection, id: Int) -> Result(User, Error) {
+pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
     Error(_) -> Error(InternalServerError("Database error"))
@@ -173,7 +276,7 @@ or process dictionary, neither of which are type-safe in Gleam.
 Unlike Rails where you have no idea where your DB connection 
 comes from, we pass it explicitly like adults:
 
-pub fn get(db: Connection, id: Int) -> Result(User, Error)
+`pub fn get(db: Connection, id: Int) -> Result(User, Error)`
 
 See? Not that hard.
 ```
@@ -245,7 +348,10 @@ You'll implement:
 **Example:**
 
 ✅ **Good:**
-````gleam
+
+#### Document match_path <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/tone_guide_api_reference.gleam#L8-L36"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
+```gleam
 /// Match a path against a pattern and extract parameters.
 ///
 /// Returns the extracted parameters if the path matches the pattern,
@@ -253,17 +359,34 @@ You'll implement:
 ///
 /// ## Examples
 ///
+/// ### Match a user path <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/tone_guide_api_reference_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// match_path("/users/:id", "/users/123")
-/// // -> Some([#("id", "123")])
+/// import gleam/option.{type Option}
+/// import snippets/tone_guide_api_reference.{match_path}
+///
+/// pub fn match_user_path() -> Option(List(#(String, String))) {
+///   match_path("/users/:id", "/users/123")
+///   // -> Some([#("id", "123")])
+/// }
 /// ```
 pub fn match_path(
   pattern: String,
   path: String,
-) -> Option(List(#(String, String)))
-````
+) -> Option(List(#(String, String))) {
+  let pattern_segments = string.split(pattern, "/")
+  let path_segments = string.split(path, "/")
+  case list.strict_zip(pattern_segments, path_segments) {
+    Ok(segment_pairs) -> collect_params(segment_pairs, [])
+    Error(Nil) -> None
+  }
+}
+```
 
 ❌ **Avoid:**
+
+#### Document match_path with jokes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/tone_guide_api_reference_avoid.gleam#L8-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 /// This is how Dream's router works its magic! Well, not magic
 /// really - just good old-fashioned pattern matching. You give
@@ -411,12 +534,14 @@ Before using snark, ask:
 ````markdown
 Create `src/example.gleam`:
 
+### Create an empty router <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/tone_guide_code_example.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 // Complete, working code here
-import dream/router
+import dream/router.{type Router, router}
 
-pub fn example() {
-  // ...
+pub fn create_router() -> Router(context, services) {
+  router()
 }
 ```
 
@@ -434,8 +559,15 @@ This code does X by doing Y.
 **Example:**
 
 ````markdown
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-pub fn get(db: Connection, id: Int) -> Result(User, Error)
+pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
+  case sql.get_user(db, id) {
+    Ok(returned) -> extract_first_user(returned)
+    Error(_) -> Error(InternalServerError("Database error"))
+  }
+}
 ```
 
 This function takes a database connection explicitly as a parameter.
@@ -553,10 +685,10 @@ Here's an example:
 
 Here's a typical model:
 
-```gleam
-import dream/http/error.{type Error, InternalServerError}
+### Get a user by ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/examples/database/src/models/user.gleam#L24-L29"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-pub fn get(db: Connection, id: Int) -> Result(User, Error) {
+```gleam
+pub fn get(db: pog.Connection, id: Int) -> Result(User, Error) {
   case sql.get_user(db, id) {
     Ok(returned) -> extract_first_user(returned)
     Error(_) -> Error(InternalServerError("Database error"))
@@ -587,6 +719,9 @@ Before submitting documentation, check:
 - [ ] Code examples complete and runnable?
 - [ ] Explained why, not just what?
 - [ ] Links work and point to real files?
+- [ ] Does a package README have the standard shape?
+- [ ] Does the tagline avoid jargon?
+- [ ] Does "What is …?" explain the product with no technical detail?
 
 ### Technical
 - [ ] Code actually runs?

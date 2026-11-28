@@ -43,11 +43,16 @@ fn tcp_close(socket: Dynamic) -> Result(Nil, Dynamic)
 ///
 /// ## Example
 ///
-/// ```gleam
-/// import gleam/option.{None}
-/// import dream/servers/mist/port_probe
+/// ### Check a port <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_port_probe.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
-/// let in_use = port_probe.is_in_use(None, 3000)
+/// ```gleam
+/// import dream/servers/mist/port_probe
+/// import gleam/option.{None}
+///
+/// pub fn check_port(port: Int) -> Bool {
+///   let in_use = port_probe.is_in_use(None, port)
+///   in_use
+/// }
 /// ```
 pub fn is_in_use(interface: option.Option(String), port: Int) -> Bool {
   let host = case interface {
@@ -57,12 +62,12 @@ pub fn is_in_use(interface: option.Option(String), port: Int) -> Bool {
 
   let connect_options = [to_dynamic(#(atom.create("active"), False))]
 
-  let ipv4_addr = case host {
+  let ipv4_address = case host {
     "localhost" | "127.0.0.1" | "0.0.0.0" -> Ok(#(127, 0, 0, 1))
     _ -> parse_ipv4_address(charlist.from_string(host))
   }
 
-  ipv4_addr
+  ipv4_address
   |> result.map(fn(address) {
     case tcp_connect(address, port, connect_options, 200) {
       Ok(socket) -> {

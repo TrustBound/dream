@@ -10,7 +10,7 @@ on:
 
 env:
   OTP_VERSION: "28"
-  GLEAM_VERSION: "1.14.0"
+  GLEAM_VERSION: "1.19.2"
   REBAR3_VERSION: "3"
 
 jobs:
@@ -82,6 +82,11 @@ jobs:
 
       - name: Download dependencies
         run: gleam deps download
+
+      # The docs must not show a code block that does not match its tested
+      # snippet. See docs/contributing/contributing.md.
+      - name: Check docs code blocks against tested snippets
+        run: make check-snippets
 
       - name: Build documentation
         run: gleam docs build

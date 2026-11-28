@@ -22,6 +22,7 @@ import dream_http_client/client
 import dream_http_client_test
 import gleam/erlang/process
 import gleam/http
+import gleam/int
 import gleam/list
 import gleeunit/should
 
@@ -85,8 +86,11 @@ pub fn stream_from_expired_caller_completes_test() {
         |> client.on_stream_end(fn(_headers) {
           process.send(end_subject, "completed")
         })
-        |> client.on_stream_error(fn(reason) {
-          process.send(end_subject, "error:" <> reason)
+        |> client.on_stream_error(fn(failure) {
+          process.send(
+            end_subject,
+            "error:" <> client.stream_failure_to_string(failure),
+          )
         })
       let assert Ok(_handle) = client.start_stream(request)
     })
@@ -115,7 +119,7 @@ pub fn concurrent_streams_from_expired_callers_both_complete_test() {
       let request =
         mock_request("/stream/fast")
         |> client.on_stream_end(fn(_headers) { process.send(end_subject, 1) })
-        |> client.on_stream_error(fn(_reason) { process.send(end_subject, -1) })
+        |> client.on_stream_error(fn(_failure) { process.send(end_subject, -1) })
       let assert Ok(_handle) = client.start_stream(request)
     })
 
@@ -126,7 +130,7 @@ pub fn concurrent_streams_from_expired_callers_both_complete_test() {
       let request =
         mock_request("/stream/slow")
         |> client.on_stream_end(fn(_headers) { process.send(end_subject, 2) })
-        |> client.on_stream_error(fn(_reason) { process.send(end_subject, -2) })
+        |> client.on_stream_error(fn(_failure) { process.send(end_subject, -2) })
       let assert Ok(_handle) = client.start_stream(request)
     })
 
@@ -145,7 +149,7 @@ pub fn three_concurrent_streams_all_complete_test() {
     let request =
       mock_request("/stream/fast")
       |> client.on_stream_end(fn(_headers) { process.send(end_subject, i) })
-      |> client.on_stream_error(fn(_reason) { process.send(end_subject, -i) })
+      |> client.on_stream_error(fn(_failure) { process.send(end_subject, -i) })
     let assert Ok(_handle) = client.start_stream(request)
     Nil
   })
@@ -167,7 +171,7 @@ pub fn sequential_streams_after_process_exit_test() {
   let request2 =
     mock_request("/stream/fast")
     |> client.on_stream_end(fn(_headers) { process.send(end_subject, True) })
-    |> client.on_stream_error(fn(_reason) { process.send(end_subject, False) })
+    |> client.on_stream_error(fn(_failure) { process.send(end_subject, False) })
   let assert Ok(_handle2) = client.start_stream(request2)
 
   case process.receive(end_subject, 5000) {
@@ -184,13 +188,13 @@ pub fn five_concurrent_streams_from_expired_callers_test() {
   let end_subject = process.new_subject()
   let count = 5
 
-  list.each(list.range(1, count), fn(i) {
+  int.range(from: 1, to: count + 1, with: Nil, run: fn(_, i) {
     let _pid =
       process.spawn_unlinked(fn() {
         let request =
           mock_request("/stream/fast")
           |> client.on_stream_end(fn(_headers) { process.send(end_subject, i) })
-          |> client.on_stream_error(fn(_reason) {
+          |> client.on_stream_error(fn(_failure) {
             process.send(end_subject, -i)
           })
         let assert Ok(_handle) = client.start_stream(request)
@@ -198,7 +202,7 @@ pub fn five_concurrent_streams_from_expired_callers_test() {
     Nil
   })
 
-  let results = collect_n(end_subject, count, 8000)
+  let results = collect_n(end_subject, count, 15_000)
   list.length(results) |> should.equal(count)
   list.each(results, fn(id) { { id > 0 } |> should.be_true() })
 }

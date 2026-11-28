@@ -1,0 +1,5 @@
+{> with task_id as String
+{> with checkbox_html as String
+{> with title_input as String
+{> with tags_html as String
+<article id="task-{{ task_id }}">{{ checkbox_html }}{{ title_input }}{{ tags_html }}</article>

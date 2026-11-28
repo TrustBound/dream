@@ -188,7 +188,9 @@ fn get_or_create_wildcard_child(node: TrieNode(route)) -> TrieNode(route) {
   }
 }
 
-fn get_or_create_multi_wildcard_child(node: TrieNode(route)) -> TrieNode(route) {
+fn get_or_create_multi_wildcard_child(
+  node: TrieNode(route),
+) -> TrieNode(route) {
   case node.multi_wildcard_child {
     Some(#(_, existing)) -> existing
     None -> empty_node()

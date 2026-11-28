@@ -1,5 +1,5 @@
 name = "dream_postgres"
-version = "1.0.2"
+version = "2.0.0"
 description = "PostgreSQL utilities for Gleam with type-safe query helpers"
 licences = ["MIT"]
 repository = { type = "github", user = "TrustBound", repo = "dream" }
@@ -9,7 +9,7 @@ links = [
 ]
 
 [dependencies]
-gleam_stdlib = ">= 0.44.0 and < 2.0.0"
+gleam_stdlib = ">= 1.0.0 and < 2.0.0"
 gleam_erlang = ">= 0.30.0 and < 2.0.0"
 gleam_otp = ">= 1.0.0 and < 2.0.0"
 pog = ">= 4.0.0 and < 5.0.0"

@@ -10,7 +10,7 @@ import dream/dream
 import dream/http/header.{type Header, Header}
 import dream/http/request.{
   type Method, type Request, Delete, Get, Head, Http, Http1, Https, Options,
-  Patch, Post, Put, Request,
+  Patch, Post, Put, Request, Text,
 }
 import gleam/erlang/process
 import gleam/http.{
@@ -25,7 +25,7 @@ import gleam/list
 import gleam/option
 import gleam/result
 import gleam/string
-import mist.{type Connection, type IpAddress, get_client_info}
+import mist.{type Connection, type IpAddress, get_connection_info}
 
 /// Generate a simple request ID
 ///
@@ -38,9 +38,14 @@ import mist.{type Connection, type IpAddress, get_client_info}
 ///
 /// ## Example
 ///
+/// ### Generate a request ID <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_server_request_id.gleam#L5-L9"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let request_id = generate_request_id()
-/// // Returns something like: "#PID<0.123.0>"
+/// pub fn new_request_id() -> String {
+///   let request_id = generate_request_id()
+///   // Returns something like: "//erl(<0.123.0>)"
+///   request_id
+/// }
 /// ```
 pub fn generate_request_id() -> String {
   // Simple ID generation - in production you might want to use UUID
@@ -57,24 +62,24 @@ pub fn generate_request_id() -> String {
 ///
 /// ## Parameters
 ///
-/// - `mist_req`: The original Mist request with Connection
+/// - `mist_request`: The original Mist request with Connection
 ///
 /// ## Returns
 ///
 /// A tuple of `#(Dream Request, request_id)` where:
-/// - Dream Request contains all HTTP metadata (empty body)
+/// - Dream Request contains all HTTP metadata (empty body: `Text("")`)
 /// - request_id is a unique identifier for this request
 pub fn convert_metadata(
-  mist_req: http_request.Request(Connection),
+  mist_request: http_request.Request(Connection),
 ) -> #(Request, String) {
   // Generate request_id for context creation
   let request_id = generate_request_id()
 
   // Convert HTTP method
-  let method = convert_method(mist_req.method)
+  let method = convert_method(mist_request.method)
 
   // Convert protocol
-  let protocol = case mist_req.scheme {
+  let protocol = case mist_request.scheme {
     HttpScheme -> Http
     HttpHttps -> Https
   }
@@ -83,31 +88,31 @@ pub fn convert_metadata(
   let version = Http1
 
   // Get path and query
-  let path = mist_req.path
-  let query = option.unwrap(mist_req.query, "")
+  let path = mist_request.path
+  let query = option.unwrap(mist_request.query, "")
 
   // Convert headers
-  let headers = list.map(mist_req.headers, convert_header)
+  let headers = list.map(mist_request.headers, convert_header)
 
   // Parse cookies from headers
   let cookies = dream.parse_cookies_from_headers(headers)
 
   // Get content type
   let content_type =
-    list.key_find(mist_req.headers, "content-type")
+    list.key_find(mist_request.headers, "content-type")
     |> option.from_result
 
   // Get content length
   let content_length =
-    list.key_find(mist_req.headers, "content-length")
+    list.key_find(mist_request.headers, "content-length")
     |> result.try(int.parse)
     |> option.from_result
 
   // Get client info
-  let client_info = get_client_info(mist_req.body)
-  let remote_address = case client_info {
-    Ok(info) -> {
-      let ip_address: IpAddress = info.ip_address
+  let connection_info = get_connection_info(mist_request.body)
+  let remote_address = case connection_info {
+    Ok(connection_info) -> {
+      let ip_address: IpAddress = connection_info.ip_address
       format_ip_address_value(ip_address) |> option.Some
     }
     Error(_) -> option.None
@@ -121,11 +126,10 @@ pub fn convert_metadata(
       path: path,
       query: query,
       params: [],
-      host: option.Some(mist_req.host),
-      port: mist_req.port,
+      host: option.Some(mist_request.host),
+      port: mist_request.port,
       remote_address: remote_address,
-      body: "",
-      stream: option.None,
+      body: Text(""),
       headers: headers,
       cookies: cookies,
       content_type: content_type,
@@ -160,16 +164,16 @@ fn convert_header(header: #(String, String)) -> Header {
 
 fn format_ip_address_value(ip_address: IpAddress) -> String {
   case ip_address {
-    mist.IpV4(a, b, c, d) ->
+    mist.IpV4(first_octet, second_octet, third_octet, fourth_octet) ->
       string.join(
         [
-          int.to_string(a),
+          int.to_string(first_octet),
           ".",
-          int.to_string(b),
+          int.to_string(second_octet),
           ".",
-          int.to_string(c),
+          int.to_string(third_octet),
           ".",
-          int.to_string(d),
+          int.to_string(fourth_octet),
         ],
         "",
       )

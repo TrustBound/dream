@@ -7,6 +7,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - Unreleased
+
+### Breaking
+
+- `Request.body` is now a `RequestBody`: `Text(String)`, `Bytes(BitArray)`
+  or `Stream(Yielder(BitArray))`, and the `Request.stream` field is gone. On
+  a `route`, a valid UTF-8 body arrives as `Text` and any other body as
+  `Bytes`; on a `stream_route`, the body arrives as `Stream`. A binary body
+  used to arrive as `""`. See the Migration Guide in
+  `releases/release-3.0.0.md`.
+- `require_form` returns `BadRequest("Request body is not text")` for a body
+  that is not text, and now also reads a `Stream` body.
+- The router tries the next route when a route fits the start of a path but
+  fails deeper down, so a wildcard route can now receive requests that got a
+  404 before.
+- The `Dream` type has a fourth type parameter, `router`: `NoRouter` before
+  `server.router()`, and the `Router(context, services)` after it. The
+  compiler now enforces the builder order: `context()` and `services()` come
+  before `router()`, and `listen()` and `listen_with_handle()` need a router.
+  In Dream 2, `context()` and `services()` after `router()` dropped the router
+  with no error, and `listen()` crashed at start, as it did with no router.
+  `dream.get_router` and `dream.get_services` no longer return an `Option`,
+  and `dream.create` takes the router state and the services without an
+  `Option`. See the Migration Guide in `releases/release-3.0.0.md`.
+
+### Added
+
+- `require_json(request, decoder)` reads a JSON body, decodes it and returns
+  `BadRequest` with the reason when a step fails.
+- `body_as_string(request)` returns the body as text, or `Error(Nil)`.
+- `broadcaster.count_subscribers`.
+
+- `server.tls(certfile:, keyfile:)` serves HTTPS. Clients that ask for
+  HTTP/2 in the TLS handshake (ALPN), such as browsers, get HTTP/2, and the
+  rest get HTTP/1.1. A missing certificate or key file is a start error.
+  Server adapters read the setting with `dream.get_tls`.
+- New guide: `docs/guides/http2.md`.
+- Every code block in the guides, READMEs, doc comments and SECURITY.md
+  comes from a tested snippet, with a "tested snippet" badge that links to
+  it.
+- `make check-snippets` checks that every Gleam code block in the docs has
+  a heading with the badge and matches its snippet file. It runs in the
+  pre-commit hook, in CI, and before every publish.
+
+### Changed
+
+- Dream's Mist server adapter now uses `dream_http_server` (mist 6.0.3 plus
+  our fixes) and, through it, `dream_socket_server` (glisten 9.0.1 plus a
+  socket buffer fix), in place of a git fork of mist, so Dream can be
+  published to Hex. The fixes make HTTP/2 work for requests with bodies, large responses,
+  server-sent events, chunked and file responses, bound memory for slow
+  clients, and answer bad input with the errors the HTTP/2 specification
+  asks for. The two packages keep the module names `mist` and `glisten`, so
+  a project must not depend on both Dream and the `mist` or `glisten` Hex
+  packages; run `gleam deps update dream` once if an existing lock file
+  still lists them. See `docs/contributing/http-server-packages.md`.
+- Updated mist streaming adapter to use actor-based `mist.chunked()` API
+  instead of the removed `mist.Streaming` response variant. Dream's public
+  streaming API (`stream_response`, `sse_response`, `ResponseBody.Stream`)
+  is unchanged.
+
+### Fixed
+
+- Chunked streaming responses over HTTP/1.1 no longer send a stray
+  `500 Internal Server Error` after the body when the stream finishes before
+  mist hands the socket to the chunk actor. The first drain message is now
+  sent only after `mist.chunked()` has returned, so a keep-alive client no
+  longer reads that 500 as the answer to its next request.
+- `server.stop` stops the server from any process, and returns after the
+  server is down. It used to do nothing unless the starting process called
+  it.
+- The broadcaster removes a subscriber when the subscribing process stops.
+- A form field, query parameter or cookie value that contains `=` is kept.
+  It used to be dropped or empty.
+- Parameter and variable names in `src/` use full words. No labelled
+  argument changed.
+
+### Testing
+
+- CI and the publish workflows use Gleam 1.19.2. Dream, its modules and the
+  examples build and pass their tests on Gleam 1.19.2.
+- 952 tests run, 0 failed, in about 7 seconds (MacBook, OTP 28, Gleam
+  1.17.0). The snippet check finds 509 code blocks with no problems. The integration tests run every scenario of the mock server and
+  ten examples over HTTP/1.1 and over HTTP/2 with TLS.
+
 ## [2.4.1] - 2026-03-11
 
 ### Fixed
@@ -533,7 +618,9 @@ Special thanks to [Louis Pilfold](https://github.com/lpil) for suggesting the ra
 - All code examples now include proper imports
 - Improved documentation tone and consistency
 
-[Unreleased]: https://github.com/TrustBound/dream/compare/v2.4.0...HEAD
+[Unreleased]: https://github.com/TrustBound/dream/compare/3.0.0...HEAD
+[3.0.0]: https://github.com/TrustBound/dream/compare/2.4.1...3.0.0
+[2.4.1]: https://github.com/TrustBound/dream/compare/2.4.0...2.4.1
 [2.4.0]: https://github.com/TrustBound/dream/compare/v2.3.3...v2.4.0
 [2.3.3]: https://github.com/TrustBound/dream/compare/v2.3.2...v2.3.3
 [2.3.2]: https://github.com/TrustBound/dream/compare/v2.3.1...v2.3.2

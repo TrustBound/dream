@@ -7,6 +7,8 @@
 ////
 //// - **Insert**: O(segments in pattern) - typically 3-5 segments
 //// - **Lookup**: O(segments in path) - independent of total number of routes
+////   when the first candidate at each segment leads to the route; a lookup
+////   that goes back also visits the nodes it abandons
 //// - **Memory**: O(total segments across all routes)
 ////
 //// ## How It Works
@@ -16,10 +18,15 @@
 //// 1. Literal matches (exact string match)
 //// 2. Parameter matches (:id)
 //// 3. Single wildcards (*)
-//// 4. Extension patterns (*.jpg)
-//// 5. Multi-wildcards (**)
+//// 4. Multi-wildcards (**)
 ////
-//// This ensures the most specific route always wins when multiple routes could match.
+//// A segment with an extension, such as `photo.jpg`, uses a different order:
+//// literal, extension pattern (*.jpg), single wildcard, multi-wildcard, and
+//// parameter last.
+////
+//// When a node matches a segment but no route is found below it, the lookup
+//// goes back and tries the node of next priority. The first full match in
+//// priority order wins, and only the params of that route are returned.
 ////
 //// ## Example
 ////
@@ -136,9 +143,15 @@ pub type Match(route) {
 ///
 /// ## Example
 ///
+/// ### Create a trie <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_trie.gleam#L6-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let trie = new()
-/// |> insert("GET", [Literal("users")], user_handler)
+/// pub fn users_trie(user_handler) {
+///   let trie =
+///     new()
+///     |> insert("GET", [Literal("users")], user_handler)
+///   trie
+/// }
 /// ```
 pub fn new() -> RadixTrie(route) {
   RadixTrie(root: empty_node())
@@ -171,10 +184,16 @@ fn empty_node() -> TrieNode(route) {
 ///
 /// ## Example
 ///
+/// ### Insert routes <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_trie.gleam#L13-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let trie = new()
-/// |> insert("GET", [Literal("users"), Param("id")], handler)
-/// |> insert("POST", [Literal("users")], create_handler)
+/// pub fn user_trie(handler, create_handler) {
+///   let trie =
+///     new()
+///     |> insert("GET", [Literal("users"), Param("id")], handler)
+///     |> insert("POST", [Literal("users")], create_handler)
+///   trie
+/// }
 /// ```
 pub fn insert(
   trie: RadixTrie(route),
@@ -197,16 +216,23 @@ fn insert_into_node(
     [] -> insert_route_at_node(node, method, route)
     [Literal(name), ..rest] ->
       insert_literal_segment(node, name, method, rest, route)
-    [LiteralExtension(base, exts), ..rest] ->
-      insert_literal_extension_segment(node, base, exts, method, rest, route)
+    [LiteralExtension(base, extensions), ..rest] ->
+      insert_literal_extension_segment(
+        node,
+        base,
+        extensions,
+        method,
+        rest,
+        route,
+      )
     [Param(name), ..rest] ->
       insert_param_segment(node, name, method, rest, route)
     [SingleWildcard(name), ..rest] ->
       insert_wildcard_segment(node, name, method, rest, route)
     [MultiWildcard(name), ..rest] ->
       insert_multi_wildcard_segment(node, name, method, rest, route)
-    [ExtensionPattern(exts), ..rest] ->
-      insert_extension_segment(node, exts, method, rest, route)
+    [ExtensionPattern(extensions), ..rest] ->
+      insert_extension_segment(node, extensions, method, rest, route)
   }
 }
 
@@ -238,18 +264,18 @@ fn insert_literal_segment(
 fn insert_literal_extension_segment(
   node: TrieNode(route),
   base: String,
-  exts: List(String),
+  extensions: List(String),
   method: String,
   rest: List(Segment),
   route: route,
 ) -> TrieNode(route) {
-  let child = get_or_create_literal_extension_child(node, base, exts)
+  let child = get_or_create_literal_extension_child(node, base, extensions)
   let updated_child = insert_into_node(child, method, rest, route)
   let updated_children =
     update_literal_extension_children(
       node.literal_extension_children,
       base,
-      exts,
+      extensions,
       updated_child,
     )
   TrieNode(..node, literal_extension_children: updated_children)
@@ -259,10 +285,14 @@ fn insert_literal_extension_segment(
 fn get_or_create_literal_extension_child(
   node: TrieNode(route),
   base: String,
-  exts: List(String),
+  extensions: List(String),
 ) -> TrieNode(route) {
   case
-    find_literal_extension_child(node.literal_extension_children, base, exts)
+    find_literal_extension_child(
+      node.literal_extension_children,
+      base,
+      extensions,
+    )
   {
     Some(existing) -> existing
     None -> empty_node()
@@ -273,14 +303,14 @@ fn get_or_create_literal_extension_child(
 fn find_literal_extension_child(
   children: List(#(String, List(String), TrieNode(route))),
   base: String,
-  exts: List(String),
+  extensions: List(String),
 ) -> Option(TrieNode(route)) {
   case children {
     [] -> None
-    [#(child_base, child_exts, child), ..rest_children] ->
-      case child_base == base && child_exts == exts {
+    [#(child_base, child_extensions, child), ..rest_children] ->
+      case child_base == base && child_extensions == extensions {
         True -> Some(child)
-        False -> find_literal_extension_child(rest_children, base, exts)
+        False -> find_literal_extension_child(rest_children, base, extensions)
       }
   }
 }
@@ -289,20 +319,20 @@ fn find_literal_extension_child(
 fn update_literal_extension_children(
   children: List(#(String, List(String), TrieNode(route))),
   base: String,
-  exts: List(String),
+  extensions: List(String),
   new_child: TrieNode(route),
 ) -> List(#(String, List(String), TrieNode(route))) {
   case children {
-    [] -> [#(base, exts, new_child)]
-    [#(child_base, child_exts, child), ..rest_children] ->
-      case child_base == base && child_exts == exts {
-        True -> [#(base, exts, new_child), ..rest_children]
+    [] -> [#(base, extensions, new_child)]
+    [#(child_base, child_extensions, child), ..rest_children] ->
+      case child_base == base && child_extensions == extensions {
+        True -> [#(base, extensions, new_child), ..rest_children]
         False -> [
-          #(child_base, child_exts, child),
+          #(child_base, child_extensions, child),
           ..update_literal_extension_children(
             rest_children,
             base,
-            exts,
+            extensions,
             new_child,
           )
         ]
@@ -358,15 +388,19 @@ fn insert_multi_wildcard_segment(
 /// Insert an extension pattern segment and recurse into its child
 fn insert_extension_segment(
   node: TrieNode(route),
-  exts: List(String),
+  extensions: List(String),
   method: String,
   rest: List(Segment),
   route: route,
 ) -> TrieNode(route) {
-  let child = get_or_create_extension_child(node, exts)
+  let child = get_or_create_extension_child(node, extensions)
   let updated_child = insert_into_node(child, method, rest, route)
   let updated_children =
-    update_extension_children(node.extension_children, exts, updated_child)
+    update_extension_children(
+      node.extension_children,
+      extensions,
+      updated_child,
+    )
   TrieNode(..node, extension_children: updated_children)
 }
 
@@ -398,7 +432,9 @@ fn get_or_create_wildcard_child(node: TrieNode(route)) -> TrieNode(route) {
 }
 
 /// Get existing multi-wildcard child or create a new empty node
-fn get_or_create_multi_wildcard_child(node: TrieNode(route)) -> TrieNode(route) {
+fn get_or_create_multi_wildcard_child(
+  node: TrieNode(route),
+) -> TrieNode(route) {
   case node.multi_wildcard_child {
     Some(#(_, existing)) -> existing
     None -> empty_node()
@@ -408,9 +444,9 @@ fn get_or_create_multi_wildcard_child(node: TrieNode(route)) -> TrieNode(route) 
 /// Get existing extension child or create a new empty node
 fn get_or_create_extension_child(
   node: TrieNode(route),
-  exts: List(String),
+  extensions: List(String),
 ) -> TrieNode(route) {
-  case find_extension_child(node.extension_children, exts) {
+  case find_extension_child(node.extension_children, extensions) {
     Some(existing) -> existing
     None -> empty_node()
   }
@@ -419,14 +455,14 @@ fn get_or_create_extension_child(
 /// Find an extension child matching the given extension list
 fn find_extension_child(
   children: List(#(List(String), TrieNode(route))),
-  exts: List(String),
+  extensions: List(String),
 ) -> Option(TrieNode(route)) {
   case children {
     [] -> None
-    [#(child_exts, child), ..rest] ->
-      case child_exts == exts {
+    [#(child_extensions, child), ..rest] ->
+      case child_extensions == extensions {
         True -> Some(child)
-        False -> find_extension_child(rest, exts)
+        False -> find_extension_child(rest, extensions)
       }
   }
 }
@@ -434,17 +470,17 @@ fn find_extension_child(
 /// Update or add an extension child in the children list
 fn update_extension_children(
   children: List(#(List(String), TrieNode(route))),
-  exts: List(String),
+  extensions: List(String),
   new_child: TrieNode(route),
 ) -> List(#(List(String), TrieNode(route))) {
   case children {
-    [] -> [#(exts, new_child)]
-    [#(child_exts, child), ..rest] ->
-      case child_exts == exts {
-        True -> [#(exts, new_child), ..rest]
+    [] -> [#(extensions, new_child)]
+    [#(child_extensions, child), ..rest] ->
+      case child_extensions == extensions {
+        True -> [#(extensions, new_child), ..rest]
         False -> [
-          #(child_exts, child),
-          ..update_extension_children(rest, exts, new_child)
+          #(child_extensions, child),
+          ..update_extension_children(rest, extensions, new_child)
         ]
       }
   }
@@ -474,14 +510,20 @@ fn update_extension_children(
 ///
 /// ## Example
 ///
+/// ### Look up a path <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_trie.gleam#L21-L32"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let result = lookup(trie, "GET", ["users", "123"])
-/// case result {
-///   Some(Match(route, params)) -> {
-///     // params = [#("id", "123")]
-///     // route is the handler
+/// pub fn find_user(trie) {
+///   let result = lookup(trie, "GET", ["users", "123"])
+///   case result {
+///     Some(Match(route, params)) -> {
+///       // params = [#("id", "123")]
+///       // route is the handler
+///       Ok(#(route, params))
+///     }
+///     // No matching route
+///     None -> Error(Nil)
 ///   }
-///   None -> // No matching route
 /// }
 /// ```
 pub fn lookup(
@@ -556,6 +598,11 @@ fn lookup_route_at_node(
 /// 5. Parameter (:id)
 /// 6. Single wildcard (*)
 /// 7. Multi-wildcard (**)
+///
+/// When a candidate matches the segment but its subtree finds no route,
+/// the lookup goes back and tries the next candidate. The first full match
+/// in priority order wins. Params are passed down as an immutable list, so
+/// an abandoned candidate leaves no params behind.
 fn lookup_segment(
   node: TrieNode(route),
   method: String,
@@ -563,39 +610,68 @@ fn lookup_segment(
   rest: List(String),
   params: List(#(String, String)),
 ) -> Option(Match(route)) {
-  // Try literal match first (highest precedence)
-  case dict.get(node.literal_children, segment) {
+  case try_literal_match(node, method, segment, rest, params) {
+    Some(match) -> Some(match)
+    None -> lookup_segment_after_literal(node, method, segment, rest, params)
+  }
+}
+
+/// Continue the segment lookup with literal+extension patterns
+fn lookup_segment_after_literal(
+  node: TrieNode(route),
+  method: String,
+  segment: String,
+  rest: List(String),
+  params: List(#(String, String)),
+) -> Option(Match(route)) {
+  let literal_extension_result =
+    try_literal_extension_match(
+      node.literal_extension_children,
+      segment,
+      method,
+      rest,
+      params,
+    )
+  case literal_extension_result {
+    Some(match) -> Some(match)
+    None ->
+      lookup_segment_after_literal_extension(
+        node,
+        method,
+        segment,
+        rest,
+        params,
+      )
+  }
+}
+
+/// Continue the segment lookup with wildcard extension patterns (*.jpg)
+fn lookup_segment_after_literal_extension(
+  node: TrieNode(route),
+  method: String,
+  segment: String,
+  rest: List(String),
+  params: List(#(String, String)),
+) -> Option(Match(route)) {
+  let extension_result =
+    try_extension_match(node.extension_children, segment, method, rest, params)
+  case extension_result {
+    Some(match) -> Some(match)
+    None -> try_literal_without_extension(node, method, segment, rest, params)
+  }
+}
+
+/// Try to match segment as a literal child
+fn try_literal_match(
+  node: TrieNode(route),
+  method: String,
+  name: String,
+  rest: List(String),
+  params: List(#(String, String)),
+) -> Option(Match(route)) {
+  case dict.get(node.literal_children, name) {
     Ok(child) -> lookup_in_node(child, method, rest, params)
-    Error(_) -> {
-      // Try literal+extension patterns (products.{json,xml})
-      let literal_ext_result =
-        try_literal_extension_match(
-          node.literal_extension_children,
-          segment,
-          method,
-          rest,
-          params,
-        )
-      case literal_ext_result {
-        Some(match) -> Some(match)
-        None -> {
-          // Try wildcard extension patterns (*.jpg)
-          let extension_result =
-            try_extension_match(
-              node.extension_children,
-              segment,
-              method,
-              rest,
-              params,
-            )
-          case extension_result {
-            Some(match) -> Some(match)
-            None ->
-              try_literal_without_extension(node, method, segment, rest, params)
-          }
-        }
-      }
-    }
+    Error(_) -> None
   }
 }
 
@@ -614,35 +690,53 @@ fn try_literal_without_extension(
   rest: List(String),
   params: List(#(String, String)),
 ) -> Option(Match(route)) {
-  let segment_without_ext = strip_extension_from_segment(segment)
-  case segment_without_ext {
-    option.Some(base_name) -> {
-      // Try matching the base name as a literal first
-      case dict.get(node.literal_children, base_name) {
-        Ok(child) -> lookup_in_node(child, method, rest, params)
-        Error(_) -> {
-          // Try wildcard match with original segment first (wildcards capture full segments)
-          // Then try param match with stripped segment for matching, but preserve original
-          // segment in params so format detection works (e.g., "1.json" -> id="1.json")
-          case try_wildcard_match(node, method, segment, rest, params) {
-            Some(match) -> Some(match)
-            None ->
-              try_param_match_with_original(
-                node,
-                method,
-                base_name,
-                segment,
-                rest,
-                params,
-              )
-          }
-        }
-      }
-    }
-    option.None -> {
-      // No extension to strip, proceed with normal matching
-      try_param_match(node, method, segment, rest, params)
-    }
+  case strip_extension_from_segment(segment) {
+    Some(base_name) ->
+      lookup_segment_with_extension(
+        node,
+        method,
+        base_name,
+        segment,
+        rest,
+        params,
+      )
+    // No extension to strip, proceed with normal matching
+    None -> try_param_match(node, method, segment, rest, params)
+  }
+}
+
+/// Match a segment with an extension after the extension patterns failed
+///
+/// Tries the base name as a literal first, then the wildcards with the full
+/// segment, then the parameter last.
+fn lookup_segment_with_extension(
+  node: TrieNode(route),
+  method: String,
+  base_name: String,
+  segment: String,
+  rest: List(String),
+  params: List(#(String, String)),
+) -> Option(Match(route)) {
+  case try_literal_match(node, method, base_name, rest, params) {
+    Some(match) -> Some(match)
+    None -> try_wildcard_then_param_match(node, method, segment, rest, params)
+  }
+}
+
+/// Try the wildcards with the full segment, then the parameter
+///
+/// The parameter stores the original segment (e.g., "1.json" -> id="1.json")
+/// so format detection works in controllers.
+fn try_wildcard_then_param_match(
+  node: TrieNode(route),
+  method: String,
+  segment: String,
+  rest: List(String),
+  params: List(#(String, String)),
+) -> Option(Match(route)) {
+  case try_wildcard_match(node, method, segment, rest, params) {
+    Some(match) -> Some(match)
+    None -> try_param_only(node, method, segment, rest, params)
   }
 }
 
@@ -652,12 +746,12 @@ fn try_literal_without_extension(
 /// Example: "products.json" -> Some("products"), "products" -> None
 fn strip_extension_from_segment(segment: String) -> option.Option(String) {
   case string.split(segment, ".") {
-    [base_name, _ext] -> option.Some(base_name)
+    [base_name, _extension] -> option.Some(base_name)
     _ -> option.None
   }
 }
 
-/// Try to match segment as a parameter
+/// Try to match segment as a parameter, then as the wildcards
 ///
 /// Note: Parameters capture the full segment including extensions.
 /// Extension stripping only applies to literal matches.
@@ -668,48 +762,47 @@ fn try_param_match(
   rest: List(String),
   params: List(#(String, String)),
 ) -> Option(Match(route)) {
-  case node.param_child {
-    Some(#(param_name, child)) -> {
-      // Capture full segment (including extension if present)
-      let updated_params = [#(param_name, segment), ..params]
-      lookup_in_node(child, method, rest, updated_params)
-    }
+  case try_param_only(node, method, segment, rest, params) {
+    Some(match) -> Some(match)
     None -> try_wildcard_match(node, method, segment, rest, params)
   }
 }
 
-/// Try to match segment as a parameter, using stripped segment for matching
-/// but preserving original segment in params for format detection
+/// Try to match segment as the parameter child only
 ///
-/// This is used when extension stripping is applied - we match using the
-/// base name (e.g., "1" from "1.json") but store the original value
-/// (e.g., "1.json") in params so controllers can detect the format.
-///
-/// Note: The stripped_segment parameter is not used directly, but the fact
-/// that we're calling this function indicates we've already verified the
-/// stripped segment doesn't match as a literal, so we proceed with param matching.
-fn try_param_match_with_original(
+/// The parameter captures the full segment (including extension if present).
+fn try_param_only(
   node: TrieNode(route),
   method: String,
-  _stripped_segment: String,
-  original_segment: String,
+  segment: String,
   rest: List(String),
   params: List(#(String, String)),
 ) -> Option(Match(route)) {
   case node.param_child {
     Some(#(param_name, child)) -> {
-      // Store original segment in params (for format detection)
-      // This allows /products/:id to match /products/1.json with id="1.json"
-      // so parse_path_param can extract value="1" and format=Some("json")
-      let updated_params = [#(param_name, original_segment), ..params]
+      let updated_params = [#(param_name, segment), ..params]
       lookup_in_node(child, method, rest, updated_params)
     }
     None -> None
   }
 }
 
-/// Try to match segment as a single wildcard
+/// Try to match segment as a single wildcard, then as a multi-wildcard
 fn try_wildcard_match(
+  node: TrieNode(route),
+  method: String,
+  segment: String,
+  rest: List(String),
+  params: List(#(String, String)),
+) -> Option(Match(route)) {
+  case try_single_wildcard_only(node, method, segment, rest, params) {
+    Some(match) -> Some(match)
+    None -> try_multi_wildcard_match(node, method, segment, rest, params)
+  }
+}
+
+/// Try to match segment as the single wildcard child only
+fn try_single_wildcard_only(
   node: TrieNode(route),
   method: String,
   segment: String,
@@ -722,19 +815,8 @@ fn try_wildcard_match(
       let updated_params = [#(param_name, segment), ..params]
       lookup_in_node(child, method, rest, updated_params)
     }
-    None -> try_multi_wildcard_only(node, method, segment, rest, params)
+    None -> None
   }
-}
-
-/// Try multi-wildcard match (extension patterns already checked earlier)
-fn try_multi_wildcard_only(
-  node: TrieNode(route),
-  method: String,
-  segment: String,
-  rest: List(String),
-  params: List(#(String, String)),
-) -> Option(Match(route)) {
-  try_multi_wildcard_match(node, method, segment, rest, params)
 }
 
 /// Try to match segment as a multi-segment wildcard (captures remaining path)
@@ -758,6 +840,8 @@ fn try_multi_wildcard_match(
 }
 
 /// Try to match segment against literal+extension patterns (products.{json,xml})
+///
+/// When a matching child finds no route, the next child is tried.
 fn try_literal_extension_match(
   children: List(#(String, List(String), TrieNode(route))),
   segment: String,
@@ -767,18 +851,42 @@ fn try_literal_extension_match(
 ) -> Option(Match(route)) {
   case children {
     [] -> None
-    [#(base, exts, child), ..remaining] ->
-      case matches_literal_extension(segment, base, exts) {
-        True -> lookup_in_node(child, method, rest, params)
+    [#(base, extensions, child), ..remaining] ->
+      case matches_literal_extension(segment, base, extensions) {
+        True ->
+          lookup_literal_extension_child(
+            child,
+            remaining,
+            segment,
+            method,
+            rest,
+            params,
+          )
         False ->
           try_literal_extension_match(remaining, segment, method, rest, params)
       }
   }
 }
 
+/// Look up a matching literal+extension child, or try the remaining children
+fn lookup_literal_extension_child(
+  child: TrieNode(route),
+  remaining: List(#(String, List(String), TrieNode(route))),
+  segment: String,
+  method: String,
+  rest: List(String),
+  params: List(#(String, String)),
+) -> Option(Match(route)) {
+  case lookup_in_node(child, method, rest, params) {
+    Some(match) -> Some(match)
+    None ->
+      try_literal_extension_match(remaining, segment, method, rest, params)
+  }
+}
+
 /// Check if a segment matches a literal+extension pattern
 ///
-/// Example: "products.json" matches base="products" with exts=["json", "xml"]
+/// Example: "products.json" matches base="products" with extensions=["json", "xml"]
 fn matches_literal_extension(
   segment: String,
   base: String,
@@ -787,14 +895,16 @@ fn matches_literal_extension(
   let prefix = base <> "."
   case string.starts_with(segment, prefix) {
     True -> {
-      let ext = string.drop_start(segment, string.length(prefix))
-      list.contains(extensions, ext)
+      let segment_extension = string.drop_start(segment, string.length(prefix))
+      list.contains(extensions, segment_extension)
     }
     False -> False
   }
 }
 
 /// Try to match segment against extension patterns
+///
+/// When a matching child finds no route, the next child is tried.
 fn try_extension_match(
   extension_children: List(#(List(String), TrieNode(route))),
   segment: String,
@@ -804,11 +914,34 @@ fn try_extension_match(
 ) -> Option(Match(route)) {
   case extension_children {
     [] -> None
-    [#(exts, child), ..remaining] ->
-      case matches_any_extension(segment, exts) {
-        True -> lookup_in_node(child, method, rest, params)
+    [#(extensions, child), ..remaining] ->
+      case matches_any_extension(segment, extensions) {
+        True ->
+          lookup_extension_child(
+            child,
+            remaining,
+            segment,
+            method,
+            rest,
+            params,
+          )
         False -> try_extension_match(remaining, segment, method, rest, params)
       }
+  }
+}
+
+/// Look up a matching extension pattern child, or try the remaining children
+fn lookup_extension_child(
+  child: TrieNode(route),
+  remaining: List(#(List(String), TrieNode(route))),
+  segment: String,
+  method: String,
+  rest: List(String),
+  params: List(#(String, String)),
+) -> Option(Match(route)) {
+  case lookup_in_node(child, method, rest, params) {
+    Some(match) -> Some(match)
+    None -> try_extension_match(remaining, segment, method, rest, params)
   }
 }
 
@@ -820,6 +953,6 @@ fn matches_any_extension(filename: String, extensions: List(String)) -> Bool {
 /// Check if a filename ends with a specific extension
 ///
 /// This is a named function to avoid anonymous functions in production code.
-fn check_extension_match(filename: String, ext: String) -> Bool {
-  string.ends_with(filename, "." <> ext)
+fn check_extension_match(filename: String, extension: String) -> Bool {
+  string.ends_with(filename, "." <> extension)
 }

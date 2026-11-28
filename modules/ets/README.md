@@ -43,11 +43,12 @@ gleam add dream_ets
 
 ## Quick Start
 
-### Creating a Table
+### Creating a Table <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/creating_tables.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_ets/config
 import dream_ets/operations
+import dream_ets/table
 import gleam/option
 import gleam/result
 
@@ -71,13 +72,12 @@ pub fn create_string_table() -> Result(String, table.EtsError) {
 }
 ```
 
-<sub>🧪 [Tested source](test/snippets/creating_tables.gleam)</sub>
-
-### Basic Operations
+### Basic Operations <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/basic_operations.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_ets/helpers
 import dream_ets/operations
+import dream_ets/table
 import gleam/option
 import gleam/result
 
@@ -97,12 +97,11 @@ pub fn store_and_retrieve() -> Result(String, table.EtsError) {
 }
 ```
 
-<sub>🧪 [Tested source](test/snippets/basic_operations.gleam)</sub>
-
-### Counter Tables
+### Counter Tables <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/counter_tables.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_ets/helpers
+import dream_ets/table
 import gleam/result
 
 pub fn increment_page_views() -> Result(Int, table.EtsError) {
@@ -113,11 +112,9 @@ pub fn increment_page_views() -> Result(Int, table.EtsError) {
   use _ <- result.try(helpers.increment(counter, "homepage"))
   use count <- result.try(helpers.increment(counter, "homepage"))
 
-  Ok(count)  // Returns 3
+  Ok(count)
 }
 ```
-
-<sub>🧪 [Tested source](test/snippets/counter_tables.gleam)</sub>
 
 ## Core Features
 
@@ -125,15 +122,19 @@ pub fn increment_page_views() -> Result(Int, table.EtsError) {
 
 Store your own types using JSON encoding:
 
+#### Store a user as JSON <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/custom_types.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream_ets/config
 import dream_ets/internal
 import dream_ets/operations
+import dream_ets/table
 import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/json
 import gleam/option
 import gleam/result
+import gleam/string
 
 pub type User {
   User(name: String, email: String)
@@ -150,10 +151,11 @@ fn encode_user(user: User) -> dynamic.Dynamic {
 
 fn decode_user() -> decode.Decoder(User) {
   decode.string
-  |> decode.then(fn(json_str) {
-    case json.parse(json_str, user_from_json()) {
+  |> decode.then(fn(json_text) {
+    case json.parse(json_text, user_from_json()) {
       Ok(user) -> decode.success(user)
-      Error(_) -> decode.failure(User("", ""), "User")
+      Error(error) ->
+        decode.failure(User("", ""), "User JSON: " <> string.inspect(error))
     }
   })
 }
@@ -178,21 +180,23 @@ pub fn store_custom_type() -> Result(String, table.EtsError) {
   use retrieved <- result.try(operations.get(users, "alice"))
 
   case retrieved {
-    option.Some(u) -> Ok(u.name <> " <" <> u.email <> ">")
+    option.Some(stored_user) ->
+      Ok(stored_user.name <> " <" <> stored_user.email <> ">")
     option.None -> Error(table.OperationFailed("User not found"))
   }
 }
 ```
 
-<sub>🧪 [Tested source](test/snippets/custom_types.gleam)</sub>
-
 ### Preventing Duplicates
 
 Use `insert_new()` for atomic "check and insert" operations:
 
+#### Register a username once <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/insert_new.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream_ets/helpers
 import dream_ets/operations
+import dream_ets/table
 import gleam/result
 
 pub fn register_user() -> Result(Bool, table.EtsError) {
@@ -206,19 +210,24 @@ pub fn register_user() -> Result(Bool, table.EtsError) {
   ))
 
   case registered {
-    True -> Ok(True)   // Username available
-    False -> Ok(False) // Username already taken
+    True -> {
+      // Username available - registration succeeded
+      Ok(True)
+    }
+    False -> {
+      // Username already taken
+      Ok(False)
+    }
   }
 }
 ```
 
-<sub>🧪 [Tested source](test/snippets/insert_new.gleam)</sub>
-
-### Atomic Operations
+### Atomic Operations <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/advanced_operations.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_ets/helpers
 import dream_ets/operations
+import dream_ets/table
 import gleam/option
 import gleam/result
 
@@ -228,7 +237,7 @@ pub fn atomic_take() -> Result(String, table.EtsError) {
   // Add a job
   use _ <- result.try(operations.set(queue, "job:123", "send_email"))
 
-  // Take and remove atomically (no race conditions)
+  // Take and remove atomically
   use job <- result.try(operations.take(queue, "job:123"))
 
   case job {
@@ -238,15 +247,16 @@ pub fn atomic_take() -> Result(String, table.EtsError) {
 }
 ```
 
-<sub>🧪 [Tested source](test/snippets/advanced_operations.gleam)</sub>
-
 ### Table Configuration
 
 Optimize tables for your workload:
 
+#### Enable read concurrency <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/table_configuration.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 import dream_ets/config
 import dream_ets/operations
+import dream_ets/table
 import gleam/option
 import gleam/result
 
@@ -265,13 +275,11 @@ pub fn configure_table() -> Result(String, table.EtsError) {
   use value <- result.try(operations.get(cache, "key"))
 
   case value {
-    option.Some(v) -> Ok(v)
+    option.Some(stored_value) -> Ok(stored_value)
     option.None -> Error(table.OperationFailed("Not found"))
   }
 }
 ```
-
-<sub>🧪 [Tested source](test/snippets/table_configuration.gleam)</sub>
 
 **Configuration Options:**
 
@@ -281,11 +289,12 @@ pub fn configure_table() -> Result(String, table.EtsError) {
 - `table_type(Set | OrderedSet | Bag | DuplicateBag)` - Key handling
 - `access(Public | Protected | Private)` - Process access control
 
-### Type Safety
+### Type Safety <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/type_safe_operations.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_ets/helpers
 import dream_ets/operations
+import dream_ets/table
 import gleam/option
 import gleam/result
 
@@ -303,32 +312,31 @@ pub fn type_safe_storage() -> Result(String, table.EtsError) {
   use value <- result.try(operations.get(cache, "key"))
 
   case value {
-    option.Some(v) -> Ok(v)
+    option.Some(stored_value) -> Ok(stored_value)
     option.None -> Error(table.OperationFailed("Not found"))
   }
 }
 ```
 
-<sub>🧪 [Tested source](test/snippets/type_safe_operations.gleam)</sub>
-
-### Persistence
+### Persistence <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/table_persistence.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
 import dream_ets/helpers
 import dream_ets/operations
+import dream_ets/table
 import gleam/option
 import gleam/result
 
 pub fn save_to_disk() -> Result(String, table.EtsError) {
-  use table <- result.try(helpers.new_string_table("data"))
+  use data <- result.try(helpers.new_string_table("data"))
 
-  use _ <- result.try(operations.set(table, "key", "important data"))
+  use _ <- result.try(operations.set(data, "key", "important data"))
 
   // Save to disk
-  use _ <- result.try(operations.save_to_file(table, "/tmp/backup.ets"))
+  use _ <- result.try(operations.save_to_file(data, "/tmp/dream_ets_backup.ets"))
 
   // Verify it's still there
-  use value <- result.try(operations.get(table, "key"))
+  use value <- result.try(operations.get(data, "key"))
 
   case value {
     option.Some(data) -> Ok(data)
@@ -336,8 +344,6 @@ pub fn save_to_disk() -> Result(String, table.EtsError) {
   }
 }
 ```
-
-<sub>🧪 [Tested source](test/snippets/table_persistence.gleam)</sub>
 
 ## Complete API Reference
 
@@ -358,7 +364,7 @@ pub fn save_to_disk() -> Result(String, table.EtsError) {
 - `operations.set(table, key, value)` - Insert or update value
 - `operations.get(table, key)` - Retrieve value (returns `Option`)
 - `operations.delete(table, key)` - Remove key-value pair
-- `operations.member(table, key)` - Check if key exists (fast)
+- `operations.member(table, key)` - Check if key exists (fast) → `Result(Bool, EtsError)`
 - `operations.delete_table(table)` - Delete entire table
 - `operations.delete_all_objects(table)` - Clear all entries
 
@@ -386,9 +392,9 @@ pub fn save_to_disk() -> Result(String, table.EtsError) {
 ### Advanced (Low-level)
 
 - `operations.update_element(table, key, pos, value)` - Update tuple element
-- `operations.match(table, pattern)` - Pattern matching
-- `operations.match_object(table, pattern)` - Object matching
-- `operations.select(table, match_spec)` - SQL-like queries
+- `operations.match(table, pattern)` - Pattern matching → `Result(List(Dynamic), EtsError)`
+- `operations.match_object(table, pattern)` - Object matching → `Result(List(Dynamic), EtsError)`
+- `operations.select(table, match_spec)` - SQL-like queries → `Result(List(Dynamic), EtsError)`
 
 ### Persistence
 
@@ -397,66 +403,70 @@ pub fn save_to_disk() -> Result(String, table.EtsError) {
 
 ## Error Handling
 
-All operations return `Result` types. Common errors:
+All operations that take a table return `Result` types. Common errors:
 
-- `TableNotFound` - Table was deleted
+- `TableNotFound` - Table was deleted. Every operation on a deleted table returns this error and does not crash the calling process.
 - `TableAlreadyExists` - Tried to create duplicate table
 - `InvalidKey` / `InvalidValue` - Encoding/decoding failed
 - `DecodeError(details)` - Failed to decode data (corruption or encoder mismatch)
 - `OperationFailed(message)` - General operation failure
 
-**Example:**
+#### Handle each lookup result <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/error_handling.gleam#L16-L26"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-case operations.get(table, "user:123") {
-  Ok(option.Some(user)) -> process_user(user)
-  Ok(option.None) -> create_user()
-  Error(table.DecodeError(err)) -> log_corruption(err)
-  Error(table.TableNotFound) -> recreate_table()
-  Error(other) -> handle_error(other)
-}
+  case operations.get(users, key) {
+    Ok(option.Some(user)) -> "Found " <> user
+    Ok(option.None) -> "No user for " <> key
+    Error(table.DecodeError(error)) ->
+      "Stored data is corrupt: expected "
+      <> error.expected
+      <> ", found "
+      <> error.found
+    Error(table.TableNotFound) -> "The table was deleted"
+    Error(other) -> "Lookup failed: " <> string.inspect(other)
+  }
 ```
 
 ## Use Cases
 
-### Session Cache
+### Session Cache <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/session_cache.gleam#L12-L19"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-use sessions <- result.try(
-  config.new("sessions")
-  |> config.key_string()
-  |> config.value_string()
-  |> config.create(),
-)
+  use sessions <- result.try(
+    config.new("sessions")
+    |> config.key_string()
+    |> config.value_string()
+    |> config.create(),
+  )
 
-use _ <- result.try(operations.set(sessions, "session:abc", "user:alice"))
+  use _ <- result.try(operations.set(sessions, "session:abc", "user:alice"))
 ```
 
-### Page View Analytics
+### Page View Analytics <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/page_view_analytics.gleam#L10-L11"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-use counter <- result.try(helpers.new_counter("analytics"))
-use views <- result.try(helpers.increment(counter, "homepage"))
+  use counter <- result.try(helpers.new_counter("analytics"))
+  use views <- result.try(helpers.increment(counter, "homepage"))
 ```
 
-### Distributed Locks
+### Distributed Locks <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/distributed_locks.gleam#L16-L20"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-case operations.insert_new(locks, resource_id, owner_id) {
-  Ok(True) -> Ok("Lock acquired")
-  Ok(False) -> Error("Resource already locked")
-  Error(err) -> Error("Lock system error")
-}
+  case operations.insert_new(locks, resource_id, owner_id) {
+    Ok(True) -> Ok("Lock acquired")
+    Ok(False) -> Error("Resource already locked")
+    Error(error) -> Error("Lock system error: " <> string.inspect(error))
+  }
 ```
 
-### Work Queue
+### Work Queue <a href="https://github.com/TrustBound/dream/blob/dream_ets-3.0.0/modules/ets/test/snippets/work_queue.gleam#L13-L17"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-case operations.take(queue, "next_job") {
-  Ok(option.Some(job)) -> process_job(job)  // Atomically claimed
-  Ok(option.None) -> wait_for_jobs()
-  Error(err) -> handle_error(err)
-}
+  case operations.take(queue, "next_job") {
+    Ok(option.Some(job)) -> "Claimed " <> job
+    Ok(option.None) -> "No jobs waiting"
+    Error(error) -> "Queue error: " <> string.inspect(error)
+  }
 ```
 
 ## Performance Notes

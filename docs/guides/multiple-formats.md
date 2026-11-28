@@ -49,43 +49,35 @@ This pattern is powerful for modern web apps. You can serve:
 
 ### Controller Implementation
 
-Use a helper function to switch formats based on the request.
+Use a helper function to switch formats based on the request. `detect_format` is shown in [Example with Headers](#example-with-headers).
+
+#### The show controller <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/multiple_formats_guide_tasks.gleam#L22-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-import dream/http.{require_int, type Request, type Response, json_response, html_response, ok}
-import gleam/option.{type Option, Some, None}
-import gleam/result
-import utilities/response_helpers
-import views/task_view
-import models/task/task_model
-
 pub fn show(
   request: Request,
-  _context: Context,
+  _context: EmptyContext,
   services: Services,
 ) -> Response {
   let result = {
     use id <- result.try(require_int(request, "id"))
-    let db = services.database.connection
-    use task <- result.try(task_model.get(db, id))
-    let format = request.format
-    Ok(#(task, format))
+    find_task(services.tasks, id)
   }
-  
+
   case result {
-    Ok(#(task, format)) -> respond_with_format(task, format)
-    Error(err) -> response_helpers.handle_error(err)
+    Ok(task) -> respond_with_format(task, detect_format(request))
+    Error(error) -> respond_with_error(error)
   }
 }
 
-fn respond_with_format(task: Task, format: Option(String)) -> Response {
+fn respond_with_format(task: Task, format: String) -> Response {
   case format {
     // HTMX request asking for just the card partial
-    Some("htmx") -> html_response(ok, task_view.card(task))
-    
+    "htmx" -> html_response(ok, task_view.card(task))
+
     // Full HTML page
-    Some("html") -> html_response(ok, task_view.page(task))
-    
+    "html" -> html_response(ok, task_view.page(task))
+
     // Default to JSON
     _ -> json_response(ok, task_view.to_json(task))
   }
@@ -96,12 +88,9 @@ fn respond_with_format(task: Task, format: Option(String)) -> Response {
 
 Your view module handles the different presentations. For HTML rendering, we use a layered template composition approach that keeps markup consistent and reusable.
 
-```gleam
-// views/task_view.gleam
-import templates/components/layout_components
-import templates/components/task_components
-import templates/pages/index
+#### The task view <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/multiple_formats_guide_task_view.gleam#L8-L27"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
+```gleam
 // JSON representation
 pub fn to_json(task: Task) -> String {
   json.object([
@@ -112,24 +101,15 @@ pub fn to_json(task: Task) -> String {
 }
 
 // HTML Partial (for HTMX or including in other pages)
-pub fn card(task: Task, tags: List(Tag)) -> String {
+pub fn card(task: Task) -> String {
   // Components compose elements into reusable pieces
-  task_components.task_card(task, tags)
+  task_components.task_card(task)
 }
 
 // Full HTML Page
-pub fn index_page(
-  tasks: List(Task),
-  tags_by_task: List(#(Int, List(Tag))),
-) -> String {
-  // Components compose elements
-  let list = task_components.task_list(tasks, tags_by_task)
-  
-  // Pages compose components
-  let content = index.render(task_form: "", task_list: list)
-  
-  // Layouts wrap pages with consistent structure
-  layout_components.build_page("Tasks", content)
+pub fn page(task: Task) -> String {
+  // Layouts wrap components with consistent structure
+  layout_components.build_page(task.title, card(task))
 }
 ```
 
@@ -168,27 +148,29 @@ See [Template Composition](../guides/templates.md) for a complete guide to this 
 
 You can detect the desired format via:
 
-1.  **URL Extension:** `/tasks/1.json`, `/tasks/1.html` (Dream parses this into `request.format`)
+1.  **URL Extension:** `/tasks/1.json`, `/tasks/1.html` (`get_param` puts the extension in `PathParam.format`, and `require_int` reads `1`)
 2.  **Accept Header:** `Accept: application/json`
 3.  **Custom Header:** `HX-Request: true` (common with HTMX)
 
 ### Example with Headers
 
-```gleam
-import dream/http.{type Request, get_header}
-import gleam/option
+#### Format from the extension or the headers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/multiple_formats_guide_tasks.gleam#L51-L66"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-fn detect_format(request: Request) -> String {
-  case request.format {
-    Some(f) -> f
-    None -> detect_format_from_headers(request)
+```gleam
+// /tasks/1.json and /tasks/1.html: Dream puts the extension in
+// PathParam.format
+pub fn detect_format(request: Request) -> String {
+  case get_param(request, "id") {
+    Ok(PathParam(format: Some(format), ..)) -> format
+    _ -> detect_format_from_headers(request)
   }
 }
 
 fn detect_format_from_headers(request: Request) -> String {
   case get_header(request.headers, "HX-Request") {
     Some("true") -> "htmx"
-    None -> "json" // Default
+    // Default
+    _ -> "json"
   }
 }
 ```

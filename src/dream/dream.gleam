@@ -22,6 +22,8 @@ import gleam/string
 /// - `server`: The underlying server implementation (e.g., Mist)
 /// - `context`: Your application's context type
 /// - `services`: Your application's services type
+/// - `router`: Whether the app has a router yet: `NoRouter`, or the
+///   `Router(context, services)` that `router()` gave it
 ///
 /// This type holds all the configuration needed to run a web server:
 /// router, context template, services, and server-specific settings.
@@ -29,54 +31,95 @@ import gleam/string
 /// ## Fields
 ///
 /// - `server`: The underlying HTTP server (Mist Builder)
-/// - `router`: Optional router with all routes configured
+/// - `router`: `NoRouter`, or the router with all routes configured
 /// - `context`: Template context cloned for each request
-/// - `services`: Optional services instance (database, cache, etc.)
+/// - `services`: Services instance (database, cache, etc.)
 /// - `max_body_size`: Maximum allowed request body size in bytes
 ///
 /// ## Type Parameters
 ///
-/// The Dream type is generic over three parameters:
+/// The Dream type is generic over four parameters:
 ///
 /// 1. **server**: The underlying server type (usually Mist)
 /// 2. **context**: Your application's context type
 /// 3. **services**: Your application's services type
+/// 4. **router**: `NoRouter` before `router()`, `Router(context, services)` after
 ///
 /// This allows the type system to verify that your router, controllers,
 /// and middleware all use compatible types.
 ///
+/// ## Builder Order
+///
+/// Call `context()` and `services()` before `router()`, then `listen()`.
+/// The compiler enforces this order:
+///
+/// - A router's type includes the context and services types:
+///   `Router(context, services)`. `context()` and `services()` change those
+///   types, so a router given before them cannot stay in the app. That is why
+///   `context()` and `services()` accept only an app whose `router` parameter
+///   is `NoRouter`.
+/// - `listen()` and `listen_with_handle()` accept only an app whose `router`
+///   parameter is a `Router(context, services)`, so an app without a router
+///   does not compile.
+///
 /// ## Example
 ///
-/// ```gleam
-/// import dream/servers/mist/server as dream
-/// import mist.{type Connection, type ResponseData}
+/// ### Build a Dream server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_type.gleam#L12-L35"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 ///
+/// ```gleam
 /// // Your application types
 /// pub type MyContext {
 ///   MyContext(request_id: String, user: Option(User))
 /// }
 ///
 /// pub type Services {
-///   Services(db: Connection, cache: Cache)
+///   Services(database_url: String, cache_size: Int)
 /// }
 ///
 /// // Dream server with your types
-/// // Type: Dream(mist.Builder(Connection, ResponseData), MyContext, Services)
-/// let server = 
-///   dream.new()
-///   |> dream.context(MyContext(request_id: "", user: None))
-///   |> dream.services(Services(db: my_db, cache: my_cache))
-///   |> dream.router(my_router)
+/// pub fn create_server() -> Dream(
+///   mist.Builder(Connection, ResponseData),
+///   MyContext,
+///   Services,
+///   Router(MyContext, Services),
+/// ) {
+///   server.new()
+///   |> server.context(MyContext(request_id: "", user: None))
+///   |> server.services(Services(
+///     database_url: "postgres://localhost/app",
+///     cache_size: 100,
+///   ))
+///   |> server.router(my_router())
+/// }
 /// ```
-pub opaque type Dream(server, context, services) {
+pub opaque type Dream(server, context, services, router) {
   Dream(
     server: server,
-    router: option.Option(Router(context, services)),
+    router: router,
     context: context,
-    services: option.Option(services),
+    services: services,
     max_body_size: Int,
     bind_interface: option.Option(String),
+    tls: option.Option(Tls),
   )
+}
+
+/// The router state of an app that has no router yet
+///
+/// `dream/servers/mist/server.new()` returns an app whose `router` type
+/// parameter is `NoRouter`. `router()` replaces it with the
+/// `Router(context, services)` it is given. `context()` and `services()`
+/// accept only a `NoRouter` app, and `listen()` does not accept one.
+pub type NoRouter {
+  NoRouter
+}
+
+/// The certificate and key files a server uses to serve HTTPS
+///
+/// Both are paths to PEM files. Set them with
+/// `dream/servers/mist/server.tls()`.
+pub type Tls {
+  Tls(certfile: String, keyfile: String)
 }
 
 // Accessor functions for internal use by server modules
@@ -95,26 +138,34 @@ pub opaque type Dream(server, context, services) {
 /// - You're testing Dream internals
 /// - You need to construct a Dream instance programmatically with all fields at once
 ///
+/// `router` is `NoRouter` for an app without a router, or the
+/// `Router(context, services)` the app serves. Only an app with a router can
+/// listen.
+///
 /// ## Better Alternative
 ///
 /// Use the builder pattern for better readability and type safety:
 ///
+/// ### Use the builder <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream_builder.gleam#L27-L34"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// server.new()
-/// |> server.context(MyContext)
-/// |> server.services(MyServices)
-/// |> server.router(my_router)
-/// |> server.max_body_size(10_000_000)
-/// |> server.bind("0.0.0.0")
+/// pub fn create_server() {
+///   server.new()
+///   |> server.context(MyContext)
+///   |> server.services(MyServices)
+///   |> server.router(my_router())
+///   |> server.max_body_size(10_000_000)
+///   |> server.bind("0.0.0.0")
+/// }
 /// ```
 pub fn create(
   server server: server,
-  router router: option.Option(Router(context, services)),
+  router router: router,
   context context: context,
-  services services: option.Option(services),
+  services services: services,
   max_body_size max_body_size: Int,
   bind_interface bind_interface: option.Option(String),
-) -> Dream(server, context, services) {
+) -> Dream(server, context, services, router) {
   Dream(
     server: server,
     router: router,
@@ -122,6 +173,7 @@ pub fn create(
     services: services,
     max_body_size: max_body_size,
     bind_interface: bind_interface,
+    tls: option.None,
   )
 }
 
@@ -162,10 +214,15 @@ pub fn create(
 ///
 /// ## Example
 ///
+/// ### Get the Mist server <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L38-L43"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// // You must explicitly acknowledge the risks
-/// let mist_server = dream.get_server(app, risks_understood: True)
-/// // Now you have raw Mist types - your code is coupled to Mist
+/// pub fn raw_server(app) -> mist.Builder(Connection, ResponseData) {
+///   // You must explicitly acknowledge the risks
+///   let mist_server = dream.get_server(app, risks_understood: True)
+///   // Now you have raw Mist types - your code is coupled to Mist
+///   mist_server
+/// }
 /// ```
 ///
 /// If you must use this, isolate it in a single module and document why.
@@ -174,7 +231,7 @@ pub fn create(
 ///
 /// Panics if `risks_understood` is `False`. You must pass `True` to proceed.
 pub fn get_server(
-  dream: Dream(server, context, services),
+  dream: Dream(server, context, services, router),
   risks_understood risks: Bool,
 ) -> server {
   case risks {
@@ -186,20 +243,21 @@ pub fn get_server(
 
 /// Get the router configured for this Dream instance
 ///
-/// Returns the router if one has been set, or None if not yet configured.
+/// Returns `NoRouter` before `router()` is called, and the
+/// `Router(context, services)` after it. The type says which one you get.
 ///
 /// ## Example
 ///
+/// ### Check for a router <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L45-L49"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let app = server.new() |> server.router(my_router)
-/// case dream.get_router(app) {
-///   Some(router) -> // Router is configured
-///   None -> // No router yet
+/// pub fn configured_router() -> Router(EmptyContext, EmptyServices) {
+///   let app = server.new() |> server.router(my_router())
+///   // Returns the router; before router(), get_router returns NoRouter
+///   dream.get_router(app)
 /// }
 /// ```
-pub fn get_router(
-  dream: Dream(server, context, services),
-) -> option.Option(Router(context, services)) {
+pub fn get_router(dream: Dream(server, context, services, router)) -> router {
   dream.router
 }
 
@@ -209,30 +267,38 @@ pub fn get_router(
 ///
 /// ## Example
 ///
+/// ### Get the context <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L51-L55"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let app = server.new() |> server.context(MyContext(user: None))
-/// let ctx = dream.get_context(app)
+/// pub fn configured_context() -> MyContext {
+///   let app = server.new() |> server.context(MyContext(user: None))
+///   let context = dream.get_context(app)
+///   context
+/// }
 /// ```
-pub fn get_context(dream: Dream(server, context, services)) -> context {
+pub fn get_context(dream: Dream(server, context, services, router)) -> context {
   dream.context
 }
 
 /// Get the services configured for this Dream instance
 ///
-/// Returns the services if they have been set, or None if not yet configured.
+/// Returns the services given to `services()`, or `EmptyServices` when
+/// `services()` was not called.
 ///
 /// ## Example
 ///
+/// ### Check for services <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L57-L61"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let app = server.new() |> server.services(my_services)
-/// case dream.get_services(app) {
-///   Some(services) -> // Services are configured
-///   None -> // No services yet
+/// pub fn configured_services() -> MyServices {
+///   let app = server.new() |> server.services(my_services())
+///   // Returns my_services(); without services(), it returns EmptyServices
+///   dream.get_services(app)
 /// }
 /// ```
 pub fn get_services(
-  dream: Dream(server, context, services),
-) -> option.Option(services) {
+  dream: Dream(server, context, services, router),
+) -> services {
   dream.services
 }
 
@@ -243,11 +309,18 @@ pub fn get_services(
 ///
 /// ## Example
 ///
+/// ### Get the max body size <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L63-L67"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let app = server.new() |> server.max_body_size(5_000_000)
-/// dream.get_max_body_size(app) // Returns 5_000_000
+/// pub fn configured_max_body_size() -> Int {
+///   let app = server.new() |> server.max_body_size(5_000_000)
+///   dream.get_max_body_size(app)
+///   // Returns 5_000_000
+/// }
 /// ```
-pub fn get_max_body_size(dream: Dream(server, context, services)) -> Int {
+pub fn get_max_body_size(
+  dream: Dream(server, context, services, router),
+) -> Int {
   dream.max_body_size
 }
 
@@ -258,17 +331,41 @@ pub fn get_max_body_size(dream: Dream(server, context, services)) -> Int {
 ///
 /// ## Example
 ///
+/// ### Get the bind interface <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L69-L75"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let app = server.new() |> server.bind("0.0.0.0")
-/// case dream.get_bind_interface(app) {
-///   Some(interface) -> // Will bind to specified interface
-///   None -> // Will use default interface
+/// pub fn bind_status() -> String {
+///   let app = server.new() |> server.bind("0.0.0.0")
+///   case dream.get_bind_interface(app) {
+///     Some(interface) -> "Will bind to " <> interface
+///     None -> "Will use the default interface"
+///   }
 /// }
 /// ```
 pub fn get_bind_interface(
-  dream: Dream(server, context, services),
+  dream: Dream(server, context, services, router),
 ) -> option.Option(String) {
   dream.bind_interface
+}
+
+/// Set the certificate and key files for serving HTTPS
+///
+/// This is a low-level function for server adapters. Use
+/// `dream/servers/mist/server.tls()` in your application.
+pub fn set_tls(
+  dream: Dream(server, context, services, router),
+  tls: option.Option(Tls),
+) -> Dream(server, context, services, router) {
+  Dream(..dream, tls: tls)
+}
+
+/// Get the certificate and key files for serving HTTPS, if any
+///
+/// Returns `None` when the server serves plain HTTP.
+pub fn get_tls(
+  dream: Dream(server, context, services, router),
+) -> option.Option(Tls) {
+  dream.tls
 }
 
 /// Route a request through the router
@@ -299,14 +396,20 @@ pub fn get_bind_interface(
 ///
 /// ## Example
 ///
+/// ### Route a request <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L77-L87"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// // Internal use - normally called by the request handler
-/// let response = route_request(
+/// pub fn handle(
 ///   my_router,
-///   incoming_request,
+///   incoming_request: Request,
 ///   request_context,
-///   my_services
-/// )
+///   my_services,
+/// ) -> Response {
+///   // Internal use - normally called by the request handler
+///   let response =
+///     route_request(my_router, incoming_request, request_context, my_services)
+///   response
+/// }
 /// ```
 pub fn route_request(
   router_instance: Router(context, services),
@@ -381,19 +484,22 @@ pub fn execute_route(
 ///
 /// ## Example
 ///
+/// ### Parse cookies from headers <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L89-L101"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// import dream/http/header.{Header}
+/// pub fn request_cookies() -> List(Cookie) {
+///   let headers = [
+///     Header("Content-Type", "application/json"),
+///     Header("Cookie", "session=abc123; theme=dark"),
+///   ]
 ///
-/// let headers = [
-///   Header("Content-Type", "application/json"),
-///   Header("Cookie", "session=abc123; theme=dark"),
-/// ]
-///
-/// let cookies = parse_cookies_from_headers(headers)
-/// // Returns: [
-/// //   Cookie(name: "session", value: "abc123", ...),
-/// //   Cookie(name: "theme", value: "dark", ...)
-/// // ]
+///   let cookies = parse_cookies_from_headers(headers)
+///   // Returns: [
+///   //   Cookie(name: "session", value: "abc123", ...),
+///   //   Cookie(name: "theme", value: "dark", ...)
+///   // ]
+///   cookies
+/// }
 /// ```
 pub fn parse_cookies_from_headers(headers: List(Header)) -> List(Cookie) {
   let cookie_header = list.find(headers, is_cookie_header)
@@ -426,14 +532,19 @@ fn is_cookie_header(header: Header) -> Bool {
 ///
 /// ## Example
 ///
+/// ### Parse a cookie string <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/doc_core_dream.gleam#L103-L112"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+///
 /// ```gleam
-/// let cookie_str = "session=abc123; theme=dark; lang=en"
-/// let cookies = parse_cookie_string(cookie_str)
-/// // Returns: [
-/// //   simple_cookie("session", "abc123"),
-/// //   simple_cookie("theme", "dark"),
-/// //   simple_cookie("lang", "en")
-/// // ]
+/// pub fn cookie_string_cookies() -> List(Cookie) {
+///   let cookie_header = "session=abc123; theme=dark; lang=en"
+///   let cookies = parse_cookie_string(cookie_header)
+///   // Returns: [
+///   //   simple_cookie("session", "abc123"),
+///   //   simple_cookie("theme", "dark"),
+///   //   simple_cookie("lang", "en")
+///   // ]
+///   cookies
+/// }
 /// ```
 pub fn parse_cookie_string(cookie_string: String) -> List(Cookie) {
   cookie_string
@@ -442,13 +553,13 @@ pub fn parse_cookie_string(cookie_string: String) -> List(Cookie) {
 }
 
 fn parse_cookie_pair(cookie_pair: String) -> Cookie {
-  case string.split(cookie_pair, "=") {
-    [name, value] -> {
+  case string.split_once(cookie_pair, "=") {
+    Ok(#(name, value)) -> {
       let name = string.trim(name)
       let value = string.trim(value)
       simple_cookie(name, value)
     }
-    _ -> {
+    Error(Nil) -> {
       let name = string.trim(cookie_pair)
       simple_cookie(name, "")
     }

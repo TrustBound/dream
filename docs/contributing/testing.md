@@ -35,25 +35,28 @@ framework with `describe`/`it` blocks and chainable assertions.
 
 ### Test Structure
 
+#### Test a function <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_structure.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
+import dream/http/error.{InternalServerError}
+import dream_test/assertions/should.{equal, or_fail_with, should}
 import dream_test/unit.{type UnitTest, describe, it}
-import dream_test/assertions/should.{equal, be_ok, or_fail_with, should}
 
 pub fn tests() -> UnitTest {
-  describe("module_name", [
-    describe("function_name", [
-      it("does X when Y", fn() {
+  describe("dream/http/error", [
+    describe("to_status_code", [
+      it("returns 500 for InternalServerError", fn() {
         // Arrange
-        let input = create_test_input()
+        let database_error = InternalServerError("Database connection failed")
 
         // Act
-        let result = function_under_test(input)
+        let result = error.to_status_code(database_error)
 
         // Assert
         result
         |> should()
-        |> equal(expected)
-        |> or_fail_with("Expected X")
+        |> equal(500)
+        |> or_fail_with("Expected 500")
       }),
     ]),
   ])
@@ -64,15 +67,17 @@ pub fn tests() -> UnitTest {
 
 Tests are registered in `test/dream_test.gleam`:
 
+#### Run the test modules <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_entry_point.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
+import dream/context_test
+import dream/router_test
+import dream_test/reporter/bdd.{report}
 import dream_test/runner.{run_all}
 import dream_test/unit.{to_test_cases}
-import dream_test/reporter/bdd.{report}
 import gleam/io
 import gleam/list
 
-import dream/context_test
-import dream/router_test
 // ... other test modules
 
 pub fn main() {
@@ -83,31 +88,68 @@ pub fn main() {
   ]
   |> list.flatten
   |> run_all()
-  |> report(io.print)
+  |> report(io.println)
 }
 ```
 
+The real `test/dream_test.gleam` also ends the pipe with
+`runner.exit_on_failure()`, so that CI sees a failed test.
+`exit_on_failure()` stops the BEAM with exit code 1 when a test fails, and
+with exit code 0 when all tests pass. The tests run the example above, so it
+leaves that call out.
+
 ### Assertions
 
+#### Assert values <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_assertions.gleam#L3-L40"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
+import dream/http/error.{NotFound}
+import dream/http/params
+import dream/http/request.{Get}
 import dream_test/assertions/should.{
-  be_empty, be_error, be_false, be_none, be_ok, be_some, be_true,
-  contain, contain_string, equal, or_fail_with, should,
+  be_empty, be_error, be_false, be_none, be_ok, be_some, be_true, contain,
+  contain_string, equal, or_fail_with, should,
 }
+import dream_test/unit.{type UnitTest, describe, it}
+import fixtures/request as test_request
+import gleam/int
+import gleam/option.{Some}
 
-// All assertions follow the pattern:
-value |> should() |> matcher() |> or_fail_with("message")
+pub fn tests() -> UnitTest {
+  describe("assertions", [
+    it("checks one value", fn() {
+      // All assertions follow the pattern:
+      // value |> should() |> matcher() |> or_fail_with("message")
+      error.to_status_code(NotFound("User not found"))
+      |> should()
+      |> equal(404)
+      |> or_fail_with("Expected 404")
+    }),
+    it("chains matchers", fn() {
+      let request =
+        test_request.create_request_with_params(Get, "/users/42", [
+          #("id", "42"),
+        ])
 
-// Matchers can be chained:
-result |> should() |> be_ok() |> equal(expected) |> or_fail_with("msg")
+      // Matchers can be chained:
+      params.require_int(request, "id")
+      |> should()
+      |> be_ok()
+      |> equal(42)
+      |> or_fail_with("Expected id 42")
+    }),
+    other_matcher_tests(),
+  ])
+}
 ```
 
 ### Custom Matchers
 
 Located in `test/matchers/`, one per file:
 
+#### Extract the body text of a response <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_matcher.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-// test/matchers/extract_body_text.gleam
 import dream/http/response.{type Response, type ResponseBody, Text}
 import dream_test/types.{
   type MatchResult, AssertionFailure, CustomMatcherFailure, MatchFailed, MatchOk,
@@ -124,7 +166,7 @@ pub fn extract_body_text(result: MatchResult(Response)) -> MatchResult(String) {
 fn extract_from_body(body: ResponseBody) -> MatchResult(String) {
   case body {
     Text(text) -> MatchOk(text)
-    _other -> non_text_body_failure()
+    _non_text_body -> non_text_body_failure()
   }
 }
 
@@ -148,55 +190,111 @@ fn non_text_body_failure() -> MatchResult(String) {
 
 ### Fixtures
 
-Located in `test/fixtures/`:
+Located in `test/fixtures/`. `request.gleam` builds requests
+(`create_request`, `create_request_with_body`, `create_request_with_params`
+and more). `handler.gleam` holds controllers for router tests
+(`test_handler`, `id_param_handler` and more). A test uses them like this:
+
+#### Use request and handler fixtures <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_fixtures.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
 ```gleam
-// test/fixtures/request.gleam
-pub fn create_request(method: Method, path: String) -> Request { ... }
-pub fn create_request_with_body(method: Method, path: String, body: String) -> Request { ... }
+import dream/context
+import dream/dream
+import dream/http/request.{Get}
+import dream/http/response.{type Response}
+import dream/router.{EmptyServices, route, router}
+import fixtures/handler.{id_param_handler, test_handler}
+import fixtures/request as test_request
 
-// test/fixtures/handler.gleam
-pub fn test_handler(request, context, services) -> Response { ... }
-pub fn id_param_handler(request, context, services) -> Response { ... }
+pub fn show_home() -> Response {
+  let request = test_request.create_request(Get, "/")
+
+  router()
+  |> route(method: Get, path: "/", controller: test_handler, middleware: [])
+  |> dream.route_request(request, context.new_context("test"), EmptyServices)
+}
+
+pub fn show_user() -> Response {
+  let request = test_request.create_request(Get, "/users/42")
+
+  router()
+  |> route(
+    method: Get,
+    path: "/users/:id",
+    controller: id_param_handler,
+    middleware: [],
+  )
+  |> dream.route_request(request, context.new_context("test"), EmptyServices)
+}
 ```
 
 ### Lifecycle Hooks
 
-```gleam
-import dream_test/unit.{describe, it, before_each, after_each, before_all, after_all}
-import dream_test/types.{AssertionOk}
+#### Run code before and after each test <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_hooks.gleam"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
 
-describe("tests with setup", [
-  before_each(fn() {
-    // Runs before each test
-    AssertionOk
-  }),
-  after_each(fn() {
-    // Runs after each test
-    AssertionOk
-  }),
-  it("test one", fn() { ... }),
-  it("test two", fn() { ... }),
-])
+```gleam
+import dream/http/error.{BadRequest, NotFound}
+import dream_test/assertions/should.{equal, or_fail_with, should}
+import dream_test/types.{AssertionOk}
+import dream_test/unit.{type UnitTest, after_each, before_each, describe, it}
+
+pub fn tests() -> UnitTest {
+  describe("tests with setup", [
+    before_each(fn() {
+      // Runs before each test
+      AssertionOk
+    }),
+    after_each(fn() {
+      // Runs after each test
+      AssertionOk
+    }),
+    it("returns 404 for NotFound", fn() {
+      error.to_status_code(NotFound("User not found"))
+      |> should()
+      |> equal(404)
+      |> or_fail_with("Expected 404")
+    }),
+    it("returns 400 for BadRequest", fn() {
+      error.to_status_code(BadRequest("Invalid email format"))
+      |> should()
+      |> equal(400)
+      |> or_fail_with("Expected 400")
+    }),
+  ])
+}
 ```
+
+dream_test also has `before_all` and `after_all`, but they run only in suite
+mode (`to_test_suite` with `run_suite`). `test/dream_test.gleam` uses
+`to_test_cases` with `run_all`, which ignores them without an error, so use
+`before_each` and `after_each` in Dream's tests.
 
 ### Benchmarks
 
 Located in `test/benchmarks/`:
 
+#### Time router lookups <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_benchmark.gleam#L3-L25"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
-// test/benchmarks/router_benchmark.gleam
-import dream_test/unit.{type UnitTest, describe, it}
+import dream/context.{type AppContext}
+import dream/http/request.{type Request, Get}
+import dream/router.{type EmptyServices, type Router}
 import dream_test/types.{AssertionOk}
+import dream_test/unit.{type UnitTest, describe, it}
+import fixtures/handler.{test_handler}
+import fixtures/request as test_request
+import gleam/float
+import gleam/int
 import gleam/io
 
 pub fn tests() -> UnitTest {
   describe("router benchmarks", [
     it("100 routes lookup", fn() {
-      let router = build_router(100)
-      let result = benchmark(fn() { find_route(router, request) }, 10_000)
-      
-      io.println("[BENCH] 100-routes: " <> format_result(result))
+      let resource_router = build_router(100)
+      let request = test_request.create_request(Get, "/resources/99")
+      let elapsed = time_lookups(resource_router, request, 10_000)
+
+      io.println("[BENCH] 100-routes: " <> format_result(elapsed, 10_000))
       AssertionOk
     }),
   ])
@@ -289,41 +387,87 @@ Examples:
 
 ### One Assertion Per Test
 
+#### Focused tests and a test with two assertions <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_standards.gleam#L24-L68"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 // ✅ Good - focused tests
-describe("find_route", [
-  it("returns route for exact path", fn() { ... }),
-  it("extracts params from path", fn() { ... }),
-])
+pub fn focused_tests() -> UnitTest {
+  describe("find_route", [
+    it("returns route for exact path", fn() {
+      let request = test_request.create_request(Get, "/users")
+      find_route(create_user_router(), request)
+      |> should()
+      |> be_some()
+      |> or_fail_with("Expected a route for /users")
+    }),
+    it("extracts params from path", fn() {
+      let request = test_request.create_request(Get, "/users/42")
+      find_route(create_user_router(), request)
+      |> should()
+      |> be_some()
+      |> extract_route_params()
+      |> equal([#("id", "42")])
+      |> or_fail_with("Expected the id param")
+    }),
+  ])
+}
 
 // ❌ Bad - multiple assertions
-it("finds route and extracts params", fn() {
-  // Two things being tested
-})
+pub fn unfocused_test() -> UnitTest {
+  it("finds route and extracts params", fn() {
+    // Two things being tested
+    let request = test_request.create_request(Get, "/users/42")
+    let route_found =
+      find_route(create_user_router(), request)
+      |> should()
+      |> be_some()
+      |> or_fail_with("Expected a route for /users/42")
+    let params_extracted =
+      find_route(create_user_router(), request)
+      |> should()
+      |> be_some()
+      |> extract_route_params()
+      |> equal([#("id", "42")])
+      |> or_fail_with("Expected the id param")
+    case route_found {
+      AssertionOk -> params_extracted
+      _failure -> route_found
+    }
+  })
+}
 ```
 
 ### No Nested Cases
 
+#### A nested case and a helper function <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_standards.gleam#L70-L97"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 // ❌ Bad
-case result {
-  MatchOk(response) -> {
-    case response.body {  // Nested!
-      Text(text) -> ...
+pub fn extract_text(result: MatchResult(Response)) -> MatchResult(String) {
+  case result {
+    MatchFailed(failure) -> MatchFailed(failure)
+    MatchOk(response) -> {
+      case response.body {
+        // Nested!
+        Text(text) -> MatchOk(text)
+        _non_text_body -> non_text_body_failure()
+      }
     }
   }
 }
 
 // ✅ Good
-case result {
-  MatchFailed(failure) -> MatchFailed(failure)
-  MatchOk(response) -> extract_from_body(response.body)
+pub fn extract_body_text(result: MatchResult(Response)) -> MatchResult(String) {
+  case result {
+    MatchFailed(failure) -> MatchFailed(failure)
+    MatchOk(response) -> extract_from_body(response.body)
+  }
 }
 
-fn extract_from_body(body) {
+fn extract_from_body(body: ResponseBody) -> MatchResult(String) {
   case body {
     Text(text) -> MatchOk(text)
-    _other -> failure()
+    _non_text_body -> non_text_body_failure()
   }
 }
 ```
@@ -332,19 +476,30 @@ fn extract_from_body(body) {
 
 Never discard errors:
 
+#### A discarded error and a handled error <a href="https://github.com/TrustBound/dream/blob/3.0.0/test/snippets/contributing_testing_standards.gleam#L99-L114"><img align="right" alt="Tested snippet" src="https://img.shields.io/badge/%F0%9F%A7%AA_tested-snippet-lightgreen.svg?style=flat-square"></a>
+
 ```gleam
 // ❌ Bad
-case result {
-  Ok(value) -> value
-  Error(_) -> default  // Error details lost
+pub fn get_user_id(request: Request) -> Int {
+  case require_int(request, "id") {
+    Ok(id) -> id
+    // Error details lost
+    Error(_) -> 0
+  }
 }
 
 // ✅ Good
-case result {
-  Ok(value) -> value
-  Error(reason) -> handle_error(reason)
+pub fn show_user(request: Request) -> Response {
+  case require_int(request, "id") {
+    Ok(id) -> text_response(200, "User " <> int.to_string(id))
+    Error(reason) -> text_response(400, error.message(reason))
+  }
 }
 ```
+
+`get_user_id` returns `0` when the id is missing or is not an integer, so the
+caller cannot tell a bad request from user 0, and the reason is gone.
+`show_user` sends the reason back in a 400 response.
 
 ## Coverage
 

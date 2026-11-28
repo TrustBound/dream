@@ -1,24 +1,22 @@
-//// Programmatic mode snippet from README.
+//// README: Programmatic Mode
+////
+//// Starts the mock server, runs a test body against it, then stops it.
 
 import dream_mock_server/server
-import gleam/erlang/process
 import gleam/int
-import snippets/http_helper
+import gleam/otp/actor
 
-pub fn run() -> Result(Bool, String) {
-  let port = 19_920
-  let assert Ok(handle) = server.start(port)
-  process.sleep(200)
-
-  let url = "http://localhost:" <> int.to_string(port) <> "/text"
-  let result = http_helper.get(url)
-
-  server.stop(handle)
-  process.sleep(200)
-
-  case result {
-    Ok(#(200, body)) -> Ok(body != "")
-    Ok(_) -> Error("Unexpected status")
-    Error(e) -> Error(e)
+pub fn with_mock_server(
+  port: Int,
+  test_body: fn(String) -> outcome,
+) -> Result(outcome, actor.StartError) {
+  case server.start(port) {
+    Ok(handle) -> {
+      // Make HTTP requests to the base URL, http://localhost:<port>
+      let outcome = test_body("http://localhost:" <> int.to_string(port))
+      server.stop(handle)
+      Ok(outcome)
+    }
+    Error(start_error) -> Error(start_error)
   }
 }

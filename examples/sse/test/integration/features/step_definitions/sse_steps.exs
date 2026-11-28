@@ -7,7 +7,7 @@ defmodule SseSteps do
     url = "#{@base_url}#{path}"
 
     {:ok, %HTTPoison.AsyncResponse{id: ref}} =
-      HTTPoison.get(url, [{"Accept", "text/event-stream"}],
+      DreamHttp.get(url, [{"Accept", "text/event-stream"}],
         stream_to: self(),
         recv_timeout: 15_000
       )

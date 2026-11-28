@@ -8,7 +8,7 @@ on:
 
 env:
   OTP_VERSION: "28"
-  GLEAM_VERSION: "1.14.0"
+  GLEAM_VERSION: "1.19.2"
   REBAR3_VERSION: "3"
 
 jobs:
@@ -16,8 +16,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # The docs check compares each diff block in the release notes with
+      # git diff from a release tag, so it needs the tags. fetch-depth: 0
+      # fetches the full history with every tag.
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Keep downloaded packages and path dependency fingerprints between runs,
+      # so gleam does not ask the Hex API to resolve versions on every run.
+      # The key is unique per run; the save step at the end of the job reuses it.
+      - name: Restore Gleam packages
+        id: gleam-packages
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/packages
+            modules/*/build/packages
+            examples/*/build/packages
+          key: gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-unit-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'modules/*/gleam.toml', 'modules/*/manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-unit-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'modules/*/gleam.toml', 'modules/*/manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-
+            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-unit-tests-
 
       - name: Install Erlang and Gleam
         uses: erlef/setup-beam@v1
@@ -50,6 +71,11 @@ jobs:
           CI: "true"
         run: make test-unit
 
+      # Every Gleam code block in the docs must match the tested snippet
+      # that its badge links to. See docs/contributing/contributing.md.
+      - name: Check docs code blocks against tested snippets
+        run: make check-snippets
+
       - name: Restore http_client dependencies
         if: always()
         uses: ./.github/actions/restore-dream-deps
@@ -61,6 +87,36 @@ jobs:
         uses: ./.github/actions/restore-dream-deps
         with:
           module_dir: modules/mock_server
+
+      # Gleam writes a path dependency fingerprint before it asks Hex to
+      # resolve, and build/packages/packages.toml only after all downloads. A
+      # fingerprint newer than packages.toml (or with no packages.toml) means
+      # that resolution did not finish: drop it, so the next run resolves again.
+      - name: Drop fingerprints of unfinished resolutions
+        if: always()
+        shell: bash
+        run: |
+          for dir in build/packages modules/*/build/packages examples/*/build/packages; do
+            for fp in "$dir"/*.config_fingerprint; do
+              [ -f "$fp" ] || continue
+              if [ ! -f "$dir/packages.toml" ] || [ "$fp" -nt "$dir/packages.toml" ]; then
+                echo "Dropping $fp"
+                rm -f "$fp"
+              fi
+            done
+          done
+
+      # Save even when the job fails, so the next run keeps what this run
+      # resolved and downloaded.
+      - name: Save Gleam packages
+        if: always() && steps.gleam-packages.outputs.cache-primary-key != ''
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build/packages
+            modules/*/build/packages
+            examples/*/build/packages
+          key: ${{ steps.gleam-packages.outputs.cache-primary-key }}
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -84,6 +140,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Keep downloaded packages and path dependency fingerprints between runs,
+      # so gleam does not ask the Hex API to resolve versions on every run.
+      # The key is unique per run; the save step at the end of the job reuses it.
+      - name: Restore Gleam packages
+        id: gleam-packages
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/packages
+            modules/*/build/packages
+            examples/*/build/packages
+          key: gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-integration-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'modules/*/gleam.toml', 'modules/*/manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-integration-tests-${{ hashFiles('gleam.toml', 'manifest.toml', 'modules/*/gleam.toml', 'modules/*/manifest.toml', 'examples/*/gleam.toml', 'examples/*/manifest.toml') }}-
+            gleam-packages-${{ runner.os }}-gleam${{ env.GLEAM_VERSION }}-otp${{ env.OTP_VERSION }}-integration-tests-
+
       - name: Install Erlang and Gleam
         uses: erlef/setup-beam@v1
         with:
@@ -105,10 +177,8 @@ jobs:
         run: |
           psql -h localhost -p 5435 -U postgres -c "CREATE DATABASE dream_example_multi_format_db;" || true
           cd examples/database
-          gleam deps download
           gleam run -m cigogne all
           cd ../multi_format
-          gleam deps download
           export DATABASE_URL=postgres://postgres:postgres@localhost:5435/dream_example_multi_format_db
           gleam run -m cigogne all
 
@@ -118,3 +188,33 @@ jobs:
           DATABASE_URL: postgres://postgres:postgres@localhost:5435/dream_example_database_db
           POSTGRES_PORT: "5435"
         run: make test-integration
+
+      # Gleam writes a path dependency fingerprint before it asks Hex to
+      # resolve, and build/packages/packages.toml only after all downloads. A
+      # fingerprint newer than packages.toml (or with no packages.toml) means
+      # that resolution did not finish: drop it, so the next run resolves again.
+      - name: Drop fingerprints of unfinished resolutions
+        if: always()
+        shell: bash
+        run: |
+          for dir in build/packages modules/*/build/packages examples/*/build/packages; do
+            for fp in "$dir"/*.config_fingerprint; do
+              [ -f "$fp" ] || continue
+              if [ ! -f "$dir/packages.toml" ] || [ "$fp" -nt "$dir/packages.toml" ]; then
+                echo "Dropping $fp"
+                rm -f "$fp"
+              fi
+            done
+          done
+
+      # Save even when the job fails, so the next run keeps what this run
+      # resolved and downloaded.
+      - name: Save Gleam packages
+        if: always() && steps.gleam-packages.outputs.cache-primary-key != ''
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build/packages
+            modules/*/build/packages
+            examples/*/build/packages
+          key: ${{ steps.gleam-packages.outputs.cache-primary-key }}
